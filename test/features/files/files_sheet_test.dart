@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:upgrade/application/files/phone_inbox.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/files/files_sheet.dart';
 import 'package:upgrade/features/files/send_sheet.dart';
+import 'package:upgrade/features/files/transfer_bar.dart';
 import 'package:upgrade/platform/ssh/host_files.dart' show FileRoute;
 
 import '../../support/platform_channels.dart';
@@ -303,6 +305,31 @@ void main() {
       expect(files.puts.keys, ['/home/luis/a.txt', '/home/luis/b.txt']);
       expect(find.text('IN luis'), findsOneWidget);
       await tester.pumpAndSettle(sendSheetLinger);
+    });
+
+    testWidgets('a failed upload can be retried after its sheet closed', (
+      tester,
+    ) async {
+      files.failOnce.add('b.txt');
+      late BuildContext root;
+      await open(tester, (context) {
+        root = context;
+        return showSendSheet(context, shared);
+      });
+
+      await tester.tap(find.byKey(const ValueKey('send-folder')));
+      await tester.pumpAndSettle();
+      await settle(tester, find.byKey(const ValueKey('files-put-here')));
+      expect(find.text('UPLOADING · 1 FAILED'), findsOneWidget);
+      Navigator.of(tester.element(find.byType(SendSheet))).pop();
+      await tester.pumpAndSettle();
+      expect(File((shared[1] as SharedFile).path).existsSync(), isTrue);
+
+      unawaited(showTransfers(root));
+      await tester.pumpAndSettle();
+      await settle(tester, find.byKey(const ValueKey('transfers-0-retry')));
+      expect(files.puts.keys, ['/home/luis/a.txt', '/home/luis/b.txt']);
+      expect(File((shared[1] as SharedFile).path).existsSync(), isFalse);
     });
 
     testWidgets('a host without a clipboard still says where files went', (

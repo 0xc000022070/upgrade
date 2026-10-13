@@ -168,7 +168,7 @@ void main() {
     expect(find.text('TRANSFERS'), findsOneWidget);
     expect(find.text('DOWNLOADING · nyx · MOVING'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('transfers-stop-0')));
+    await tester.tap(find.byKey(const ValueKey('transfers-0-stop')));
     await tester.pump();
     expect(job.stop.stopped, isTrue);
     expect(find.text('DOWNLOADING · nyx · STOPPING'), findsOneWidget);

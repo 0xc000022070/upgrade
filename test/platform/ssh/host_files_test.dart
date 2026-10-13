@@ -17,10 +17,19 @@ void main() {
     final root = Directory.systemTemp.createTempSync('put-');
     addTearDown(() => root.deleteSync(recursive: true));
     final path = '${root.path}/new dir/a.png';
-    final put = await Process.start('sh', ['-c', putCommand(path)]);
-    put.stdin.add(bytes);
-    await put.stdin.close();
-    expect(await put.exitCode, 0);
+    Future<int> put(Uint8List sent) async {
+      final put = await Process.start('sh', [
+        '-c',
+        putCommand(path, bytes.length),
+      ]);
+      put.stdin.add(sent);
+      await put.stdin.close();
+      return put.exitCode;
+    }
+
+    expect(await put(bytes.sublist(0, 2)), isNot(0));
+    expect(Directory('${root.path}/new dir').listSync(), isEmpty);
+    expect(await put(bytes), 0);
     expect(File(path).readAsBytesSync(), bytes);
     expect(Directory('${root.path}/new dir').listSync(), hasLength(1));
   });
@@ -43,7 +52,7 @@ void main() {
     );
     expect(write.ok, isTrue);
     expect(write.route, FileRoute.exec);
-    expect(runs.single.$1, putCommand('/tmp/upgrade/a.png'));
+    expect(runs.single.$1, putCommand('/tmp/upgrade/a.png', bytes.length));
     expect(runs.single.$2, bytes);
   });
 

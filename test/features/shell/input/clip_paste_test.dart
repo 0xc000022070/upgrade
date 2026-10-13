@@ -100,7 +100,10 @@ void main() {
           .toList();
       expect(commands, hasLength(3));
       expect(commands[0], contains('uname -s'));
-      expect(commands[1], putCommand(remotePathFor(clip.fileName)));
+      expect(
+        commands[1],
+        putCommand(remotePathFor(clip.fileName), await clip.file.length()),
+      );
       expect(connection.execs[3].stdin, await clip.file.readAsBytes());
       expect(commands[2], contains('wl-copy --type image/png'));
       expect(connection.writes.last, pasteKey);
@@ -290,7 +293,10 @@ void main() {
 
     expect(result.line, 'PASTED');
     expect(name, matches(RegExp(r'^[0-9a-f-]+\.png$')));
-    expect(connection.execs[3].command, putCommand(remotePathFor(name)));
+    expect(
+      connection.execs[3].command,
+      putCommand(remotePathFor(name), bytes.length),
+    );
     expect(connection.execs[3].stdin, bytes);
     expect(clips.count, 1);
   });

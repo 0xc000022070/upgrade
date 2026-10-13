@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import 'package:upgrade/application/agents/agents.dart' show hostsProvider;
 import 'package:upgrade/application/files/host_file_link.dart';
@@ -22,7 +20,6 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/files/files_sheet.dart';
 import 'package:upgrade/features/files/transfer_queue.dart';
 import 'package:upgrade/features/files/transfers.dart';
-import 'package:upgrade/platform/shell/remote_shell.dart' show remotePathFor;
 
 const sendSheetLinger = Duration(milliseconds: 700);
 
@@ -46,13 +43,13 @@ class _SendSheetState extends ConsumerState<SendSheet> {
   Host? _host;
   String? _status;
   bool _busy = false;
+  bool _handed = false;
   TransferJob? _job;
+  TransferJob? _pending;
   bool _sent = false;
   Future<void> Function()? _retry;
-  ({String host, List<String> at})? _clipped;
+  ({String host, Map<String, String> sent})? _clipped;
   List<String> _landed = const [];
-  List<QueuedFile> _queue = const [];
-  List<AttachItem> _items = const [];
 
   late final List<SharedFile> _shared = widget.items
       .whereType<SharedFile>()
@@ -60,214 +57,151 @@ class _SendSheetState extends ConsumerState<SendSheet> {
 
   @override
   void dispose() {
-    if (!_busy) unawaited(discardCopies(_shared.map((f) => f.path)));
+    if (!_handed) unawaited(discardCopies(_shared.map((f) => f.path)));
     super.dispose();
   }
 
-  List<int> get _all => [for (var i = 0; i < _shared.length; i++) i];
-
-  Future<HostFiles?> _open(Host host) async {
-    try {
-      return await ref.read(hostFilesOpenerProvider)(host);
-    } catch (error) {
-      if (mounted) setState(() => _status = filesFailureLine(error));
-      return null;
-    }
-  }
-
-  Future<List<int>> _upload(
-    Host host,
-    String verb,
-    List<int> which,
-    QueueTask task,
-  ) async {
-    if (which.isEmpty) return const [];
-    final queue = [
-      for (final i in which)
-        QueuedFile(name: _shared[i].name, bytes: _shared[i].size),
-    ];
-    final items = [for (final file in queue) AttachItem(bytes: file.bytes)];
-    if (!mounted) return which;
-    final job = _job = ref
-        .read(transfersProvider)
-        .begin(verb: verb, host: host.name, files: queue);
-    setState(() {
-      _status = verb;
-      _queue = queue;
-      _items = items;
-    });
-    final failures = await runQueue(
-      queue,
-      (i, report, stop) => task(which[i], report, stop),
-      stop: job.stop,
-      onItem: (index, item) {
-        items[index] = item;
-        job.report(index, item);
-        if (mounted) setState(() {});
-      },
-    ).whenComplete(job.end);
-    final pending = [
-      for (var i = 0; i < which.length; i++)
-        if (failures[i] != null) which[i],
-    ];
-    final failed = failures
-        .where((f) => f != null && f != stoppedFailure)
-        .length;
-    if (pending.isEmpty) return pending;
-    if (mounted) {
-      setState(
-        () => _status = job.stop.stopped
-            ? '$verb · STOPPED'
-            : '$verb · $failed FAILED',
-      );
-    }
-    return pending;
-  }
-
-  void _begin() => setState(() {
-    _busy = true;
-    _retry = null;
-    _landed = const [];
-  });
-
-  Future<void> _toClipboard(
+  Future<void> _send(
     Host host, {
-    List<String>? paths,
-    List<int>? which,
-  }) async {
-    if (_clipped case final clipped? when clipped.host == host.id) {
-      paths ??= clipped.at;
-      which ??= const [];
-    }
-    _begin();
-    final files = await _open(host);
-    if (files == null) {
-      _retry = () => _toClipboard(host, paths: paths, which: which);
-      return await _done(false);
-    }
-    try {
-      final todo = which ?? _all;
-      final sharing = uploadsSharing(todo.length);
-      final at =
-          paths ??
-          [
-            for (final file in _shared)
-              remotePathFor('${const Uuid().v4()}/${file.name}'),
-          ];
-      final pending = await _upload(
-        host,
-        'UPLOADING',
-        todo,
-        (i, report, stop) => pushFile(
-          files,
-          at[i],
-          File(_shared[i].path),
-          report,
-          sharing: sharing,
-          stop: stop,
-        ),
-      );
-      if (pending.isNotEmpty) {
-        _retry = () => _toClipboard(host, paths: at, which: pending);
-        return await _done(false);
-      }
-      var next = 0;
-      final landed = [
-        for (final item in widget.items) item is SharedFile ? at[next++] : null,
-      ];
-      final failed = switch (planClipboard(widget.items, landed)) {
-        CopyText(:final text) => await files.copy(text: text),
-        CopyImage(:final path, :final mime) => await files.copy(
-          imageAt: path,
-          mime: mime,
-        ),
+    String? into,
+    required List<SharedFile> files,
+    Map<String, String> sent = const {},
+  }) {
+    final transfers = ref.read(transfersProvider);
+    if (_pending case final job?) transfers.drop(job);
+    setState(() {
+      _busy = _handed = true;
+      _pending = null;
+      _retry = null;
+      _landed = const [];
+      _status = files.isNotEmpty
+          ? 'UPLOADING'
+          : into == null
+          ? 'CLIPBOARD'
+          : 'FOLDER';
+    });
+    return uploadFiles(
+      transfers: transfers,
+      open: ref.read(hostFilesOpenerProvider),
+      host: host,
+      files: files,
+      into: into,
+      sent: sent,
+      then: into == null ? _copyTo(widget.items) : _writeTo(widget.items, into),
+      began: (job) {
+        if (!mounted) return;
+        setState(() {
+          _busy = _handed = true;
+          _job = job;
+          _pending = null;
+          _retry = null;
+          _status = 'UPLOADING';
+        });
+      },
+      ended: (job, sent, failure) => _ended(host, into, job, sent, failure),
+    );
+  }
+
+  static AfterUpload _copyTo(List<SharedItem> items) => (link, sent, _) async {
+    final landed = [
+      for (final item in items) item is SharedFile ? sent[item.path] : null,
+    ];
+    final failed = switch (planClipboard(items, landed)) {
+      CopyText(:final text) => await link.copy(text: text),
+      CopyImage(:final path, :final mime) => await link.copy(
+        imageAt: path,
+        mime: mime,
+      ),
+    };
+    return failed == null ? null : 'CLIPBOARD · $failed';
+  };
+
+  static AfterUpload _writeTo(List<SharedItem> items, String folder) =>
+      (link, _, taken) async {
+        final now = DateTime.now();
+        for (final text in items.whereType<SharedText>()) {
+          final name = freeName(sharedTextName(now), taken!);
+          taken.add(name);
+          final write = await link.put(
+            joinPath(folder, name),
+            FileBody.bytes(utf8.encode(text.text)),
+          );
+          if (write.failure case final failure?) return 'TEXT · $failure';
+        }
+        return null;
       };
-      if (!mounted) return;
-      setState(() {
-        _status = failed == null ? 'COPIED' : 'CLIPBOARD · $failed';
-        if (failed != null && at.isNotEmpty) {
-          _landed = at;
-          _clipped = (host: host.id, at: at);
-        }
+
+  Future<void> _ended(
+    Host host,
+    String? into,
+    TransferJob? job,
+    Map<String, String> sent,
+    String? failure,
+  ) async {
+    final pending = job != null && job.retry != null ? job : null;
+    if (!mounted) {
+      if (pending == null && failure != null) await discardCopies(sent.keys);
+      return;
+    }
+    if (pending != null) {
+      final failed = pending.items
+          .where((item) => item.stage == AttachStage.failed)
+          .length;
+      return setState(() {
+        _busy = false;
+        _pending = pending;
+        _status = pending.stop.stopped
+            ? 'UPLOADING · STOPPED'
+            : 'UPLOADING · $failed FAILED';
+        _retry = () => ref.read(transfersProvider).retry(pending);
       });
-      await _done(failed == null);
-    } finally {
-      files.close();
     }
-  }
-
-  Future<void> _toFolder(Host host, {String? into, List<int>? which}) async {
-    final folder = into ?? await pickHostFolder(context, host);
-    if (folder == null || !mounted) return;
-    _begin();
-    Future<void> again(List<int> which) =>
-        _toFolder(host, into: folder, which: which);
-    final todo = which ?? _all;
-    final files = await _open(host);
-    if (files == null) {
-      _retry = () => again(todo);
-      return await _done(false);
-    }
-    try {
-      final listed = await files.list(folder);
-      if (listed == null) {
-        if (mounted) setState(() => _status = 'FOLDER · $unreadFolder');
-        _retry = () => again(todo);
-        return await _done(false);
-      }
-      final taken = {for (final entry in listed) entry.name};
-      String claim(String name) {
-        final free = freeName(name, taken);
-        taken.add(free);
-        return free;
-      }
-
-      final names = {for (final i in todo) i: claim(_shared[i].name)};
-      final sharing = uploadsSharing(todo.length);
-      final pending = await _upload(
-        host,
-        'UPLOADING',
-        todo,
-        (i, report, stop) => pushFile(
-          files,
-          joinPath(folder, names[i]!),
-          File(_shared[i].path),
-          report,
-          sharing: sharing,
-          stop: stop,
-        ),
-      );
-      if (pending.isNotEmpty) {
-        _retry = () => again(pending);
-        return await _done(false);
-      }
-      final now = DateTime.now();
-      for (final text in widget.items.whereType<SharedText>()) {
-        final write = await files.put(
-          joinPath(folder, claim(sharedTextName(now))),
-          FileBody.bytes(utf8.encode(text.text)),
-        );
-        if (write.failure case final failure?) {
-          if (mounted) setState(() => _status = 'TEXT · $failure');
-          _retry = () => again(const []);
-          return await _done(false);
+    if (failure != null) {
+      return setState(() {
+        _busy = _handed = false;
+        _status = failure;
+        if (into == null && sent.isNotEmpty) {
+          _landed = [...sent.values];
+          _clipped = (host: host.id, sent: sent);
         }
-      }
-      if (mounted) setState(() => _status = 'IN ${folder.split('/').last}');
-      await _done(true);
-    } finally {
-      files.close();
+        _retry = () => _send(
+          host,
+          into: into,
+          files: [
+            for (final file in _shared)
+              if (!sent.containsKey(file.path)) file,
+          ],
+          sent: sent,
+        );
+      });
     }
-  }
-
-  Future<void> _done(bool sent) async {
-    _sent = sent;
-    if (!mounted) return discardCopies(_shared.map((f) => f.path));
-    setState(() => _busy = false);
-    if (!sent) return;
-    await discardCopies(_shared.map((f) => f.path));
+    setState(() {
+      _busy = false;
+      _sent = true;
+      _status = into == null ? 'COPIED' : 'IN ${into.split('/').last}';
+    });
     await Future<void>.delayed(sendSheetLinger);
     if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _toClipboard(Host host) {
+    final reuse = _clipped?.host == host.id
+        ? _clipped!.sent
+        : const <String, String>{};
+    return _send(
+      host,
+      files: [
+        for (final file in _shared)
+          if (!reuse.containsKey(file.path)) file,
+      ],
+      sent: reuse,
+    );
+  }
+
+  Future<void> _toFolder(Host host) async {
+    final folder = await pickHostFolder(context, host);
+    if (folder == null || !mounted) return;
+    await _send(host, into: folder, files: _shared);
   }
 
   String _summary() {
@@ -284,6 +218,8 @@ class _SendSheetState extends ConsumerState<SendSheet> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final loaded = ref.watch(hostsProvider);
+    ref.watch(transfersProvider);
+    final job = _job;
     final hosts = loaded.value ?? const <Host>[];
     final host = _host ?? (hosts.length == 1 ? hosts.single : null);
     final text = widget.items.whereType<SharedText>().firstOrNull?.text;
@@ -326,12 +262,12 @@ class _SendSheetState extends ConsumerState<SendSheet> {
                   style: tokens.label,
                 ),
               ),
-              if (_busy && _job != null && !_job!.ended && !_job!.stop.stopped)
+              if (job != null && !job.ended && !job.stop.stopped)
                 ActionBlock(
                   key: const ValueKey('send-stop'),
                   label: 'STOP',
                   tone: tokens.danger,
-                  onTap: () => setState(_job!.stop.stop),
+                  onTap: () => ref.read(transfersProvider).stop(job),
                 )
               else if (!_busy && _retry != null)
                 ActionBlock(
@@ -359,8 +295,14 @@ class _SendSheetState extends ConsumerState<SendSheet> {
           ),
         ],
         const SheetRule(),
-        if (!loaded.hasValue)
+        if (loaded.isLoading && !loaded.hasValue)
           const Row(children: [DotSpinner()])
+        else if (loaded.hasError && !loaded.hasValue)
+          Text(
+            '${loaded.error}',
+            key: const ValueKey('send-hosts-error'),
+            style: tokens.label.copyWith(color: tokens.danger),
+          )
         else if (hosts.isEmpty)
           const EmptyState('no hosts')
         else
@@ -376,6 +318,11 @@ class _SendSheetState extends ConsumerState<SendSheet> {
                   _retry = null;
                   _landed = const [];
                 });
+                if (_pending case final job?) {
+                  ref.read(transfersProvider).drop(job);
+                  _pending = null;
+                  _handed = false;
+                }
               },
             ),
         if (_landed.isNotEmpty) ...[
@@ -391,9 +338,9 @@ class _SendSheetState extends ConsumerState<SendSheet> {
             style: tokens.value,
           ),
         ],
-        if (_items.isNotEmpty) ...[
+        if (job != null) ...[
           const SheetRule(),
-          TransferQueue(files: _queue, items: _items, keyPrefix: 'send'),
+          TransferQueue(files: job.files, items: job.items, keyPrefix: 'send'),
         ],
       ],
     );

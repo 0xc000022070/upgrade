@@ -238,31 +238,57 @@ class _TransfersSheetState extends ConsumerState<TransfersSheet> {
         ],
         for (final (i, job) in transfers.jobs.indexed) ...[
           const SheetRule(),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${job.verb} · ${job.host} · ${jobWord(job)}',
-                  key: ValueKey('transfers-job-$i'),
-                  style: tokens.label,
-                ),
-              ),
-              if (!job.ended && !job.stop.stopped)
-                ActionBlock(
-                  key: ValueKey('transfers-stop-$i'),
-                  label: 'STOP',
-                  tone: tokens.danger,
-                  onTap: () => setState(job.stop.stop),
-                ),
-            ],
-          ),
-          const SizedBox(height: Spacing.sm),
-          TransferQueue(
-            files: job.files,
-            items: job.items,
-            keyPrefix: 'transfers-$i',
-          ),
+          TransferJobView(job: job, keyPrefix: 'transfers-$i'),
         ],
+      ],
+    );
+  }
+}
+
+class TransferJobView extends ConsumerWidget {
+  const TransferJobView({
+    super.key,
+    required this.job,
+    required this.keyPrefix,
+  });
+
+  final TransferJob job;
+  final String keyPrefix;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = context.tokens;
+    final transfers = ref.read(transfersProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${job.verb} · ${job.host} · ${jobWord(job)}',
+                key: ValueKey('$keyPrefix-job'),
+                style: tokens.label,
+              ),
+            ),
+            if (!job.ended && !job.stop.stopped)
+              ActionBlock(
+                key: ValueKey('$keyPrefix-stop'),
+                label: 'STOP',
+                tone: tokens.danger,
+                onTap: () => transfers.stop(job),
+              )
+            else if (job.ended && job.retry != null)
+              ActionBlock(
+                key: ValueKey('$keyPrefix-retry'),
+                label: 'RETRY',
+                onTap: () => unawaited(transfers.retry(job)),
+              ),
+          ],
+        ),
+        const SizedBox(height: Spacing.sm),
+        TransferQueue(files: job.files, items: job.items, keyPrefix: keyPrefix),
       ],
     );
   }

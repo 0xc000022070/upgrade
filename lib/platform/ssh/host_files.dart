@@ -48,7 +48,9 @@ final class FileWrite {
 /// file goes over exec.
 const sftpHandshakeDeadline = Duration(seconds: 3);
 
-String putCommand(String path) {
+/// The part is renamed only once it holds [length] bytes: a host that ignores the stop
+/// signal sees stdin close, and cat ends as if the file were whole.
+String putCommand(String path, int length) {
   final slash = path.lastIndexOf('/');
   final directory = slash <= 0 ? null : path.substring(0, slash);
   final part = shellQuote(
@@ -56,7 +58,8 @@ String putCommand(String path) {
   );
   return underSh(
     '${directory == null ? '' : 'mkdir -p ${shellQuote(directory)} && '}'
-    '{ cat > $part && mv -f $part ${shellQuote(path)}; } '
+    '{ cat > $part && [ \$(wc -c < $part) -eq $length ] && '
+    'mv -f $part ${shellQuote(path)}; } '
     '|| { rm -f $part; exit 1; }',
   );
 }
@@ -201,7 +204,7 @@ Future<FileWrite> _overExec(
 ) async {
   var sent = 0;
   final result = await exec(
-    putCommand(path),
+    putCommand(path, body.length),
     body.open().map((chunk) {
       sent += chunk.length;
       onProgress?.call(sent);

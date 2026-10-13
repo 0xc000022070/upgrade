@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,16 @@ export 'package:upgrade/platform/ssh/host_files.dart' show TransferStop;
 const transferTick = Duration(milliseconds: 500);
 const transferRateWindow = Duration(seconds: 3);
 const transferLinger = Duration(seconds: 4);
+
+Future<void> discardCopies(Iterable<String> paths) async {
+  for (final path in paths) {
+    try {
+      await File(path).parent.delete(recursive: true);
+    } catch (_) {
+      // ignored: a copy left behind is swept with the cache a day later.
+    }
+  }
+}
 
 String rateWord(double bytesPerSecond) {
   if (bytesPerSecond < 1024) return '${bytesPerSecond.round()} B/s';
@@ -34,6 +45,10 @@ final class TransferJob {
   final TransferStop stop;
   DateTime? endedAt;
   bool seen = false;
+
+  Future<void> Function()? retry;
+
+  final kept = <String>[];
 
   bool get ended => endedAt != null;
 
@@ -104,6 +119,24 @@ class Transfers extends ChangeNotifier {
   List<TransferJob> get jobs => List.unmodifiable(_jobs);
 
   bool get active => _jobs.any((job) => !job.ended);
+
+  void stop(TransferJob job) {
+    job.stop.stop();
+    notifyListeners();
+  }
+
+  void drop(TransferJob job) {
+    job.retry = null;
+    job.kept.clear();
+    if (_jobs.remove(job)) notifyListeners();
+  }
+
+  Future<void> retry(TransferJob job) {
+    final again = job.retry;
+    if (again == null) return Future.value();
+    drop(job);
+    return again();
+  }
 
   void stopAll() {
     for (final job in _jobs) {
@@ -185,14 +218,18 @@ class Transfers extends ChangeNotifier {
   void _tick() {
     _sample();
     final now = _now();
-    final before = _jobs.length;
-    _jobs.removeWhere(
-      (job) =>
-          job.ended &&
-          (job.seen || !job.failed) &&
-          now.difference(job.endedAt!) >= transferLinger,
-    );
-    if (_dirty || before != _jobs.length) {
+    final gone = [
+      for (final job in _jobs)
+        if (job.ended &&
+            (job.seen || !job.failed) &&
+            now.difference(job.endedAt!) >= transferLinger)
+          job,
+    ];
+    for (final job in gone) {
+      _jobs.remove(job);
+      unawaited(discardCopies(job.kept));
+    }
+    if (_dirty || gone.isNotEmpty) {
       _dirty = false;
       notifyListeners();
     }

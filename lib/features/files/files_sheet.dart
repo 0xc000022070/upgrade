@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import 'package:upgrade/application/agents/agents.dart' show hostsProvider;
 import 'package:upgrade/application/files/host_file_link.dart';
@@ -20,8 +21,10 @@ import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/code/file_icons.dart';
 import 'package:upgrade/features/code/syntax.dart';
+import 'package:upgrade/features/files/transfer_bar.dart' show TransferJobView;
 import 'package:upgrade/features/files/transfer_queue.dart';
 import 'package:upgrade/features/files/transfers.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart' show remotePathFor;
 
 Future<void> showHostFiles(BuildContext context, Host host) =>
     showPanelSheet<void>(
@@ -58,16 +61,6 @@ Future<Host?> pickHost(
 
 String joinPath(String directory, String name) =>
     directory == '/' ? '/$name' : '$directory/$name';
-
-Future<void> discardCopies(Iterable<String> paths) async {
-  for (final path in paths) {
-    try {
-      await File(path).parent.delete(recursive: true);
-    } catch (_) {
-      // ignored: a copy left behind is swept with the cache a day later.
-    }
-  }
-}
 
 Future<String?> pullFile(
   HostFiles from,
@@ -120,6 +113,128 @@ Future<String?> pushFile(
 
 const unreadFolder = 'could not read the folder';
 
+typedef AfterUpload = Future<String?> Function(
+  HostFiles link,
+  Map<String, String> sent,
+  Set<String>? taken,
+);
+
+typedef UploadEnded = void Function(
+  TransferJob? job,
+  Map<String, String> sent,
+  String? failure,
+);
+
+Future<void> uploadFiles({
+  required Transfers transfers,
+  required HostFilesOpener open,
+  required Host host,
+  required List<SharedFile> files,
+  String? into,
+  Map<String, String> sent = const {},
+  AfterUpload? then,
+  void Function(TransferJob job)? began,
+  UploadEnded? ended,
+}) async {
+  final job = files.isEmpty
+      ? null
+      : transfers.begin(
+          verb: 'UPLOADING',
+          host: host.name,
+          files: [
+            for (final file in files)
+              QueuedFile(name: file.name, bytes: file.size),
+          ],
+        );
+  if (job != null) began?.call(job);
+  final landed = {...sent};
+  HostFiles? link;
+  String? failure;
+  var missed = const <SharedFile>[];
+  try {
+    try {
+      link = await open(host);
+    } catch (error) {
+      failure = filesFailureLine(error);
+    }
+    Set<String>? taken;
+    if (link != null && into != null) {
+      final listed = await link.list(into);
+      if (listed == null) {
+        failure = 'FOLDER · $unreadFolder';
+      } else {
+        taken = {for (final entry in listed) entry.name};
+      }
+    }
+    final paths = <String>[];
+    if (failure == null) {
+      for (final file in files) {
+        if (taken == null) {
+          paths.add(remotePathFor('${const Uuid().v4()}/${file.name}'));
+          continue;
+        }
+        final name = freeName(file.name, taken);
+        taken.add(name);
+        paths.add(joinPath(into!, name));
+      }
+    }
+    final List<String?> failures;
+    if (job == null) {
+      failures = const [];
+    } else if (failure case final line?) {
+      for (var i = 0; i < files.length; i++) {
+        job.report(i, job.items[i].to(AttachStage.failed, detail: line));
+      }
+      failures = List.filled(files.length, line);
+    } else {
+      final sharing = uploadsSharing(files.length);
+      failures = await runQueue(
+        job.files,
+        (i, report, stop) => pushFile(
+          link!,
+          paths[i],
+          File(files[i].path),
+          report,
+          sharing: sharing,
+          stop: stop,
+        ),
+        stop: job.stop,
+        onItem: job.report,
+      );
+    }
+    for (var i = 0; i < failures.length; i++) {
+      if (failures[i] == null) landed[files[i].path] = paths[i];
+    }
+    missed = [
+      for (var i = 0; i < failures.length; i++)
+        if (failures[i] != null) files[i],
+    ];
+    if (job != null && missed.isNotEmpty) {
+      job.kept.addAll([...landed.keys, for (final file in missed) file.path]);
+      job.retry = () => uploadFiles(
+        transfers: transfers,
+        open: open,
+        host: host,
+        files: missed,
+        into: into,
+        sent: landed,
+        then: then,
+        began: began,
+        ended: ended,
+      );
+    } else if (failure == null && then != null) {
+      failure = await then(link!, landed, taken);
+    }
+  } finally {
+    link?.close();
+    job?.end();
+  }
+  if (missed.isEmpty && (failure == null || ended == null)) {
+    await discardCopies(landed.keys);
+  }
+  ended?.call(job, landed, failure);
+}
+
 class FilesSheet extends ConsumerStatefulWidget {
   const FilesSheet({super.key, required this.host, this.picking = false});
 
@@ -142,13 +257,8 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
   final _open = <String>{};
 
   String? _status;
-  TransferJob? _job;
-  final _live = <TransferJob>{};
-  Future<void> Function()? _retry;
+  final _pulls = <TransferJob>{};
   final _running = <Future<void>>{};
-  final _kept = <String>{};
-  List<QueuedFile> _queue = const [];
-  List<AttachItem> _items = const [];
 
   @override
   void initState() {
@@ -156,18 +266,13 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     unawaited(_connect());
   }
 
-  bool get _busy => _live.isNotEmpty;
-
   @override
   void dispose() {
+    for (final job in _pulls) {
+      job.retry = null;
+    }
     final files = _files;
-    final kept = [..._kept];
-    unawaited(
-      Future.wait(_running).whenComplete(() {
-        files?.close();
-        return discardCopies(kept);
-      }),
-    );
+    unawaited(Future.wait(_running).whenComplete(() => files?.close()));
     super.dispose();
   }
 
@@ -237,6 +342,8 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
             directory != _home &&
             (target == directory || target.startsWith('$directory/'))) {
           _target = directory.substring(0, directory.lastIndexOf('/'));
+        } else if (directory == _home) {
+          _target = directory;
         }
       } else {
         _open.add(directory);
@@ -251,103 +358,50 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     String verb,
     List<QueuedFile> queue,
     QueueTask task, {
-    required Future<void> Function(List<String?> failures) again,
-  }) async {
-    final items = [for (final file in queue) AttachItem(bytes: file.bytes)];
-    final job = _job = ref
+    required Future<void> Function() again,
+  }) {
+    final job = ref
         .read(transfersProvider)
         .begin(verb: verb, host: widget.host.name, files: queue);
-    setState(() {
-      _live.add(job);
-      _retry = null;
-      _status = verb;
-      _queue = queue;
-      _items = items;
-    });
-    final run = runQueue(
-      queue,
-      task,
-      stop: job.stop,
-      onItem: (index, item) {
-        items[index] = item;
-        job.report(index, item);
-        if (mounted) setState(() {});
-      },
-    ).whenComplete(job.end);
-    _running.add(run);
-    final failures = await run.whenComplete(() => _running.remove(run));
-    final failed = failures
-        .where((f) => f != null && f != stoppedFailure)
-        .length;
-    if (mounted) {
-      setState(() {
-        _live.remove(job);
-        final missed = failures.any((f) => f != null);
-        if (missed) _retry = () => again(failures);
-        if (!missed && _job != job) return;
-        _status = job.stop.stopped
-            ? '$verb · STOPPED'
-            : failed == 0
-            ? '$verb · DONE'
-            : '$verb · $failed FAILED';
-      });
+    _pulls.add(job);
+    setState(() => _status = null);
+    Future<List<String?>> work() async {
+      try {
+        final failures = await runQueue(
+          queue,
+          task,
+          stop: job.stop,
+          onItem: job.report,
+        );
+        if (mounted && failures.any((f) => f != null)) job.retry = again;
+        return failures;
+      } finally {
+        job.end();
+      }
     }
-    return failures;
+
+    final run = work();
+    _running.add(run);
+    return run.whenComplete(() => _running.remove(run));
   }
 
-  Future<void> _uploadInto(String directory, {List<SharedFile>? again}) async {
-    final files = _files;
-    if (files == null) return;
-    final picked = again ?? await ref.read(phoneFilesProvider).pick();
+  Future<void> _uploadInto(String directory) async {
+    final picked = await ref.read(phoneFilesProvider).pick();
     if (picked.isEmpty) return;
     if (!mounted) return discardCopies(picked.map((f) => f.path));
-    _kept.addAll(picked.map((f) => f.path));
-    final listed = await files.list(directory);
-    if (!mounted) return;
-    if (listed == null) {
-      return setState(() {
-        _status = 'UPLOADING · $unreadFolder';
-        _retry = () => _uploadInto(directory, again: picked);
-      });
-    }
-    final taken = {for (final entry in listed) entry.name};
-    final names = <String>[];
-    for (final file in picked) {
-      final name = freeName(file.name, taken);
-      taken.add(name);
-      names.add(name);
-    }
-    final sharing = uploadsSharing(picked.length);
-    final failures = await _run(
-      'UPLOADING',
-      [
-        for (var i = 0; i < picked.length; i++)
-          QueuedFile(name: names[i], bytes: picked[i].size),
-      ],
-      (i, report, stop) => pushFile(
-        files,
-        joinPath(directory, names[i]),
-        File(picked[i].path),
-        report,
-        sharing: sharing,
-        stop: stop,
-      ),
-      again: (failures) => _uploadInto(
-        directory,
-        again: [
-          for (var i = 0; i < picked.length; i++)
-            if (failures[i] != null) picked[i],
-        ],
-      ),
+    setState(() => _status = null);
+    await uploadFiles(
+      transfers: ref.read(transfersProvider),
+      open: ref.read(hostFilesOpenerProvider),
+      host: widget.host,
+      files: picked,
+      into: directory,
+      ended: (_, _, _) {
+        if (!mounted) return;
+        _open.add(directory);
+        unawaited(_read(directory));
+      },
     );
-    final landed = [
-      for (var i = 0; i < picked.length; i++)
-        if (failures[i] == null) picked[i].path,
-    ];
-    _kept.removeAll(landed);
-    await discardCopies(landed);
-    _open.add(directory);
-    await _read(directory);
   }
 
   Future<void> _share(String path, DirEntry entry) async {
@@ -361,7 +415,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
       [QueuedFile(name: entry.name, bytes: entry.size)],
       (_, report, stop) =>
           pullFile(files, path, into, entry.size, report, stop: stop),
-      again: (_) => _share(path, entry),
+      again: () => _share(path, entry),
     );
     if (failures.single == null) await phone.share([into.path]);
   }
@@ -378,7 +432,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
       [QueuedFile(name: entry.name, bytes: entry.size)],
       (_, report, stop) =>
           pullFile(files, path, into, entry.size, report, stop: stop),
-      again: (_) => _save(path, entry),
+      again: () => _save(path, entry),
     );
     String? line;
     if (failures.single == null) {
@@ -436,7 +490,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
         report,
         stop: stop,
       );
-    }, again: (_) => _sendToHost(path, entry, to: target, into: folder));
+    }, again: () => _sendToHost(path, entry, to: target, into: folder));
     if (there != null && there != files) there!.close();
     await discardCopies([copy.path]);
     if (target.id == widget.host.id) await _read(folder);
@@ -583,6 +637,15 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
       if (_open.contains(home)) _walk(home, 1, rows);
     }
     final target = _target;
+    final transfers = ref.watch(transfersProvider);
+    final mine = [
+      for (final job in transfers.jobs)
+        if (job.host == widget.host.name) job,
+    ];
+    final live = [
+      for (final job in mine)
+        if (!job.ended) job,
+    ];
     return PanelSheetBody(
       title: widget.picking ? 'PUT HERE' : 'FILES',
       affordance: PanelAffordance(
@@ -591,44 +654,36 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
         onTap: () => Navigator.of(context).pop(),
       ),
       footer: [
-        if (_status case final status?)
+        if (live.isNotEmpty)
           Row(
             children: [
-              if (_busy) ...[
-                const DotSpinner(),
-                const SizedBox(width: Spacing.md),
-              ],
+              const DotSpinner(),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Text(
-                  status,
+                  {for (final job in live) job.verb}.join(' · '),
                   key: const ValueKey('files-status'),
                   style: tokens.label,
                 ),
               ),
-              if (_live.any((job) => !job.stop.stopped))
+              if (live.any((job) => !job.stop.stopped))
                 ActionBlock(
                   key: const ValueKey('files-stop'),
                   label: 'STOP',
                   tone: tokens.danger,
-                  onTap: () => setState(() {
-                    for (final job in _live) {
-                      job.stop.stop();
-                    }
-                  }),
-                )
-              else if (!_busy && _retry != null)
-                ActionBlock(
-                  key: const ValueKey('files-retry'),
-                  label: 'RETRY',
-                  onTap: () {
-                    final retry = _retry!;
-                    setState(() => _retry = null);
-                    unawaited(retry());
-                  },
+                  onTap: () => live.forEach(transfers.stop),
                 ),
             ],
+          )
+        else if (_status case final status?)
+          Text(
+            status,
+            key: const ValueKey('files-status'),
+            style: tokens.label,
           ),
-        if (_status != null && target != null && _error == null)
+        if ((live.isNotEmpty || _status != null) &&
+            target != null &&
+            _error == null)
           const SizedBox(height: Spacing.sm),
         if (!widget.picking && target != null && _error == null)
           Row(
@@ -677,9 +732,9 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
           const Row(children: [DotSpinner()])
         else
           ...rows,
-        if (_queue.isNotEmpty) ...[
+        for (final (i, job) in mine.indexed) ...[
           const SheetRule(),
-          TransferQueue(files: _queue, items: _items, keyPrefix: 'files'),
+          TransferJobView(job: job, keyPrefix: 'files-$i'),
         ],
       ],
     );
