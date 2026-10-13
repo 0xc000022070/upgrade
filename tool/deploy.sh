@@ -29,6 +29,8 @@ HEAD is once its turn comes.
                               build rings and asks here; an n shelves it,
                               silence for thirty seconds installs. A commit
                               that fails to build is not retried.
+                              On a terminal a chef cooks it in front of you;
+                              DEPLOY_PLAIN=1 keeps the plain log.
 EOF
 }
 
@@ -38,6 +40,8 @@ readonly CERT=d6b7cdfb8d0a5c0017e317b7db27f3fb3ce0b3f650f28ca6b989c4582f5d7e5e
 readonly OUT="$ROOT/build/deploy"
 readonly TREE="$OUT/tree"
 
+source "$ROOT/tool/chef.sh"
+
 if [[ -t 2 ]]; then
   readonly RED=$'\033[1;31m' OFF=$'\033[0m'
 else
@@ -45,6 +49,7 @@ else
 fi
 
 warn() {
+  chef_clear
   printf '%sdeploy: %s%s\n' "$RED" "$*" "$OFF" >&2
 }
 
@@ -54,6 +59,7 @@ die() {
 }
 
 say() {
+  chef_clear
   echo "deploy: $*"
 }
 
@@ -222,49 +228,81 @@ once() {
   if [[ $ask != ask ]]; then
     apk=$(build "$rev") || return 3
   else
-    local onto asking building answer="$OUT/answer" log="$OUT/build.log" path="$OUT/apk.path"
+    local onto building built="" answer="" log="$OUT/build.log" path="$OUT/apk.path"
+    local eta started=$SECONDS waited tick=0 key step="" bubble pose
     onto=$(printf '%s\n' "${pending[@]}" | cut -f1 | paste -sd' ')
-    rm -f "$answer" "$path"
+    eta=$(cat "$OUT/build.seconds" 2>/dev/null || true)
+    rm -f "$path"
     say "building $name+$code ($sha); its log is $log"
     printf '\a'
-    (
-      ans=""
-      read -r -t 30 -p "deploy: $name+$code ($sha) onto $onto. Install? [Y/n, yes in 30s] " ans </dev/tty || echo
-      printf '%s\n' "$ans" >"$answer"
-    ) &
-    asking=$!
     build "$rev" >"$path" 2>"$log" &
     building=$!
-    while kill -0 "$building" 2>/dev/null; do
-      if [[ $(head_rev) != "$rev" ]]; then
+    chef_open
+    trap 'kill_tree "$building"; chef_close; exit 130' INT TERM
+    trap chef_close EXIT
+    [[ -n $CHEF_TTY ]] || answer=y
+    ((CHEF_ON)) || [[ -n $answer ]] || say "$name+$code ($sha) onto $onto. Install? [Y/n, yes in 30s]"
+    while :; do
+      waited=$((SECONDS - started))
+      ((waited < 30)) || : "${answer:=y}"
+      if ((tick % 8 == 0)) && [[ $(head_rev) != "$rev" ]]; then
         kill_tree "$building"
-        kill_tree "$asking"
-        wait "$building" "$asking" 2>/dev/null || true
-        echo
+        wait "$building" 2>/dev/null || true
+        chef_end toss "$tick" "New HEAD! $sha goes in the bin, chef starts over."
         say "HEAD moved past $sha; dropped its build"
         return 2
       fi
-      sleep 2
+      if [[ -z $built ]] && ! kill -0 "$building" 2>/dev/null; then
+        built=0
+        wait "$building" || built=$?
+        ((built != 0)) || ((waited < 20)) || echo "$waited" >"$OUT/build.seconds"
+      fi
+      [[ -n $built ]] && { ((built != 0)) || [[ -n $answer ]]; } && break
+
+      ((tick % 4)) || step=$(tail -c 400 "$log" 2>/dev/null | tr '\r' '\n' | sed 's/\x1b\[[0-9;?]*[A-Za-z]//g; /^[[:space:]]*$/d' | tail -n 1)
+      pose=stir
+      [[ -n $eta ]] && ((waited > eta + eta / 5)) && pose=sweat
+      case $answer in
+      '') bubble="Serve $name+$code ($sha) to $onto? [Y/n] $((30 - waited))s" ;;
+      n) bubble="Non? Fine. It goes on the shelf when it's done." ;;
+      *) bubble=$(chef_quip "$tick") ;;
+      esac
+      [[ $pose == sweat ]] && ((tick / 24 % 2)) && bubble="This is taking longer than last time..."
+      if [[ -n $built ]]; then
+        pose=ask
+        bubble="Order up! Serve to $onto? [Y/n] $((30 - waited))s"
+      fi
+      chef_draw "$pose" "$tick" "$bubble" "$(chef_oven "$waited" "$eta")" "$step"
+
+      if [[ -z $answer ]] && chef_key key; then
+        case $key in
+        '' | [yY]) answer=y ;;
+        [nN]) answer=n ;;
+        esac
+      elif [[ -n $answer || -z $CHEF_TTY ]]; then
+        sleep 0.25
+      fi
+      tick=$((tick + 1))
     done
-    if ! wait "$building"; then
-      kill_tree "$asking"
+    if ((built != 0)); then
+      chef_end fire "$tick" "MON DIEU! $sha is burnt."
       echo
       tail -n 20 "$log" >&2
       return 3
     fi
     apk=$(<"$path")
-    wait "$asking" || true
-    [[ $(cat "$answer" 2>/dev/null) != [nN]* ]] || {
+    if [[ $answer == n ]]; then
+      chef_end shelf "$tick" "On the shelf: $(basename "$apk")"
       say "left on the shelf: $apk"
       return 0
-    }
+    fi
   fi
 
   local line was now failed=0
   for line in "${pending[@]}"; do
     IFS=$'\t' read -r label serial have <<<"$line"
     was=$(updated_at "$(dumpsys "$serial")")
-    if ! phone app install -t "$label" "$apk"; then
+    if ! serve "$label" "$apk"; then
       warn "$label: install failed"
       failed=1
       continue
@@ -284,30 +322,91 @@ once() {
     record "$label" "$code" "$sha"
     say "$label: $have -> $name+$code ($sha), $(grep -oE 'firstInstallTime=[^ ]+ [^ ]+' <<<"$pkg" | head -1)"
   done
+  if ((failed)); then
+    chef_end sad 0 "Sent back from the table. Merde."
+  else
+    chef_end bow 1 "Bon appetit! $name+$code is served."
+  fi
   return $failed
 }
 
-settle() {
-  local was=$1 now
-  while :; do
-    sleep 10
-    now=$(head_rev)
-    [[ $now == "$was" ]] && break
-    was=$now
+serve() {
+  local label=$1 apk=$2 tick=0 out="$OUT/install.log"
+  if ! ((CHEF_ON)); then
+    phone app install -t "$label" "$apk"
+    return
+  fi
+  phone app install -t "$label" "$apk" >"$out" 2>&1 &
+  local installing=$!
+  while kill -0 "$installing" 2>/dev/null; do
+    chef_draw walk "$tick" "Plating for $label, coming through!"
+    sleep 0.25
+    tick=$((tick + 1))
   done
-  echo "$was"
+  wait "$installing" && return
+  chef_clear
+  tail -n 10 "$out" >&2
+  return 1
+}
+
+settle() {
+  local now n first=$2
+  SETTLED=$1
+  while :; do
+    if ((CHEF_ON)); then
+      for ((n = 40; n > 0; n--)); do
+        CHEF_LEFT=$(printf '%2ds' $(((n + 3) / 4)))
+        if [[ -n $first ]]; then
+          chef_draw settle "$TICK" "Opening the kitchen. Mise en place..."
+        else
+          chef_draw settle "$TICK" "A commit! $(git -C "$ROOT" rev-parse --short "$SETTLED") landed; letting the burst settle..."
+        fi
+        sleep 0.25
+        TICK=$((TICK + 1))
+      done
+    else
+      sleep 10
+    fi
+    now=$(head_rev)
+    [[ $now == "$SETTLED" ]] && break
+    SETTLED=$now
+  done
+}
+
+idle() {
+  local head=$1 sha subject phase n
+  if ! ((CHEF_ON)); then
+    sleep 5
+    return
+  fi
+  sha=$(git -C "$ROOT" rev-parse --short "$head")
+  subject=$(git -C "$ROOT" log -1 --format=%s "$head")
+  for n in 1 2 3 4 5 6 7 8; do
+    phase=$((TICK / 40 % ${#CHEF_IDLE[@]}))
+    local fill=$sha
+    ((phase != 3)) || fill=$subject
+    chef_draw "${CHEF_IDLE_POSES[$phase]}" "$TICK" "${CHEF_IDLE[$phase]/\%s/"$fill"}"
+    sleep 0.25
+    TICK=$((TICK + 1))
+  done
 }
 
 watch() {
   local seen="" broken="" head rc
+  TICK=0
   say "watching HEAD of $ROOT for ${*:-every handset attached}; ^C stops"
+  chef_open
+  trap 'chef_close; exit 130' INT TERM
+  trap chef_close EXIT
   while :; do
     head=$(head_rev)
     if [[ $head == "$seen" || $head == "$broken" ]]; then
-      sleep 5
+      idle "$head"
       continue
     fi
-    head=$(settle "$head")
+    settle "$head" "$([[ -z $seen && -z $broken ]] && echo first)"
+    head=$SETTLED
+    chef_clear
     rc=0
     (once ask "$head" "$@") || rc=$?
     case $rc in
