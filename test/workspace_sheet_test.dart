@@ -1394,6 +1394,27 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('a flung line carries on past the finger', (tester) async {
+      await viewer(tester);
+
+      final marker = onSheet(find.text('+')).first;
+      final line = tester.getTopLeft(onSheet(find.text(_wide))).dx;
+
+      await tester.flingFrom(
+        tester.getCenter(marker),
+        const Offset(-60, 0),
+        1500,
+      );
+      await ready(tester);
+
+      expect(
+        tester.getTopLeft(onSheet(find.text(_wide))).dx,
+        lessThan(line - 60),
+      );
+
+      await unmount(tester);
+    });
+
     /// A diff line is laid out at its full width inside an overflow box, so the middle of a
     /// long one is off the screen and the press lands on nothing.
     Offset onRow(WidgetTester tester, String text) =>

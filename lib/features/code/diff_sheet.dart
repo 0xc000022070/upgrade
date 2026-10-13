@@ -914,11 +914,35 @@ class _DiffBody extends StatefulWidget {
   State<_DiffBody> createState() => _DiffBodyState();
 }
 
-class _DiffBodyState extends State<_DiffBody> {
+class _DiffBodyState extends State<_DiffBody>
+    with SingleTickerProviderStateMixin {
   /// How far left the text is pushed, in pixels. The numbers and the marker are not pushed
   /// with it. A notifier and not `setState`: a drag repaints the text of the rows on screen
   /// and nothing else — not the list, not the sheet around it.
   final ValueNotifier<double> _shift = ValueNotifier(0);
+
+  /// The text carried on after the finger lets go, the way the vertical list is.
+  late final AnimationController _glide = AnimationController.unbounded(
+    vsync: this,
+  )..addListener(_glided);
+
+  double _travel = 0;
+
+  void _glided() {
+    final at = _glide.value.clamp(0.0, _travel);
+    _shift.value = at;
+    if (at != _glide.value) _glide.stop();
+  }
+
+  void _fling(DragEndDetails end) {
+    final velocity = -(end.primaryVelocity ?? 0);
+    if (velocity == 0) return;
+    _glide
+      ..value = _shift.value
+      ..animateWith(
+        ClampingScrollSimulation(position: _shift.value, velocity: velocity),
+      );
+  }
 
   /// A hunk header has no number of its own, so the search runs on to the first line under
   /// it that has one.
@@ -961,6 +985,7 @@ class _DiffBodyState extends State<_DiffBody> {
     // Another file is another set of lines and another width. The reader is put back at the
     // left margin rather than dropped into the middle of a line they have not read yet.
     if (!identical(old.lines, widget.lines)) {
+      _glide.stop();
       _shift.value = 0;
       _read();
     }
@@ -987,6 +1012,7 @@ class _DiffBodyState extends State<_DiffBody> {
 
   @override
   void dispose() {
+    _glide.dispose();
     _shift.dispose();
     super.dispose();
   }
@@ -1017,6 +1043,7 @@ class _DiffBodyState extends State<_DiffBody> {
           constraints.maxWidth - lead - (mapped ? DiffMap.width : 0),
         );
         final travel = math.max(0.0, text - room);
+        _travel = travel;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1034,6 +1061,9 @@ class _DiffBodyState extends State<_DiffBody> {
                           // anything, and the text would otherwise arrive at the finger
                           // short by exactly that distance every time.
                           dragStartBehavior: DragStartBehavior.down,
+                          onHorizontalDragDown: travel == 0
+                              ? null
+                              : (_) => _glide.stop(),
                           onHorizontalDragUpdate: travel == 0
                               ? null
                               : (drag) => _shift.value =
@@ -1041,6 +1071,7 @@ class _DiffBodyState extends State<_DiffBody> {
                                       0.0,
                                       travel,
                                     ),
+                          onHorizontalDragEnd: travel == 0 ? null : _fling,
                           child: ListView.builder(
                             controller: widget.jumps.scroll,
                             padding: EdgeInsets.zero,
@@ -1311,18 +1342,22 @@ class _DiffRow extends StatelessWidget {
                   offset: Offset(-math.min(at, travel), 0),
                   child: painted,
                 ),
-                // Laid out once at its full width and moved by the transform:
-                // a drag repaints the line, it does not lay it out again.
+                // Laid out once at its full width and painted once into its own
+                // layer: a drag moves the layer, it does not paint the line again.
                 child: OverflowBox(
                   alignment: Alignment.centerLeft,
                   maxWidth: double.infinity,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: Spacing.panelPadding),
-                    child: Text.rich(
-                      _text(context),
-                      style: context.tokens.noteBody.copyWith(color: text),
-                      maxLines: 1,
-                      softWrap: false,
+                  child: RepaintBoundary(
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        right: Spacing.panelPadding,
+                      ),
+                      child: Text.rich(
+                        _text(context),
+                        style: context.tokens.noteBody.copyWith(color: text),
+                        maxLines: 1,
+                        softWrap: false,
+                      ),
                     ),
                   ),
                 ),
