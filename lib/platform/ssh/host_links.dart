@@ -805,6 +805,19 @@ SSHClient _client(
   identities: SSHKeyPair.fromPem(privateKey),
   keepAliveInterval: keepAlive,
   onVerifyHostKey: verify,
+  algorithms: _algorithms,
+);
+
+/// dartssh2's default puts AES-GCM first, which it decrypts under 1 MB/s on the main
+/// isolate; GCM stays last for servers that offer nothing else.
+final _algorithms = SSHAlgorithms(
+  cipher: const [
+    SSHCipherType.chacha20poly1305,
+    SSHCipherType.aes256ctr,
+    SSHCipherType.aes128ctr,
+    SSHCipherType.aes256gcm,
+    SSHCipherType.aes128gcm,
+  ],
 );
 
 class _CountingSocket implements SSHSocket {
