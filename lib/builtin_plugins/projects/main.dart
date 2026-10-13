@@ -9,7 +9,7 @@ import 'package:upgrade/application/drops/fresh_drops.dart';
 
 const projectsPlugin = NativePluginModule(
   id: 'upgrade.projects',
-  directory: 'lib/plugins/projects',
+  directory: 'lib/builtin_plugins/projects',
   surfaces: {'navigation.page': _projects, 'project.next_action': _nextAction},
   deactivate: _deactivate,
 );

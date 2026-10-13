@@ -42,12 +42,12 @@ PluginPackage _schedules() => PluginPackage(
 );
 
 PluginPackage _projectsPageTitled(String title) {
-  final toml = File('lib/plugins/projects/upgrade.plugin.toml')
+  final toml = File('lib/builtin_plugins/projects/upgrade.plugin.toml')
       .readAsStringSync()
       .replaceFirst('title = "Projects"', 'title = "$title"');
   return PluginPackage(
     manifest: PluginManifest.parse(toml, allowNative: true),
-    source: File('lib/plugins/projects/main.dart').readAsStringSync(),
+    source: File('lib/builtin_plugins/projects/main.dart').readAsStringSync(),
     origin: 'bundled:upgrade.projects',
     revision: '1.0.0',
   );

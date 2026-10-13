@@ -68,10 +68,10 @@ flutter:
   uses-material-design: true
 
   assets:
-    - lib/plugins/drops/upgrade.plugin.toml
-    - lib/plugins/drops/main.dart
-    - lib/plugins/projects/upgrade.plugin.toml
-    - lib/plugins/projects/main.dart
+    - lib/builtin_plugins/drops/upgrade.plugin.toml
+    - lib/builtin_plugins/drops/main.dart
+    - lib/builtin_plugins/projects/upgrade.plugin.toml
+    - lib/builtin_plugins/projects/main.dart
     - plugins/agent-schedules/upgrade.plugin.toml
     - plugins/agent-schedules/main.luau
     - plugins/board/upgrade.plugin.toml

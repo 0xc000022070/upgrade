@@ -20,10 +20,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 PluginPackage builtinFixture(String name) => PluginPackage(
   manifest: PluginManifest.parse(
-    File('lib/plugins/$name/upgrade.plugin.toml').readAsStringSync(),
+    File('lib/builtin_plugins/$name/upgrade.plugin.toml').readAsStringSync(),
     allowNative: true,
   ),
-  source: File('lib/plugins/$name/main.dart').readAsStringSync(),
+  source: File('lib/builtin_plugins/$name/main.dart').readAsStringSync(),
   origin: 'bundled:upgrade.$name',
   revision: '1.0.0',
 );

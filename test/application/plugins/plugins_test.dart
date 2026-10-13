@@ -215,7 +215,7 @@ void main() {
     });
 
     test('native widgets require bounded exact or ranged sizes', () {
-      final source = File('lib/plugins/drops/upgrade.plugin.toml')
+      final source = File('lib/builtin_plugins/drops/upgrade.plugin.toml')
           .readAsStringSync();
       final parsed = PluginManifest.parse(source, allowNative: true);
       expect(parsed.purpose, contains('Capture'));

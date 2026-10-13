@@ -14,7 +14,7 @@ import 'package:upgrade/application/alerts/toasts.dart';
 
 const dropsPlugin = NativePluginModule(
   id: 'upgrade.drops',
-  directory: 'lib/plugins/drops',
+  directory: 'lib/builtin_plugins/drops',
   surfaces: {
     'home.layout': _home,
     'home.drops': _drops,

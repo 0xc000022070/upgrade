@@ -6,7 +6,7 @@ const _roots = [
   'lib/features',
   'lib/app',
   'lib/application',
-  'lib/plugins',
+  'lib/builtin_plugins',
   'lib/platform',
 ];
 

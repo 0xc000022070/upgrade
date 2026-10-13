@@ -36,7 +36,7 @@ Future<void> _drain(WidgetTester tester) async {
 /// The builtin fixtures leave a single widget able to take the input bar, so nothing ever
 /// contends for it. This one also accepts it.
 PluginPackage _contendingProjects() {
-  final toml = File('lib/plugins/projects/upgrade.plugin.toml')
+  final toml = File('lib/builtin_plugins/projects/upgrade.plugin.toml')
       .readAsStringSync()
       .replaceFirst(
         'locations = ["home.card"]',
@@ -44,7 +44,7 @@ PluginPackage _contendingProjects() {
       );
   return PluginPackage(
     manifest: PluginManifest.parse(toml, allowNative: true),
-    source: File('lib/plugins/projects/main.dart').readAsStringSync(),
+    source: File('lib/builtin_plugins/projects/main.dart').readAsStringSync(),
     origin: 'bundled:upgrade.projects',
     revision: '1.0.0',
   );
