@@ -104,6 +104,10 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   /// emptiness as the last tab going.
   bool _opened = false;
 
+  /// True from the diff tap until its sheet closes: finding the repository takes a round
+  /// trip, and every tap landing in it would otherwise stack its own sheet.
+  bool _diffing = false;
+
   /// The size the fingers started from, for the length of one pinch: the scale is against
   /// where they began, so it applies to this and not to the last frame's result.
   double? _pinchBase;
@@ -782,6 +786,19 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   }
 
   Future<void> _onDiff(
+    ShellSession? active,
+    List<({String directory, String label})> targets,
+  ) async {
+    if (_diffing) return;
+    _diffing = true;
+    try {
+      await _openDiff(active, targets);
+    } finally {
+      _diffing = false;
+    }
+  }
+
+  Future<void> _openDiff(
     ShellSession? active,
     List<({String directory, String label})> targets,
   ) async {
