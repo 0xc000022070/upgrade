@@ -1,7 +1,7 @@
 /// SSH connection policy.
 ///
 /// Why: a probe's timeout once replaced a live connection under a typed SEND
-/// (`SSH-CONNECTION-INCIDENT.md`, repo root). A connection is durable state: commands,
+/// (incident write-up: `git show f168971`). A connection is durable state: commands,
 /// probes and timeouts borrow it and never close, replace or retry it.
 ///
 /// Tags name what holds a rule. Untagged: privacy or a sealed type; breaking it fails to
