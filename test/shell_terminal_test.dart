@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/native.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -290,29 +292,41 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('a long press is not a click on the application under it', (
+    testWidgets('a hold over a mouse application is its button held down', (
       tester,
     ) async {
+      final haptics = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'HapticFeedback.vibrate') {
+              haptics.add(call.arguments as String);
+            }
+            return null;
+          });
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions, db: db));
       await ready(tester);
-      transport.opened.single.emit('\x1b[?1000h\x1b[?1006hword\r\n');
+      transport.opened.single.emit('\x1b[?1002h\x1b[?1006hword\r\n');
       await ready(tester);
       final session = sessions.activeFor(rose.id)!;
 
-      await press(tester, cellAt(tester, 1, 0));
-      expect(session.terminal.hasSelection, isTrue);
-      expect(transport.opened.single.written, isEmpty);
+      final gesture = await hold(tester, cellAt(tester, 1, 0));
+      await tester.pump();
+      expect(transport.opened.single.written, '\x1b[<0;2;1M');
+      expect(haptics, ['HapticFeedbackType.selectionClick']);
 
-      await tester.tapAt(cellAt(tester, 6, 20));
+      await gesture.moveTo(cellAt(tester, 5, 0));
+      await tester.pump();
+      await gesture.up();
       await ready(tester);
+
+      expect(
+        transport.opened.single.written,
+        '\x1b[<0;2;1M\x1b[<32;6;1M\x1b[<0;6;1m',
+      );
       expect(session.terminal.hasSelection, isFalse);
-      expect(transport.opened.single.written, isEmpty);
-
-      await tester.tapAt(cellAt(tester, 6, 20));
-      await ready(tester);
-      expect(transport.opened.single.written, '\x1b[<0;7;21M\x1b[<0;7;21m');
+      expect(find.byKey(const ValueKey('shell-copy')), findsNothing);
 
       await unmount(tester);
     });
@@ -330,10 +344,43 @@ void main() {
       await ready(tester);
       final session = sessions.activeFor(rose.id)!;
 
-      await press(tester, cellAt(tester, 1, 0));
+      select(session, 0, 3);
+      await tester.pump();
       await press(tester, cellAt(tester, 1, 10));
 
       expect(session.terminal.selectedText(), 'other');
+      expect(transport.opened.single.written, isEmpty);
+
+      await tester.tapAt(cellAt(tester, 6, 20));
+      await ready(tester);
+      expect(session.terminal.hasSelection, isFalse);
+      expect(transport.opened.single.written, isEmpty);
+
+      await tester.tapAt(cellAt(tester, 6, 20));
+      await ready(tester);
+      expect(transport.opened.single.written, '\x1b[<0;7;21M\x1b[<0;7;21m');
+
+      await unmount(tester);
+    });
+
+    testWidgets('a copy from the host lands on the clipboard, and only that', (
+      tester,
+    ) async {
+      final writes = recordClipboardWrites();
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+
+      String osc52(String target, String text) =>
+          '\x1b]52;$target;${base64.encode(utf8.encode(text))}\x07';
+      transport.opened.single.emit(
+        '${osc52('p', 'primary')}${osc52('c', 'from herdr')}\x1b]52;c;?\x07'
+        '\x1b]52;c;!\x07',
+      );
+      await ready(tester);
+
+      expect(writes, ['from herdr']);
       expect(transport.opened.single.written, isEmpty);
 
       await unmount(tester);

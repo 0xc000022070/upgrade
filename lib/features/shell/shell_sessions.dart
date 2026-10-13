@@ -30,6 +30,7 @@ import '../../platform/shell/strip_bytes.dart';
 import '../../platform/shell/udp_path.dart';
 import '../../platform/workspace/workspace_commands.dart';
 import '../../platform/vnc/keysyms.dart';
+import 'host_copy.dart';
 import 'private_osc.dart';
 import 'shell_engine.dart';
 
@@ -1048,6 +1049,7 @@ class ShellSessions extends ChangeNotifier {
       ..onOutput = null
       ..onTitleChanged = null
       ..onBell = null
+      ..onClipboardWrite = null
       ..onPwdChanged = null
       ..onResize = null;
     answerInColours(next, UpgradeTokens.house.terminal);
@@ -1408,6 +1410,7 @@ class ShellSessions extends ChangeNotifier {
       session.changed();
     };
     terminal.onBell = () => unawaited(_askHost(session));
+    terminal.onClipboardWrite = copyFromHost;
     terminal.onPwdChanged = () {
       final cwd = cwdFromOsc(terminal.pwd);
       if (cwd == null || cwd == session.cwd) return;
