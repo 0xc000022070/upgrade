@@ -12,6 +12,7 @@ import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 import 'package:upgrade/platform/ssh/host_files.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/workspace/workspace_commands.dart';
 import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 export 'package:upgrade/platform/ssh/host_files.dart'
@@ -93,7 +94,7 @@ String homeCommand() => underSh(r'printf %s "$HOME"');
 
 String listCommand(String directory) => underSh(
   'cd -- ${shellQuote(directory)} || exit 1\n'
-  "LC_ALL=C find -L . -mindepth 1 -maxdepth 1 -printf '%Y\\t%s\\t%f\\n' 2>/dev/null\n"
+  '${listEntries(follow: true)}'
   'exit 0\n',
 );
 

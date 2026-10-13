@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/files/host_file_link.dart';
 import 'package:upgrade/application/files/phone_inbox.dart';
+import 'package:upgrade/platform/workspace/workspace_commands.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 SharedFile _file(String name, String mime) =>
     SharedFile(path: '/c/$name', name: name, size: 1, mime: mime);
@@ -44,6 +48,43 @@ void main() {
   test('a listing runs in the folder and follows links', () {
     final command = listCommand("/home/it's");
     expect(command, contains('find -L .'));
+  });
+
+  test('a find without -printf still lists the folder', () async {
+    final root = await Directory.systemTemp.createTemp('listing');
+    addTearDown(() => root.delete(recursive: true));
+    final bin = await Directory('${root.path}/bin').create();
+    final shim = File('${bin.path}/find')
+      ..writeAsStringSync('#!/bin/sh\nexit 1\n');
+    await Process.run('chmod', ['+x', shim.path]);
+    final here = await Directory('${root.path}/here').create();
+    await Directory('${here.path}/src').create();
+    File('${here.path}/a b.txt').writeAsStringSync('hello');
+    File('${here.path}/.env').writeAsStringSync('x');
+    await Link('${here.path}/to-src').create('${here.path}/src');
+    await Link('${here.path}/gone').create('${here.path}/nothing');
+
+    Future<Map<String, (DirEntryKind, int)>> list(bool follow) async {
+      final run = await Process.run(
+        'sh',
+        ['-c', listEntries(follow: follow)],
+        workingDirectory: here.path,
+        environment: {'PATH': '${bin.path}:${Platform.environment['PATH']}'},
+      );
+      return {
+        for (final entry in parseListing(run.stdout as String))
+          entry.name: (entry.kind, entry.size),
+      };
+    }
+
+    expect(await list(true), {
+      'src': (DirEntryKind.directory, 0),
+      'to-src': (DirEntryKind.directory, 0),
+      'a b.txt': (DirEntryKind.file, 5),
+      '.env': (DirEntryKind.file, 1),
+      'gone': (DirEntryKind.file, 0),
+    });
+    expect((await list(false))['to-src'], (DirEntryKind.link, 0));
   });
 
   test('a share parsed off the channel keeps text and files apart', () {

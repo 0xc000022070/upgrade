@@ -104,8 +104,7 @@ abstract final class WorkspaceCommands {
     final target = path.isEmpty ? directory : '$directory/$path';
     return underSh(
       '${shellCd(target)} 2>/dev/null || exit $workspaceNoDirectory\n'
-      "LC_ALL=C find . -mindepth 1 -maxdepth 1 -printf '%y\\t%s\\t%f\\n' "
-      '2>/dev/null\n',
+      '${listEntries(follow: false)}',
     );
   }
 
@@ -140,3 +139,25 @@ abstract final class WorkspaceCommands {
         '${shellQuote(sha)} -- ${shellQuote(path)} | head -c $diffBytes\n',
       );
 }
+
+String listEntries({required bool follow}) => _listEntries
+    .replaceAll('@find', follow ? 'find -L' : 'find')
+    .replaceAll('@kind', follow ? '%Y' : '%y')
+    .replaceAll('@link', follow ? 'false' : '[ -L "\$f" ]');
+
+const _listEntries = r'''
+if find . -maxdepth 0 -printf '' >/dev/null 2>&1; then
+  LC_ALL=C @find . -mindepth 1 -maxdepth 1 -printf '@kind\t%s\t%f\n' 2>/dev/null
+else
+  for f in .* *; do
+    case $f in .|..) continue ;; esac
+    if @link; then printf 'l\t0\t%s\n' "$f"
+    elif [ -d "$f" ]; then printf 'd\t0\t%s\n' "$f"
+    elif [ -f "$f" ]; then
+      s=$(wc -c < "$f" 2>/dev/null)
+      printf 'f\t%s\t%s\n' "$((${s:-0}))" "$f"
+    elif [ -L "$f" ]; then printf 'f\t0\t%s\n' "$f"
+    fi
+  done
+fi
+''';
