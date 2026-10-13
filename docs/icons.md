@@ -38,6 +38,7 @@ The variant is drawn only inside the icon-glitch event. It is not a static icon 
 | agent | A pet: angular ears, two diamond eyes, an open jaw | Diamond eye nodes | None | 20 px |
 | agent-blink | The same pet with the viewer's left eye closed to a bar | Diamond eye node | Blink frame only | 20 px |
 | branch | One line of work leaving another | Diamond endpoints | None | 16 px |
+| image | A picture: a frame holding two ridgelines and a square sun | Square node | Container is the meaning | 16 px |
 | diff | What was added over what was removed | None | None | 16 px |
 
 ## States
@@ -93,6 +94,10 @@ The variant is drawn only inside the icon-glitch event. It is not a static icon 
 | arrow-right | Direction, right | None | None | 16 px |
 | settings | Two faders set to different values | Square handle nodes | None | 16 px |
 | plugins | A part with a keyed tab on its edge, waiting for the socket it fits | None | None | 16 px |
+| check | Done: a bare tick | None | None | 16 px |
+| pause | Hold what is running: two upright bars | None | None | 16 px |
+| resume | Carry on from a hold: an open play triangle | None | None | 16 px |
+| minimize | Fold a window down to its bar: one floor rule | None | None | 16 px |
 
 ## The screen surface
 
@@ -105,13 +110,24 @@ The variant is drawn only inside the icon-glitch event. It is not a static icon 
 | pip | A small window docked inside a larger one | Square window node | None | 20 px |
 | voice | Speech as a level trace: five bars, the tallest in the centre | None | None | 16 px |
 | screens | A landscape frame left open where a portrait frame cuts through it: one desktop, one device | Square device node | Container is the meaning | 20 px |
+| monitor | One desktop: a landscape screen on a stand | None | Container is the meaning | 16 px |
+| phone | One device: a portrait frame with its home key | Square key node | Container is the meaning | 16 px |
 
 ## Host systems
 
-The two marks below are the one place the family draws somebody else's sign. They are the vendors' own silhouettes, solid and in `currentColor`, because the reader has to recognise them at a glance and a stroked redraw did not. Nothing else in the family may borrow from them.
+The two vendor marks below and the tmux mark under Launch targets are the only places the family draws somebody else's sign. They are the vendors' own silhouettes, solid and in `currentColor`, because the reader has to recognise them at a glance and a stroked redraw did not. Nothing else in the family may borrow from them.
 
 | Name | Meaning | Node class | Modifier | Min size |
 |---|---|---|---|---:|
 | system-nixos | A NixOS host: the snowflake of six lambdas, solid | None | Vendor mark | 16 px |
 | system-darwin | A macOS host: the Apple apple with its bite and leaf, solid | None | Vendor mark | 16 px |
 | system-server | Any other host, or one not yet probed: a single rack unit with its node and a drive slot | Square system node | Container is the meaning | 16 px |
+
+## Launch targets
+
+The launch picker names what a new pane starts in. tmux is the vendor's own mark, solid, under the same exception as the host systems. herdr was drawn for Upgrade as a solid trace, and is the one solid glyph the family owns.
+
+| Name | Meaning | Node class | Modifier | Min size |
+|---|---|---|---|---:|
+| launch-tmux | Start or join a tmux session: the tmux window with its split and status bar, solid | None | Vendor mark | 16 px |
+| launch-herdr | Start or join a herdr session: the herdr mark, solid | None | Upgrade-owned trace | 16 px |
