@@ -5,13 +5,13 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/shell_font.dart';
+import 'package:upgrade/application/shell/shell_font.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/design/colors.dart';
-import 'package:upgrade/features/shell/shell_engine.dart';
-import 'package:upgrade/features/shell/shell_selection.dart';
-import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/session/shell_engine.dart';
+import 'package:upgrade/features/shell/input/shell_selection.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:flterm/flterm.dart';
 

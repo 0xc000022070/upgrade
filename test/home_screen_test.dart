@@ -13,7 +13,7 @@ import 'package:upgrade/features/tasks/item_pickers.dart';
 import 'package:upgrade/features/tasks/selection_bar.dart';
 import 'package:upgrade/features/home/home_screen.dart';
 import 'package:upgrade/app/toast_host.dart';
-import 'package:upgrade/application/toasts.dart';
+import 'package:upgrade/application/alerts/toasts.dart';
 
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/list_row.dart';

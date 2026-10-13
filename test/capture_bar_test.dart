@@ -4,7 +4,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/drop_selection.dart';
+import 'package:upgrade/application/drops/drop_selection.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/activity_repository.dart';
 import 'package:upgrade/data/repositories/goal_repository.dart';

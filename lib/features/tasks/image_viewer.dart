@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/attachment_files.dart';
-import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/application/drops/attachment_files.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/design/tokens.dart';
 
 Future<void> openImageViewer(BuildContext context, String relative) {

@@ -7,7 +7,7 @@ import 'package:upgrade/design/components/key_cell.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/platform/vnc/arming.dart';
 import 'package:upgrade/platform/vnc/keysyms.dart';
-import 'package:upgrade/features/modifier_cell.dart';
+import 'package:upgrade/features/screen/modifier_cell.dart';
 
 typedef _StripKey = ({
   String label,

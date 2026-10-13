@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/urls.dart';
+import 'package:upgrade/application/links/urls.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/tasks/url_highlight_controller.dart';
 

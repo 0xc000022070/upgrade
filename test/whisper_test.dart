@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:upgrade/application/whisper.dart';
 import 'package:upgrade/features/settings/voice_block.dart';
-import 'package:upgrade/platform/whisper.dart';
+import 'package:upgrade/platform/voice/whisper.dart';
 
 final _encoder = Uint8List.fromList(List.generate(70000, (i) => i % 251));
 final _decoder = Uint8List.fromList(List.generate(9000, (i) => i % 13));

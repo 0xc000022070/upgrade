@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:upgrade/app/builtin_plugins.dart';
-import 'package:upgrade/application/native_plugins.dart';
-import 'package:upgrade/application/plugin_placements.dart';
-import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_placements.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
 import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
-import 'package:upgrade/application/toasts.dart';
+import 'package:upgrade/application/alerts/toasts.dart';
 import 'package:upgrade/platform/plugins/contributions.dart';
 import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/module.dart';

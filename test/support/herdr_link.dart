@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:upgrade/platform/herdr_socket.dart';
+import 'package:upgrade/platform/herdr/herdr_socket.dart';
 
 class FakeHerdrLink {
   FakeHerdrLink({Stream<Uint8List>? scripted}) {

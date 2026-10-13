@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 
 import 'package:upgrade/app/static_surface.dart';
-import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/meta.dart';
@@ -13,10 +13,10 @@ import 'package:upgrade/design/components/section.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/home/agent_mark.dart';
-import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/agents/agent_shell.dart';
 import 'package:upgrade/features/agents/pip_action.dart';
 

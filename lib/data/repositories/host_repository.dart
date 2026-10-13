@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 
-import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';

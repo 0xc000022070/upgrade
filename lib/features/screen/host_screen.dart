@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents.dart';
-import 'package:upgrade/application/clips.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/drops/clips.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/gallery.dart';
-import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/files/gallery.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/features/hosts/host_key_sheet.dart';

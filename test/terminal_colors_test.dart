@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:flterm/flterm.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/shell/shell_engine.dart';
+import 'package:upgrade/features/shell/session/shell_engine.dart';
 import 'package:upgrade/platform/vnc/keysyms.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';

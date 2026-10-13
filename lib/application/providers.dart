@@ -20,14 +20,14 @@ import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/data/repositories/shell_tab_repository.dart';
 import 'package:upgrade/data/repositories/task_repository.dart';
 import 'package:upgrade/data/views.dart';
-import 'package:upgrade/platform/keys.dart';
-import 'package:upgrade/platform/link_metadata.dart';
-import 'package:upgrade/application/agents.dart';
-import 'package:upgrade/application/bar_layout.dart';
-import 'package:upgrade/application/link_preview.dart';
-import 'package:upgrade/application/pane_share.dart';
-import 'package:upgrade/application/shell_font.dart';
-import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/platform/links/link_metadata.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/shell/bar_layout.dart';
+import 'package:upgrade/application/links/link_preview.dart';
+import 'package:upgrade/application/shell/pane_share.dart';
+import 'package:upgrade/application/shell/shell_font.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
 
 final pluginDataGateProvider = Provider<PluginDataGate?>((ref) {
   final actor = ref.watch(currentPluginProvider);

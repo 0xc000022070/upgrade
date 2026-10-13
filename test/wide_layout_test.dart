@@ -14,13 +14,13 @@ import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/design/effects/glitch.dart';
 import 'package:upgrade/design/layout.dart';
-import 'package:upgrade/application/drop_selection.dart';
+import 'package:upgrade/application/drops/drop_selection.dart';
 import 'package:upgrade/features/home/capture_bar.dart';
 import 'package:upgrade/features/tasks/selection_bar.dart';
 import 'package:upgrade/features/home/home_screen.dart';
 import 'package:upgrade/features/home/agents_panel.dart';
 import 'package:upgrade/features/tasks/drops_panel.dart';
-import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';

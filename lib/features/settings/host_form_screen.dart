@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:upgrade/app/static_surface.dart';
-import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/formatting.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -21,11 +21,11 @@ import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/design/components/section.dart';
 import 'package:upgrade/design/components/solid_action_bar.dart';
 import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/features/hosts/host_key_sheet.dart';
 import 'package:upgrade/features/settings/key_form_screen.dart';
 import 'package:upgrade/features/screen/screen_preview.dart';
-import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
 
 void openHostForm(BuildContext context, {Host? host}) {
   Navigator.of(

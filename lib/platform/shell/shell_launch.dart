@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 
 sealed class ShellLaunch {

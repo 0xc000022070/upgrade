@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
 
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/layout.dart';

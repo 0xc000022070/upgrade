@@ -1,12 +1,12 @@
-import 'package:upgrade/application/agent_state.dart';
-import 'package:upgrade/application/agents.dart';
-import 'package:upgrade/application/alerts.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/alerts/alerts.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/agents/agents_screen.dart';
-import 'package:upgrade/platform/agent_watcher.dart';
-import 'package:upgrade/platform/engine_agents.dart';
-import 'package:upgrade/platform/herdr_client.dart';
-import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/herdr/agent_watcher.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final pinned = PinnedHostKey(

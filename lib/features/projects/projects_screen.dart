@@ -2,14 +2,14 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/section.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/projects/project_detail_screen.dart';
 import 'package:upgrade/features/projects/project_form_screen.dart';
 import 'package:upgrade/features/projects/project_row.dart';

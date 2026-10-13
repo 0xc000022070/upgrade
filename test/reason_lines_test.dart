@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents.dart';
-import 'package:upgrade/application/reason_lines.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/agents/reason_lines.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/herdr_client.dart';
-import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/vnc/vnc_failure.dart';
 

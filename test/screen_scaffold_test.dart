@@ -6,7 +6,7 @@ import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/signal_text.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/typography.dart';
-import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';

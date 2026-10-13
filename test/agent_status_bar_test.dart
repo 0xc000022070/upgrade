@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agent_state.dart';
-import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/features/agents/agent_status_bar.dart';
-import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 
 import 'support/themed_app.dart';
 

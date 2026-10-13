@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/design/tokens.dart';

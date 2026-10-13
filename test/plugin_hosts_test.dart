@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:upgrade/application/agents.dart';
-import 'package:upgrade/application/plugin_hosts.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/plugins/plugin_hosts.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';

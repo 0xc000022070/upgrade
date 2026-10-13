@@ -6,7 +6,7 @@ import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/design/components/meta.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 
 Future<bool> askHostKey(
   BuildContext context, {

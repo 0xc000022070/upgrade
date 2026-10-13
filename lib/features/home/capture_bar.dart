@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/capture_visibility.dart';
-import 'package:upgrade/application/fresh_drops.dart';
+import 'package:upgrade/application/drops/capture_visibility.dart';
+import 'package:upgrade/application/drops/fresh_drops.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/database.dart';
@@ -21,9 +21,9 @@ import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/layout.dart';
 import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/application/attachment_files.dart';
+import 'package:upgrade/application/drops/attachment_files.dart';
 import 'package:upgrade/features/tasks/item_pickers.dart';
-import 'package:upgrade/application/urls.dart';
+import 'package:upgrade/application/links/urls.dart';
 import 'package:upgrade/features/tasks/url_highlight_controller.dart';
 import 'package:upgrade/features/home/capture_draft.dart';
 

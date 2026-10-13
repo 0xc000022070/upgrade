@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:upgrade/platform/host_keys.dart';
-import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 
 /// The NixOS guest from `nix run .#host-vm`, which `just test-host` brings up. It is the

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/activity_repository.dart';

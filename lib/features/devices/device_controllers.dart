@@ -3,11 +3,11 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 
-import 'package:upgrade/application/reason_lines.dart';
+import 'package:upgrade/application/agents/reason_lines.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/devices/device_link.dart';
-import 'package:upgrade/platform/herdr_client.dart';
-import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
 
 sealed class DevicesPhase {

@@ -6,8 +6,8 @@ import 'package:flterm/flterm.dart';
 
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/typography.dart';
-import 'package:upgrade/features/shell/shell_engine.dart';
-import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/session/shell_engine.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
 
 /// A build log scrolling at full speed would otherwise repaint every card on the panel
 /// for every chunk that arrives.

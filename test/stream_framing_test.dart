@@ -4,8 +4,8 @@ import 'dart:typed_data';
 
 import 'package:flterm/flterm.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/platform/herdr_client.dart';
-import 'package:upgrade/platform/herdr_socket.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/herdr/herdr_socket.dart';
 import 'package:upgrade/platform/vnc/framebuffer.dart';
 import 'package:upgrade/platform/vnc/rfb_client.dart';
 import 'package:upgrade/platform/vnc/rfb_messages.dart';

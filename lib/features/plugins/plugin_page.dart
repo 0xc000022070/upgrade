@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:upgrade/application/native_plugins.dart';
-import 'package:upgrade/application/plugin_hosts.dart';
-import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_hosts.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
@@ -17,7 +17,7 @@ import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/contributions.dart';
 import 'package:upgrade/platform/plugins/store.dart';
 import 'package:upgrade/platform/plugins/ui.dart';
-import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/plugins/plugin_management_screen.dart';
 
 String _hex(Color color) =>

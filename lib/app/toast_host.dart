@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/toasts.dart';
+import 'package:upgrade/application/alerts/toasts.dart';
 import 'package:upgrade/design/components/item_line.dart';
 import 'package:upgrade/design/components/keyboard_toolbar.dart';
 import 'package:upgrade/design/components/panel.dart';

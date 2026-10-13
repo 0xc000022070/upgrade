@@ -5,7 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/bar_layout.dart';
+import 'package:upgrade/application/shell/bar_layout.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/design/components/key_bar.dart';

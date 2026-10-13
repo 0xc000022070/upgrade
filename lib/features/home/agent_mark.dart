@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'package:upgrade/application/agent_kind.dart';
-import 'package:upgrade/application/agent_state.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/typography.dart';

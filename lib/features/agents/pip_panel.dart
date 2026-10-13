@@ -1,11 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents.dart';
-import 'package:upgrade/application/alerts.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/alerts/alerts.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/features/home/agent_mark.dart';
 
 const pipHeadlineMarkSize = 6.0;

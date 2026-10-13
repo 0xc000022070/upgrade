@@ -3,18 +3,18 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents.dart';
-import 'package:upgrade/application/alerts.dart';
-import 'package:upgrade/application/pin_alerts.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/alerts/alerts.dart';
+import 'package:upgrade/application/alerts/pin_alerts.dart';
 import 'package:upgrade/features/agents/agents_screen.dart';
-import 'package:upgrade/features/shell/shell_hold.dart';
-import 'package:upgrade/features/shell/shell_sheet.dart';
-import 'package:upgrade/platform/agent_watcher.dart';
-import 'package:upgrade/platform/alert_actions.dart';
-import 'package:upgrade/platform/alert_notifications.dart';
-import 'package:upgrade/platform/herdr_client.dart';
-import 'package:upgrade/platform/host_links.dart';
-import 'package:upgrade/platform/pin_notifications.dart';
+import 'package:upgrade/features/shell/session/shell_hold.dart';
+import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
+import 'package:upgrade/platform/herdr/agent_watcher.dart';
+import 'package:upgrade/platform/notifications/alert_actions.dart';
+import 'package:upgrade/platform/notifications/alert_notifications.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/notifications/pin_notifications.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 
 /// Set when the process was started by an `OPEN` tap on an alert, so a cold launch

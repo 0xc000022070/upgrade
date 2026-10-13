@@ -3,13 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:upgrade/app/static_surface.dart';
-import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/design/components/field_panel.dart';
 import 'package:upgrade/design/components/solid_action_bar.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
 
 void openNewKey(BuildContext context) {
   Navigator.of(

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:upgrade/application/clips.dart';
+import 'package:upgrade/application/drops/clips.dart';
 import 'package:upgrade/features/tasks/image_input.dart';
 
 void main() {

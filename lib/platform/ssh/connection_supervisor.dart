@@ -92,9 +92,9 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:upgrade/platform/host_keys.dart';
-import 'package:upgrade/platform/host_links.dart';
-import 'package:upgrade/platform/ssh_settle.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/ssh/ssh_settle.dart';
 
 part 'exec.dart';
 part 'reasons.dart';

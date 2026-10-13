@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
 
 import 'support/themed_app.dart';
 

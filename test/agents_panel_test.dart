@@ -5,8 +5,8 @@ import 'dart:async';
 
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agent_state.dart';
-import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -14,9 +14,9 @@ import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/features/home/agent_mark.dart';
 import 'package:upgrade/features/home/agents_panel.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
-import 'package:upgrade/platform/herdr_client.dart';
-import 'package:upgrade/platform/keys.dart';
-import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 
 import 'support/themed_app.dart';
 

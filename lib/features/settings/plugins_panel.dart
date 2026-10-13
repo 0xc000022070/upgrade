@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/plugins.dart';
-import 'package:upgrade/application/plugin_hosts.dart';
-import 'package:upgrade/application/native_plugins.dart';
-import 'package:upgrade/application/plugin_placements.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
+import 'package:upgrade/application/plugins/plugin_hosts.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_placements.dart';
 import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/design/components/upgrade_field.dart';

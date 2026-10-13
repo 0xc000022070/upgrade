@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agent_kind.dart';
-import 'package:upgrade/application/agents.dart';
-import 'package:upgrade/application/path_scan.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/shell/path_scan.dart';
 import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/application/send.dart';
+import 'package:upgrade/application/agents/send.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -21,7 +21,7 @@ import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/hosts/path_picker_sheet.dart';
 import 'package:upgrade/features/home/agent_mark.dart';
-import 'package:upgrade/application/attachment_files.dart';
+import 'package:upgrade/application/drops/attachment_files.dart';
 
 sealed class _Step {
   const _Step();

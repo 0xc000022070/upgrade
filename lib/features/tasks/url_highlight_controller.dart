@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/application/urls.dart';
+import 'package:upgrade/application/links/urls.dart';
 
 /// A controller rather than a chip or an overlay: the token has to stay editable text,
 /// and [TextEditingController.buildTextSpan] is the one place a style can be attached to

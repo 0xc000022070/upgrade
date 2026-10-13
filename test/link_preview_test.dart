@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/link_preview.dart';
-import 'package:upgrade/platform/link_metadata.dart';
+import 'package:upgrade/application/links/link_preview.dart';
+import 'package:upgrade/platform/links/link_metadata.dart';
 
 const _openGraph = '''
 <!doctype html><html><head>

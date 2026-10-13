@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/application/toasts.dart';
+import 'package:upgrade/application/alerts/toasts.dart';
 import 'package:upgrade/data/database.dart';
 
 /// Keyed on the task, so turning one row over twice replaces its row instead of stacking a

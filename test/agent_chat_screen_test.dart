@@ -6,13 +6,13 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agent_state.dart';
-import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/agents/agent_chat_screen.dart';
-import 'package:upgrade/platform/engine_agents.dart';
-import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';

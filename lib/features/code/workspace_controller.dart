@@ -4,11 +4,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/herdr_client.dart';
-import 'package:upgrade/platform/host_keys.dart';
-import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/workspace/workspace_client.dart';
 import 'package:upgrade/platform/workspace/workspace_commands.dart';
 import 'package:upgrade/platform/workspace/workspace_model.dart';

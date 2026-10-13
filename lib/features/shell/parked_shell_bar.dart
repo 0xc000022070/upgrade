@@ -9,9 +9,9 @@ import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/hosts/host_mark.dart';
 import 'package:upgrade/features/hosts/host_strip.dart';
 import 'package:upgrade/features/shell/shell_header.dart';
-import 'package:upgrade/features/shell/shell_sheet.dart';
-import 'package:upgrade/features/shell/shell_sessions.dart';
-import 'package:upgrade/features/shell/shell_watcher.dart';
+import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/features/shell/session/shell_watcher.dart';
 import 'package:upgrade/features/shell/shell_status.dart';
 
 const parkedShellBarHeight = 36.0;

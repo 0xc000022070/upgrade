@@ -6,10 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/features/shell/shell_sessions.dart';
-import 'package:upgrade/features/shell/shell_sheet.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/features/agents/agent_chat_screen.dart';
 

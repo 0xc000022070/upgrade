@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
@@ -13,7 +13,7 @@ import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/solid_action_bar.dart';
 import 'package:upgrade/features/settings/host_form_screen.dart';
 import 'package:upgrade/features/settings/key_detail_screen.dart';
-import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
 
 import 'support/platform_channels.dart';
 import 'support/themed_app.dart';

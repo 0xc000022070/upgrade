@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:upgrade/application/reason_lines.dart';
-import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 
 export 'package:upgrade/platform/ssh/connection_supervisor.dart'

@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/clips.dart';
+import 'package:upgrade/application/drops/clips.dart';
 import 'package:upgrade/features/screen/screen_preview.dart';
 
 Uint8List png(int width, int height) => encodePng(

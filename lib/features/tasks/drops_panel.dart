@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/drop_selection.dart';
+import 'package:upgrade/application/drops/drop_selection.dart';
 import 'package:upgrade/application/formatting.dart';
-import 'package:upgrade/application/fresh_drops.dart';
+import 'package:upgrade/application/drops/fresh_drops.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/list_row.dart';

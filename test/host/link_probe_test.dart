@@ -4,7 +4,7 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/platform/link_probe.dart';
+import 'package:upgrade/platform/links/link_probe.dart';
 
 import 'fixture.dart';
 

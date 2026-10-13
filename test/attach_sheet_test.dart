@@ -3,12 +3,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/clips.dart';
+import 'package:upgrade/application/drops/clips.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/features/shell/attach_sheet.dart';
-import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/sheets/attach_sheet.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 
 import 'support/fake_shell.dart';

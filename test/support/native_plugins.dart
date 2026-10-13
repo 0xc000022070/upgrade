@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:upgrade/app/builtin_plugins.dart';
-import 'package:upgrade/application/native_plugins.dart';
-import 'package:upgrade/application/plugin_placements.dart';
-import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_placements.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/plugin_placement_repository.dart';

@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/hosts/link_probes.dart';
-import 'package:upgrade/platform/link_probe.dart';
+import 'package:upgrade/platform/links/link_probe.dart';
 
 const _rose = Host(
   id: 'h1',

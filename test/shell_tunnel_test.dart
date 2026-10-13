@@ -7,19 +7,19 @@ import 'package:dart_mosh/dart_mosh.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/shell/engine_channel.dart';
 import 'package:upgrade/platform/shell/mosh_channel.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/shell/shell_tunnel.dart';
 import 'package:upgrade/platform/shell/udp_path.dart';
-import 'package:upgrade/platform/host_keys.dart';
-import 'package:upgrade/platform/host_links.dart';
-import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart'
     show ConnectionSupervisor;
-import 'package:upgrade/platform/ssh_settle.dart';
+import 'package:upgrade/platform/ssh/ssh_settle.dart';
 
 import 'support/host_links.dart';
 import 'support/reasons.dart';

@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/alerts.dart';
-import 'package:upgrade/application/pin_alerts.dart';
-import 'package:upgrade/platform/alert_actions.dart';
+import 'package:upgrade/application/alerts/alerts.dart';
+import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/platform/notifications/alert_actions.dart';
 
 class _Shade implements PinNotifier {
   final raised = <String>[];

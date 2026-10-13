@@ -8,9 +8,9 @@ import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/typography.dart';
-import 'package:upgrade/features/shell/shell_selection.dart';
-import 'package:upgrade/features/shell/shell_sessions.dart';
-import 'package:upgrade/features/shell/shell_tail.dart';
+import 'package:upgrade/features/shell/input/shell_selection.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/features/shell/session/shell_tail.dart';
 
 const shellTerminalPadding = EdgeInsets.all(Spacing.md);
 

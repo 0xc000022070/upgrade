@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agent_kind.dart';
-import 'package:upgrade/platform/herdr_client.dart';
-import 'package:upgrade/platform/host_links.dart';
-import 'package:upgrade/platform/herdr_socket.dart';
-import 'package:upgrade/platform/host_keys.dart';
-import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/herdr/herdr_socket.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
 
 import 'support/herdr_link.dart';
 import 'support/tarpit.dart';

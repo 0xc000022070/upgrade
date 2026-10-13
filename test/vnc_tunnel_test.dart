@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:dartssh2/dartssh2.dart';
-import 'package:upgrade/platform/herdr_client.dart';
-import 'package:upgrade/platform/host_keys.dart';
-import 'package:upgrade/platform/host_links.dart';
-import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/vnc/vnc_failure.dart';
 import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
 import 'package:flutter_test/flutter_test.dart';

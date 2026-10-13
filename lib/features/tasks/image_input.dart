@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:upgrade/application/clips.dart';
+import 'package:upgrade/application/drops/clips.dart';
 
 /// An image attachment is a copy: the gallery entry can be deleted, moved or re-encoded
 /// by the OS, and a content URI does not survive a reinstall. Rows store the path

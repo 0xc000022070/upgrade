@@ -1,14 +1,14 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/application/pip.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/agents/agent_shell.dart';
 import 'package:upgrade/features/agents/agents_screen.dart';

@@ -5,16 +5,16 @@ import 'package:flterm/flterm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agent_kind.dart';
-import 'package:upgrade/application/agent_state.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/features/shell/shell_sessions.dart';
-import 'package:upgrade/features/shell/shell_voice.dart';
-import 'package:upgrade/platform/herdr_client.dart';
-import 'package:upgrade/platform/speech.dart';
-import 'package:upgrade/platform/whisper.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/features/shell/input/shell_voice.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/voice/speech.dart';
+import 'package:upgrade/platform/voice/whisper.dart';
 
 import 'support/themed_app.dart';
 

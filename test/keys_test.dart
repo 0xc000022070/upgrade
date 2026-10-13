@@ -6,7 +6,7 @@ import 'dart:convert';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:pointycastle/digests/sha256.dart';
 
 void main() {

@@ -12,7 +12,7 @@ import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/status_tag.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/platform/plugins/manifest.dart';
 
 class PluginUiNode {

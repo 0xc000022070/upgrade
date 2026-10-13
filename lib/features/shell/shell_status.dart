@@ -4,8 +4,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/platform/shell/shell_launch.dart';
-import 'package:upgrade/features/shell/launch_picker_sheet.dart';
-import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/sheets/launch_picker_sheet.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
 
 const shellDotSize = 6.0;
 

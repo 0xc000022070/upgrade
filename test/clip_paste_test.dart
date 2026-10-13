@@ -3,11 +3,11 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/clips.dart';
+import 'package:upgrade/application/drops/clips.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/screen/screen_preview.dart';
-import 'package:upgrade/features/shell/clip_paste.dart';
-import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/input/clip_paste.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/shell/host_clipboard.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 

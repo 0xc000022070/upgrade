@@ -8,7 +8,7 @@ import 'package:upgrade/application/whisper.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/platform/whisper.dart';
+import 'package:upgrade/platform/voice/whisper.dart';
 
 String _size(WhisperSize size) =>
     '${(modelBytes(size.files) / 1e6).round()} MB';

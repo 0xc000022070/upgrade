@@ -8,9 +8,9 @@ import 'package:upgrade/features/home/capture_bar.dart';
 import 'package:upgrade/features/tasks/drops_panel.dart';
 import 'package:upgrade/platform/plugins/module.dart';
 import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/application/drop_selection.dart';
-import 'package:upgrade/application/fresh_drops.dart';
-import 'package:upgrade/application/toasts.dart';
+import 'package:upgrade/application/drops/drop_selection.dart';
+import 'package:upgrade/application/drops/fresh_drops.dart';
+import 'package:upgrade/application/alerts/toasts.dart';
 
 const dropsPlugin = NativePluginModule(
   id: 'upgrade.drops',

@@ -2,8 +2,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/clipboard_text.dart';
-import 'package:upgrade/application/drop_selection.dart';
+import 'package:upgrade/application/drops/clipboard_text.dart';
+import 'package:upgrade/application/drops/drop_selection.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/enums.dart';

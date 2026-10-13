@@ -4,7 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/shell/shell_thumbnail.dart';
 import 'package:flterm/flterm.dart';
 

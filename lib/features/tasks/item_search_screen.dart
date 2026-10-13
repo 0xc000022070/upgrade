@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/app/static_surface.dart';
-import 'package:upgrade/application/item_search.dart';
+import 'package:upgrade/application/drops/item_search.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/views.dart';
 import 'package:upgrade/design/components/upgrade_field.dart';
@@ -11,7 +11,7 @@ import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/section.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/tasks/task_row.dart';
 
 void openItemSearch(BuildContext context) {

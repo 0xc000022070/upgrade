@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
-import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/data/enums.dart';
 
 void main() {

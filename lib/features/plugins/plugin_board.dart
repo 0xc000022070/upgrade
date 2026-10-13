@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:upgrade/data/plugin_emblems.dart';
-import 'package:upgrade/application/native_plugins.dart';
-import 'package:upgrade/application/plugin_hosts.dart';
-import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_hosts.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_text_action.dart';
 import 'package:upgrade/design/effects/glitch.dart';

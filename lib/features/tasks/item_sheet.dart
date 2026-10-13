@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/clipboard_text.dart';
-import 'package:upgrade/application/link_preview.dart';
+import 'package:upgrade/application/drops/clipboard_text.dart';
+import 'package:upgrade/application/links/link_preview.dart';
 import 'package:upgrade/application/formatting.dart';
 import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/application/urls.dart';
+import 'package:upgrade/application/links/urls.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/attachment_repository.dart';
@@ -26,9 +26,9 @@ import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/design/components/upgrade_field.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/browser.dart';
+import 'package:upgrade/platform/links/browser.dart';
 import 'package:upgrade/features/home/agent_mark.dart';
-import 'package:upgrade/application/attachment_files.dart';
+import 'package:upgrade/application/drops/attachment_files.dart';
 import 'package:upgrade/features/tasks/image_viewer.dart';
 import 'package:upgrade/features/tasks/item_pickers.dart';
 import 'package:upgrade/features/tasks/item_send.dart';
@@ -36,7 +36,7 @@ import 'package:upgrade/features/tasks/item_tags.dart';
 import 'package:upgrade/features/tasks/link_preview_card.dart';
 import 'package:upgrade/features/tasks/link_text.dart';
 import 'package:upgrade/features/tasks/plugin_actions.dart';
-import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
 
 Future<void> openItemSheet(BuildContext context, String taskId) {
   return showPanelSheet<void>(

@@ -1,4 +1,4 @@
-import 'package:upgrade/application/item_search.dart';
+import 'package:upgrade/application/drops/item_search.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/activity_repository.dart';
 import 'package:upgrade/data/repositories/attachment_repository.dart';

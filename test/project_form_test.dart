@@ -5,7 +5,7 @@ import 'package:upgrade/data/repositories/activity_repository.dart';
 import 'package:upgrade/data/repositories/project_repository.dart';
 import 'package:upgrade/features/projects/project_form_screen.dart';
 import 'package:upgrade/features/projects/projects_screen.dart';
-import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -1,17 +1,17 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/bundle.dart';
+import 'package:upgrade/application/bundle/bundle.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/raw_tables.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
-import 'package:upgrade/platform/attachment_store.dart';
+import 'package:upgrade/platform/files/attachment_store.dart';
 import 'package:upgrade/platform/bundle_cipher.dart';
-import 'package:upgrade/platform/host_keys.dart';
-import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
 
 ManagedKey _key(String id) => ManagedKey(
   id: id,

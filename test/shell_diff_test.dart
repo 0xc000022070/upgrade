@@ -13,8 +13,8 @@ import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/code/diff_sheet.dart';
 import 'package:upgrade/features/shell/host_shell_screen.dart';
-import 'package:upgrade/features/shell/shell_sessions.dart';
-import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 

@@ -1,6 +1,6 @@
-import 'package:upgrade/platform/host_keys.dart';
-import 'package:upgrade/platform/keys.dart';
-import 'package:upgrade/application/launch_scan.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/application/shell/launch_scan.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/shell/shell_launch.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

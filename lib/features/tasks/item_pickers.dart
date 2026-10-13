@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/project_tree.dart';
-import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/enums.dart';

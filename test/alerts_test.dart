@@ -3,18 +3,18 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agent_state.dart';
-import 'package:upgrade/application/agents.dart';
-import 'package:upgrade/application/alerts.dart';
-import 'package:upgrade/application/pin_alerts.dart';
-import 'package:upgrade/application/watcher_backoff.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/alerts/alerts.dart';
+import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/application/alerts/watcher_backoff.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/agent_watcher.dart';
-import 'package:upgrade/platform/herdr_client.dart';
-import 'package:upgrade/platform/host_links.dart';
-import 'package:upgrade/platform/herdr_socket.dart';
-import 'package:upgrade/platform/host_keys.dart';
-import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/herdr/agent_watcher.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/herdr/herdr_socket.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
 
 import 'support/herdr_link.dart';
 

@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/application/bar_layout.dart';
+import 'package:upgrade/application/shell/bar_layout.dart';
 import 'package:upgrade/design/effects/glitch.dart';
 import 'package:upgrade/design/components/arrow_stick.dart';
 import 'package:upgrade/design/components/key_bar.dart';
@@ -11,8 +11,8 @@ import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/platform/shell/strip_bytes.dart';
 import 'package:upgrade/platform/vnc/arming.dart';
 import 'package:upgrade/platform/vnc/keysyms.dart';
-import 'package:upgrade/features/modifier_cell.dart';
-import 'package:upgrade/features/shell/shell_voice.dart';
+import 'package:upgrade/features/screen/modifier_cell.dart';
+import 'package:upgrade/features/shell/input/shell_voice.dart';
 
 const _stickKeysyms = {
   AxisDirection.up: Keysyms.up,

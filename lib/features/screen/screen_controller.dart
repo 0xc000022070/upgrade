@@ -5,7 +5,7 @@ import 'dart:ui' show Offset, Size;
 import 'package:flutter/foundation.dart';
 
 import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/vnc/framebuffer.dart';
 import 'package:upgrade/platform/vnc/keysyms.dart';
 import 'package:upgrade/platform/vnc/rfb_messages.dart';

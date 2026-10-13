@@ -20,13 +20,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _supervisor = 'lib/platform/ssh/connection_supervisor.dart';
 const _reasons = 'lib/platform/ssh/reasons.dart';
-const _hostLinks = 'lib/platform/host_links.dart';
+const _hostLinks = 'lib/platform/ssh/host_links.dart';
 const _shellScreen = 'lib/features/shell/host_shell_screen.dart';
-const _shellSheet = 'lib/features/shell/shell_sheet.dart';
-const _shellSessions = 'lib/features/shell/shell_sessions.dart';
+const _shellSheet = 'lib/features/shell/sheets/shell_sheet.dart';
+const _shellSessions = 'lib/features/shell/session/shell_sessions.dart';
 
 const _sshUri = 'package:upgrade/platform/ssh/connection_supervisor.dart';
-const _agentsUri = 'package:upgrade/application/agents.dart';
+const _agentsUri = 'package:upgrade/application/agents/agents.dart';
 const _widgetsUri = 'package:flutter/src/widgets/framework.dart';
 
 const _seam =
@@ -827,7 +827,7 @@ bool Function(String, Expression?, AstNode) _declared(
       _uri(base) == library;
 };
 
-const _hostLinksUri = 'package:upgrade/platform/host_links.dart';
+const _hostLinksUri = 'package:upgrade/platform/ssh/host_links.dart';
 
 /// Every read of [member]: a call, a property, a pattern field or an implicit `this`. A
 /// declaration names it with a token, not an identifier, so it never counts.
@@ -873,8 +873,8 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:upgrade/application/agents.dart';
-import 'package:upgrade/platform/alert_notifications.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/platform/notifications/alert_notifications.dart';
 import 'package:upgrade/platform/device.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 ''';
@@ -1019,17 +1019,17 @@ void main() {
           'lib/features/code/workspace_sheet.dart': 1,
           'lib/features/home/agents_panel.dart': 1,
           'lib/features/hosts/hosts_screen.dart': 2,
-          'lib/features/shell/attach_sheet.dart': 2,
+          'lib/features/shell/sheets/attach_sheet.dart': 2,
           _shellScreen: 6,
-          'lib/features/shell/launch_picker_sheet.dart': 5,
+          'lib/features/shell/sheets/launch_picker_sheet.dart': 5,
           'lib/features/shell/parked_shell_bar.dart': 1,
           'lib/features/shell/shell_card.dart': 1,
         },
         'onGestureWith': {_shellScreen: 1},
         'onNotificationTap': {'lib/app/alerts_boot.dart': 1},
         'onLaunch': {'lib/main.dart': 1},
-        'onLifecycle': {'lib/features/shell/shell_wake.dart': 2},
-        'onNetwork': {'lib/features/shell/shell_wake.dart': 1},
+        'onLifecycle': {'lib/features/shell/session/shell_wake.dart': 2},
+        'onNetwork': {'lib/features/shell/session/shell_wake.dart': 1},
       }, reason: 'mint where a gesture or the platform calls in; $_seam');
     });
 
@@ -1492,15 +1492,15 @@ PlatformSignal? signal(NetworkChanged change) => change.signal;
 
   test('only the shell wake rechecks every host link', () {
     expect(_members(_links({'recheckAll'}), except: _hostLinks), {
-      'lib/features/shell/shell_wake.dart': 1,
+      'lib/features/shell/session/shell_wake.dart': 1,
     }, reason: 'a recheck is a keepalive round on every link; $_seam');
   });
 
   test('only the known owners close host links', () {
     expect(_members(_links({'close'}), except: _hostLinks), {
-      'lib/application/agents.dart': 1,
-      'lib/platform/agent_watcher.dart': 1,
-      'lib/platform/alert_actions.dart': 1,
+      'lib/application/agents/agents.dart': 1,
+      'lib/platform/herdr/agent_watcher.dart': 1,
+      'lib/platform/notifications/alert_actions.dart': 1,
     }, reason: 'a close ends every link in the pool; $_seam');
   });
 
@@ -1508,7 +1508,7 @@ PlatformSignal? signal(NetworkChanged change) => change.signal;
     expect(
       _reads(_hostLinksUri, 'HostLease', 'client', except: _hostLinks),
       {
-        'lib/platform/herdr_client.dart': 1,
+        'lib/platform/herdr/herdr_client.dart': 1,
         'lib/platform/vnc/vnc_tunnel.dart': 1,
       },
       reason: 'a raw client can close the connection under every lease; $_seam',

@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/app/upgrade_app.dart';
 import 'package:upgrade/app/nav_shell.dart';
-import 'package:upgrade/application/drop_selection.dart';
+import 'package:upgrade/application/drops/drop_selection.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/activity_repository.dart';

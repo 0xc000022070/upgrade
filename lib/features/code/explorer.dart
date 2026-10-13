@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/pane_share.dart';
+import 'package:upgrade/application/shell/pane_share.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/list_row.dart';

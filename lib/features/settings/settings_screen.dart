@@ -7,7 +7,7 @@ import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/platform/device.dart';
-import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/settings/alerts_block.dart';
 import 'package:upgrade/features/settings/bundle_panel.dart';
 import 'package:upgrade/features/settings/key_bar_block.dart';

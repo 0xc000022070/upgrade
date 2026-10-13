@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/drop_selection.dart';
+import 'package:upgrade/application/drops/drop_selection.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/flash_block.dart';
 import 'package:upgrade/design/spacing.dart';

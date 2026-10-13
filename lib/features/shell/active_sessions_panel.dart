@@ -5,7 +5,7 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/shell/shell_card.dart';
-import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
 
 class ActiveSessionsPanel extends ConsumerWidget {
   const ActiveSessionsPanel({super.key, required this.hosts});

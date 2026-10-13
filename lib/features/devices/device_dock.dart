@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/devices/device_link.dart';
-import 'package:upgrade/platform/host_keys.dart';
-import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
 import 'package:upgrade/features/hosts/host_key_sheet.dart';
 import 'package:upgrade/features/screen/screen_controller.dart';

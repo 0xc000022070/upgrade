@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/bar_layout.dart';
+import 'package:upgrade/application/shell/bar_layout.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/features/shell/shell_bar.dart';
