@@ -42,6 +42,9 @@ class MainActivity : FlutterActivity() {
 
     private var dictation: Dictation? = null
 
+    private val files by lazy { FileBridge(this) }
+    private var shared: MethodChannel? = null
+
     override fun provideFlutterEngine(context: Context): FlutterEngine {
         warm = UpgradeEngine.started
         return UpgradeEngine.obtain(context, flutterShellArgs.toArray())
@@ -65,6 +68,7 @@ class MainActivity : FlutterActivity() {
     override fun onResume() {
         super.onResume()
         hintFrameRate()
+        if (SharedInbox.waiting()) shared?.invokeMethod("shared", null)
     }
 
     private var hinted: SurfaceView? = null
@@ -134,6 +138,11 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
+        shared = MethodChannel(messenger, "dev.luisnquin.upgrade/files").also { channel ->
+            channel.setMethodCallHandler(files::handle)
+            SharedInbox.listener = { channel.invokeMethod("shared", null) }
+        }
+
         MethodChannel(messenger, "dev.luisnquin.upgrade/pip")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -179,6 +188,9 @@ class MainActivity : FlutterActivity() {
         MethodChannel(messenger, "dev.luisnquin.upgrade/device").setMethodCallHandler(null)
         MethodChannel(messenger, "dev.luisnquin.upgrade/pip").setMethodCallHandler(null)
         MethodChannel(messenger, "dev.luisnquin.upgrade/speech").setMethodCallHandler(null)
+        shared?.setMethodCallHandler(null)
+        shared = null
+        SharedInbox.listener = null
         dictation?.destroy()
         dictation = null
     }
@@ -277,6 +289,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (files.onActivityResult(requestCode, resultCode, data)) return
         if (requestCode != SAVE_DOCUMENT && requestCode != OPEN_DOCUMENT) return
         val result = pendingDocument ?: return
         val bytes = pendingBytes

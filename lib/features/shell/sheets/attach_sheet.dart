@@ -1,18 +1,17 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/drops/clips.dart';
-import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/application/files/phone_inbox.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/components/progress_bar.dart';
-import 'package:upgrade/design/components/status_tag.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
@@ -20,7 +19,8 @@ import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/shell/input/clip_paste.dart';
 import 'package:upgrade/features/shell/input/photo_attach.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/platform/ssh/host_files.dart' show smallestFirst;
+import 'package:upgrade/features/files/transfer_queue.dart';
+import 'package:uuid/uuid.dart';
 
 const attachSheetLinger = Duration(milliseconds: 700);
 
@@ -31,21 +31,30 @@ const attachGap = Duration(milliseconds: 300);
 
 typedef PhotoPicker = Future<List<Uint8List>> Function();
 
+typedef FilePicker = Future<List<SharedFile>> Function();
+
 Future<void> showAttachSheet(
   BuildContext context, {
   required ShellSession session,
   PhotoPicker pick = pickPhotos,
+  FilePicker? pickFiles,
 }) => showPanelSheet<void>(
   context,
   title: 'ATTACH',
-  builder: (_) => _AttachSheet(session: session, pick: pick),
+  builder: (_) =>
+      _AttachSheet(session: session, pick: pick, pickFiles: pickFiles),
 );
 
 class _AttachSheet extends ConsumerStatefulWidget {
-  const _AttachSheet({required this.session, required this.pick});
+  const _AttachSheet({
+    required this.session,
+    required this.pick,
+    this.pickFiles,
+  });
 
   final ShellSession session;
   final PhotoPicker pick;
+  final FilePicker? pickFiles;
 
   @override
   ConsumerState<_AttachSheet> createState() => _AttachSheetState();
@@ -56,7 +65,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
   bool _busy = false;
   bool _help = false;
 
-  List<({int index, Uint8List bytes})> _queue = const [];
+  List<QueuedFile> _queue = const [];
   List<AttachItem> _items = const [];
 
   Future<void> _attachHeld(UserIntent intent, Clip clip) async {
@@ -75,46 +84,78 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
     await _finish(result);
   }
 
-  Future<void> _attachPhotos(UserIntent intent) async {
+  Future<void> _attachPhotos(UserIntent intent) => _attach(
+    intent,
+    'PHOTOS',
+    () async => [
+      for (final photo in await widget.pick())
+        (
+          file: (
+            fileName: freshPngName(),
+            body: FileBody.bytes(photo),
+            image: true,
+          ),
+          queued: QueuedFile(name: '', bytes: photo.length, thumb: photo),
+        ),
+    ],
+  );
+
+  Future<void> _attachFiles(UserIntent intent) => _attach(
+    intent,
+    'FILES',
+    () async => [
+      for (final picked
+          in await (widget.pickFiles ?? ref.read(phoneFilesProvider).pick)())
+        (
+          file: (
+            fileName: '${const Uuid().v4()}/${picked.name}',
+            body: FileBody.file(File(picked.path), picked.size),
+            image: picked.mime == 'image/png',
+          ),
+          queued: QueuedFile(name: picked.name, bytes: picked.size),
+        ),
+    ],
+  );
+
+  Future<void> _attach(
+    UserIntent intent,
+    String source,
+    Future<List<({PasteFile file, QueuedFile queued})>> Function() pick,
+  ) async {
     if (_busy) return;
     final action = UserAction(intent);
     setState(() => _busy = true);
-    final List<Uint8List> photos;
+    final List<({PasteFile file, QueuedFile queued})> picked;
     try {
-      photos = await widget.pick();
+      picked = await pick();
     } catch (error) {
       if (mounted) {
         setState(() {
           _busy = false;
-          _status = 'PHOTOS · $error';
+          _status = '$source · $error';
         });
       }
       return;
     }
-    if (photos.isEmpty) {
+    if (picked.isEmpty) {
       if (mounted) setState(() => _busy = false);
       return;
     }
     if (!mounted) return;
-    final items = [for (final photo in photos) AttachItem(bytes: photo.length)];
+    final items = [for (final p in picked) AttachItem(bytes: p.queued.bytes)];
     setState(() {
-      _status = 'ATTACHING 1 OF ${photos.length}';
-      _queue = [
-        for (final i in smallestFirst([for (final p in photos) p.length]))
-          (index: i, bytes: photos[i]),
-      ];
+      _status = 'ATTACHING 1 OF ${picked.length}';
+      _queue = [for (final p in picked) p.queued];
       _items = items;
     });
-    final last = await pasteImages(
+    final last = await pasteFiles(
       store: ref.read(shellSessionsProvider),
       session: widget.session,
-      images: [
-        for (final photo in photos) (fileName: freshPngName(), bytes: photo),
-      ],
+      files: [for (final p in picked) p.file],
       action: action,
       before: (i) async {
         if (!mounted) return false;
-        setState(() => _status = 'ATTACHING ${i + 1} OF ${photos.length}');
+        setState(() => _status = 'ATTACHING ${i + 1} OF ${picked.length}');
         if (i > 0) await Future<void>.delayed(attachGap);
         return mounted;
       },
@@ -122,7 +163,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
         if (mounted) setState(() => items[index] = item);
       },
     );
-    await _finish(last, count: photos.length);
+    await _finish(last, count: picked.length);
   }
 
   /// The last result on the sheet, then the sheet goes — unless it failed, which is left
@@ -169,10 +210,20 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
           ),
           children: [
             if (_help) ...[const _AttachHelp(), const SheetRule()],
-            ActionBlock(
-              key: const ValueKey('attach-photos'),
-              label: 'PHOTOS',
-              onTap: UserIntent.onGesture(_attachPhotos),
+            Row(
+              children: [
+                ActionBlock(
+                  key: const ValueKey('attach-photos'),
+                  label: 'PHOTOS',
+                  onTap: UserIntent.onGesture(_attachPhotos),
+                ),
+                const SizedBox(width: Spacing.md),
+                ActionBlock(
+                  key: const ValueKey('attach-files'),
+                  label: 'FILES',
+                  onTap: UserIntent.onGesture(_attachFiles),
+                ),
+              ],
             ),
             const SheetRule(),
             Text('HELD', style: context.tokens.label),
@@ -217,15 +268,11 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
               ),
               if (_queue.isNotEmpty) ...[
                 const SizedBox(height: Spacing.sm),
-                _QueueCount(items: _items),
-                for (final queued in _queue) ...[
-                  const SizedBox(height: Spacing.md),
-                  _QueueRow(
-                    key: ValueKey('attach-queued-${queued.index}'),
-                    bytes: queued.bytes,
-                    item: _items[queued.index],
-                  ),
-                ],
+                TransferQueue(
+                  files: _queue,
+                  items: _items,
+                  keyPrefix: 'attach',
+                ),
               ],
             ],
           ],
@@ -246,6 +293,9 @@ class _AttachHelp extends StatelessWidget {
         'uploaded to the host, three at a time and the lightest first, put on '
         'the host clipboard and pasted with Ctrl+V as it lands. A host with no '
         'clipboard tool gets the file path typed at the cursor instead.',
+    'FILES picks any file off the phone. A PNG goes in like a photo; '
+        'anything else lands under /tmp/upgrade and its path is typed at the '
+        'cursor.',
     'HELD is what a crop off the SCREEN viewer is kept in, for as long as '
         'the app is running. Tap one to attach it, × to drop it.',
   ];
@@ -345,136 +395,6 @@ class _ClipTile extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _QueueCount extends StatelessWidget {
-  const _QueueCount({required this.items});
-
-  final List<AttachItem> items;
-
-  @override
-  Widget build(BuildContext context) {
-    int count(Set<AttachStage> stages) =>
-        items.where((item) => stages.contains(item.stage)).length;
-    final words = [
-      ('UP', count(const {AttachStage.sending})),
-      ('QUEUED', count(const {AttachStage.queued})),
-      (
-        'IN',
-        count(const {
-          AttachStage.pasting,
-          AttachStage.pasted,
-          AttachStage.path,
-        }),
-      ),
-    ];
-    return Text(
-      [for (final (word, n) in words) '$n $word'].join(' · '),
-      key: const ValueKey('attach-queue-count'),
-      style: context.tokens.label.copyWith(color: context.tokens.textSecondary),
-    );
-  }
-}
-
-class _QueueRow extends StatelessWidget {
-  const _QueueRow({super.key, required this.bytes, required this.item});
-
-  static const _thumb = 44.0;
-
-  final Uint8List bytes;
-  final AttachItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final (word, color) = switch (item.stage) {
-      AttachStage.queued => ('QUEUED', tokens.textMuted),
-      AttachStage.sending => (
-        'UP ${(item.fraction * 100).floor()}%',
-        tokens.accent,
-      ),
-      AttachStage.landed => ('LANDED', tokens.textSecondary),
-      AttachStage.pasting => ('PASTING', tokens.accent),
-      AttachStage.pasted => ('PASTED', tokens.accent),
-      AttachStage.path => ('PATH', tokens.accent),
-      AttachStage.failed => ('FAILED', tokens.danger),
-      AttachStage.stopped => ('STOPPED', tokens.textDisabled),
-    };
-    final waiting =
-        item.stage == AttachStage.queued || item.stage == AttachStage.stopped;
-    final detail = item.stage == AttachStage.failed ? item.detail : null;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Opacity(
-          opacity: waiting ? 0.4 : 1,
-          child: Container(
-            width: _thumb,
-            height: _thumb,
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: item.stage == AttachStage.sending
-                    ? color
-                    : tokens.borderNormal,
-                width: Borders.hairline,
-              ),
-            ),
-            child: Image.memory(
-              bytes,
-              width: _thumb,
-              height: _thumb,
-              fit: BoxFit.cover,
-              cacheWidth: (_thumb * 2).round(),
-              gaplessPlayback: true,
-            ),
-          ),
-        ),
-        const SizedBox(width: Spacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      item.stage == AttachStage.sending
-                          ? '${sizeWord(item.sent)} / ${sizeWord(item.bytes)}'
-                          : sizeWord(item.bytes),
-                      style: tokens.value.copyWith(
-                        color: waiting ? tokens.textMuted : tokens.textPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  StatusTag(word, color: color),
-                ],
-              ),
-              const SizedBox(height: Spacing.sm),
-              ProgressBar(
-                value: switch (item.stage) {
-                  AttachStage.queued || AttachStage.stopped => 0,
-                  AttachStage.sending || AttachStage.failed => item.fraction,
-                  _ => 1,
-                },
-              ),
-              if (detail != null) ...[
-                const SizedBox(height: Spacing.xs),
-                Text(
-                  detail,
-                  style: tokens.label.copyWith(color: tokens.danger),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

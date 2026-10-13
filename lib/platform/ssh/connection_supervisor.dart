@@ -132,7 +132,7 @@ abstract interface class HostChannels {
 
   Future<FileWrite?> put(
     String path,
-    Uint8List bytes, {
+    FileBody body, {
     required Duration timeout,
     PutProgress? onProgress,
   });
@@ -193,10 +193,10 @@ final class ConnectionSupervisor implements HostChannels {
   @override
   Future<FileWrite?> put(
     String path,
-    Uint8List bytes, {
+    FileBody body, {
     required Duration timeout,
     PutProgress? onProgress,
-  }) async => _held?.put(path, bytes, timeout: timeout, onProgress: onProgress);
+  }) async => _held?.put(path, body, timeout: timeout, onProgress: onProgress);
 
   Stream<ControlLink> get controlLink => _control.stream;
 
@@ -502,10 +502,10 @@ final class _Channels implements HostChannels {
   @override
   Future<FileWrite?> put(
     String path,
-    Uint8List bytes, {
+    FileBody body, {
     required Duration timeout,
     PutProgress? onProgress,
-  }) => _owner.put(path, bytes, timeout: timeout, onProgress: onProgress);
+  }) => _owner.put(path, body, timeout: timeout, onProgress: onProgress);
 }
 
 /// Revive delays. After the last, a dead host waits for a gesture, resume or network change.
@@ -655,17 +655,17 @@ final class _Hold implements HostChannels {
   @override
   Future<FileWrite?> put(
     String path,
-    Uint8List bytes, {
+    FileBody body, {
     required Duration timeout,
     PutProgress? onProgress,
   }) async {
     if (!identical(_owner._held, this)) return null;
     return putFile(
       sftp: lease.sftp,
-      exec: (command, stdin) =>
-          _run(lease, command, stdin: stdin, timeout: timeout, upload: true),
+      exec: (command, feed) =>
+          transferExec(lease, command, feed: feed, timeout: timeout),
       path: path,
-      bytes: bytes,
+      body: body,
       timeout: timeout,
       onProgress: onProgress,
     );

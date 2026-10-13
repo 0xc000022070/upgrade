@@ -1019,7 +1019,7 @@ void main() {
           'lib/features/code/workspace_sheet.dart': 1,
           'lib/features/home/agents_panel.dart': 1,
           'lib/features/hosts/hosts_screen.dart': 2,
-          'lib/features/shell/sheets/attach_sheet.dart': 2,
+          'lib/features/shell/sheets/attach_sheet.dart': 3,
           _shellScreen: 6,
           'lib/features/shell/sheets/launch_picker_sheet.dart': 5,
           'lib/features/shell/parked_shell_bar.dart': 1,

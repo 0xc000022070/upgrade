@@ -182,25 +182,47 @@ HostClipboard parseProbe(ExecResult result) {
 /// Every backend's tool forks to go on serving the selection after the command returns,
 /// so both of its outputs go to `/dev/null`: a child still holding the channel's pipes
 /// would keep the channel from closing, and the paste is waiting on that close.
-String? clipboardCommand(HostClipboard clipboard, String fileName) {
-  if (!clipboard.usable) return null;
-  final remotePath = remotePathFor(fileName);
+String? clipboardCommand(HostClipboard clipboard, String fileName) =>
+    clipboardImageCommand(clipboard, remotePathFor(fileName));
+
+String? clipboardImageCommand(
+  HostClipboard clipboard,
+  String remotePath, {
+  String mime = 'image/png',
+}) {
   final path = shellQuote(remotePath);
+  final type = RegExp(r'^[\w.+-]+/[\w.+-]+$').hasMatch(mime)
+      ? mime
+      : 'image/png';
+  final macClass = const {
+    'image/png': 'PNGf',
+    'image/jpeg': 'JPEG',
+    'image/gif': 'GIFf',
+  }[type];
+  return _clipboardScript(clipboard, switch (clipboard.backend) {
+    ClipboardBackend.wayland => 'wl-copy --type $type < $path',
+    ClipboardBackend.x11 => 'xclip -selection clipboard -t $type -i $path',
+    ClipboardBackend.macos when macClass != null =>
+      "osascript -e 'on run argv' -e 'set the clipboard to (read (POSIX file "
+          "(item 1 of argv)) as «class $macClass»)' -e 'end run' $path",
+    ClipboardBackend.macos || ClipboardBackend.none => null,
+  });
+}
+
+String? clipboardTextCommand(HostClipboard clipboard) =>
+    _clipboardScript(clipboard, switch (clipboard.backend) {
+      ClipboardBackend.wayland => "wl-copy --type 'text/plain;charset=utf-8'",
+      ClipboardBackend.x11 => 'xclip -selection clipboard -i',
+      ClipboardBackend.macos => 'pbcopy',
+      ClipboardBackend.none => null,
+    });
+
+String? _clipboardScript(HostClipboard clipboard, String? tool) {
+  if (!clipboard.usable || tool == null) return null;
   final environment = clipboard.environment.entries
       .map((entry) => '${entry.key}=${shellQuote(entry.value)}')
       .join(' ');
-  final script = switch (clipboard.backend) {
-    ClipboardBackend.wayland =>
-      '$environment wl-copy --type image/png < $path >/dev/null 2>&1',
-    ClipboardBackend.x11 =>
-      '$environment xclip -selection clipboard -t image/png -i $path '
-          '>/dev/null 2>&1',
-    ClipboardBackend.macos =>
-      'osascript -e "set the clipboard to (read (POSIX file \\"$remotePath\\") '
-          'as «class PNGf»)" >/dev/null 2>&1',
-    ClipboardBackend.none => null,
-  };
-  return script == null ? null : underSh(script);
+  return underSh('$environment $tool >/dev/null 2>&1');
 }
 
 /// Null when no host is held, which is no answer at all.

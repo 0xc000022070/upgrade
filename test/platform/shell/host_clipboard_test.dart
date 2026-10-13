@@ -148,10 +148,74 @@ void main() {
       );
     });
 
+    String script(String? command) {
+      expect(command, startsWith("sh -c '"));
+      return command!
+          .substring("sh -c '".length, command.length - 1)
+          .replaceAll("'\\''", "'");
+    }
+
     test('macos reads the file as PNGf', () {
       expect(
-        clipboardCommand(const HostClipboard(ClipboardBackend.macos), 'a.png'),
-        contains('POSIX file \\"/tmp/upgrade/a.png\\"'),
+        script(
+          clipboardCommand(const HostClipboard(ClipboardBackend.macos), 'a.png'),
+        ),
+        allOf(
+          contains('«class PNGf»'),
+          contains("'end run' '/tmp/upgrade/a.png' >"),
+        ),
+      );
+    });
+
+    test('macos hands the path to osascript as an argument', () {
+      const path = '/tmp/a" & do shell script "id\' \$(id)';
+      expect(
+        script(
+          clipboardImageCommand(
+            const HostClipboard(ClipboardBackend.macos),
+            path,
+          ),
+        ),
+        contains("'end run' ${shellQuote(path)} >"),
+      );
+    });
+
+    test('a jpeg goes on as a jpeg, and a type that is not one as a png', () {
+      const clipboard = HostClipboard(ClipboardBackend.wayland);
+      expect(
+        clipboardImageCommand(clipboard, '/a.jpg', mime: 'image/jpeg'),
+        contains('wl-copy --type image/jpeg'),
+      );
+      expect(
+        clipboardImageCommand(clipboard, '/a', mime: "image/x; rm -rf ~"),
+        contains('wl-copy --type image/png'),
+      );
+      expect(
+        clipboardImageCommand(
+          const HostClipboard(ClipboardBackend.macos),
+          '/a.webp',
+          mime: 'image/webp',
+        ),
+        isNull,
+      );
+    });
+
+    test('text is read off stdin by each tool', () {
+      expect(
+        clipboardTextCommand(const HostClipboard(ClipboardBackend.wayland)),
+        contains('wl-copy --type'),
+      );
+      expect(
+        clipboardTextCommand(const HostClipboard(ClipboardBackend.x11)),
+        contains('xclip -selection clipboard -i'),
+      );
+      expect(
+        clipboardTextCommand(const HostClipboard(ClipboardBackend.macos)),
+        contains('pbcopy'),
+      );
+      expect(
+        clipboardTextCommand(const HostClipboard(ClipboardBackend.none)),
+        isNull,
       );
     });
 

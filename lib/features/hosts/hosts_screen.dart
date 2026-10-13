@@ -19,6 +19,7 @@ import 'package:upgrade/design/components/section.dart';
 import 'package:upgrade/design/components/toolbar_icon_action.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/files/files_sheet.dart';
 import 'package:upgrade/platform/herdr/engine_agents.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_key_dial.dart';
@@ -326,10 +327,23 @@ class _HostPanel extends ConsumerWidget {
     return Panel(
       title: host.name,
       leading: HostMark(host.system),
-      affordance: PanelAffordance(
-        'EDIT',
-        icon: UpgradeIcons.edit,
-        onTap: () => openHostForm(context, host: host),
+      onHeaderLongPress: () => showHostFiles(context, host),
+      affordance: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PanelAffordance(
+            'FILES',
+            key: ValueKey('host-files-${host.id}'),
+            showIcon: false,
+            onTap: () => showHostFiles(context, host),
+          ),
+          const SizedBox(width: Spacing.lg),
+          PanelAffordance(
+            'EDIT',
+            icon: UpgradeIcons.edit,
+            onTap: () => openHostForm(context, host: host),
+          ),
+        ],
       ),
       bodyPadding: panelRowsPadding,
       child: Column(

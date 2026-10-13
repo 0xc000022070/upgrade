@@ -70,6 +70,7 @@ class ShellHeader extends StatefulWidget {
     required this.onReconnect,
     required this.onDiff,
     this.diffReady = false,
+    this.onFiles,
     this.onPin,
     this.pinStale = false,
   });
@@ -96,6 +97,8 @@ class ShellHeader extends StatefulWidget {
   /// False dims the mark and takes its tap away: a tap that can only answer `NOT A
   /// CHECKOUT` is a tap spent on what the app already knew.
   final bool diffReady;
+
+  final VoidCallback? onFiles;
 
   /// Non-null while a passphrase ask the user swiped away is still open on the host.
   final VoidCallback? onPin;
@@ -209,6 +212,13 @@ class _ShellHeaderState extends State<ShellHeader> {
                 icon: UpgradeIcons.branch,
                 dimmed: !widget.diffReady,
                 onTap: widget.diffReady ? onDiff : null,
+              ),
+            if (widget.onFiles case final onFiles?)
+              _TabCell(
+                key: const ValueKey('shell-tab-files'),
+                label: 'FILES',
+                icon: UpgradeIcons.projects,
+                onTap: onFiles,
               ),
             _Middle(
               host: host.name,

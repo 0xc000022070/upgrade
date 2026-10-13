@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
@@ -26,7 +27,7 @@ void main() {
     final write = await putFile(
       sftp: () => throw SSHChannelRequestError('no sftp'),
       exec: (command, stdin) async {
-        runs.add((command, stdin));
+        runs.add((command, await collectBytes(stdin)));
         return ExecResult(
           exitCode: 0,
           stdout: Uint8List(0),
@@ -34,7 +35,7 @@ void main() {
         );
       },
       path: '/tmp/upgrade/a.png',
-      bytes: bytes,
+      body: FileBody.bytes(bytes),
       timeout: const Duration(seconds: 1),
     );
     expect(write.ok, isTrue);
@@ -52,12 +53,59 @@ void main() {
         stderr: Uint8List.fromList(utf8.encode(err)),
       ),
       path: '/tmp/upgrade/a.png',
-      bytes: bytes,
+      body: FileBody.bytes(bytes),
       timeout: const Duration(seconds: 1),
     );
     expect((await put('No space left\n')).failure, 'No space left');
     expect((await put('')).failure, 'upload exit 1');
   });
+
+  test(
+    'a file pulled over exec lands whole, and a failed one not at all',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('get');
+      addTearDown(() => dir.delete(recursive: true));
+      final into = File('${dir.path}/a/b.bin');
+      final seen = <int>[];
+      final got = await getFile(
+        sftp: () => throw SSHChannelRequestError('no sftp'),
+        exec: (command, onStdout) async {
+          expect(command, getCommand('/home/dev/b.bin'));
+          onStdout(Uint8List.fromList(const [1, 2]));
+          onStdout(Uint8List.fromList(const [3]));
+          return ExecResult(
+            exitCode: 0,
+            stdout: Uint8List(0),
+            stderr: Uint8List(0),
+          );
+        },
+        path: '/home/dev/b.bin',
+        into: into,
+        timeout: const Duration(seconds: 1),
+        onProgress: seen.add,
+      );
+      expect(got.ok, isTrue);
+      expect(await into.readAsBytes(), [1, 2, 3]);
+      expect(seen, [2, 3]);
+
+      final failed = await getFile(
+        sftp: () => throw SSHChannelRequestError('no sftp'),
+        exec: (_, onStdout) async {
+          onStdout(Uint8List.fromList(const [9]));
+          return ExecResult(
+            exitCode: 1,
+            stdout: Uint8List(0),
+            stderr: Uint8List.fromList(utf8.encode('cat: denied\n')),
+          );
+        },
+        path: '/home/dev/b.bin',
+        into: into,
+        timeout: const Duration(seconds: 1),
+      );
+      expect(failed.failure, 'cat: denied');
+      expect(await into.exists(), isFalse);
+    },
+  );
 
   test('a link that is gone is not mistaken for a host without sftp', () {
     expect(
@@ -65,7 +113,7 @@ void main() {
         sftp: () => throw SSHStateError('closed'),
         exec: (_, _) => fail('exec ran'),
         path: '/tmp/upgrade/a.png',
-        bytes: bytes,
+        body: FileBody.bytes(bytes),
         timeout: const Duration(seconds: 1),
       ),
       throwsA(isA<SSHStateError>()),
@@ -93,7 +141,7 @@ void main() {
           sftp: () async => sftp,
           exec: (_, _) => fail('exec ran'),
           path: '/tmp/upgrade/a.png',
-          bytes: bytes,
+          body: FileBody.bytes(bytes),
           timeout: const Duration(seconds: 1),
         ),
         throwsA(isA<RangeError>()),

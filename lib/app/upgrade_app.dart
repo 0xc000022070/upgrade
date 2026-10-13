@@ -15,6 +15,7 @@ import 'package:upgrade/design/effects/screen_entry.dart';
 import 'package:upgrade/design/theme.dart';
 import 'package:upgrade/features/agents/agent_status_bar.dart';
 import 'package:upgrade/features/devices/device_float.dart';
+import 'package:upgrade/features/files/shared_inbox_host.dart';
 import 'package:upgrade/features/home/home_screen.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/features/plugins/plugin_page.dart';
@@ -89,7 +90,10 @@ class UpgradeApp extends ConsumerWidget {
           ),
           home: AlertsHost(
             child: ShellWakeHost(
-              child: BootGate(steps: boot, child: const UpgradeShell()),
+              child: BootGate(
+                steps: boot,
+                child: const SharedInboxHost(child: UpgradeShell()),
+              ),
             ),
           ),
         );

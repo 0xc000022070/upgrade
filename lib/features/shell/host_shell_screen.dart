@@ -30,6 +30,7 @@ import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/shell/shell_launch.dart';
 import 'package:upgrade/platform/vnc/keysyms.dart';
 import 'package:upgrade/features/code/diff_sheet.dart';
+import 'package:upgrade/features/files/files_sheet.dart';
 import 'package:upgrade/features/hosts/host_key_sheet.dart';
 import 'package:upgrade/features/shell/sheets/attach_sheet.dart';
 import 'package:upgrade/features/shell/shell_bar.dart';
@@ -1016,6 +1017,10 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                             diffReady:
                                 active?.repository != null ||
                                 diffTargets.isNotEmpty,
+                            onFiles: () => showHostFiles(
+                              context,
+                              active?.host ?? widget.host,
+                            ),
                             onStop: active == null
                                 ? null
                                 : () => store.stopReconnect(active),

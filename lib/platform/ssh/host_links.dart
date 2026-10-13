@@ -41,6 +41,7 @@ enum HostUse {
   engineFetch('engine fetch'),
   watcher('watcher'),
   devices('devices'),
+  files('files'),
   vnc('vnc'),
   deviceDock('device dock');
 
@@ -61,13 +62,14 @@ enum HostUse {
     engineOpen ||
     engineFetch ||
     watcher ||
-    devices => HostLane.control,
+    devices ||
+    files => HostLane.control,
   };
 
   bool get yields => this != tab;
 
   bool get wakes => switch (this) {
-    tab || send || alertAction => true,
+    tab || send || alertAction || files => true,
     herdrPoll ||
     launchScan ||
     pathScan ||

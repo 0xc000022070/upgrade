@@ -44,6 +44,8 @@ Future<ExecResult> _run(
   HostLease lease,
   String command, {
   Uint8List? stdin,
+  Stream<Uint8List>? feed,
+  void Function(Uint8List chunk)? onStdout,
   required Duration timeout,
   bool upload = false,
 }) async {
@@ -58,7 +60,7 @@ Future<ExecResult> _run(
       throw TimeoutException('SSH channel opened after the deadline', timeout);
     }
     channel = opened;
-    return _finishExec(opened, stdin: stdin);
+    return _finishExec(opened, stdin: stdin, feed: feed, onStdout: onStdout);
   }();
   try {
     return await task.timeout(timeout);
@@ -69,17 +71,48 @@ Future<ExecResult> _run(
     // Closing the channel is what takes the still-running command down.
     endExec(opened);
     rethrow;
+  } catch (_) {
+    if (channel case final opened?) endExec(opened);
+    rethrow;
   }
 }
 
-Future<ExecResult> _finishExec(SSHSession channel, {Uint8List? stdin}) async {
+Future<ExecResult> transferExec(
+  HostLease lease,
+  String command, {
+  Stream<Uint8List>? feed,
+  void Function(Uint8List chunk)? onStdout,
+  required Duration timeout,
+}) => _run(
+  lease,
+  command,
+  feed: feed,
+  onStdout: onStdout,
+  timeout: timeout,
+  upload: true,
+);
+
+Future<ExecResult> leaseExec(
+  HostLease lease,
+  String command, {
+  Uint8List? stdin,
+  required Duration timeout,
+}) => _run(lease, command, stdin: stdin, timeout: timeout);
+
+Future<ExecResult> _finishExec(
+  SSHSession channel, {
+  Uint8List? stdin,
+  Stream<Uint8List>? feed,
+  void Function(Uint8List chunk)? onStdout,
+}) async {
   final out = BytesBuilder(copy: false);
   final err = BytesBuilder(copy: false);
   final drained = Future.wait([
-    channel.stdout.forEach(out.add),
+    channel.stdout.forEach(onStdout ?? out.add),
     channel.stderr.forEach(err.add),
   ]);
   if (stdin != null) channel.stdin.add(stdin);
+  if (feed != null) await channel.stdin.addStream(feed);
   await channel.stdin.close();
   await channel.done;
   await drained;

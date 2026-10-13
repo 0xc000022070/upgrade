@@ -1027,7 +1027,7 @@ class HerdrSession {
           exec: (command, stdin) async {
             final result = await _runWithStdin(
               command,
-              stdin,
+              await collectBytes(stdin),
               within: within,
               upload: true,
             );
@@ -1038,7 +1038,7 @@ class HerdrSession {
             );
           },
           path: image.remotePath,
-          bytes: image.bytes,
+          body: FileBody.bytes(image.bytes),
           timeout: within,
         ),
       );

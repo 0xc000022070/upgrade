@@ -164,6 +164,36 @@ void main() {
     expect(connection.writes.any((bytes) => bytes.contains(0x16)), isFalse);
   });
 
+  test('a file that is not a picture lands and its path is typed, clipboard or not', () async {
+    final transport = FakeShellTransport();
+    final store = fakeShellSessions(transport);
+    final session = store.open(intent: testIntent(), _nyx)!;
+    await _settle();
+    final connection = transport.opened.single;
+    _answerProbeWith(connection, _waylandProbe);
+
+    final result = await pasteFiles(
+      store: store,
+      session: session,
+      files: [
+        (
+          fileName: 'u1/notes.txt',
+          body: FileBody.bytes(Uint8List.fromList([1, 2, 3])),
+          image: false,
+        ),
+      ],
+      action: UserAction(testIntent()),
+    );
+
+    expect(result.outcome, PasteOutcome.path);
+    expect(
+      connection.execs.map((exec) => exec.command),
+      isNot(contains(contains('wl-copy --type'))),
+    );
+    expect(connection.written, contains("'/tmp/upgrade/u1/notes.txt' "));
+    expect(connection.writes.any((bytes) => bytes.contains(0x16)), isFalse);
+  });
+
   test('the probe runs once per connection, not once per paste', () async {
     final transport = FakeShellTransport();
     final store = fakeShellSessions(transport);
