@@ -8,7 +8,12 @@ const _fadeWidth = 32.0;
 const _fadeSolid = 0.28;
 
 class KeyBar extends StatelessWidget {
-  const KeyBar({super.key, required this.keys, this.pinned = const []});
+  const KeyBar({
+    super.key,
+    required this.keys,
+    this.pinned = const [],
+    this.controller,
+  });
 
   static const height = RowMetrics.minHeight;
 
@@ -16,6 +21,8 @@ class KeyBar extends StatelessWidget {
 
   final List<Widget> keys;
   final List<Widget> pinned;
+
+  final ScrollController? controller;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +35,9 @@ class KeyBar extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(child: _Keys(children: keys)),
+          Expanded(
+            child: _Keys(controller: controller, children: keys),
+          ),
           if (pinned.isNotEmpty) ...[const CellDivider(), ...pinned],
         ],
       ),
@@ -37,8 +46,9 @@ class KeyBar extends StatelessWidget {
 }
 
 class _Keys extends StatefulWidget {
-  const _Keys({required this.children});
+  const _Keys({required this.controller, required this.children});
 
+  final ScrollController? controller;
   final List<Widget> children;
 
   @override
@@ -70,6 +80,7 @@ class _KeysState extends State<_Keys> {
           fit: StackFit.passthrough,
           children: [
             SingleChildScrollView(
+              controller: widget.controller,
               scrollDirection: Axis.horizontal,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,

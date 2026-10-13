@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/application/bar_layout.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/features/shell/shell_bar.dart';
@@ -42,6 +43,7 @@ Future<BarRecord> pumpBar(
   bool searching = false,
   bool suggestSend = false,
   bool arrowCells = false,
+  BarLayout? layout,
 }) async {
   final record = BarRecord();
   await tester.pumpWidget(
@@ -64,7 +66,13 @@ Future<BarRecord> pumpBar(
             searching: searching,
             onFind: () => record.finds++,
             onSend: suggestSend ? () => record.sends++ : null,
-            arrowCells: arrowCells,
+            layout:
+                layout ??
+                (arrowCells
+                    ? BarLayout.house
+                          .place(BarItem.arrows, pinned: false, index: 6)
+                          .withStick(false)
+                    : BarLayout.house),
           ),
         ),
       ),
@@ -834,6 +842,33 @@ void main() {
       expect(record.sent, [
         [0x1b, 0x5b, 0x31, 0x3b, 0x32, 0x41],
       ]);
+    });
+  });
+
+  group('layout', () {
+    testWidgets('a hidden item is not drawn and the rest keep their order', (
+      tester,
+    ) async {
+      await pumpBar(
+        tester,
+        layout: BarLayout.house
+            .hide(BarItem.voice)
+            .place(BarItem.keyboard, pinned: false, index: 0)
+            .withStick(false),
+      );
+
+      expect(find.byKey(const ValueKey('bar-VOICE')), findsNothing);
+      expect(find.byKey(const ValueKey('bar-ARROWS')), findsNothing);
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('bar-keyboard'))).dx,
+        lessThan(tester.getTopLeft(find.byKey(const ValueKey('bar-find'))).dx),
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('bar-LEFT'))).dx,
+        lessThan(
+          tester.getTopLeft(find.byKey(const ValueKey('bar-ATTACH'))).dx,
+        ),
+      );
     });
   });
 }

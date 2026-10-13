@@ -1235,7 +1235,7 @@ Every sentence a failure is worded with is written once — the five ssh lines, 
 
 ### The key bar is one row of 36, and it keeps its last cell
 
-A bar at the bottom of the route, always drawn, above the IME when it is open, landscape included. Cells sized to their label plus 10 px each side, never narrower than 36, the hit area the full row height. `FIND` is at the head, then `CTRL`, `ALT`, `SHIFT`, `ESC`, `TAB`, the four arrows and `END` in the strip's marks and the strip's mono. The bar's keys go through the byte table — `ESC` `1b`, `TAB` `09`, arrows `1b 5b 41..44`, `END` `1b 5b 46`, Return `0d`, backspace `7f` — and `CTRL` turns the next letter into its control byte while `ALT` prefixes it with `1b`.
+A bar at the bottom of the route, always drawn, above the IME when it is open, landscape included. Cells sized to their label plus 10 px each side, never narrower than 36, the hit area the full row height. `FIND` is at the head, then `CTRL`, `ALT`, `SHIFT`, `ESC`, `TAB`, the four arrows and `END` in the strip's marks and the strip's mono. That is the default layout, and `[ KEY BAR ]` on SYS rearranges it. The bar's keys go through the byte table — `ESC` `1b`, `TAB` `09`, arrows `1b 5b 41..44`, `END` `1b 5b 46`, Return `0d`, backspace `7f` — and `CTRL` turns the next letter into its control byte while `ALT` prefixes it with `1b`.
 
 **`SHIFT` is for the keys the IME has no shifted form of.** A shifted arrow goes as `1b 5b 31 3b 32 41..44` and `SHIFT TAB` as `1b 5b 5a`, which is what an agent's TUI reads as a mode switch or a history walk. On a typed character it does nothing: the soft keyboard has already chosen the capital.
 
@@ -1257,7 +1257,7 @@ A press on an arrow that stays down sends the arrow, waits 400 ms, and then send
 
 ### The four arrows are one stick
 
-The four arrows are not cells on the row. One cell takes their place on the pinned side, before `ATTACH`, drawing the four arrow glyphs in a cross, whichever way the phone is held and whether it is folded or open. Upright on a phone the row could not hold four arrow cells: only `←` showed, and `↑`, `↓`, `→` and `END` sat behind a scroll. The stick keeps one place and one gesture on every screen rather than switching to cells on a screen that happens to be wider than it is tall, which an open foldable is by a few pixels.
+The four arrows are not cells on the row. One cell takes their place on the pinned side, before `ATTACH`, drawing the four arrow glyphs in a cross, whichever way the phone is held and whether it is folded or open. Upright on a phone the row could not hold four arrow cells: only `←` showed, and `↑`, `↓`, `→` and `END` sat behind a scroll. The stick keeps one place and one gesture on every screen rather than switching to cells on a screen that happens to be wider than it is tall, which an open foldable is by a few pixels. The stick is the default; `[ KEY BAR ]` draws the arrows as four cells instead, as a choice the user makes and never one the screen's shape makes.
 
 **A push holds an arrow.** A finger that lands on the stick and moves 12 px from where it landed sends the arrow it points at, waits 400 ms and repeats every 50 ms, the pace a held arrow cell keeps; the held arm draws in the accent. Swinging to another arm sends that arrow and starts the wait again, the way a second key pressed on a keyboard does. Coming back within 6 px of the landing stops it, and so do the lift and a pointer lost to the system. A tap sends nothing.
 
@@ -1985,7 +1985,7 @@ already answered by the jump that took them away from it.
 
 ### SYS is a door on Home, not a destination in the nav
 
-The nav has four labels and gains no fifth for settings. The door is a `SYS` breadcrumb action on Home, in the same slot and style as a project's `EDIT`, pushing a `SETTINGS` route with no nav bar under the crumb `UPGRADE / SYS`. Its blocks, top to bottom, are `[ STATIC ]`, `[ ALERTS ]`, `[ VOICE ]`, `[ BUNDLE ]`, `[ THEME ]` and `[ BUILD ]`. Hosts and keys are not among them: they have a tab of their own, and the rule that a host needs a key lives in the host form.
+The nav has four labels and gains no fifth for settings. The door is a `SYS` breadcrumb action on Home, in the same slot and style as a project's `EDIT`, pushing a `SETTINGS` route with no nav bar under the crumb `UPGRADE / SYS`. Its blocks, top to bottom, are `[ STATIC ]`, `[ ALERTS ]`, `[ VOICE ]`, `[ KEY BAR ]`, `[ BUNDLE ]`, `[ THEME ]` and `[ BUILD ]`. Hosts and keys are not among them: they have a tab of their own, and the rule that a host needs a key lives in the host form.
 
 **`[ STATIC ]`** is `ON` / `OFF` as a two-row picker with the block on the active one, persisted in a `settings` key-value table. OFF draws the noise tile once, unmoving, which is the same path the thermal throttle takes.
 
@@ -1994,6 +1994,20 @@ The nav has four labels and gains no fifth for settings. The door is a `SYS` bre
 **`[ VOICE ]`** is a row per model, `WHISPER BASE` and `WHISPER SMALL`, each with a toggle of its own that is off on a fresh install. Each subtitle says what turning it on costs: `161 MB DOWNLOAD · STAYS ON THE PHONE` and `375 MB DOWNLOAD · SHARPER, SLOWER`. On fetches that model, int8, from a pinned revision of sherpa-onnx's model repository: three files, each checked against its sha256 before it is kept. While it fetches, the toggle stands on and the subtitle reads `DOWNLOADING 42%`. The fetch belongs to the app, not the screen, so leaving SYS does not stop it. Done, the row reads `IN USE · 161 MB` for the model that hears, and `INSTALLED · 161 MB` for base while small is on the phone too: small hears whenever it is there, so base can be kept or deleted beside it. A fetch that fails leaves nothing behind, turns the toggle off, and reads `DOWNLOAD FAILED`, or `MODEL CORRUPT` when a digest differs, until the next try. Off cancels a fetch under way and deletes that model; with both off, VOICE goes back to the phone's recognizer. **The toggle is the files**: no settings row says Whisper is on, so a model that is not on disk is a toggle that reads off. Under the rows, `LANGUAGE` offers `AUTO`, `ES`, `EN`, `PT`, `FR`, `DE` and `IT`, `AUTO` on a fresh install; the choice survives a launch, applies from the next recording, and is drawn whether or not a model is on the phone, because it is Whisper's alone and says so: `WHISPER ONLY · THE PHONE'S RECOGNIZER FOLLOWS ITS OWN`. The recognition engine ships in the app, because Android will not load native code the app downloaded. Only the model is a download.
 
 **`[ BUILD ]`** is the last line, mono 11 `--fg-dim`: `v<version> (<versionCode>) <short sha>`, the sha injected at build time and reading `dev` when it is absent.
+
+### `[ KEY BAR ]` arranges the shell's bar on the bar itself
+
+The block draws the shell's own bar from the stored layout, at the width the panel gives it, scrolling and fading the way it does over a shell. A `TRY` / `ARRANGE` switch heads it.
+
+**`TRY` is the bar working.** Modifiers arm, count and latch, the stick pushes and repeats, and the line above the bar shows the bytes each key would have sent — `1b 5b 43` — the last four of them, in the accent. Nothing reaches a host. `ATTACH` and `VOICE` say their name on that line instead of acting.
+
+**`ARRANGE` is the same bar held still.** A hold on a cell lifts it in an accent frame; a drop on another cell lands on whichever half it was let go over, and an accent caret says which before the lift. Each side of the rule ends in a slot of its own, so a cell can go after the last one or onto a side left empty, and that is how a cell is pinned or unpinned. A drag held near either end of the scrolling side scrolls it. Under the bar, `HIDDEN` takes a dropped cell off the bar and holds it; a tap on one there, or a drag back onto the bar, puts it back. `KEYBOARD` moves but never hides: it is the only way to the IME from a shell, and the tray refuses it with `THE KEYBOARD STAYS ON THE BAR`. `SEND` is not arranged: it appears at the head of the pinned side when there is something to send.
+
+**`ARROWS` picks the form.** Two tiles, `STICK` and `CELLS`, each drawing the arrows as they would sit on the bar, the chosen one framed in the accent. The arrows keep their place on the bar whichever form they take.
+
+**The default is no row.** Every change is written at once and every open shell redraws its bar on the next frame. `BACK TO DEFAULT` deletes the row rather than writing the default down, so a layout never changed follows the app's own when that moves; with nothing changed it reads `DEFAULT · IN USE` and does nothing. A row that does not parse is the default, a name the app no longer knows is dropped, and a row without `KEYBOARD` gets it back at the end of the pinned side.
+
+**The screen's key strip is not arranged here.** It is a different bar with different keys, and its arrows stay cells.
 
 ### A bundle carries the phone to another phone
 

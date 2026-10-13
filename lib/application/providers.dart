@@ -23,6 +23,7 @@ import '../data/views.dart';
 import '../platform/keys.dart';
 import '../platform/link_metadata.dart';
 import 'agents.dart';
+import 'bar_layout.dart';
 import 'link_preview.dart';
 import 'pane_share.dart';
 import 'shell_font.dart';
@@ -359,6 +360,13 @@ final paneShareProvider = StreamProvider.family<double, PaneSeam>(
   (ref, seam) => ref
       .watch(settingsRepositoryProvider)
       .watchNumber(seam.key, orElse: seam.fallback),
+);
+
+final shellBarLayoutProvider = StreamProvider<BarLayout>(
+  (ref) => ref
+      .watch(settingsRepositoryProvider)
+      .watchRaw(SettingsRepository.shellBarLayout)
+      .map(BarLayout.decode),
 );
 
 final themeSystemProvider = StreamProvider<bool>(

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/agents.dart';
+import '../../application/bar_layout.dart';
 import '../../application/agent_kind.dart';
 import '../../application/clips.dart';
 import '../../application/pin_alerts.dart';
@@ -1095,6 +1096,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                       clipCount: _clips.count,
                       searching: _searching,
                       onFind: _onFind,
+                      layout:
+                          ref.watch(shellBarLayoutProvider).valueOrNull ??
+                          BarLayout.house,
                       onAttach: () => showAttachSheet(context, session: active),
                       dictation: _dictation,
                       voiceLanding: _voiceLanding,

@@ -10,6 +10,7 @@ import '../../platform/device.dart';
 import '../screen_scaffold.dart';
 import 'alerts_block.dart';
 import 'bundle_panel.dart';
+import 'key_bar_block.dart';
 import 'voice_block.dart';
 
 void openSettings(BuildContext context) {
@@ -79,6 +80,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const AlertsSettingsBlock(),
                 const VoiceSettingsBlock(),
+                const KeyBarSettingsBlock(),
                 const BundlePanel(),
                 Panel(
                   title: '[ APPEARANCE ]',

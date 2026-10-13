@@ -19,6 +19,8 @@ class SettingsRepository {
 
   static const whisperLanguage = 'whisper_language';
 
+  static const shellBarLayout = 'shell_bar_layout';
+
   Stream<bool> watchFlag(String key, {required bool orElse}) {
     return (_db.select(_db.settings)..where((s) => s.key.equals(key)))
         .watchSingleOrNull()
@@ -59,6 +61,15 @@ class SettingsRepository {
   }
 
   Future<void> setText(String key, String value) => _write(key, value);
+
+  Stream<String?> watchRaw(String key) {
+    return (_db.select(_db.settings)..where((s) => s.key.equals(key)))
+        .watchSingleOrNull()
+        .map((row) => row?.value);
+  }
+
+  Future<void> clear(String key) =>
+      (_db.delete(_db.settings)..where((s) => s.key.equals(key))).go();
 
   Future<void> _write(String key, String value) {
     return _db
