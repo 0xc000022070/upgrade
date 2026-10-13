@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -270,6 +271,40 @@ void main() {
         tester.widget<DiffSheet>(find.byType(DiffSheet)).directory,
         '/srv/gate',
       );
+
+      await unmount(tester);
+    });
+
+    testWidgets('the sheet is up before the host has answered the tap', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      late FakeShellConnection connection;
+      transport.opening = (opened) {
+        connection = opened;
+        opened.answer = (command, _) => _says(
+          command.contains('rev-parse')
+              ? '/home/luis/src/upgrade\n'
+              : '/home/luis/src/upgrade\n\n',
+        );
+      };
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+
+      final held = connection.holdExec = Completer<void>();
+      await tester.tap(find.byKey(_diffCell));
+      await tester.tap(find.byKey(_diffCell), warnIfMissed: false);
+      await ready(tester);
+
+      expect(find.text('finding the checkout'), findsOneWidget);
+      expect(find.byType(DiffSheet), findsNothing);
+
+      held.complete();
+      await ready(tester);
+
+      expect(find.text('finding the checkout'), findsNothing);
+      expect(find.byType(DiffSheet), findsOneWidget);
 
       await unmount(tester);
     });

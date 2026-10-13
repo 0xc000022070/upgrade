@@ -804,23 +804,35 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     List<({String directory, String label})> targets,
   ) async {
     if (active != null) {
-      try {
-        await _store.repositoryFromHost(active);
-      } catch (error) {
-        if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-        debugPrint(
-          'upgrade.shell ${widget.host.name}: diff repository: $error',
-        );
-      }
+      final known = active.repository;
+      await showDiffSheetFinding(
+        context,
+        widget.host,
+        _findRepository(active, targets),
+        label: known == null ? widget.host.name : defaultPathLabel(known),
+        targets: targets,
+      );
+      return;
     }
-    if (!mounted) return;
-    final directory =
-        active?.repository ??
-        (targets.length == 1
-            ? targets.first.directory
-            : await _pickWorkspace(targets));
+    final directory = targets.length == 1
+        ? targets.first.directory
+        : await _pickWorkspace(targets);
     if (!mounted || directory == null) return;
     await showDiffSheetAt(context, widget.host, directory);
+  }
+
+  Future<String?> _findRepository(
+    ShellSession active,
+    List<({String directory, String label})> targets,
+  ) async {
+    try {
+      await _store.repositoryFromHost(active);
+    } catch (error) {
+      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
+      debugPrint('upgrade.shell ${widget.host.name}: diff repository: $error');
+    }
+    return active.repository ??
+        (targets.length == 1 ? targets.first.directory : null);
   }
 
   Future<String?> _pickWorkspace(

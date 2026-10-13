@@ -59,6 +59,10 @@ class FakeShellConnection implements ShellConnection {
   /// spends shutting the shell that died down.
   Completer<void>? hold;
 
+  /// Held to keep every command from coming back, so a test can look at the screen while
+  /// the host is still answering.
+  Completer<void>? holdExec;
+
   /// The default is a host that runs anything and says nothing.
   ExecResult Function(String command, Uint8List? stdin) answer = (_, _) =>
       ExecResult(exitCode: 0, stdout: Uint8List(0), stderr: Uint8List(0));
@@ -182,6 +186,7 @@ class FakeShellConnection implements ShellConnection {
     required Duration timeout,
   }) async {
     execs.add((command: command, stdin: stdin));
+    await holdExec?.future;
     if (!wedged) return answer(command, stdin);
     final never = Completer<ExecResult>().future;
     return never.timeout(timeout);

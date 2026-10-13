@@ -54,6 +54,25 @@ Future<void> showDiffSheetAt(
   );
 }
 
+Future<void> showDiffSheetFinding(
+  BuildContext context,
+  Host host,
+  Future<String?> directory, {
+  required String label,
+  List<({String directory, String label})> targets = const [],
+}) {
+  return _sheet(
+    context,
+    label,
+    (_) => _Finding(
+      host: host,
+      directory: directory,
+      label: label,
+      targets: targets,
+    ),
+  );
+}
+
 Future<void> _sheet(BuildContext context, String label, WidgetBuilder builder) {
   return showPanelSheet<void>(
     context,
@@ -62,6 +81,88 @@ Future<void> _sheet(BuildContext context, String label, WidgetBuilder builder) {
     maxWidth: double.infinity,
     builder: builder,
   );
+}
+
+class _Finding extends StatefulWidget {
+  const _Finding({
+    required this.host,
+    required this.directory,
+    required this.label,
+    required this.targets,
+  });
+
+  final Host host;
+  final Future<String?> directory;
+  final String label;
+  final List<({String directory, String label})> targets;
+
+  @override
+  State<_Finding> createState() => _FindingState();
+}
+
+class _FindingState extends State<_Finding> {
+  bool _answered = false;
+  String? _directory;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_find());
+  }
+
+  Future<void> _find() async {
+    String? directory;
+    try {
+      directory = await widget.directory;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _answered = true;
+          _directory = directory;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final directory = _directory;
+    if (directory != null) {
+      return DiffSheet(host: widget.host, directory: directory);
+    }
+    if (!_answered) {
+      return Panel(
+        title: '${widget.label.toUpperCase()} / WORKING TREE',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('loading…', style: context.tokens.rowTitleLead),
+            const SizedBox(height: Spacing.sm),
+            Text('finding the checkout', style: context.tokens.rowSubtitle),
+          ],
+        ),
+      );
+    }
+    if (widget.targets.isEmpty) {
+      return const Panel(title: 'DIFF', child: EmptyState('not a checkout'));
+    }
+    return Panel(
+      title: 'DIFF',
+      bodyPadding: EdgeInsets.zero,
+      child: ListRowGroup(
+        children: [
+          for (final target in widget.targets)
+            ListRow(
+              key: ValueKey('shell-diff-${target.directory}'),
+              title: target.label.toUpperCase(),
+              subtitle: shortPathLabel(target.directory),
+              onTap: () => setState(() => _directory = target.directory),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class DiffSheet extends ConsumerStatefulWidget {
