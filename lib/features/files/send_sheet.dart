@@ -159,10 +159,12 @@ class _SendSheetState extends ConsumerState<SendSheet> {
     final files = await _open(host);
     if (files == null) return await _done(false);
     try {
-      final taken = {
-        for (final entry in await files.list(folder) ?? const <DirEntry>[])
-          entry.name,
-      };
+      final listed = await files.list(folder);
+      if (listed == null) {
+        if (mounted) setState(() => _status = 'FOLDER · $unreadFolder');
+        return await _done(false);
+      }
+      final taken = {for (final entry in listed) entry.name};
       String claim(String name) {
         final free = freeName(name, taken);
         taken.add(free);

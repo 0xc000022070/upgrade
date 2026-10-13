@@ -118,6 +118,8 @@ Future<String?> pushFile(
   return null;
 }
 
+const unreadFolder = 'could not read the folder';
+
 class FilesSheet extends ConsumerStatefulWidget {
   const FilesSheet({super.key, required this.host, this.picking = false});
 
@@ -268,10 +270,12 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     if (files == null || _busy) return;
     final picked = await ref.read(phoneFilesProvider).pick();
     if (picked.isEmpty || !mounted) return;
-    final taken = {
-      for (final entry in await files.list(directory) ?? const <DirEntry>[])
-        entry.name,
-    };
+    final listed = await files.list(directory);
+    if (listed == null || !mounted) {
+      if (mounted) setState(() => _status = 'UPLOADING · $unreadFolder');
+      return discardCopies(picked.map((f) => f.path));
+    }
+    final taken = {for (final entry in listed) entry.name};
     final names = <String>[];
     for (final file in picked) {
       final name = freeName(file.name, taken);
@@ -369,9 +373,9 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
       final to = there = target.id == widget.host.id
           ? files
           : await opener(target);
-      final taken = {
-        for (final e in await to.list(folder) ?? const <DirEntry>[]) e.name,
-      };
+      final listed = await to.list(folder);
+      if (listed == null) return unreadFolder;
+      final taken = {for (final e in listed) e.name};
       return pushFile(
         to,
         joinPath(folder, freeName(entry.name, taken)),

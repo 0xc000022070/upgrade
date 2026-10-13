@@ -36,6 +36,7 @@ final class _FakeFiles implements HostFiles {
   final puts = <String, List<int>>{};
   final copies = <String>[];
   var closed = false;
+  var unreadable = false;
 
   @override
   Host get host => _nyx;
@@ -44,7 +45,8 @@ final class _FakeFiles implements HostFiles {
   Future<String> home() async => '/home/luis';
 
   @override
-  Future<List<DirEntry>?> list(String directory) async => tree[directory];
+  Future<List<DirEntry>?> list(String directory) async =>
+      unreadable ? null : tree[directory];
 
   @override
   Future<FileWrite> put(
@@ -217,5 +219,23 @@ void main() {
     expect(files.puts.keys.single, startsWith('/home/luis/shared-'));
     expect(String.fromCharCodes(files.puts.values.single), 'hello');
     await tester.pumpAndSettle(sendSheetLinger);
+  });
+
+  testWidgets('a folder that cannot be read takes nothing', (tester) async {
+    await open(
+      tester,
+      (context) => showSendSheet(context, const [SharedText('hello')]),
+    );
+
+    await tester.tap(find.text('nyx'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('send-folder')));
+    await tester.pumpAndSettle();
+    files.unreadable = true;
+    await tester.tap(find.byKey(const ValueKey('files-put-here')));
+    await tester.pumpAndSettle();
+
+    expect(files.puts, isEmpty);
+    expect(find.text('FOLDER · $unreadFolder'), findsOneWidget);
   });
 }
