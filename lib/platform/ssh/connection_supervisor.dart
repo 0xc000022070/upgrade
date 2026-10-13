@@ -5,7 +5,7 @@
 /// probes and timeouts borrow it and never close, replace or retry it.
 ///
 /// Tags name what holds a rule. Untagged: privacy or a sealed type; breaking it fails to
-/// compile. (fence): `test/ssh_fence_test.dart` holds the allowed call sites. (tested: x):
+/// compile. (fence): `test/platform/ssh/ssh_fence_test.dart` holds the allowed call sites. (tested: x):
 /// `test/x_test.dart` covers it. (convention): review only.
 ///
 /// Who owns what:

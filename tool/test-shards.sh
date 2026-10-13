@@ -14,7 +14,7 @@ out=$root/test/shards
 rm -rf "$out"
 mkdir -p "$out"
 
-all=("$root"/test/*_test.dart)
+mapfile -t all < <(find "$root/test" -name '*_test.dart' -not -path "$root/test/host/*" -not -path "$root/test/shards/*" | sort)
 unit=()
 for path in "${all[@]}"; do
   grep -qE 'testWidgets|WidgetTester' "$path" || unit+=("$path")
@@ -81,7 +81,7 @@ write() {
     for path in "$@"; do
       local name
       name=$(basename "$path" .dart)
-      echo "import '../$name.dart' as $name;"
+      echo "import '../${path#"$root"/test/}' as $name;"
     done
     echo
     echo "void main() {"
