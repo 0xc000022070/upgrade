@@ -46,6 +46,7 @@ class _SendSheetState extends ConsumerState<SendSheet> {
   Host? _host;
   String? _status;
   bool _busy = false;
+  TransferJob? _job;
   bool _sent = false;
   List<AttachItem> _items = const [];
 
@@ -72,13 +73,10 @@ class _SendSheetState extends ConsumerState<SendSheet> {
     }
   }
 
-  Future<List<String>?> _upload(
-    String verb,
-    Future<String?> Function(int index, void Function(AttachItem) report) task,
-  ) async {
+  Future<List<String>?> _upload(String verb, QueueTask task) async {
     final items = [for (final file in _shared) AttachItem(bytes: file.size)];
     if (!mounted) return null;
-    final job = ref
+    final job = _job = ref
         .read(transfersProvider)
         .begin(verb: verb, host: _host?.name ?? '', files: _queue);
     setState(() {
@@ -88,15 +86,24 @@ class _SendSheetState extends ConsumerState<SendSheet> {
     final failures = await runQueue(
       _queue,
       task,
+      stop: job.stop,
       onItem: (index, item) {
         items[index] = item;
         job.report(index, item);
         if (mounted) setState(() {});
       },
     ).whenComplete(job.end);
-    final failed = failures.whereType<String>().length;
-    if (failed == 0) return const [];
-    if (mounted) setState(() => _status = '$verb · $failed FAILED');
+    final failed = failures
+        .where((f) => f != null && f != stoppedFailure)
+        .length;
+    if (failed == 0 && !job.stop.stopped) return const [];
+    if (mounted) {
+      setState(
+        () => _status = job.stop.stopped
+            ? '$verb · STOPPED'
+            : '$verb · $failed FAILED',
+      );
+    }
     return null;
   }
 
@@ -112,12 +119,13 @@ class _SendSheetState extends ConsumerState<SendSheet> {
       ];
       if (await _upload(
             'UPLOADING',
-            (i, report) => pushFile(
+            (i, report, stop) => pushFile(
               files,
               at[i],
               File(_shared[i].path),
               report,
               sharing: sharing,
+              stop: stop,
             ),
           ) ==
           null) {
@@ -165,12 +173,13 @@ class _SendSheetState extends ConsumerState<SendSheet> {
       final sharing = uploadsSharing(_shared.length);
       if (await _upload(
             'UPLOADING',
-            (i, report) => pushFile(
+            (i, report, stop) => pushFile(
               files,
               joinPath(folder, names[i]),
               File(_shared[i].path),
               report,
               sharing: sharing,
+              stop: stop,
             ),
           ) ==
           null) {
@@ -259,6 +268,13 @@ class _SendSheetState extends ConsumerState<SendSheet> {
                   style: tokens.label,
                 ),
               ),
+              if (_busy && _job != null && !_job!.ended && !_job!.stop.stopped)
+                ActionBlock(
+                  key: const ValueKey('send-stop'),
+                  label: 'STOP',
+                  tone: tokens.danger,
+                  onTap: () => setState(_job!.stop.stop),
+                ),
             ],
           ),
         ],

@@ -16,7 +16,14 @@ import 'package:upgrade/platform/workspace/workspace_commands.dart';
 import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 export 'package:upgrade/platform/ssh/host_files.dart'
-    show FileBody, FileWrite, PutProgress, uploadWidth, uploadsSharing;
+    show
+        FileBody,
+        FileWrite,
+        PutProgress,
+        TransferStop,
+        stoppedFailure,
+        uploadWidth,
+        uploadsSharing;
 export 'package:upgrade/platform/workspace/workspace_model.dart'
     show DirEntry, DirEntryKind;
 
@@ -49,6 +56,7 @@ abstract interface class HostFiles {
     required int size,
     int sharing = 1,
     PutProgress? onProgress,
+    TransferStop? stop,
   });
 
   Future<String?> copy({String? text, String? imageAt, String? mime});
@@ -148,6 +156,7 @@ final class _LeasedFiles implements HostFiles {
     required int size,
     int sharing = 1,
     PutProgress? onProgress,
+    TransferStop? stop,
   }) {
     final timeout = transferDeadline(size, sharing);
     return getFile(
@@ -158,6 +167,7 @@ final class _LeasedFiles implements HostFiles {
       into: into,
       timeout: timeout,
       onProgress: onProgress,
+      stop: stop,
     );
   }
 

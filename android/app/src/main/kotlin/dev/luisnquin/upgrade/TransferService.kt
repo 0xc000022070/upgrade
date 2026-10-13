@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -32,8 +33,20 @@ class TransferService : Service() {
     }
 
     companion object {
+        const val OPEN = "dev.luisnquin.upgrade.TRANSFERS"
+        private const val STOP = "dev.luisnquin.upgrade.STOP_TRANSFERS"
         private const val CHANNEL = "transfers"
         private const val ID = 7301
+
+        var listener: ((String) -> Unit)? = null
+        private var waiting: String? = null
+
+        fun deliver(method: String) {
+            val heard = listener ?: return run { waiting = method }
+            heard(method)
+        }
+
+        fun takeWaiting(): String? = waiting.also { waiting = null }
 
         private var running: TransferService? = null
         private var latest: Notification? = null
@@ -92,7 +105,9 @@ class TransferService : Service() {
             val open = PendingIntent.getActivity(
                 context,
                 ID,
-                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                Intent(context, MainActivity::class.java)
+                    .setAction(OPEN)
+                    .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -110,8 +125,23 @@ class TransferService : Service() {
                 .setOnlyAlertOnce(true)
                 .setShowWhen(false)
             if (text.isNotEmpty()) builder.setContentText(text)
+            if (ongoing) {
+                val stop = PendingIntent.getBroadcast(
+                    context,
+                    ID,
+                    Intent(context, TransferStopReceiver::class.java).setAction(STOP),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                @Suppress("DEPRECATION")
+                builder.addAction(0, "STOP", stop)
+            }
             if (percent != null) builder.setProgress(100, percent.coerceAtLeast(0), percent < 0)
             return builder.build()
         }
     }
+}
+
+class TransferStopReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) =
+        TransferService.deliver("stopTransfers")
 }

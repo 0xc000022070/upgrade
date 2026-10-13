@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:upgrade/application/files/phone_inbox.dart';
 import 'package:upgrade/application/formatting.dart';
 import 'package:upgrade/features/files/transfer_queue.dart';
-import 'package:upgrade/platform/herdr/agent_watcher.dart' show AgentWatcher;
+import 'package:upgrade/platform/ssh/host_files.dart' show TransferStop;
+
+export 'package:upgrade/platform/ssh/host_files.dart' show TransferStop;
 
 const transferTick = Duration(milliseconds: 500);
 const transferRateWindow = Duration(seconds: 3);
@@ -21,7 +23,7 @@ String rateWord(double bytesPerSecond) {
 }
 
 final class TransferJob {
-  TransferJob._(this._owner, this.verb, this.host, this.files)
+  TransferJob._(this._owner, this.verb, this.host, this.files, this.stop)
     : items = [for (final file in files) AttachItem(bytes: file.bytes)];
 
   final Transfers _owner;
@@ -29,9 +31,13 @@ final class TransferJob {
   final String host;
   final List<QueuedFile> files;
   final List<AttachItem> items;
+  final TransferStop stop;
   DateTime? endedAt;
+  bool seen = false;
 
   bool get ended => endedAt != null;
+
+  bool get failed => items.any((item) => item.stage == AttachStage.failed);
 
   void report(int index, AttachItem item) {
     final before = items[index].sent;
@@ -76,11 +82,10 @@ final class TransferTally {
 }
 
 class Transfers extends ChangeNotifier {
-  Transfers({this.status, this.ask, DateTime Function()? now})
+  Transfers({this.status, DateTime Function()? now})
     : _now = now ?? DateTime.now;
 
   final TransferStatus? status;
-  final Future<void> Function()? ask;
   final DateTime Function() _now;
 
   final _jobs = <TransferJob>[];
@@ -91,22 +96,38 @@ class Transfers extends ChangeNotifier {
   int _ticks = 0;
   int _failed = 0;
   int _landed = 0;
-  bool _asked = false;
+  int _stopped = 0;
 
   List<TransferJob> get jobs => List.unmodifiable(_jobs);
 
   bool get active => _jobs.any((job) => !job.ended);
 
+  void stopAll() {
+    for (final job in _jobs) {
+      if (!job.ended) job.stop.stop();
+    }
+  }
+
+  void seeAll() {
+    var changed = false;
+    for (final job in _jobs) {
+      if (job.ended && !job.seen) {
+        job.seen = changed = true;
+        job.endedAt = _now();
+      }
+    }
+    if (!changed) return;
+    _ticker ??= Timer.periodic(transferTick, (_) => _tick());
+    notifyListeners();
+  }
+
   TransferJob begin({
     required String verb,
     required String host,
     required List<QueuedFile> files,
+    TransferStop? stop,
   }) {
-    if (!_asked) {
-      _asked = true;
-      unawaited(ask?.call());
-    }
-    final job = TransferJob._(this, verb, host, files);
+    final job = TransferJob._(this, verb, host, files, stop ?? TransferStop());
     _jobs.add(job);
     _ticker ??= Timer.periodic(transferTick, (_) => _tick());
     _sample();
@@ -158,14 +179,17 @@ class Transfers extends ChangeNotifier {
     final now = _now();
     final before = _jobs.length;
     _jobs.removeWhere(
-      (job) => job.ended && now.difference(job.endedAt!) >= transferLinger,
+      (job) =>
+          job.ended &&
+          (job.seen || !job.failed) &&
+          now.difference(job.endedAt!) >= transferLinger,
     );
     if (_dirty || before != _jobs.length) {
       _dirty = false;
       notifyListeners();
     }
     if ((++_ticks).isEven && active) _post();
-    if (_jobs.isEmpty) {
+    if (!active && _jobs.every((job) => job.failed && !job.seen)) {
       _ticker?.cancel();
       _ticker = null;
       _samples.clear();
@@ -174,10 +198,13 @@ class Transfers extends ChangeNotifier {
 
   void _ended(TransferJob job) {
     for (final item in job.items) {
-      if (item.stage == AttachStage.failed) {
-        _failed++;
-      } else if (item.stage != AttachStage.stopped) {
-        _landed++;
+      switch (item.stage) {
+        case AttachStage.failed:
+          _failed++;
+        case AttachStage.stopped:
+          _stopped++;
+        default:
+          _landed++;
       }
     }
     notifyListeners();
@@ -186,9 +213,11 @@ class Transfers extends ChangeNotifier {
       [
         if (_landed > 0) 'MOVED $_landed',
         if (_failed > 0) '$_failed FAILED',
+        if (_stopped > 0) '$_stopped STOPPED',
       ].join(' · '),
     );
     _failed = 0;
+    _stopped = 0;
     _landed = 0;
   }
 
@@ -211,15 +240,10 @@ class Transfers extends ChangeNotifier {
   }
 }
 
-final transfersProvider = ChangeNotifierProvider<Transfers>(
-  (ref) => Transfers(
-    status: ref.read(phoneFilesProvider),
-    ask: () async {
-      try {
-        await AgentWatcher.requestPermission();
-      } catch (_) {
-        // ignored: without the permission the bar in the app still shows progress
-      }
-    },
-  ),
-);
+final transfersProvider = ChangeNotifierProvider<Transfers>((ref) {
+  final phone = ref.read(phoneFilesProvider);
+  final transfers = Transfers(status: phone);
+  final stops = phone.stops.listen((_) => transfers.stopAll());
+  ref.onDispose(stops.cancel);
+  return transfers;
+});

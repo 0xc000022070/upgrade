@@ -76,6 +76,7 @@ Future<String?> pullFile(
   int size,
   void Function(AttachItem item) report, {
   int sharing = 1,
+  TransferStop? stop,
 }) async {
   var item = AttachItem(bytes: size, down: true).to(AttachStage.sending);
   report(item);
@@ -84,6 +85,7 @@ Future<String?> pullFile(
     into,
     size: size,
     sharing: sharing,
+    stop: stop,
     onProgress: (sent) =>
         report(item = item.to(AttachStage.sending, sent: sent)),
   );
@@ -99,13 +101,14 @@ Future<String?> pushFile(
   void Function(AttachItem item) report, {
   int sharing = 1,
   AttachStage done = AttachStage.landed,
+  TransferStop? stop,
 }) async {
   final size = await file.length();
   var item = AttachItem(bytes: size).to(AttachStage.sending);
   report(item);
   final write = await to.put(
     path,
-    FileBody.file(file, size),
+    FileBody.file(file, size, stop: stop),
     sharing: sharing,
     onProgress: (sent) =>
         report(item = item.to(AttachStage.sending, sent: sent)),
@@ -138,6 +141,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
 
   String? _status;
   bool _busy = false;
+  TransferJob? _job;
   Future<void>? _running;
   List<QueuedFile> _queue = const [];
   List<AttachItem> _items = const [];
@@ -219,10 +223,10 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
   Future<List<String?>> _run(
     String verb,
     List<QueuedFile> queue,
-    Future<String?> Function(int index, void Function(AttachItem) report) task,
+    QueueTask task,
   ) async {
     final items = [for (final file in queue) AttachItem(bytes: file.bytes)];
-    final job = ref
+    final job = _job = ref
         .read(transfersProvider)
         .begin(verb: verb, host: widget.host.name, files: queue);
     setState(() {
@@ -234,6 +238,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     final run = runQueue(
       queue,
       task,
+      stop: job.stop,
       onItem: (index, item) {
         items[index] = item;
         job.report(index, item);
@@ -242,11 +247,17 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     ).whenComplete(job.end);
     _running = run;
     final failures = await run;
-    final failed = failures.whereType<String>().length;
+    final failed = failures
+        .where((f) => f != null && f != stoppedFailure)
+        .length;
     if (mounted) {
       setState(() {
         _busy = false;
-        _status = failed == 0 ? '$verb · DONE' : '$verb · $failed FAILED';
+        _status = job.stop.stopped
+            ? '$verb · STOPPED'
+            : failed == 0
+            ? '$verb · DONE'
+            : '$verb · $failed FAILED';
       });
     }
     return failures;
@@ -275,12 +286,13 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
         for (var i = 0; i < picked.length; i++)
           QueuedFile(name: names[i], bytes: picked[i].size),
       ],
-      (i, report) => pushFile(
+      (i, report, stop) => pushFile(
         files,
         joinPath(directory, names[i]),
         File(picked[i].path),
         report,
         sharing: sharing,
+        stop: stop,
       ),
     );
     await discardCopies(picked.map((f) => f.path));
@@ -294,9 +306,12 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     final phone = ref.read(phoneFilesProvider);
     final into = File('${(await phone.outgoing()).path}/${entry.name}');
     if (!mounted) return;
-    final failures = await _run('SHARING', [
-      QueuedFile(name: entry.name, bytes: entry.size),
-    ], (_, report) => pullFile(files, path, into, entry.size, report));
+    final failures = await _run(
+      'SHARING',
+      [QueuedFile(name: entry.name, bytes: entry.size)],
+      (_, report, stop) =>
+          pullFile(files, path, into, entry.size, report, stop: stop),
+    );
     if (failures.single == null) await phone.share([into.path]);
   }
 
@@ -307,9 +322,12 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     final scratch = await phone.scratch();
     final into = File('${scratch.path}/${entry.name}');
     if (!mounted) return;
-    final failures = await _run('SAVING', [
-      QueuedFile(name: entry.name, bytes: entry.size),
-    ], (_, report) => pullFile(files, path, into, entry.size, report));
+    final failures = await _run(
+      'SAVING',
+      [QueuedFile(name: entry.name, bytes: entry.size)],
+      (_, report, stop) =>
+          pullFile(files, path, into, entry.size, report, stop: stop),
+    );
     String? line;
     if (failures.single == null) {
       try {
@@ -337,8 +355,16 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     await _run('SENDING', [QueuedFile(name: entry.name, bytes: entry.size)], (
       _,
       report,
+      stop,
     ) async {
-      final failed = await pullFile(files, path, into, entry.size, report);
+      final failed = await pullFile(
+        files,
+        path,
+        into,
+        entry.size,
+        report,
+        stop: stop,
+      );
       if (failed != null) return failed;
       final to = there = target.id == widget.host.id
           ? files
@@ -351,6 +377,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
         joinPath(folder, freeName(entry.name, taken)),
         into,
         report,
+        stop: stop,
       );
     });
     if (there != null && there != files) there!.close();
@@ -481,6 +508,29 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
         onTap: () => Navigator.of(context).pop(),
       ),
       footer: [
+        if (_status case final status?)
+          Row(
+            children: [
+              if (_busy) ...[
+                const DotSpinner(),
+                const SizedBox(width: Spacing.md),
+              ],
+              Expanded(
+                child: Text(
+                  status,
+                  key: const ValueKey('files-status'),
+                  style: tokens.label,
+                ),
+              ),
+              if (_busy && _job != null && !_job!.stop.stopped)
+                ActionBlock(
+                  key: const ValueKey('files-stop'),
+                  label: 'STOP',
+                  tone: tokens.danger,
+                  onTap: () => setState(_job!.stop.stop),
+                ),
+            ],
+          ),
         if (widget.picking && target != null) ...[
           Text(
             target == home ? '~' : target,
@@ -511,27 +561,9 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
           const Row(children: [DotSpinner()])
         else
           ...rows,
-        if (_status case final status?) ...[
+        if (_queue.isNotEmpty) ...[
           const SheetRule(),
-          Row(
-            children: [
-              if (_busy) ...[
-                const DotSpinner(),
-                const SizedBox(width: Spacing.md),
-              ],
-              Expanded(
-                child: Text(
-                  status,
-                  key: const ValueKey('files-status'),
-                  style: tokens.label,
-                ),
-              ),
-            ],
-          ),
-          if (_queue.isNotEmpty) ...[
-            const SizedBox(height: Spacing.sm),
-            TransferQueue(files: _queue, items: _items, keyPrefix: 'files'),
-          ],
+          TransferQueue(files: _queue, items: _items, keyPrefix: 'files'),
         ],
       ],
     );

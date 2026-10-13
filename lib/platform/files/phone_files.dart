@@ -54,14 +54,27 @@ class PhoneFiles implements TransferStatus {
   PhoneFiles({MethodChannel? channel})
     : _channel = channel ?? const MethodChannel('dev.luisnquin.upgrade/files') {
     _channel.setMethodCallHandler((call) async {
-      if (call.method == 'shared') _nudges.add(null);
+      switch (call.method) {
+        case 'shared':
+          _nudges.add(null);
+        case 'openTransfers':
+          _opens.add(null);
+        case 'stopTransfers':
+          _stops.add(null);
+      }
     });
   }
 
   final MethodChannel _channel;
   final _nudges = StreamController<void>.broadcast();
+  final _opens = StreamController<void>.broadcast();
+  final _stops = StreamController<void>.broadcast();
 
   Stream<void> get nudges => _nudges.stream;
+
+  Stream<void> get opens => _opens.stream;
+
+  Stream<void> get stops => _stops.stream;
 
   Future<List<SharedFile>> pick() async {
     try {

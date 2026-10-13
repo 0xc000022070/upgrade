@@ -59,21 +59,57 @@ String putCommand(String path) {
 
 typedef PutProgress = void Function(int sent);
 
-final class FileBody {
-  FileBody.bytes(Uint8List this._bytes) : length = _bytes.length, _file = null;
+const stoppedFailure = 'stopped';
 
-  FileBody.file(File this._file, this.length) : _bytes = null;
+final class TransferStopped implements Exception {
+  const TransferStopped();
+}
+
+final class TransferStop {
+  final _stopped = Completer<void>();
+
+  bool get stopped => _stopped.isCompleted;
+
+  Future<Never> get stopping =>
+      _stopped.future.then((_) => throw const TransferStopped());
+
+  void stop() {
+    if (!stopped) _stopped.complete();
+  }
+
+  Stream<Uint8List> guard(Stream<Uint8List> stream) => stream.map((chunk) {
+    if (stopped) throw const TransferStopped();
+    return chunk;
+  });
+
+  Future<T> race<T>(Future<T> work) => Future.any([work, stopping]);
+}
+
+final class FileBody {
+  FileBody.bytes(Uint8List this._bytes, {this.stop})
+    : length = _bytes.length,
+      _file = null;
+
+  FileBody.file(File this._file, this.length, {this.stop}) : _bytes = null;
+
+  FileBody._(this._bytes, this._file, this.length, this.stop);
+
+  FileBody stoppedBy(TransferStop stop) =>
+      FileBody._(_bytes, _file, length, stop);
 
   final int length;
+  final TransferStop? stop;
   final Uint8List? _bytes;
   final File? _file;
 
   Stream<Uint8List> open() {
     final bytes = _bytes;
-    if (bytes != null) return Stream.value(bytes);
-    return _file!.openRead().map(
-      (chunk) => chunk is Uint8List ? chunk : Uint8List.fromList(chunk),
-    );
+    final raw = bytes != null
+        ? Stream.value(bytes)
+        : _file!.openRead().map(
+            (chunk) => chunk is Uint8List ? chunk : Uint8List.fromList(chunk),
+          );
+    return stop?.guard(raw) ?? raw;
   }
 
   Future<Uint8List> read() async => _bytes ?? await _file!.readAsBytes();
@@ -97,11 +133,27 @@ Future<FileWrite> putFile({
   PutProgress? onProgress,
 }) async {
   assert(path.startsWith('/'));
+  final stop = body.stop;
   final HostSftp? channel = await _start(sftp);
-  if (channel == null) return _overExec(exec, path, body, onProgress);
+  if (channel == null) {
+    try {
+      final put = _overExec(exec, path, body, onProgress);
+      return await (stop?.race(put) ?? put);
+    } on TransferStopped {
+      return const FileWrite.failed(FileRoute.exec, stoppedFailure);
+    }
+  }
   try {
-    await _write(channel.client, path, body, onProgress).timeout(timeout);
+    final write = _write(channel.client, path, body, onProgress);
+    await (stop?.race(write) ?? write).timeout(timeout);
     return const FileWrite.landed(FileRoute.sftp);
+  } on TransferStopped {
+    try {
+      await channel.client.remove(path).timeout(sftpHandshakeDeadline);
+    } catch (_) {
+      // ignored: a part left behind is named as the file the user stopped
+    }
+    return const FileWrite.failed(FileRoute.sftp, stoppedFailure);
   } on TimeoutException {
     return const FileWrite.failed(FileRoute.sftp, 'upload timed out');
   } on SftpStatusError catch (error) {
@@ -215,6 +267,7 @@ Future<FileWrite> getFile({
   required File into,
   required Duration timeout,
   PutProgress? onProgress,
+  TransferStop? stop,
 }) async {
   assert(path.startsWith('/'));
   await into.parent.create(recursive: true);
@@ -226,11 +279,16 @@ Future<FileWrite> getFile({
     'download failed',
   );
   try {
-    outcome = channel == null
-        ? await _readOverExec(exec, path, sink, onProgress)
-        : await (reading = _read(channel.client, path, sink, onProgress))
-              .timeout(timeout)
-              .then((_) => const FileWrite.landed(FileRoute.sftp));
+    if (channel == null) {
+      final read = _readOverExec(exec, path, sink, onProgress, stop);
+      outcome = await (stop?.race(read) ?? read);
+    } else {
+      reading = _read(channel.client, path, sink, onProgress, stop);
+      await (stop?.race(reading) ?? reading).timeout(timeout);
+      outcome = const FileWrite.landed(FileRoute.sftp);
+    }
+  } on TransferStopped {
+    outcome = FileWrite.failed(outcome.route, stoppedFailure);
   } on TimeoutException {
     outcome = FileWrite.failed(outcome.route, 'download timed out');
   } on SftpStatusError catch (error) {
@@ -265,10 +323,12 @@ Future<void> _read(
   String path,
   IOSink sink,
   PutProgress? onProgress,
+  TransferStop? stop,
 ) async {
   final file = await client.open(path);
   try {
-    await sink.addStream(file.read(onProgress: onProgress));
+    final read = file.read(onProgress: onProgress);
+    await sink.addStream(stop?.guard(read) ?? read);
   } finally {
     await file.close();
   }
@@ -279,9 +339,11 @@ Future<FileWrite> _readOverExec(
   String path,
   IOSink sink,
   PutProgress? onProgress,
+  TransferStop? stop,
 ) async {
   var read = 0;
   final result = await exec(getCommand(path), (chunk) {
+    if (stop?.stopped ?? false) return;
     sink.add(chunk);
     read += chunk.length;
     onProgress?.call(read);

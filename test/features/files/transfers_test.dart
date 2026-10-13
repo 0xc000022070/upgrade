@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +7,7 @@ import 'package:upgrade/features/files/transfer_bar.dart';
 import 'package:upgrade/features/files/transfer_queue.dart';
 import 'package:upgrade/features/files/transfers.dart';
 import 'package:upgrade/platform/files/phone_files.dart' show TransferStatus;
+import 'package:upgrade/platform/ssh/host_files.dart';
 
 import '../../support/themed_app.dart';
 
@@ -74,6 +77,52 @@ void main() {
     expect(status.dones, ['MOVED 1 · 1 FAILED']);
   });
 
+  test('a failed batch stays until it is seen', () {
+    final job = transfers.begin(
+      verb: 'UPLOADING',
+      host: 'nyx',
+      files: const [QueuedFile(name: 'a', bytes: 1)],
+    );
+    job.report(0, job.items[0].to(AttachStage.failed, detail: 'denied'));
+    job.end();
+    now = now.add(transferLinger * 3);
+    expect(transfers.jobs, hasLength(1));
+
+    transfers.seeAll();
+    expect(transfers.jobs.single.seen, isTrue);
+  });
+
+  test('a stopped queue starts nothing more', () async {
+    final stop = TransferStop()..stop();
+    final started = <int>[];
+    final reported = <AttachStage>[];
+    final failures = await runQueue(
+      const [QueuedFile(name: 'a', bytes: 1), QueuedFile(name: 'b', bytes: 1)],
+      (i, report, _) async {
+        started.add(i);
+        return null;
+      },
+      stop: stop,
+      onItem: (_, item) => reported.add(item.stage),
+    );
+    expect(started, isEmpty);
+    expect(failures, [stoppedFailure, stoppedFailure]);
+    expect(reported, [AttachStage.stopped, AttachStage.stopped]);
+  });
+
+  test('a stopped body ends its stream', () async {
+    final stop = TransferStop();
+    final body = FileBody.bytes(Uint8List(4), stop: stop)..stop!.stop();
+    await expectLater(body.open().toList(), throwsA(isA<TransferStopped>()));
+  });
+
+  test('the notification stop reaches every moving batch', () {
+    final a = transfers.begin(verb: 'UP', host: 'nyx', files: const []);
+    final b = transfers.begin(verb: 'UP', host: 'eos', files: const []);
+    transfers.stopAll();
+    expect(a.stop.stopped && b.stop.stopped, isTrue);
+  });
+
   testWidgets('the bar shows a moving job and opens the transfers', (
     tester,
   ) async {
@@ -101,7 +150,12 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('transfer-bar')));
     await tester.pumpAndSettle();
     expect(find.text('TRANSFERS'), findsOneWidget);
-    expect(find.text('DOWNLOADING · nyx'), findsOneWidget);
+    expect(find.text('DOWNLOADING · nyx · MOVING'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('transfers-stop-0')));
+    await tester.pump();
+    expect(job.stop.stopped, isTrue);
+    expect(find.text('DOWNLOADING · nyx · STOPPING'), findsOneWidget);
 
     job.end();
     now = now.add(transferLinger);

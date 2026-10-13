@@ -44,6 +44,19 @@ void main() {
     expect(runs.single.$2, bytes);
   });
 
+  test('a stop ends an upload that never finishes', () async {
+    final stop = TransferStop();
+    final write = putFile(
+      sftp: () => throw SSHChannelRequestError('no sftp'),
+      exec: (_, _) => Completer<ExecResult>().future,
+      path: '/tmp/upgrade/a.png',
+      body: FileBody.bytes(bytes, stop: stop),
+      timeout: const Duration(seconds: 1),
+    );
+    stop.stop();
+    expect((await write).failure, stoppedFailure);
+  });
+
   test('an exec that fails says what the host said', () async {
     Future<FileWrite> put(String err) => putFile(
       sftp: () => throw SSHChannelRequestError('no sftp'),

@@ -221,6 +221,10 @@ class AgentWatcher {
   static Future<bool> get running async =>
       _watching && await FlutterForegroundTask.isRunningService;
 
+  static Future<bool> hasPermission() async =>
+      await FlutterForegroundTask.checkNotificationPermission() ==
+      NotificationPermission.granted;
+
   static Future<bool> requestPermission() async {
     final current = await FlutterForegroundTask.checkNotificationPermission();
     if (current == NotificationPermission.granted) return true;

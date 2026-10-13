@@ -57,6 +57,7 @@ class MainActivity : FlutterActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             splashScreen.setOnExitAnimationListener { view -> view.remove() }
         }
+        if (intent?.action == TransferService.OPEN) TransferService.deliver("openTransfers")
         if (!warm) return
         UpgradeEngine.orientation?.let { super.setRequestedOrientation(it) }
         super.setFrameworkHandlesBack(UpgradeEngine.handlesBack)
@@ -69,6 +70,12 @@ class MainActivity : FlutterActivity() {
         super.onResume()
         hintFrameRate()
         if (SharedInbox.waiting()) shared?.invokeMethod("shared", null)
+        TransferService.takeWaiting()?.let { shared?.invokeMethod(it, null) }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.action == TransferService.OPEN) TransferService.deliver("openTransfers")
     }
 
     private var hinted: SurfaceView? = null
@@ -141,6 +148,7 @@ class MainActivity : FlutterActivity() {
         shared = MethodChannel(messenger, "dev.luisnquin.upgrade/files").also { channel ->
             channel.setMethodCallHandler(files::handle)
             SharedInbox.listener = { channel.invokeMethod("shared", null) }
+            TransferService.listener = { channel.invokeMethod(it, null) }
         }
 
         MethodChannel(messenger, "dev.luisnquin.upgrade/pip")
@@ -191,6 +199,7 @@ class MainActivity : FlutterActivity() {
         shared?.setMethodCallHandler(null)
         shared = null
         SharedInbox.listener = null
+        TransferService.listener = null
         dictation?.destroy()
         dictation = null
     }

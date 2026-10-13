@@ -64,6 +64,7 @@ final class _FakeFiles implements HostFiles {
     required int size,
     int sharing = 1,
     PutProgress? onProgress,
+    TransferStop? stop,
   }) async {
     await into.writeAsBytes(List.filled(size, 1));
     return const FileWrite.landed(FileRoute.sftp);

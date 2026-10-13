@@ -144,12 +144,14 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
     }
     if (!mounted) return;
     final items = [for (final p in picked) AttachItem(bytes: p.queued.bytes)];
+    final stop = TransferStop();
     final job = ref
         .read(transfersProvider)
         .begin(
           verb: 'ATTACHING',
           host: widget.session.host.name,
           files: [for (final p in picked) p.queued],
+          stop: stop,
         );
     setState(() {
       _status = 'ATTACHING 1 OF ${picked.length}';
@@ -159,10 +161,17 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
     final last = await pasteFiles(
       store: ref.read(shellSessionsProvider),
       session: widget.session,
-      files: [for (final p in picked) p.file],
+      files: [
+        for (final p in picked)
+          (
+            fileName: p.file.fileName,
+            body: p.file.body.stoppedBy(stop),
+            image: p.file.image,
+          ),
+      ],
       action: action,
       before: (i) async {
-        if (!mounted) return false;
+        if (!mounted || stop.stopped) return false;
         setState(() => _status = 'ATTACHING ${i + 1} OF ${picked.length}');
         if (i > 0) await Future<void>.delayed(attachGap);
         return mounted;

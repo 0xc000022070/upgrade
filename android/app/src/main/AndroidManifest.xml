@@ -64,6 +64,9 @@
             android:name=".TransferService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
+        <receiver
+            android:name=".TransferStopReceiver"
+            android:exported="false" />
         <!-- The plugin declares the service without a type, which an API 34+ device
              refuses to start. The override names it and the subtype Google wants. -->
         <service

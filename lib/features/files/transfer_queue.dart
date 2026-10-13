@@ -10,10 +10,16 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/shell/input/clip_paste.dart'
     show AttachItem, AttachStage;
 import 'package:upgrade/platform/ssh/host_files.dart'
-    show atMost, smallestFirst, uploadWidth;
+    show TransferStop, atMost, smallestFirst, stoppedFailure, uploadWidth;
 
 export 'package:upgrade/features/shell/input/clip_paste.dart'
     show AttachItem, AttachStage;
+
+typedef QueueTask = Future<String?> Function(
+  int index,
+  void Function(AttachItem item) report,
+  TransferStop? stop,
+);
 
 final class QueuedFile {
   const QueuedFile({required this.name, required this.bytes, this.thumb});
@@ -26,9 +32,9 @@ final class QueuedFile {
 
 Future<List<String?>> runQueue(
   List<QueuedFile> files,
-  Future<String?> Function(int index, void Function(AttachItem item) report)
-  task, {
+  QueueTask task, {
   required void Function(int index, AttachItem item) onItem,
+  TransferStop? stop,
 }) async {
   final items = [for (final file in files) AttachItem(bytes: file.bytes)];
   void report(int index, AttachItem item) {
@@ -42,9 +48,15 @@ Future<List<String?>> runQueue(
       [
         for (var i = 0; i < files.length; i++)
           () async {
+            if (stop?.stopped ?? false) {
+              report(i, items[i].to(AttachStage.stopped));
+              return stoppedFailure;
+            }
             try {
-              final failed = await task(i, (item) => report(i, item));
-              if (failed != null) {
+              final failed = await task(i, (item) => report(i, item), stop);
+              if (failed == stoppedFailure) {
+                report(i, items[i].to(AttachStage.stopped));
+              } else if (failed != null) {
                 report(i, items[i].to(AttachStage.failed, detail: failed));
               }
               return failed;

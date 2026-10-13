@@ -1049,7 +1049,6 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                     ],
                   ),
                 ),
-                const TransferBar(),
                 Expanded(
                   child: Stack(
                     children: [
@@ -1075,6 +1074,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                                   fontSize: fontSize,
                                 ),
                               ),
+                      ),
+                      const Positioned(
+                        top: Spacing.sm,
+                        right: Spacing.sm,
+                        child: TransferBadge(),
                       ),
                       if (_dictation.showing)
                         Positioned.fill(
