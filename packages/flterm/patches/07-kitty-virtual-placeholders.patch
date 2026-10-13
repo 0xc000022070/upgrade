@@ -1,6 +1,6 @@
 # Draw Kitty virtual placements from Unicode placeholder cells
 #
-# Against flterm 56a95052776e75816a3ab0c0057c20c850944265. Regenerate with `just flterm-patches`.
+# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just flterm-patches`.
 
 diff --git a/lib/src/rendering/frame_cursor.dart b/lib/src/rendering/frame_cursor.dart
 index c79a01a..7a38f39 100644

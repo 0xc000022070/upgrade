@@ -1,12 +1,12 @@
 # an application reading the mouse owns the drag on either screen
 #
-# Against flterm 56a95052776e75816a3ab0c0057c20c850944265. Regenerate with `just flterm-patches`.
+# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just flterm-patches`.
 
 diff --git a/lib/src/view/terminal_view.dart b/lib/src/view/terminal_view.dart
-index 411414d..cf97ed2 100644
+index 11b21dc..2e90c75 100644
 --- a/lib/src/view/terminal_view.dart
 +++ b/lib/src/view/terminal_view.dart
-@@ -194,7 +194,11 @@ final class _TerminalViewState extends State<TerminalView>
+@@ -205,7 +205,11 @@ final class _TerminalViewState extends State<TerminalView>
            listenable: _attachment.interaction,
            builder: (context, _) {
              final interaction = _attachment.interaction.value;

@@ -1,6 +1,6 @@
 # a row rebuild resolves a style id once, since each libghostty page numbers its own styles, and reuses operator runs it already shaped until the system fonts change
 #
-# Against flterm 56a95052776e75816a3ab0c0057c20c850944265. Regenerate with `just flterm-patches`.
+# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just flterm-patches`.
 
 diff --git a/lib/src/rendering/atlas/sprite_buffer.dart b/lib/src/rendering/atlas/sprite_buffer.dart
 index 7f4df97..af959ef 100644
@@ -26,7 +26,7 @@ index 7f4df97..af959ef 100644
  
  /// Row-retained shaped text runs.
 diff --git a/lib/src/rendering/frame_builder.dart b/lib/src/rendering/frame_builder.dart
-index fe7af46..bf134e0 100644
+index 16a21c6..0709469 100644
 --- a/lib/src/rendering/frame_builder.dart
 +++ b/lib/src/rendering/frame_builder.dart
 @@ -11,6 +11,7 @@ import '../links/link_snapshot.dart';
@@ -37,7 +37,7 @@ index fe7af46..bf134e0 100644
  import 'paint_state.dart';
  
  part 'frame_cursor.dart';
-@@ -51,6 +52,9 @@ class FrameBuilder {
+@@ -55,6 +56,9 @@ class FrameBuilder {
      _cursorBuilder = _CursorFrameBuilder(_state, content);
    }
  
@@ -47,15 +47,15 @@ index fe7af46..bf134e0 100644
    /// Reconfigures sprite storage for the current grid size.
    void configure(int rows, int cols) {
      _sprites.configure(rows, cols);
-@@ -60,6 +64,7 @@ class FrameBuilder {
+@@ -66,6 +70,7 @@ class FrameBuilder {
  
    /// Releases the owned libghostty iterators.
    void dispose() {
 +    _rowBuilder.dispose();
-     _cells.dispose();
-     _rows.dispose();
-     _renderState.dispose();
-@@ -68,6 +73,11 @@ class FrameBuilder {
+     _decodedRows.clear();
+     _slotIds = [];
+     _terminal = null;
+@@ -77,6 +82,11 @@ class FrameBuilder {
    /// Rebuilds every visible row on the next sync.
    void markAllRowsDirty() => _dirtyRows.markAll();
  
@@ -68,7 +68,7 @@ index fe7af46..bf134e0 100644
    void markBlinkRowsDirty() {
      for (var row = 0; row < _blinkRows.length; row++) {
 diff --git a/lib/src/rendering/frame_rows.dart b/lib/src/rendering/frame_rows.dart
-index 4bad3b5..6bbc4e2 100644
+index ee66803..7115258 100644
 --- a/lib/src/rendering/frame_rows.dart
 +++ b/lib/src/rendering/frame_rows.dart
 @@ -52,6 +52,7 @@ final class _RowBuilder {
@@ -79,7 +79,7 @@ index 4bad3b5..6bbc4e2 100644
    var _operatorX = 0.0;
    late CellMetrics _metrics;
    var _inverseDpr = 1.0;
-@@ -95,6 +96,10 @@ final class _RowBuilder {
+@@ -96,6 +97,10 @@ final class _RowBuilder {
      required this._content,
    }) : _styles = _StyleCache(_state);
  
@@ -90,7 +90,7 @@ index 4bad3b5..6bbc4e2 100644
    void beginFrame(LinkSnapshot links) {
      _metrics = _state.metrics;
      _inverseDpr = 1.0 / _atlas.devicePixelRatio;
-@@ -113,8 +118,8 @@ final class _RowBuilder {
+@@ -114,8 +119,8 @@ final class _RowBuilder {
          textDirection: TextDirection.ltr,
        );
        _paragraphStyleTheme = theme;
@@ -99,16 +99,16 @@ index 4bad3b5..6bbc4e2 100644
 -    _styles.beginFrame();
    }
  
-   bool rebuildRow(int rowIndex, RowIterator rows, CellIterator cells) {
-@@ -130,6 +135,7 @@ final class _RowBuilder {
+   bool rebuildRow(
+@@ -136,6 +141,7 @@ final class _RowBuilder {
      _backgroundRunArgb = null;
      _preeditEmitted = false;
      _previousSymbol = false;
 +    _styles.beginRow();
-     cells.reset(rows);
- 
-     while (cells.next() && _column < _state.cols) {
-@@ -287,7 +293,8 @@ final class _RowBuilder {
+     while (_column < _state.cols) {
+       _writeCell(_row.cells[_column], selection: selection);
+     }
+@@ -291,7 +297,8 @@ final class _RowBuilder {
      required int span,
      required int glyphSpan,
    }) {
@@ -118,7 +118,7 @@ index 4bad3b5..6bbc4e2 100644
        _flushForeground();
        return;
      }
-@@ -373,16 +380,20 @@ final class _RowBuilder {
+@@ -379,16 +386,20 @@ final class _RowBuilder {
              (theme.fontSize * _italicOverhangFontSizeFactor).ceilToDouble(),
            )
          : 0.0;
@@ -146,7 +146,7 @@ index 4bad3b5..6bbc4e2 100644
          offset: Offset(
            textX,
            _y + _metrics.baseline - paragraph.alphabeticBaseline,
-@@ -715,3 +726,50 @@ final class _SearchHighlights {
+@@ -719,3 +730,50 @@ final class _SearchHighlights {
      }
    }
  }
@@ -198,7 +198,7 @@ index 4bad3b5..6bbc4e2 100644
 +  }
 +}
 diff --git a/lib/src/rendering/frame_style.dart b/lib/src/rendering/frame_style.dart
-index 4685a03..2d0efe3 100644
+index 59a637b..347f682 100644
 --- a/lib/src/rendering/frame_style.dart
 +++ b/lib/src/rendering/frame_style.dart
 @@ -52,9 +52,12 @@ RgbColor? _rgbColor(Color? color) {
@@ -224,12 +224,12 @@ index 4685a03..2d0efe3 100644
 +  void beginRow() => _generation++;
  
    (int foreground, int background, Style style, bool explicitBg) resolve(
-     CellIterator cell, {
+     _DecodedCell cell, {
 diff --git a/lib/src/rendering/terminal_renderer.dart b/lib/src/rendering/terminal_renderer.dart
-index 7608c91..461846c 100644
+index b95777c..2ed277c 100644
 --- a/lib/src/rendering/terminal_renderer.dart
 +++ b/lib/src/rendering/terminal_renderer.dart
-@@ -238,6 +238,7 @@ final class TerminalRenderer extends LeafRenderObjectWidget {
+@@ -243,6 +243,7 @@ final class TerminalRenderer extends LeafRenderObjectWidget {
  /// Created and managed by [TerminalRenderer]. Not intended for direct use.
  @internal
  final class TerminalRenderBox extends RenderBox
@@ -237,7 +237,7 @@ index 7608c91..461846c 100644
      implements MouseTrackerAnnotation {
    late final TerminalSurface _surface;
  
-@@ -459,6 +460,12 @@ final class TerminalRenderBox extends RenderBox
+@@ -491,6 +492,12 @@ final class TerminalRenderBox extends RenderBox
      markNeedsLayout();
    }
  
@@ -251,19 +251,19 @@ index 7608c91..461846c 100644
    void debugFillProperties(DiagnosticPropertiesBuilder properties) {
      super.debugFillProperties(properties);
 diff --git a/lib/src/rendering/terminal_surface.dart b/lib/src/rendering/terminal_surface.dart
-index 6b2ae93..068c35b 100644
+index c2d3729..df34c39 100644
 --- a/lib/src/rendering/terminal_surface.dart
 +++ b/lib/src/rendering/terminal_surface.dart
-@@ -173,6 +173,7 @@ final class TerminalSurface {
-   void dispose() {
-     if (_disposed) return;
+@@ -179,6 +179,7 @@ final class TerminalSurface {
      _disposed = true;
+     _renderHoldPicture?.dispose();
+     _renderHoldPicture = null;
 +    _kittyPlacementCache.dispose();
      _kittyImageCache.dispose();
      _frameBuilder.dispose();
      _sprites.dispose();
-@@ -194,6 +195,11 @@ final class TerminalSurface {
-     _paint(canvas);
+@@ -240,6 +241,11 @@ final class TerminalSurface {
+     _needsTerminalSync = true;
    }
  
 +  void systemFontsChanged() {
@@ -274,7 +274,7 @@ index 6b2ae93..068c35b 100644
    void invalidateGeometry() {
      _submitGeometry = true;
      _needsTerminalSync = true;
-@@ -400,7 +406,11 @@ final class TerminalSurface {
+@@ -446,7 +452,11 @@ final class TerminalSurface {
        linkSnapshot: _linkSnapshot,
      );
      final graphics = KittyGraphics.of(terminal);

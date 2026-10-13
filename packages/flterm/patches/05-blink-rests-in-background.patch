@@ -1,9 +1,9 @@
 # the cursor blink rests while the app is not resumed
 #
-# Against flterm 56a95052776e75816a3ab0c0057c20c850944265. Regenerate with `just flterm-patches`.
+# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just flterm-patches`.
 
 diff --git a/lib/src/view/view_attachment.dart b/lib/src/view/view_attachment.dart
-index 96a0066..47a4621 100644
+index ff39d53..f995560 100644
 --- a/lib/src/view/view_attachment.dart
 +++ b/lib/src/view/view_attachment.dart
 @@ -23,6 +23,7 @@ final class ViewAttachment extends ChangeNotifier {
@@ -14,7 +14,7 @@ index 96a0066..47a4621 100644
    Duration _blinkInterval = const CursorTheme().blinkInterval;
    var _blinkVisible = true;
    var _mouseCursorHidden = false;
-@@ -143,6 +144,7 @@ final class ViewAttachment extends ChangeNotifier {
+@@ -178,6 +179,7 @@ final class ViewAttachment extends ChangeNotifier {
      _scrollController = scrollController;
      scrollController.addListener(_handleScrollChanged);
      _attachInput(focusNode, viewId: viewId);
@@ -22,7 +22,7 @@ index 96a0066..47a4621 100644
      _syncBlink();
      if (scrollController.hasClients) _compressionScheduler.schedule();
    }
-@@ -178,6 +180,7 @@ final class ViewAttachment extends ChangeNotifier {
+@@ -223,6 +225,7 @@ final class ViewAttachment extends ChangeNotifier {
      if (_disposed) return;
      _disposed = true;
      _blinkTimer?.cancel();
@@ -30,7 +30,7 @@ index 96a0066..47a4621 100644
      if (!_controller.isDisposed) {
        _controller.removeListener(_handleControllerChanged);
        _controller._frameChanges.removeListener(_handleTerminalChanged);
-@@ -427,7 +430,13 @@ final class ViewAttachment extends ChangeNotifier {
+@@ -473,7 +476,13 @@ final class ViewAttachment extends ChangeNotifier {
    void _syncBlink() {
      _blinkTimer?.cancel();
      if (_disposed || _controller.isDisposed) return;

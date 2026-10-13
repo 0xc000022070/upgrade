@@ -11,12 +11,12 @@ let
   ghosttySrc = pkgs.callPackage ./ghostty-src.nix { };
   ghosttyVt = pkgs.callPackage ./engine/libghostty-vt.nix { };
 
-  libghosttyRev = "56a95052776e75816a3ab0c0057c20c850944265";
+  libghosttyRev = "232867518ec991daed7fcc9365d03cb047ef588c";
   libghosttySrc = pkgs.fetchFromGitHub {
     owner = "elias8";
     repo = "libghostty";
     rev = libghosttyRev;
-    hash = "sha256-Miw8srT1YJ6DJvX0TFKs/3iDtI+HdMCdRBcjhxjymZU=";
+    hash = "sha256-kPvLmDyPl/XJ+WQbbHEAk4GP8Yc09D2DNh1u6mE8phk=";
   };
 in
 pkgs.mkShell {

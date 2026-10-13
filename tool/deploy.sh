@@ -108,8 +108,8 @@ build() {
   # 9>&-: a daemon the build leaves behind must not keep holding the lock.
   (
     cd "$TREE" &&
-      just pub-build && flutter pub get && just gen &&
-      UPGRADE_BUILD=$sha just apk-release "$name" "$code"
+      nix develop "git+file://$ROOT?rev=$rev" -c env UPGRADE_BUILD="$sha" bash -c \
+        'just pub-build && flutter pub get && just gen && just apk-release "$1" "$2"' _ "$name" "$code"
   ) >&2 9>&- || die "the build of $name+$code ($sha) failed"
   [[ -f $built ]] || die "the build of $name+$code ($sha) left no apk"
 

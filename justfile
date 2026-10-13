@@ -190,6 +190,9 @@ libghostty-build:
     echo "$LIBGHOSTTY_REV" >"$out.tmp/.stamp"
     rm -rf "$out"
     mv "$out.tmp" "$out"
+    # The hook keeps any libghostty.so already in its output directory, which is
+    # keyed by target and not by ghostty.version, so a new pin would load the old lib.
+    rm -rf .dart_tool/hooks_runner/shared/libghostty
 
 # The host engine. Its own toolchain and its own tree: nothing under engine/ is
 # Dart, so `just analyze` and `just test` do not reach it and these do.

@@ -1,12 +1,12 @@
 # a copy reopens the keyboard's field as a plain one so its clipboard history keeps the clip
 #
-# Against flterm 56a95052776e75816a3ab0c0057c20c850944265. Regenerate with `just flterm-patches`.
+# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just flterm-patches`.
 
 diff --git a/lib/flterm.dart b/lib/flterm.dart
-index 2cda2df..5a8a010 100644
+index 3748482..f242673 100644
 --- a/lib/flterm.dart
 +++ b/lib/flterm.dart
-@@ -63,6 +63,7 @@ export 'src/foundation/terminal_theme.dart'
+@@ -77,6 +77,7 @@ export 'src/foundation/terminal_theme.dart'
          SearchTheme,
          SelectionTheme,
          TerminalTheme;
