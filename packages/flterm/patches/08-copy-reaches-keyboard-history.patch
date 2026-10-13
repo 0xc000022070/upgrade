@@ -1,0 +1,98 @@
+# a copy reopens the keyboard's field as a plain one so its clipboard history keeps the clip
+#
+# Against flterm 56a95052776e75816a3ab0c0057c20c850944265. Regenerate with `just flterm-patches`.
+
+diff --git a/lib/flterm.dart b/lib/flterm.dart
+index 2cda2df..5a8a010 100644
+--- a/lib/flterm.dart
++++ b/lib/flterm.dart
+@@ -63,6 +63,7 @@ export 'src/foundation/terminal_theme.dart'
+         SearchTheme,
+         SelectionTheme,
+         TerminalTheme;
++export 'src/input/text_input_session.dart' show copyToClipboard;
+ export 'src/links/activation_modifier.dart' show ActivationModifier;
+ export 'src/links/link_settings.dart'
+     show
+diff --git a/lib/src/input/text_input_session.dart b/lib/src/input/text_input_session.dart
+index 7f438bd..53208cf 100644
+--- a/lib/src/input/text_input_session.dart
++++ b/lib/src/input/text_input_session.dart
+@@ -3,6 +3,26 @@ import 'dart:async';
+ import 'package:flutter/services.dart';
+ import 'package:meta/meta.dart';
+ 
++/// Puts [text] on the platform clipboard where the keyboard's clipboard history keeps it.
++///
++/// The terminal field asks the keyboard not to suggest or learn, and Gboard serves such a
++/// field in incognito, which keeps no clipboard history. While an attached field takes the
++/// copy, it is reopened as a plain one until the keyboard has seen the clip, then made
++/// private again.
++Future<void> copyToClipboard(String text) async {
++  final session = TextInputSession._attached;
++  if (session == null || !session.isAttached) {
++    return Clipboard.setData(ClipboardData(text: text));
++  }
++  final open = session._reopen(private: false);
++  try {
++    await Clipboard.setData(ClipboardData(text: text));
++    await Future<void>.delayed(TextInputSession._clipboardWatch);
++  } finally {
++    if (identical(session._connection, open)) session._reopen(private: true);
++  }
++}
++
+ /// Publishes editable-box geometry and its root transform for text input.
+ typedef TextInputGeometryChanged =
+     void Function({
+@@ -27,6 +47,8 @@ typedef TextInputGeometryChanged =
+ @internal
+ final class TextInputSession with DeltaTextInputClient {
+   static const _newlineActionDedupeWindow = Duration(milliseconds: 100);
++  static const _clipboardWatch = Duration(milliseconds: 500);
++  static TextInputSession? _attached;
+   static const _sentinel = TextEditingValue(
+     selection: .collapsed(offset: 1),
+     text: ' ',
+@@ -41,6 +63,7 @@ final class TextInputSession with DeltaTextInputClient {
+   var _newlineActionsToSuppress = 0;
+   Timer? _newlineActionDedupeTimer;
+   var _newlineDeltasToSuppress = 0;
++  var _private = true;
+   VoidCallback? _onNewline;
+   ValueChanged<int>? _onDelete;
+   ValueChanged<String>? _onPreeditChanged;
+@@ -110,10 +133,10 @@ final class TextInputSession with DeltaTextInputClient {
+       smartDashesType: .disabled,
+       smartQuotesType: .disabled,
+       enableDeltaModel: true,
+-      enableSuggestions: false,
++      enableSuggestions: !_private,
+       enableInlinePrediction: false,
+       enableInteractiveSelection: false,
+-      enableIMEPersonalizedLearning: false,
++      enableIMEPersonalizedLearning: !_private,
+       keyboardAppearance: _keyboardAppearance,
+     );
+   }
+@@ -327,10 +350,20 @@ final class TextInputSession with DeltaTextInputClient {
+   void _openConnection() {
+     final connection = TextInput.attach(this, _configuration);
+     _connection = connection;
++    _attached = this;
+     _value = _sentinel;
+     connection.setEditingState(_value);
+   }
+ 
++  /// Android ignores a configuration update, so a new one only reaches the keyboard by
++  /// attaching again. Attaching in the same turn as the close keeps the keyboard up.
++  TextInputConnection? _reopen({required bool private}) {
++    _private = private;
++    _closeConnection();
++    _openConnection();
++    return _connection;
++  }
++
+   void _processDelta(
+     TextEditingDelta delta, {
+     required bool fromCompositionInBatch,

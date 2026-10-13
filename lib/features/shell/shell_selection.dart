@@ -82,8 +82,9 @@ class _SelectionActionsState extends State<ShellSelectionActions> {
   Future<void> _copy() async {
     final terminal = widget.session.terminal;
     if (!terminal.hasSelection) return;
-    await Clipboard.setData(ClipboardData(text: terminal.selectedText()));
+    final text = terminal.selectedText();
     terminal.clearSelection();
+    await copyToClipboard(text);
   }
 
   /// The selection is spent by opening it, the way it is spent by copying it — but only if
