@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/pip.dart';
-import '../../design/tokens.dart';
-import '../../design/components/panel.dart';
-import '../../design/icons/upgrade_icons.dart';
+import 'package:upgrade/application/pip.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
 
 class PipAffordance extends ConsumerWidget {
   const PipAffordance({super.key});

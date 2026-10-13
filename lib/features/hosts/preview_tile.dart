@@ -3,12 +3,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/repositories/host_repository.dart';
-import '../../design/tokens.dart';
-import '../../design/components/panel.dart';
-import '../../design/spacing.dart';
-import '../screen/host_screen.dart';
-import '../screen/screen_preview.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/screen/host_screen.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
 
 class ScreenPreviewTile extends ConsumerWidget {
   const ScreenPreviewTile({super.key, required this.host});

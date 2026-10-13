@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:flterm/flterm.dart';
 import 'package:flutter/material.dart';
 
-import '../../design/tokens.dart';
-import '../../design/components/cell_divider.dart';
-import '../../design/components/key_cell.dart';
-import '../../design/components/upgrade_field.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/motion.dart';
-import '../../design/spacing.dart';
-import 'shell_sessions.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/cell_divider.dart';
+import 'package:upgrade/design/components/key_cell.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
 
 const _typingSettles = Motion.instant;
 

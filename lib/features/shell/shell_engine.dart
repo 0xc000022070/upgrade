@@ -4,7 +4,7 @@ import 'package:flterm/src/controller/terminal_controller.dart';
 import 'package:flutter/widgets.dart';
 import 'package:libghostty/libghostty.dart' show RgbColor;
 
-import '../../design/tokens.dart';
+import 'package:upgrade/design/tokens.dart';
 
 RgbColor _rgb(Color color) => RgbColor(
   (color.r * 255).round(),

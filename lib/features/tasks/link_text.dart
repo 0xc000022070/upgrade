@@ -1,9 +1,9 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../application/urls.dart';
-import '../../design/tokens.dart';
-import '../../platform/browser.dart';
+import 'package:upgrade/application/urls.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/browser.dart';
 
 /// The tap belongs to the span and not to the widget, so the surrounding text keeps
 /// whatever gesture the caller wrapped it in — in the quick view, the one that opens the

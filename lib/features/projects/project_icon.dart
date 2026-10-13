@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../../data/project_icons.dart';
-import '../../design/spacing.dart';
-import '../../design/tokens.dart';
+import 'package:upgrade/data/project_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
 class ProjectIcon extends StatelessWidget {
   const ProjectIcon(

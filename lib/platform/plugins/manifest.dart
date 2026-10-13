@@ -4,7 +4,7 @@ import 'package:upgrade_luau/data_api.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:toml/toml.dart';
 
-import 'contributions.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
 
 class PluginException implements Exception {
   const PluginException(this.message);

@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import '../../design/tokens.dart';
-import '../../design/spacing.dart';
-import '../../platform/workspace/workspace_model.dart';
-import 'diff_jump.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
+import 'package:upgrade/features/code/diff_jump.dart';
 
 typedef DiffStreak = ({int start, int end, DiffLineKind kind});
 

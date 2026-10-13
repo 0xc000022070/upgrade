@@ -1,25 +1,25 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/drop_selection.dart';
-import '../../application/fresh_drops.dart';
-import '../../application/providers.dart';
-import '../../data/views.dart';
-import '../../design/tokens.dart';
-import '../../design/components/list_row.dart';
-import '../../design/components/panel.dart';
-import '../../design/effects/glitch.dart';
-import '../../design/icons/upgrade_icon.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
-import '../screen_scaffold.dart';
-import '../tasks/drops_panel.dart';
-import '../tasks/item_sheet.dart';
-import '../tasks/selection_bar.dart';
-import 'agents_panel.dart';
-import 'capture_bar.dart';
-import 'home_actions.dart';
-import 'home_feedback.dart';
+import 'package:upgrade/application/drop_selection.dart';
+import 'package:upgrade/application/fresh_drops.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/features/tasks/drops_panel.dart';
+import 'package:upgrade/features/tasks/item_sheet.dart';
+import 'package:upgrade/features/tasks/selection_bar.dart';
+import 'package:upgrade/features/home/agents_panel.dart';
+import 'package:upgrade/features/home/capture_bar.dart';
+import 'package:upgrade/features/home/home_actions.dart';
+import 'package:upgrade/features/home/home_feedback.dart';
 
 class DropsHomeSurface extends ConsumerStatefulWidget {
   const DropsHomeSurface({super.key});

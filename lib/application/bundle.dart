@@ -4,18 +4,18 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/enums.dart';
-import '../data/raw_tables.dart';
-import '../data/repositories/host_repository.dart';
-import '../data/repositories/key_repository.dart';
-import '../data/repositories/path_repository.dart';
-import '../platform/attachment_store.dart';
-import '../platform/bundle_cipher.dart';
-import '../platform/host_keys.dart';
-import '../platform/keys.dart';
-import 'agents.dart';
-import 'providers.dart';
-import 'reason_lines.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/raw_tables.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/platform/attachment_store.dart';
+import 'package:upgrade/platform/bundle_cipher.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/application/reason_lines.dart';
 
 class Bundle {
   const Bundle({

@@ -3,8 +3,8 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'braille.dart';
-import 'ramp.dart';
+import 'package:upgrade/design/ascii/braille.dart';
+import 'package:upgrade/design/ascii/ramp.dart';
 
 const _ruler = '0123456789';
 

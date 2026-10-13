@@ -3,19 +3,19 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../application/agents.dart';
-import '../application/alerts.dart';
-import '../application/pin_alerts.dart';
-import '../features/agents/agents_screen.dart';
-import '../features/shell/shell_hold.dart';
-import '../features/shell/shell_sheet.dart';
-import '../platform/agent_watcher.dart';
-import '../platform/alert_actions.dart';
-import '../platform/alert_notifications.dart';
-import '../platform/herdr_client.dart';
-import '../platform/host_links.dart';
-import '../platform/pin_notifications.dart';
-import '../platform/shell/shell_connection.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/alerts.dart';
+import 'package:upgrade/application/pin_alerts.dart';
+import 'package:upgrade/features/agents/agents_screen.dart';
+import 'package:upgrade/features/shell/shell_hold.dart';
+import 'package:upgrade/features/shell/shell_sheet.dart';
+import 'package:upgrade/platform/agent_watcher.dart';
+import 'package:upgrade/platform/alert_actions.dart';
+import 'package:upgrade/platform/alert_notifications.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/pin_notifications.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 
 /// Set when the process was started by an `OPEN` tap on an alert, so a cold launch
 /// lands on the `AGENTS` route once there is a navigator to push it on.

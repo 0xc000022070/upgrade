@@ -6,16 +6,16 @@ import 'package:dart_mosh/dart_mosh.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 
-import '../herdr_client.dart';
-import '../host_keys.dart';
-import '../host_links.dart';
-import '../ssh/connection_supervisor.dart';
-import '../ssh_settle.dart';
-import 'engine_channel.dart';
-import 'mosh_channel.dart';
-import 'remote_shell.dart';
-import 'shell_connection.dart';
-import 'udp_path.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/ssh/connection_supervisor.dart';
+import 'package:upgrade/platform/ssh_settle.dart';
+import 'package:upgrade/platform/shell/engine_channel.dart';
+import 'package:upgrade/platform/shell/mosh_channel.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/shell/udp_path.dart';
 
 /// A tab with a persistent session is an exec request rather than a shell request,
 /// because typing a line at a login shell is a race against everything that shell reads

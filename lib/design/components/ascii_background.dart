@@ -4,13 +4,13 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../platform/device.dart';
-import '../ascii/atlas.dart';
-import '../ascii/effects.dart';
-import '../ascii/noise.dart';
-import '../ascii/ramp.dart';
-import '../motion.dart';
-import '../typography.dart';
+import 'package:upgrade/platform/device.dart';
+import 'package:upgrade/design/ascii/atlas.dart';
+import 'package:upgrade/design/ascii/effects.dart';
+import 'package:upgrade/design/ascii/noise.dart';
+import 'package:upgrade/design/ascii/ramp.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/typography.dart';
 
 class AsciiBackground extends StatefulWidget {
   const AsciiBackground({

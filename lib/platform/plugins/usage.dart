@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'manifest.dart';
-import 'access.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/access.dart';
 
 class NativeUsageFile {
   NativeUsageFile(this.file);

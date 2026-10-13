@@ -1,7 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-import '../application/alerts.dart';
-import 'herdr_client.dart';
+import 'package:upgrade/application/alerts.dart';
+import 'package:upgrade/platform/herdr_client.dart';
 
 /// Every entry point is static and takes what it needs as an argument: the three
 /// isolates that post, update and clear these notifications share no object graph, only

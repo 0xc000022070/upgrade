@@ -5,19 +5,19 @@ import 'dart:io' show pid;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
-import '../application/agent_state.dart';
-import '../application/agents.dart';
-import '../application/alerts.dart';
-import '../application/pin_alerts.dart';
-import '../application/watcher_backoff.dart';
-import '../data/repositories/host_repository.dart';
-import 'alert_notifications.dart';
-import 'engine_agents.dart';
-import 'herdr_client.dart';
-import 'host_links.dart';
-import 'host_keys.dart';
-import 'keys.dart';
-import 'pin_notifications.dart';
+import 'package:upgrade/application/agent_state.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/alerts.dart';
+import 'package:upgrade/application/pin_alerts.dart';
+import 'package:upgrade/application/watcher_backoff.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/alert_notifications.dart';
+import 'package:upgrade/platform/engine_agents.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/pin_notifications.dart';
 
 /// The service runs its own isolate. Nothing in this file may reach for a provider, the
 /// database or a widget: what it needs travels through

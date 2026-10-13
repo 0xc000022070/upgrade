@@ -10,15 +10,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../data/repositories/host_repository.dart';
-import '../platform/herdr_client.dart';
-import '../platform/host_keys.dart';
-import '../platform/host_links.dart';
-import '../platform/plugins/manifest.dart';
-import '../platform/plugins/store.dart';
-import '../platform/ssh_settle.dart';
-import 'agents.dart';
-import 'path_scan.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/platform/ssh_settle.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/path_scan.dart';
 
 typedef PluginHostConfirm = Future<bool> Function(
   Host host,

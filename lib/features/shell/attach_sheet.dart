@@ -4,19 +4,19 @@ import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/clips.dart';
-import '../../design/tokens.dart';
-import '../../design/components/action_block.dart';
-import '../../design/components/dot_spinner.dart';
-import '../../design/components/panel.dart';
-import '../../design/components/panel_sheet.dart';
-import '../../design/icons/upgrade_icon.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
-import '../../platform/shell/shell_connection.dart';
-import 'clip_paste.dart';
-import 'photo_attach.dart';
-import 'shell_sessions.dart';
+import 'package:upgrade/application/clips.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/features/shell/clip_paste.dart';
+import 'package:upgrade/features/shell/photo_attach.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
 
 const attachSheetLinger = Duration(milliseconds: 700);
 

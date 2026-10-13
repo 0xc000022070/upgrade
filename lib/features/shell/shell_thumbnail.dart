@@ -4,10 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flterm/flterm.dart';
 
-import '../../design/tokens.dart';
-import '../../design/typography.dart';
-import 'shell_engine.dart';
-import 'shell_sessions.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/typography.dart';
+import 'package:upgrade/features/shell/shell_engine.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
 
 /// A build log scrolling at full speed would otherwise repaint every card on the panel
 /// for every chunk that arrives.

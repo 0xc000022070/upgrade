@@ -1,19 +1,19 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/drop_selection.dart';
-import '../../application/formatting.dart';
-import '../../application/fresh_drops.dart';
-import '../../data/database.dart';
-import '../../design/tokens.dart';
-import '../../design/components/list_row.dart';
-import '../../design/components/panel.dart';
-import '../../design/components/section.dart';
-import '../../design/effects/glitch.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
-import 'item_sheet.dart';
-import 'task_row.dart';
+import 'package:upgrade/application/drop_selection.dart';
+import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/application/fresh_drops.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/section.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/tasks/item_sheet.dart';
+import 'package:upgrade/features/tasks/task_row.dart';
 
 class DropsPanel extends ConsumerStatefulWidget {
   const DropsPanel({

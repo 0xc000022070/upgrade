@@ -4,19 +4,19 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../data/plugin_emblems.dart';
-import '../../application/native_plugins.dart';
-import '../../application/plugin_hosts.dart';
-import '../../application/plugins.dart';
-import '../../design/components/panel.dart';
-import '../../design/components/panel_text_action.dart';
-import '../../design/effects/glitch.dart';
-import '../../design/icons/upgrade_icon.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
-import '../../design/tokens.dart';
-import '../../platform/plugins/store.dart';
-import 'plugin_promise.dart';
+import 'package:upgrade/data/plugin_emblems.dart';
+import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/application/plugin_hosts.dart';
+import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/features/plugins/plugin_promise.dart';
 
 class BoardRow {
   const BoardRow({

@@ -1,11 +1,11 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
-import '../database.dart';
-import '../enums.dart';
-import '../views.dart';
-import 'activity_repository.dart';
-import 'mutation.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/mutation.dart';
 
 class ProjectRepository {
   ProjectRepository(this._db, this._activity);

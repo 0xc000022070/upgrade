@@ -1,10 +1,10 @@
 import 'package:flutter/services.dart';
 
-import '../plugins/drops/main.dart';
-import '../plugins/projects/main.dart';
-import '../platform/plugins/manifest.dart';
-import '../platform/plugins/module.dart';
-import '../platform/plugins/store.dart';
+import 'package:upgrade/plugins/drops/main.dart';
+import 'package:upgrade/plugins/projects/main.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/module.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 
 const builtinModules = <NativePluginModule>[dropsPlugin, projectsPlugin];
 const bundledScriptDirectories = ['plugins/agent-schedules', 'plugins/board'];

@@ -8,12 +8,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../platform/plugins/bindings.dart';
-import '../platform/plugins/index.dart';
-import '../platform/plugins/manifest.dart';
-import '../platform/plugins/store.dart';
-import 'native_plugins.dart';
-import 'plugin_hosts.dart';
+import 'package:upgrade/platform/plugins/bindings.dart';
+import 'package:upgrade/platform/plugins/index.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/application/plugin_hosts.dart';
 
 final pluginStoreProvider = FutureProvider<PluginStore>((ref) async {
   final directory = await getApplicationSupportDirectory();

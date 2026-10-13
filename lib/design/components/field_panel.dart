@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../tokens.dart';
-import '../spacing.dart';
-import 'panel.dart';
-import 'upgrade_field.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
 
 class FieldPanel extends StatelessWidget {
   const FieldPanel({

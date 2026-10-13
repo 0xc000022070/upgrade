@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'colors.dart';
-import 'typography.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/typography.dart';
 
 @immutable
 class TerminalPalette {

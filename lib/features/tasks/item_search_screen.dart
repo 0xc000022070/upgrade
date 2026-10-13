@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/static_surface.dart';
-import '../../application/item_search.dart';
-import '../../application/providers.dart';
-import '../../data/views.dart';
-import '../../design/components/upgrade_field.dart';
-import '../../design/components/list_row.dart';
-import '../../design/components/panel.dart';
-import '../../design/components/section.dart';
-import '../../design/spacing.dart';
-import '../../design/tokens.dart';
-import '../screen_scaffold.dart';
-import 'task_row.dart';
+import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/item_search.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/section.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/features/tasks/task_row.dart';
 
 void openItemSearch(BuildContext context) {
   Navigator.of(

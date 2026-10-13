@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../design/components/panel.dart';
-import '../../design/spacing.dart';
-import '../../design/tokens.dart';
-import '../screen/framebuffer_view.dart';
-import 'device_controllers.dart';
-import 'device_dock.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/screen/framebuffer_view.dart';
+import 'package:upgrade/features/devices/device_controllers.dart';
+import 'package:upgrade/features/devices/device_dock.dart';
 
 const pausedDim = 0.4;
 

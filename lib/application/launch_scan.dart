@@ -1,14 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/repositories/host_repository.dart';
-import '../platform/herdr_client.dart';
-import '../platform/host_keys.dart';
-import '../platform/host_links.dart';
-import '../platform/keys.dart';
-import '../platform/shell/shell_launch.dart';
-import 'agents.dart';
-import 'reason_lines.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/shell/shell_launch.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/reason_lines.dart';
 
 typedef LaunchFetch = Future<LaunchTargets> Function({
   required String address,

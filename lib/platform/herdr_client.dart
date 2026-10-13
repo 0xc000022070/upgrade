@@ -6,16 +6,16 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 
-import '../application/agent_kind.dart';
-import '../application/agent_state.dart';
-import '../application/pin_alerts.dart';
-import '../application/reason_lines.dart';
-import 'herdr_socket.dart';
-import 'host_keys.dart';
-import 'host_links.dart';
-import 'shell/remote_shell.dart';
-import 'shell/shell_launch.dart';
-import 'ssh_settle.dart';
+import 'package:upgrade/application/agent_kind.dart';
+import 'package:upgrade/application/agent_state.dart';
+import 'package:upgrade/application/pin_alerts.dart';
+import 'package:upgrade/application/reason_lines.dart';
+import 'package:upgrade/platform/herdr_socket.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/shell_launch.dart';
+import 'package:upgrade/platform/ssh_settle.dart';
 
 enum AgentSource { herdr, engine }
 

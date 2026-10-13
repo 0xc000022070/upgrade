@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../features/tasks/image_input.dart';
-import '../platform/plugins/access.dart';
-import 'providers.dart';
+import 'package:upgrade/features/tasks/image_input.dart';
+import 'package:upgrade/platform/plugins/access.dart';
+import 'package:upgrade/application/providers.dart';
 
 final attachmentFilesProvider = Provider<AttachmentFiles>((ref) {
   final owner = ref.watch(attachmentDataGateProvider);

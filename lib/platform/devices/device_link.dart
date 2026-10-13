@@ -5,11 +5,11 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 
-import '../herdr_client.dart';
-import '../host_keys.dart';
-import '../host_links.dart';
-import '../shell/remote_shell.dart';
-import '../ssh_settle.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/ssh_settle.dart';
 
 enum DeviceKind { android, simulator }
 

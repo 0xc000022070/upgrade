@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/agents.dart';
-import '../../platform/device.dart';
-import '../../platform/shell/shell_connection.dart';
-import 'shell_hold.dart';
-import 'shell_sessions.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/platform/device.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/features/shell/shell_hold.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
 
 /// The two moments a shell whose reconnect schedule ran out is dialled again: the app
 /// coming back in front, and a network arriving under it. Mounted above the shell route

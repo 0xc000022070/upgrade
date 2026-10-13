@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'agents.dart';
+import 'package:upgrade/application/agents.dart';
 
 class FreshDrops {
   const FreshDrops(this.scope, this.ids);

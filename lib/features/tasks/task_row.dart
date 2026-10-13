@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/formatting.dart';
-import '../../application/providers.dart';
-import '../../data/database.dart';
-import '../../data/enums.dart';
-import '../../design/tokens.dart';
-import '../../design/components/list_row.dart';
-import '../../design/components/priority_row.dart';
-import '../../design/effects/glitch.dart';
-import '../../design/icons/upgrade_icon.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
-import 'item_sheet.dart';
-import 'item_tags.dart';
-import 'link_mark.dart';
+import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/priority_row.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/tasks/item_sheet.dart';
+import 'package:upgrade/features/tasks/item_tags.dart';
+import 'package:upgrade/features/tasks/link_mark.dart';
 
 class TaskRow extends ConsumerStatefulWidget {
   const TaskRow({

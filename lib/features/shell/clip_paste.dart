@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 
-import '../../application/clips.dart';
-import '../../platform/shell/host_clipboard.dart';
-import '../../platform/shell/shell_connection.dart';
-import 'shell_sessions.dart';
+import 'package:upgrade/application/clips.dart';
+import 'package:upgrade/platform/shell/host_clipboard.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
 
 /// Two of the three are fine: a host with no clipboard gets the path, which is what a
 /// headless box is meant to get.

@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
-import '../tokens.dart';
-import '../icons/upgrade_icon.dart';
-import '../icons/upgrade_icons.dart';
-import '../spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
 
 const _hysteresis = 1.4;
 

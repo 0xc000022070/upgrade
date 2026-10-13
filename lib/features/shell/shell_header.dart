@@ -3,22 +3,22 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../data/repositories/host_repository.dart';
-import '../../design/tokens.dart';
-import '../../design/components/cell_divider.dart';
-import '../../design/components/key_cell.dart';
-import '../../design/components/list_row.dart';
-import '../../design/components/panel_sheet.dart';
-import '../../design/components/panel_text_action.dart';
-import '../../design/components/scan_sweep.dart';
-import '../../design/icons/upgrade_icon.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/motion.dart';
-import '../../design/spacing.dart';
-import '../../platform/shell/shell_connection.dart';
-import '../hosts/host_strip.dart';
-import 'shell_sessions.dart';
-import 'shell_status.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/cell_divider.dart';
+import 'package:upgrade/design/components/key_cell.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/components/scan_sweep.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/features/hosts/host_strip.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/shell_status.dart';
 
 const _headerHeight = TapTargets.minHeight;
 

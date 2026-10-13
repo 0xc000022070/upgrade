@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../motion.dart';
+import 'package:upgrade/design/motion.dart';
 
 class SlideSteps extends StatefulWidget {
   const SlideSteps({

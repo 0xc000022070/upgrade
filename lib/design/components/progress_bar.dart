@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import '../tokens.dart';
-import '../motion.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/motion.dart';
 
 class ProgressBar extends StatelessWidget {
   const ProgressBar({

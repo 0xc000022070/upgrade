@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 
-import '../../application/link_preview.dart';
-import '../../application/urls.dart';
-import '../../design/components/meta.dart';
-import '../../design/spacing.dart';
-import '../../design/tokens.dart';
+import 'package:upgrade/application/link_preview.dart';
+import 'package:upgrade/application/urls.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
 class LinkPreviewCard extends StatelessWidget {
   const LinkPreviewCard({

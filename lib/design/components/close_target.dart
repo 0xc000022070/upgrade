@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import '../icons/upgrade_icon.dart';
-import '../icons/upgrade_icons.dart';
-import '../spacing.dart';
-import '../tokens.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
 const closeTargetSize = 48.0;
 

@@ -1,11 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../application/agent_kind.dart';
-import '../../application/agent_state.dart';
-import '../../design/tokens.dart';
-import '../../design/spacing.dart';
-import '../../design/typography.dart';
+import 'package:upgrade/application/agent_kind.dart';
+import 'package:upgrade/application/agent_state.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/typography.dart';
 
 /// The kind names its own file rather than the bundle being searched: enumerating the
 /// asset bundle at runtime means parsing `AssetManifest`, a file read and a decode on the

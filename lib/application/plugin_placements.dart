@@ -4,10 +4,10 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/repositories/plugin_placement_repository.dart';
-import '../platform/plugins/contributions.dart';
-import 'native_plugins.dart';
-import 'plugins.dart';
+import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/application/plugins.dart';
 
 final pluginPlacementRepositoryProvider =
     FutureProvider<PluginPlacementRepository>((ref) async {

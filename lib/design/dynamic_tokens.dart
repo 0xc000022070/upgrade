@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'colors.dart';
-import 'tokens.dart';
-import 'typography.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/typography.dart';
 
 /// Only the chrome moves. [SyntaxPalette], the terminal's ANSI table and the diff
 /// grounds stay the house's: they are read against always-dark surfaces.

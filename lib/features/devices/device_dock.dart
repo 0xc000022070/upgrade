@@ -3,16 +3,16 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/agents.dart';
-import '../../application/navigation.dart';
-import '../../data/repositories/host_repository.dart';
-import '../../platform/devices/device_link.dart';
-import '../../platform/host_keys.dart';
-import '../../platform/host_links.dart';
-import '../../platform/vnc/vnc_tunnel.dart';
-import '../hosts/host_key_sheet.dart';
-import '../screen/screen_controller.dart';
-import 'device_controllers.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/devices/device_link.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
+import 'package:upgrade/features/hosts/host_key_sheet.dart';
+import 'package:upgrade/features/screen/screen_controller.dart';
+import 'package:upgrade/features/devices/device_controllers.dart';
 
 const floatDecodeWidth = 360;
 

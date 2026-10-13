@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/repositories/attachment_repository.dart';
-import '../../data/views.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/views.dart';
 
 final captureDraftProvider = Provider.family<CaptureDraft, String>((
   ref,

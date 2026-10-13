@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 
-import '../../design/tokens.dart';
-import '../../design/components/panel.dart';
-import '../../design/icons/upgrade_icon.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
 
 /// Small on purpose: the framework's own touch slop is the gate on whether this was a
 /// deliberate horizontal pull at all, and only what comes after it is counted here. The

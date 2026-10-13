@@ -1,4 +1,4 @@
-import '../../data/database.dart';
+import 'package:upgrade/data/database.dart';
 
 enum ProjectTaskFilter {
   open,

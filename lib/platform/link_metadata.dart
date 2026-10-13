@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../application/link_preview.dart';
+import 'package:upgrade/application/link_preview.dart';
 
 class LinkMetadataFetcher {
   LinkMetadataFetcher({HttpClient Function()? httpClientFactory})

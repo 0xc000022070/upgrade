@@ -2,14 +2,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/clipboard_text.dart';
-import '../../application/drop_selection.dart';
-import '../../application/providers.dart';
-import '../../data/database.dart';
-import '../../data/enums.dart';
-import '../../data/views.dart';
-import '../../design/components/panel_sheet.dart';
-import 'item_pickers.dart';
+import 'package:upgrade/application/clipboard_text.dart';
+import 'package:upgrade/application/drop_selection.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/features/tasks/item_pickers.dart';
 
 Future<void> moveDrops(
   BuildContext context,

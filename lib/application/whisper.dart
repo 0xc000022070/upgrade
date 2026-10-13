@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../data/repositories/settings_repository.dart';
-import '../platform/whisper.dart';
-import 'providers.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/platform/whisper.dart';
+import 'package:upgrade/application/providers.dart';
 
 sealed class WhisperState {
   const WhisperState();

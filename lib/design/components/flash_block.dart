@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-import 'action_block.dart';
+import 'package:upgrade/design/components/action_block.dart';
 
 const flashWindow = Duration(seconds: 2);
 

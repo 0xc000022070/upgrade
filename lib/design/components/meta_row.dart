@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../spacing.dart';
-import '../tokens.dart';
-import 'meta.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/meta.dart';
 
 class MetaRow extends StatelessWidget {
   const MetaRow(this.label, this.value, {super.key, this.maxLines = 1});

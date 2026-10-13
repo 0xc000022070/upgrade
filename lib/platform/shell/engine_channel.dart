@@ -7,7 +7,7 @@ import 'dart:typed_data';
 
 import 'package:dart_mosh/dart_mosh.dart';
 
-import 'udp_path.dart';
+import 'package:upgrade/platform/shell/udp_path.dart';
 
 const engineWireVersion = 1;
 const engineMaxPlaintext = 1200;

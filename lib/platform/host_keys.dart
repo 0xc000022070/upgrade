@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import '../application/reason_lines.dart';
+import 'package:upgrade/application/reason_lines.dart';
 
 /// A host key the user accepted, kept as its fingerprint alone. Comparing keys and showing
 /// one to the user both need only the fingerprint, and the host sends the full key on every

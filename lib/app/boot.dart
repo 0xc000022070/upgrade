@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
-import '../design/tokens.dart';
-import '../design/components/dither_field.dart';
-import '../design/effects/glitch.dart';
-import '../design/motion.dart';
-import '../design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/dither_field.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
 
 /// Recorded by `main()` as it performs the step, so a step removed from startup takes
 /// its line with it.

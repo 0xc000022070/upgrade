@@ -1,16 +1,16 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/home/drops_home_surface.dart';
-import '../../features/home/home_feedback.dart';
-import '../../features/home/home_card_viewport.dart';
-import '../../features/home/capture_bar.dart';
-import '../../features/tasks/drops_panel.dart';
-import '../../platform/plugins/module.dart';
-import '../../application/providers.dart';
-import '../../application/drop_selection.dart';
-import '../../application/fresh_drops.dart';
-import '../../application/toasts.dart';
+import 'package:upgrade/features/home/drops_home_surface.dart';
+import 'package:upgrade/features/home/home_feedback.dart';
+import 'package:upgrade/features/home/home_card_viewport.dart';
+import 'package:upgrade/features/home/capture_bar.dart';
+import 'package:upgrade/features/tasks/drops_panel.dart';
+import 'package:upgrade/platform/plugins/module.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/application/drop_selection.dart';
+import 'package:upgrade/application/fresh_drops.dart';
+import 'package:upgrade/application/toasts.dart';
 
 const dropsPlugin = NativePluginModule(
   id: 'upgrade.drops',

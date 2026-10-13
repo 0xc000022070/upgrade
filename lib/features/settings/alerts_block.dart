@@ -4,12 +4,12 @@ import 'package:upgrade_shade/upgrade_shade.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/alerts.dart';
-import '../../application/providers.dart';
-import '../../design/components/panel.dart';
-import '../../design/tokens.dart';
-import '../../platform/agent_watcher.dart';
-import '../../platform/pin_notifications.dart';
+import 'package:upgrade/application/alerts.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/agent_watcher.dart';
+import 'package:upgrade/platform/pin_notifications.dart';
 
 class AlertsSettingsBlock extends ConsumerWidget {
   const AlertsSettingsBlock({super.key, this.requestPermission});

@@ -1,7 +1,7 @@
 import 'package:upgrade_shade/upgrade_shade.dart';
 import 'package:flutter/foundation.dart';
 
-import '../application/pin_alerts.dart';
+import 'package:upgrade/application/pin_alerts.dart';
 
 /// A channel of its own so the user can keep a blocked agent quiet and still hear a key
 /// being asked for. Posted natively: flutter_local_notifications can neither keep the

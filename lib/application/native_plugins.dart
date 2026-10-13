@@ -6,15 +6,15 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
-import '../platform/plugins/access.dart';
-import '../platform/plugins/contributions.dart';
-import '../platform/plugins/manifest.dart';
-import '../platform/plugins/module.dart';
-import '../platform/plugins/store.dart';
-import '../platform/plugins/usage.dart';
-import '../data/plugin_inventory.dart';
-import 'providers.dart';
-import 'plugins.dart';
+import 'package:upgrade/platform/plugins/access.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/module.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/platform/plugins/usage.dart';
+import 'package:upgrade/data/plugin_inventory.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/application/plugins.dart';
 
 final nativeModulesProvider = Provider<List<NativePluginModule>>(
   (ref) => const [],

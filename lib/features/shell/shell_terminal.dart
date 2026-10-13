@@ -4,13 +4,13 @@ import 'package:flutter/widgets.dart';
 import 'package:material_ui/material_ui.dart'
     show TextSelectionTheme, TextSelectionThemeData;
 
-import '../../design/components/dot_spinner.dart';
-import '../../design/spacing.dart';
-import '../../design/tokens.dart';
-import '../../design/typography.dart';
-import 'shell_selection.dart';
-import 'shell_sessions.dart';
-import 'shell_tail.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/typography.dart';
+import 'package:upgrade/features/shell/shell_selection.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/shell_tail.dart';
 
 const shellTerminalPadding = EdgeInsets.all(Spacing.md);
 

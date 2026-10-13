@@ -1,8 +1,8 @@
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'noise.dart';
-import 'surge.dart';
+import 'package:upgrade/design/ascii/noise.dart';
+import 'package:upgrade/design/ascii/surge.dart';
 
 const _aspect = 2.0;
 

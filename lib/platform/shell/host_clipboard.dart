@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-export 'remote_shell.dart'
+export 'package:upgrade/platform/shell/remote_shell.dart'
     show
         RemoteFile,
         remoteCommandDeadline,
@@ -10,8 +10,8 @@ export 'remote_shell.dart'
         underSh,
         uploadCommand;
 
-import 'remote_shell.dart';
-import 'shell_connection.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 
 enum ClipboardBackend { wayland, x11, macos, none }
 

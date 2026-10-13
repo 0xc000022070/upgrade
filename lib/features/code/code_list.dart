@@ -1,19 +1,19 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/agents.dart';
-import '../../application/providers.dart';
-import '../../data/repositories/host_repository.dart';
-import '../../data/repositories/path_repository.dart';
-import '../../design/components/action_sheet.dart';
-import '../../design/components/list_row.dart';
-import '../../design/components/panel.dart';
-import '../../design/components/panel_sheet.dart';
-import '../../design/components/picker_row.dart';
-import '../../design/components/section.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../hosts/path_picker_sheet.dart';
-import 'workspace_sheet.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/design/components/action_sheet.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/picker_row.dart';
+import 'package:upgrade/design/components/section.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/features/hosts/path_picker_sheet.dart';
+import 'package:upgrade/features/code/workspace_sheet.dart';
 
 class CodeList extends ConsumerWidget {
   const CodeList({super.key});

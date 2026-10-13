@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'manifest.dart';
-import 'store.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 
 class PluginCallUsage {
   int calls = 0;

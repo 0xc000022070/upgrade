@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import '../tokens.dart';
-import '../motion.dart';
-import '../spacing.dart';
-import 'action_block.dart';
-import 'upgrade_field.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
 
 enum ToolbarGlyph {
   link(Icons.link, 'LINK'),

@@ -1,10 +1,10 @@
 import 'dart:typed_data';
 
-import '../../application/reason_lines.dart';
-import '../host_keys.dart';
-import '../ssh/connection_supervisor.dart';
+import 'package:upgrade/application/reason_lines.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 
-export '../ssh/connection_supervisor.dart'
+export 'package:upgrade/platform/ssh/connection_supervisor.dart'
     show
         AppResumed,
         AppSuspended,

@@ -5,27 +5,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../app/static_surface.dart';
-import '../../application/agents.dart';
-import '../../application/formatting.dart';
-import '../../data/enums.dart';
-import '../../data/repositories/host_repository.dart';
-import '../../data/repositories/key_repository.dart';
-import '../../design/tokens.dart';
-import '../../design/components/action_block.dart';
-import '../../design/components/upgrade_field.dart';
-import '../../design/components/meta.dart';
-import '../../design/components/meta_row.dart';
-import '../../design/components/panel.dart';
-import '../../design/components/panel_sheet.dart';
-import '../../design/components/section.dart';
-import '../../design/components/solid_action_bar.dart';
-import '../../design/spacing.dart';
-import '../../platform/host_keys.dart';
-import '../hosts/host_key_sheet.dart';
-import 'key_form_screen.dart';
-import '../screen/screen_preview.dart';
-import '../screen_scaffold.dart';
+import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/components/meta_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/section.dart';
+import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/features/hosts/host_key_sheet.dart';
+import 'package:upgrade/features/settings/key_form_screen.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
+import 'package:upgrade/features/screen_scaffold.dart';
 
 void openHostForm(BuildContext context, {Host? host}) {
   Navigator.of(

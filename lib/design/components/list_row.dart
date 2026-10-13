@@ -1,13 +1,13 @@
 import 'package:flutter/widgets.dart';
 
-import '../tokens.dart';
-import '../icons/upgrade_icon.dart';
-import '../icons/upgrade_icons.dart';
-import '../spacing.dart';
-import 'item_line.dart';
-import 'path_line.dart';
-import 'progress_bar.dart';
-import 'signal_text.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/components/item_line.dart';
+import 'package:upgrade/design/components/path_line.dart';
+import 'package:upgrade/design/components/progress_bar.dart';
+import 'package:upgrade/design/components/signal_text.dart';
 
 class ListRow extends StatelessWidget {
   const ListRow({

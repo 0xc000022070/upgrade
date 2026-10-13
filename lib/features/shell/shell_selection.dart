@@ -4,14 +4,14 @@ import 'package:flterm/flterm.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../application/urls.dart';
-import '../../design/tokens.dart';
-import '../../design/components/cell_divider.dart';
-import '../../design/components/key_cell.dart';
-import '../../design/spacing.dart';
-import '../../platform/browser.dart';
-import 'shell_engine.dart';
-import 'shell_sessions.dart';
+import 'package:upgrade/application/urls.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/cell_divider.dart';
+import 'package:upgrade/design/components/key_cell.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/browser.dart';
+import 'package:upgrade/features/shell/shell_engine.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
 
 class ShellSelectionActions extends StatefulWidget {
   const ShellSelectionActions({

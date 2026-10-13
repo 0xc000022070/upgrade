@@ -3,16 +3,16 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/navigation.dart';
-import '../../application/toasts.dart';
-import '../../data/repositories/host_repository.dart';
-import '../../design/components/drag_sheet.dart';
-import '../../platform/herdr_client.dart';
-import '../../platform/shell/shell_connection.dart';
-import '../../platform/shell/shell_launch.dart';
-import 'host_shell_screen.dart';
-import 'launch_picker_sheet.dart';
-import 'shell_sessions.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/application/toasts.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/components/drag_sheet.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/shell/shell_launch.dart';
+import 'package:upgrade/features/shell/host_shell_screen.dart';
+import 'package:upgrade/features/shell/launch_picker_sheet.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
 
 final _openShellRoutes = Expando<ShellSheetRoute>();
 

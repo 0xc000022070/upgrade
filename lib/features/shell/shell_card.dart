@@ -1,14 +1,14 @@
 import 'package:flutter/widgets.dart';
 
-import '../../data/repositories/host_repository.dart';
-import '../../design/tokens.dart';
-import '../../design/spacing.dart';
-import '../../platform/shell/shell_connection.dart';
-import 'shell_sheet.dart';
-import 'shell_sessions.dart';
-import 'shell_status.dart';
-import 'shell_thumbnail.dart';
-import 'shell_header.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/features/shell/shell_sheet.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
+import 'package:upgrade/features/shell/shell_status.dart';
+import 'package:upgrade/features/shell/shell_thumbnail.dart';
+import 'package:upgrade/features/shell/shell_header.dart';
 
 const shellCardWidth = 160.0;
 const shellCardHeight = 110.0;

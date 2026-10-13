@@ -1,5 +1,5 @@
-import '../../application/clips.dart';
-import 'framebuffer_view.dart';
+import 'package:upgrade/application/clips.dart';
+import 'package:upgrade/features/screen/framebuffer_view.dart';
 
 const cropNoticeLinger = Duration(seconds: 2);
 

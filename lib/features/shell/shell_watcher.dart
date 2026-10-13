@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import 'shell_sessions.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
 
 /// The store says which tabs exist, each session says what it is showing and what state
 /// it is in. Anything that reads a tab's state through the store needs both, and the

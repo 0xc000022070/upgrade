@@ -1,20 +1,20 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/agents.dart';
-import '../../application/navigation.dart';
-import '../../application/pip.dart';
-import '../../design/tokens.dart';
-import '../../design/components/dot_spinner.dart';
-import '../../design/components/panel.dart';
-import '../../design/spacing.dart';
-import '../../platform/herdr_client.dart';
-import '../../platform/shell/shell_connection.dart';
-import '../agents/agent_shell.dart';
-import '../agents/agents_screen.dart';
-import '../agents/pip_action.dart';
-import '../hosts/hosts_screen.dart';
-import 'agent_mark.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/application/pip.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/features/agents/agent_shell.dart';
+import 'package:upgrade/features/agents/agents_screen.dart';
+import 'package:upgrade/features/agents/pip_action.dart';
+import 'package:upgrade/features/hosts/hosts_screen.dart';
+import 'package:upgrade/features/home/agent_mark.dart';
 
 class AgentsPanel extends ConsumerWidget {
   const AgentsPanel({

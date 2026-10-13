@@ -3,12 +3,12 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 
-import '../../application/reason_lines.dart';
-import '../../data/repositories/host_repository.dart';
-import '../../platform/devices/device_link.dart';
-import '../../platform/herdr_client.dart';
-import '../../platform/host_keys.dart';
-import 'device_dock.dart';
+import 'package:upgrade/application/reason_lines.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/devices/device_link.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/features/devices/device_dock.dart';
 
 sealed class DevicesPhase {
   const DevicesPhase();

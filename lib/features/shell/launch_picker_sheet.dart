@@ -2,22 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../application/launch_scan.dart';
-import '../../data/repositories/host_repository.dart';
-import '../../design/components/action_block.dart';
-import '../../design/components/dot_spinner.dart';
-import '../../design/components/list_row.dart';
-import '../../design/components/panel.dart';
-import '../../design/components/panel_sheet.dart';
-import '../../design/icons/upgrade_icon.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
-import '../../design/tokens.dart';
-import '../../platform/host_keys.dart';
-import '../../platform/shell/shell_connection.dart';
-import '../../platform/shell/shell_launch.dart';
-import '../hosts/host_key_sheet.dart';
-import 'shell_sessions.dart';
+import 'package:upgrade/application/launch_scan.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/shell/shell_launch.dart';
+import 'package:upgrade/features/hosts/host_key_sheet.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
 
 typedef LaunchPicked = void Function(UserIntent intent, ShellLaunch? launch);
 

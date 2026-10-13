@@ -5,8 +5,8 @@ import 'dart:math' show min;
 
 import 'package:crypto/crypto.dart';
 
-import 'index.dart';
-import 'manifest.dart';
+import 'package:upgrade/platform/plugins/index.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
 
 class PluginPackage {
   PluginPackage({

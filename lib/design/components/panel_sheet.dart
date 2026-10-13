@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../../application/native_plugins.dart';
+import 'package:upgrade/application/native_plugins.dart';
 
-import '../tokens.dart';
-import '../layout.dart';
-import '../motion.dart';
-import '../spacing.dart';
-import 'action_block.dart';
-import 'keyboard_toolbar.dart';
-import 'meta.dart';
-import 'panel.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/layout.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/keyboard_toolbar.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/components/panel.dart';
 
 Future<T?> showPanelSheet<T>(
   BuildContext context, {

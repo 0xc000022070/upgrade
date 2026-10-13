@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 
-import '../../data/enums.dart';
-import '../../design/icons/upgrade_icon.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
-import '../../design/tokens.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
 UpgradeIcons systemGlyph(HostSystem? system) => switch (system) {
   HostSystem.nixos => UpgradeIcons.systemNixos,

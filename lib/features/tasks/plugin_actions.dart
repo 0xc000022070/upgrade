@@ -1,14 +1,14 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/plugins.dart';
-import '../../application/providers.dart';
-import '../../data/database.dart';
-import '../../design/tokens.dart';
-import '../../design/components/action_block.dart';
-import '../../design/components/panel_sheet.dart';
-import '../../design/spacing.dart';
-import 'plugin_adapter.dart';
+import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/tasks/plugin_adapter.dart';
 
 class PluginDropActions extends ConsumerStatefulWidget {
   const PluginDropActions({super.key, required this.task});

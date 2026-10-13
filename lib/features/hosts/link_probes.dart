@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/repositories/host_repository.dart';
-import '../../platform/link_probe.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/link_probe.dart';
 
 /// Injectable so the panel can be driven without a machine answering. The real one is
 /// [probeLink].

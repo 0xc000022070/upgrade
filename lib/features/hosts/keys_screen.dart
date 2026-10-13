@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/static_surface.dart';
-import '../../application/agents.dart';
-import '../../design/components/list_row.dart';
-import '../../design/components/panel.dart';
-import '../../design/components/panel_text_action.dart';
-import '../../design/components/section.dart';
-import '../screen_scaffold.dart';
-import '../settings/key_detail_screen.dart';
-import '../settings/key_form_screen.dart';
+import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/components/section.dart';
+import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/features/settings/key_detail_screen.dart';
+import 'package:upgrade/features/settings/key_form_screen.dart';
 
 void openKeys(BuildContext context) {
   Navigator.of(

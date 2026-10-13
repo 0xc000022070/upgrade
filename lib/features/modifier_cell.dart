@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 
-import '../design/components/key_bar.dart';
-import '../design/components/key_cell.dart';
-import '../design/icons/upgrade_icons.dart';
-import '../platform/vnc/arming.dart';
-import '../platform/vnc/keysyms.dart';
+import 'package:upgrade/design/components/key_bar.dart';
+import 'package:upgrade/design/components/key_cell.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/platform/vnc/arming.dart';
+import 'package:upgrade/platform/vnc/keysyms.dart';
 
 class ModifierCell extends StatelessWidget {
   const ModifierCell({

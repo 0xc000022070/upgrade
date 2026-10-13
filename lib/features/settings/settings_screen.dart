@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/static_surface.dart';
-import '../../application/providers.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../../design/components/panel.dart';
-import '../../design/tokens.dart';
-import '../../platform/device.dart';
-import '../screen_scaffold.dart';
-import 'alerts_block.dart';
-import 'bundle_panel.dart';
-import 'key_bar_block.dart';
-import 'voice_block.dart';
+import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/device.dart';
+import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/features/settings/alerts_block.dart';
+import 'package:upgrade/features/settings/bundle_panel.dart';
+import 'package:upgrade/features/settings/key_bar_block.dart';
+import 'package:upgrade/features/settings/voice_block.dart';
 
 void openSettings(BuildContext context) {
   Navigator.of(

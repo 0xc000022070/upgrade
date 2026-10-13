@@ -1,11 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/agents.dart';
-import '../../design/components/toolbar_icon_action.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
-import 'device_dock.dart';
+import 'package:upgrade/application/agents.dart';
+import 'package:upgrade/design/components/toolbar_icon_action.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/devices/device_dock.dart';
 
 class ScreensAction extends ConsumerWidget {
   const ScreensAction({super.key});

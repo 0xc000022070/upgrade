@@ -3,19 +3,19 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/enums.dart';
-import '../data/repositories/host_repository.dart';
-import '../data/repositories/key_repository.dart';
-import '../platform/engine_agents.dart';
-import '../platform/herdr_client.dart';
-import '../platform/herdr_pool.dart';
-import '../platform/host_links.dart';
-import '../platform/host_key_dial.dart';
-import '../platform/host_keys.dart';
-import 'agent_state.dart';
-import 'reason_lines.dart';
-import 'watcher_backoff.dart';
-import '../platform/keys.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/platform/engine_agents.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/herdr_pool.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/host_key_dial.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/application/agent_state.dart';
+import 'package:upgrade/application/reason_lines.dart';
+import 'package:upgrade/application/watcher_backoff.dart';
+import 'package:upgrade/platform/keys.dart';
 
 enum AgentOutcomeKind {
   snapshot,

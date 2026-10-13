@@ -1,13 +1,13 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
-import '../bundles.dart';
-import '../database.dart';
-import '../enums.dart';
-import '../views.dart';
-import 'activity_repository.dart';
-import 'attachment_repository.dart';
-import 'mutation.dart';
+import 'package:upgrade/data/bundles.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/repositories/mutation.dart';
 
 class TaskRepository {
   TaskRepository(AppDatabase db, this._activity)

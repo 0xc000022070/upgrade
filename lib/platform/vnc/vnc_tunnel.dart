@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:dartssh2/dartssh2.dart';
 
-import '../host_keys.dart';
-import '../host_links.dart';
-import '../ssh_settle.dart';
-import 'rfb_client.dart';
-import 'rfb_messages.dart';
-import 'vnc_failure.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/ssh_settle.dart';
+import 'package:upgrade/platform/vnc/rfb_client.dart';
+import 'package:upgrade/platform/vnc/rfb_messages.dart';
+import 'package:upgrade/platform/vnc/vnc_failure.dart';
 
 /// Nothing here opens a port. `forwardLocal` asks the server to connect to [display] on
 /// its own loopback, so wayvnc keeps listening on `127.0.0.1` and the phone never needs

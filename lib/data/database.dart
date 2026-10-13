@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
-import 'bundles.dart';
-import 'enums.dart';
-import 'tables.dart';
-import 'views.dart';
+import 'package:upgrade/data/bundles.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/tables.dart';
+import 'package:upgrade/data/views.dart';
 
 part 'database.g.dart';
 

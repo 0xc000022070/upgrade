@@ -1,11 +1,11 @@
 import 'package:flutter/widgets.dart';
 
-import '../design/tokens.dart';
-import '../design/effects/glitch.dart';
-import '../design/icons/upgrade_icon.dart';
-import '../design/icons/upgrade_icons.dart';
-import '../design/layout.dart';
-import '../design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/layout.dart';
+import 'package:upgrade/design/spacing.dart';
 
 class NavDestination {
   const NavDestination(this.label, this.icon);

@@ -5,10 +5,10 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 
-import 'herdr_client.dart';
-import 'host_key_dial.dart';
-import 'host_keys.dart';
-import 'ssh_settle.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_key_dial.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/ssh_settle.dart';
 
 typedef SshLink = ({
   SSHSocket socket,

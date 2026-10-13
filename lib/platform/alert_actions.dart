@@ -3,15 +3,15 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-import '../application/alerts.dart';
-import '../application/pin_alerts.dart';
-import 'alert_notifications.dart';
-import 'engine_agents.dart';
-import 'herdr_client.dart';
-import 'host_links.dart';
-import 'host_keys.dart';
-import 'keys.dart';
-import 'shell/shell_connection.dart';
+import 'package:upgrade/application/alerts.dart';
+import 'package:upgrade/application/pin_alerts.dart';
+import 'package:upgrade/platform/alert_notifications.dart';
+import 'package:upgrade/platform/engine_agents.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_links.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/keys.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 
 /// Android delivers an action tap to this app's background isolate when the activity is
 /// gone and to the main isolate when it is not, so this looks nothing up: the host comes

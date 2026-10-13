@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../../data/enums.dart';
-import '../tokens.dart';
-import '../spacing.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/spacing.dart';
 
 class StatusTag extends StatelessWidget {
   const StatusTag(this.label, {super.key, required Color this.color})

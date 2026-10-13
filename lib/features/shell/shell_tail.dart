@@ -1,11 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flterm/flterm.dart';
 
-import '../../design/tokens.dart';
-import '../../design/components/key_cell.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
-import 'shell_sessions.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/key_cell.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
 
 /// The terminal follows its output only while it is on the last row, which is what lets a
 /// reader scroll up without the shell dragging them down again. Stateful for the

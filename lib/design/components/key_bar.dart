@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../tokens.dart';
-import '../spacing.dart';
-import 'cell_divider.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/components/cell_divider.dart';
 
 const _fadeWidth = 32.0;
 const _fadeSolid = 0.28;

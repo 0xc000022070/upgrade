@@ -4,13 +4,13 @@ import 'dart:ui' show Offset, Size;
 
 import 'package:flutter/foundation.dart';
 
-import '../../data/repositories/host_repository.dart';
-import '../../platform/host_keys.dart';
-import '../../platform/vnc/framebuffer.dart';
-import '../../platform/vnc/keysyms.dart';
-import '../../platform/vnc/rfb_messages.dart';
-import '../../platform/vnc/vnc_failure.dart';
-import '../../platform/vnc/vnc_tunnel.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/host_keys.dart';
+import 'package:upgrade/platform/vnc/framebuffer.dart';
+import 'package:upgrade/platform/vnc/keysyms.dart';
+import 'package:upgrade/platform/vnc/rfb_messages.dart';
+import 'package:upgrade/platform/vnc/vnc_failure.dart';
+import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
 
 sealed class ScreenPhase {
   const ScreenPhase();

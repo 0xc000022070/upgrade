@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../data/enums.dart';
-import '../../data/repositories/host_repository.dart';
-import '../../design/icons/upgrade_icon.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
-import '../../design/tokens.dart';
-import 'host_mark.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/hosts/host_mark.dart';
 
 const hostGroupMaxWidth = 80.0;
 

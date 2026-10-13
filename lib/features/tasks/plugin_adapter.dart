@@ -1,9 +1,9 @@
 import 'package:upgrade_luau/data_api.dart';
 
-import '../../application/plugins.dart';
-import '../../data/database.dart';
-import '../../data/repositories/task_repository.dart';
-import '../../platform/plugins/manifest.dart';
+import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
 
 PluginSelection dropPluginSelection(Task task, TaskRepository repository) {
   if (task.projectId != null) {

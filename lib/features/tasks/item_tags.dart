@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../design/tokens.dart';
+import 'package:upgrade/design/tokens.dart';
 
 class SentTag extends StatelessWidget {
   const SentTag({super.key});

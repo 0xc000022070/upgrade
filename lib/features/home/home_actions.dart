@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../design/components/toolbar_icon_action.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
-import '../plugins/plugin_management_screen.dart';
-import '../settings/settings_screen.dart';
+import 'package:upgrade/design/components/toolbar_icon_action.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/plugins/plugin_management_screen.dart';
+import 'package:upgrade/features/settings/settings_screen.dart';
 
 class HomeActions extends StatelessWidget {
   const HomeActions({super.key, this.beforeOpen});

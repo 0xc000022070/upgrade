@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/project_tree.dart';
-import '../../application/native_plugins.dart';
-import '../../application/providers.dart';
-import '../../data/database.dart';
-import '../../data/enums.dart';
-import '../../data/views.dart';
-import '../../design/components/picker_row.dart';
-import '../../design/components/panel_sheet.dart';
-import '../../design/components/upgrade_field.dart';
-import '../../design/spacing.dart';
-import '../../design/tokens.dart';
+import 'package:upgrade/application/project_tree.dart';
+import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/design/components/picker_row.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
 class TargetPickerBody extends ConsumerWidget {
   const TargetPickerBody({

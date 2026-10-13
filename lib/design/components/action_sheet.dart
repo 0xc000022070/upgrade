@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../tokens.dart';
-import '../motion.dart';
-import '../spacing.dart';
-import 'solid_action_bar.dart';
-import 'upgrade_field.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
 
 class SheetAction {
   const SheetAction(

@@ -2,20 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../application/reason_lines.dart';
-import '../../design/components/action_block.dart';
-import '../../design/components/upgrade_field.dart';
-import '../../design/components/inline_confirm.dart';
-import '../../design/components/list_row.dart';
-import '../../design/components/panel_sheet.dart';
-import '../../design/components/panel_text_action.dart';
-import '../../design/components/picker_row.dart';
-import '../../design/components/segment_switch.dart';
-import '../../design/components/solid_action_bar.dart';
-import '../../design/spacing.dart';
-import '../../design/tokens.dart';
-import '../../platform/devices/device_link.dart';
-import 'device_controllers.dart';
+import 'package:upgrade/application/reason_lines.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/components/inline_confirm.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/components/picker_row.dart';
+import 'package:upgrade/design/components/segment_switch.dart';
+import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/devices/device_link.dart';
+import 'package:upgrade/features/devices/device_controllers.dart';
 
 Future<void> showDeviceSheet(BuildContext context, DevicesController group) {
   final title = '${group.host.name.toUpperCase()} DEVICES';

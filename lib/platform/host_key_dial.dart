@@ -1,4 +1,4 @@
-import 'host_keys.dart';
+import 'package:upgrade/platform/host_keys.dart';
 
 /// The machine took the connection and never presented a key: a port that is not ssh, or
 /// one of the tarpits that accepts a socket and then says nothing.

@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/widgets.dart';
 
-import '../design/motion.dart';
+import 'package:upgrade/design/motion.dart';
 
 /// Exactly one event fires at a time, and the interval is seeded once per session: a run
 /// is reproducible from its seed and never repeats the same rhythm across launches.

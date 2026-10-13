@@ -4,10 +4,10 @@ library;
 
 import 'package:flutter/widgets.dart';
 
-import '../../design/spacing.dart';
-import '../../design/tokens.dart';
-import '../../design/typography.dart';
-import 'syntax.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/typography.dart';
+import 'package:upgrade/features/code/syntax.dart';
 
 const _folderClosed = 0xea83;
 const _folderOpen = 0xeaf7;

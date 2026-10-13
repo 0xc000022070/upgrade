@@ -3,9 +3,9 @@ import 'dart:io';
 
 import 'package:dartssh2/dartssh2.dart';
 
-import '../../application/reason_lines.dart';
-import '../herdr_client.dart';
-import '../host_keys.dart';
+import 'package:upgrade/application/reason_lines.dart';
+import 'package:upgrade/platform/herdr_client.dart';
+import 'package:upgrade/platform/host_keys.dart';
 
 sealed class VncFailure implements Exception {
   const VncFailure([this.detail]);

@@ -1,6 +1,6 @@
 import 'package:flutter/painting.dart';
 
-import 'colors.dart';
+import 'package:upgrade/design/colors.dart';
 
 abstract final class FontFamilies {
   static const display = 'Barlow Condensed';

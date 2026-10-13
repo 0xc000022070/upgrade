@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
-import '../tokens.dart';
-import '../icons/upgrade_icon.dart';
-import '../icons/upgrade_icons.dart';
-import '../motion.dart';
-import '../spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
 
 class KeyCell extends StatefulWidget {
   const KeyCell({

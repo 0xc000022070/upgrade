@@ -4,19 +4,19 @@ import 'package:flutter/services.dart' show TextInputAction, TextInputType;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/bundle.dart';
-import '../../design/tokens.dart';
-import '../../design/components/action_block.dart';
-import '../../design/components/field_panel.dart';
-import '../../design/components/meta.dart';
-import '../../design/components/panel.dart';
-import '../../design/components/panel_sheet.dart';
-import '../../design/components/panel_text_action.dart';
-import '../../design/components/solid_action_bar.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
-import '../../platform/bundle_cipher.dart';
-import '../../platform/documents.dart';
+import 'package:upgrade/application/bundle.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/field_panel.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/bundle_cipher.dart';
+import 'package:upgrade/platform/documents.dart';
 
 class BundlePanel extends ConsumerStatefulWidget {
   const BundlePanel({super.key});

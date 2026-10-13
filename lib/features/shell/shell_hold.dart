@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../platform/shell/shell_connection.dart';
-import 'shell_sessions.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/features/shell/shell_sessions.dart';
 
 final shellHoldProvider = Provider<Future<void> Function(int count)>(
   (ref) => (_) async {},

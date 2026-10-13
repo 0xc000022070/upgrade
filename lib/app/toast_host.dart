@@ -1,14 +1,14 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../application/toasts.dart';
-import '../design/components/item_line.dart';
-import '../design/components/keyboard_toolbar.dart';
-import '../design/components/panel.dart';
-import '../design/layout.dart';
-import '../design/motion.dart';
-import '../design/spacing.dart';
-import '../design/tokens.dart';
+import 'package:upgrade/application/toasts.dart';
+import 'package:upgrade/design/components/item_line.dart';
+import 'package:upgrade/design/components/keyboard_toolbar.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/layout.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
 class ToastHost extends ConsumerStatefulWidget {
   const ToastHost({super.key});

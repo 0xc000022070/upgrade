@@ -4,13 +4,13 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
-import '../tokens.dart';
-import '../effects/glitch.dart';
-import '../icons/upgrade_icon.dart';
-import '../icons/upgrade_icons.dart';
-import '../spacing.dart';
-import 'path_line.dart';
-import 'signal_text.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/components/path_line.dart';
+import 'package:upgrade/design/components/signal_text.dart';
 
 class Panel extends StatelessWidget {
   const Panel({

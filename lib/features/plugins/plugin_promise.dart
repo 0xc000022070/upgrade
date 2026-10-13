@@ -1,5 +1,5 @@
-import '../../application/native_plugins.dart';
-import '../../platform/plugins/contributions.dart';
+import 'package:upgrade/application/native_plugins.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
 
 String pluginPromise(PluginContributionOwner owner) => [
   for (final page in owner.pages)

@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../data/project_icons.dart';
-import '../../design/components/panel.dart';
-import '../../design/components/panel_sheet.dart';
-import '../../design/components/picker_row.dart';
-import '../../design/icons/upgrade_icon.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
-import '../../design/tokens.dart';
-import 'project_icon.dart';
+import 'package:upgrade/data/project_icons.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/picker_row.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/projects/project_icon.dart';
 
 class ProjectIconPicker extends StatelessWidget {
   const ProjectIconPicker({

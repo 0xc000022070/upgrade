@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../colors.dart';
-import '../effects/glitch.dart';
-import '../spacing.dart';
-import 'upgrade_icons.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
 
 class UpgradeIcon extends StatelessWidget {
   const UpgradeIcon(

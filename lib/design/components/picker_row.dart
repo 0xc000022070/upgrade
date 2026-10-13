@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../tokens.dart';
-import '../spacing.dart';
-import 'list_row.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/components/list_row.dart';
 
 class PickerRow extends StatelessWidget {
   const PickerRow({

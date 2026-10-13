@@ -2,18 +2,18 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-import '../../design/components/bracket_label.dart';
-import '../../design/components/action_block.dart';
-import '../../design/components/field_panel.dart';
-import '../../design/components/panel_sheet.dart';
-import '../../design/components/picker_row.dart';
-import '../../design/components/list_row.dart';
-import '../../design/components/panel.dart';
-import '../../design/components/status_tag.dart';
-import '../../design/spacing.dart';
-import '../../design/tokens.dart';
-import '../../features/screen_scaffold.dart';
-import 'manifest.dart';
+import 'package:upgrade/design/components/bracket_label.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/field_panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/picker_row.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/status_tag.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
 
 class PluginUiNode {
   const PluginUiNode(this.kind, this.props, this.children);

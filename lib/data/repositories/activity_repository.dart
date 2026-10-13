@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
-import '../database.dart';
-import '../enums.dart';
-import '../views.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/views.dart';
 
 class ActivityRepository {
   ActivityRepository(this._db);

@@ -1,5 +1,5 @@
-import 'database.dart';
-import 'enums.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
 
 class NextAction {
   const NextAction({

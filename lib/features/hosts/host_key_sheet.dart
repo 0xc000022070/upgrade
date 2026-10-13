@@ -1,12 +1,12 @@
 import 'package:flutter/widgets.dart';
 
-import '../../data/repositories/host_repository.dart';
-import '../../design/tokens.dart';
-import '../../design/components/action_block.dart';
-import '../../design/components/meta.dart';
-import '../../design/components/panel_sheet.dart';
-import '../../design/spacing.dart';
-import '../../platform/host_keys.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/host_keys.dart';
 
 Future<bool> askHostKey(
   BuildContext context, {

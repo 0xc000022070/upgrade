@@ -1,10 +1,10 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-import 'motion.dart';
-import 'spacing.dart';
-import 'tokens.dart';
-import 'typography.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/typography.dart';
 
 /// Material is a substrate only. Everything that would leak a Material look — ripples,
 /// elevation tints, shadows, rounded defaults, overscroll glow, the zoom transition — is

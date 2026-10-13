@@ -1,15 +1,15 @@
 import 'package:drift/drift.dart' show Value;
 
-import '../platform/plugins/access.dart';
-import '../platform/plugins/manifest.dart';
-import 'database.dart';
-import 'enums.dart';
-import 'views.dart';
-import 'repositories/attachment_repository.dart';
-import 'repositories/goal_repository.dart';
-import 'repositories/note_repository.dart';
-import 'repositories/project_repository.dart';
-import 'repositories/task_repository.dart';
+import 'package:upgrade/platform/plugins/access.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/repositories/goal_repository.dart';
+import 'package:upgrade/data/repositories/note_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
 
 class PluginDataGate {
   PluginDataGate(this._db, this._authority, this.actor)

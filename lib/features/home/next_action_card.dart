@@ -1,15 +1,15 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/providers.dart';
-import '../../data/views.dart';
-import '../../design/tokens.dart';
-import '../../design/components/list_row.dart';
-import '../../design/components/panel.dart';
-import '../../design/icons/upgrade_icon.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../design/spacing.dart';
-import '../tasks/item_sheet.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/tasks/item_sheet.dart';
 
 class NextActionCard extends ConsumerWidget {
   const NextActionCard({super.key});

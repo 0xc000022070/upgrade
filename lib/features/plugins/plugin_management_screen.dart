@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/static_surface.dart';
-import '../../application/plugins.dart';
-import '../../design/components/segment_switch.dart';
-import '../../design/spacing.dart';
-import '../screen_scaffold.dart';
-import '../settings/plugins_panel.dart';
-import 'plugin_board.dart';
+import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/plugins.dart';
+import 'package:upgrade/design/components/segment_switch.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/screen_scaffold.dart';
+import 'package:upgrade/features/settings/plugins_panel.dart';
+import 'package:upgrade/features/plugins/plugin_board.dart';
 
 void openPluginManagement(BuildContext context) {
   Navigator.of(context, rootNavigator: true).push(

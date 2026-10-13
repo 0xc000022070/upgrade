@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../tokens.dart';
+import 'package:upgrade/design/tokens.dart';
 
 class UpgradeField extends StatelessWidget {
   const UpgradeField({

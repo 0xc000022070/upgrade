@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../tokens.dart';
-import '../icons/upgrade_icon.dart';
-import '../icons/upgrade_icons.dart';
-import '../spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
 
 class ToolbarIconAction extends StatefulWidget {
   const ToolbarIconAction({

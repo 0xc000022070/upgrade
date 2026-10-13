@@ -1,7 +1,7 @@
-import 'byte_reader.dart';
-import 'framebuffer.dart';
-import 'rfb_messages.dart';
-import 'zrle.dart';
+import 'package:upgrade/platform/vnc/byte_reader.dart';
+import 'package:upgrade/platform/vnc/framebuffer.dart';
+import 'package:upgrade/platform/vnc/rfb_messages.dart';
+import 'package:upgrade/platform/vnc/zrle.dart';
 
 class RfbRect {
   const RfbRect({

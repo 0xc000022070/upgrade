@@ -2,17 +2,17 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 
-import '../../application/bar_layout.dart';
-import '../../design/effects/glitch.dart';
-import '../../design/components/arrow_stick.dart';
-import '../../design/components/key_bar.dart';
-import '../../design/components/key_cell.dart';
-import '../../design/icons/upgrade_icons.dart';
-import '../../platform/shell/strip_bytes.dart';
-import '../../platform/vnc/arming.dart';
-import '../../platform/vnc/keysyms.dart';
-import '../modifier_cell.dart';
-import 'shell_voice.dart';
+import 'package:upgrade/application/bar_layout.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/components/arrow_stick.dart';
+import 'package:upgrade/design/components/key_bar.dart';
+import 'package:upgrade/design/components/key_cell.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/platform/shell/strip_bytes.dart';
+import 'package:upgrade/platform/vnc/arming.dart';
+import 'package:upgrade/platform/vnc/keysyms.dart';
+import 'package:upgrade/features/modifier_cell.dart';
+import 'package:upgrade/features/shell/shell_voice.dart';
 
 const _stickKeysyms = {
   AxisDirection.up: Keysyms.up,
