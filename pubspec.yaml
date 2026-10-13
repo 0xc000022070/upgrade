@@ -23,7 +23,7 @@ dependencies:
 
   drift: ^2.34.3
   drift_flutter: ^0.3.1
-  dartssh2: ^4.0.0
+  dartssh2: 4.0.0
   dynamic_color: ^1.7.0
   # Pinned: 11.0.0 raises the android module to compileSdk 37, and the store SDK
   # only carries an android-37.0 directory that AGP 9.1.0 will not accept.
@@ -53,6 +53,8 @@ dependency_overrides:
     path: .dart_tool/libghostty
   dart_mosh:
     path: .dart_tool/dart_mosh
+  dartssh2:
+    path: .dart_tool/dartssh2
 
 dev_dependencies:
   flutter_test:

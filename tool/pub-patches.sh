@@ -26,11 +26,12 @@ EOF
 pin() {
   case "$1" in
   dart_mosh) VERSION=0.0.4 RECIPE=mosh ;;
+  dartssh2) VERSION=4.0.0 RECIPE=ssh ;;
   flterm)
     VERSION=${LIBGHOSTTY_REV:?run inside the nix dev shell} RECIPE=flterm
     SRC=${LIBGHOSTTY_SRC:?run inside the nix dev shell}/packages/flterm
     ;;
-  *) die "no package $1; have: dart_mosh flterm" ;;
+  *) die "no package $1; have: dart_mosh dartssh2 flterm" ;;
   esac
 }
 
@@ -47,7 +48,8 @@ die() {
 names() {
   local patch
   for patch in "$PATCHES"/*.patch; do
-    [[ -e $patch ]] && basename "$patch" .patch
+    [[ -e $patch ]] || continue
+    basename "$patch" .patch
   done
 }
 

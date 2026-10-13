@@ -43,8 +43,8 @@ final class FileWrite {
   bool get ok => failure == null;
 }
 
-/// A host with sftp off answers with a failure dartssh2 drops, then sits silent; a
-/// handshake that does not come back in this long is that refusal.
+/// A host that grants the subsystem but whose server never answers init; past this the
+/// file goes over exec.
 const sftpHandshakeDeadline = Duration(seconds: 3);
 
 String putCommand(String path) {

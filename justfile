@@ -157,9 +157,9 @@ review:
 desktop: pub-build
     flutter run -d linux --dart-define=UPGRADE_BUILD=${UPGRADE_BUILD:-dev}
 
-pub-build: mosh-build flterm-build libghostty-build
+pub-build: mosh-build ssh-build flterm-build libghostty-build
 
-pub-verify: mosh-verify flterm-verify
+pub-verify: mosh-verify ssh-verify flterm-verify
 
 mosh-build:
     tool/pub-patches.sh dart_mosh build
@@ -169,6 +169,15 @@ mosh-patches:
 
 mosh-verify:
     tool/pub-patches.sh dart_mosh verify
+
+ssh-build:
+    tool/pub-patches.sh dartssh2 build
+
+ssh-patches:
+    tool/pub-patches.sh dartssh2 generate
+
+ssh-verify:
+    tool/pub-patches.sh dartssh2 verify
 
 flterm-build:
     tool/pub-patches.sh flterm build

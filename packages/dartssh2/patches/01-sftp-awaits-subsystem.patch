@@ -1,0 +1,21 @@
+# sftp awaits the subsystem reply and throws on refusal
+#
+# Against dartssh2 4.0.0. Regenerate with `just ssh-patches`.
+
+diff --git a/lib/src/ssh_client.dart b/lib/src/ssh_client.dart
+index 85bc4e9..fd844fa 100644
+--- a/lib/src/ssh_client.dart
++++ b/lib/src/ssh_client.dart
+@@ -649,7 +649,11 @@ class SSHClient {
+     await _authenticated.future;
+ 
+     final channelController = await _openSessionChannel();
+-    channelController.sendSubsystem('sftp');
++    final sftpOk = await channelController.sendSubsystem('sftp');
++    if (!sftpOk) {
++      channelController.close();
++      throw SSHChannelRequestError('Failed to start sftp subsystem');
++    }
+ 
+     return SftpClient(
+       channelController.channel,

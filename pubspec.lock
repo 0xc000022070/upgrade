@@ -211,10 +211,9 @@ packages:
   dartssh2:
     dependency: "direct main"
     description:
-      name: dartssh2
-      sha256: "15d20db3df79da82cf3287dd30e1719b5d06466b3fbc8411050b2fa715f802e7"
-      url: "https://pub.dev"
-    source: hosted
+      path: ".dart_tool/dartssh2"
+      relative: true
+    source: path
     version: "4.0.0"
   dbus:
     dependency: transitive
