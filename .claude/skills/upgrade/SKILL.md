@@ -1,11 +1,11 @@
 ---
 name: upgrade
-description: Work on Upgrade, the open source phone client for hosts, shells, screens and herdr agents. Use for any change in this repo — a user ruling landing in design/SPEC.md, building it, gating it, committing it, pushing a build to faraday.
+description: Work on Upgrade, the open source phone client for hosts, shells, screens and herdr agents. Use for any change in this repo — a user ruling landing in docs/SPEC.md, building it, gating it, committing it, pushing a build to faraday.
 ---
 
 # Upgrade
 
-Flutter, Drift, Riverpod. Dark monochrome, accent `#B7FF2A`, Barlow Condensed and IBM Plex Mono. The contract is `design/SPEC.md`: it says what the app does in the house words, and the section being built names what has to be true.
+Flutter, Drift, Riverpod. Dark monochrome, accent `#B7FF2A`, Barlow Condensed and IBM Plex Mono. The contract is `docs/SPEC.md`: it says what the app does in the house words, and the section being built names what has to be true.
 
 You build and you review what you built. A ruling lands in the spec, the code follows it, the same session gates it, and one commit carries both.
 

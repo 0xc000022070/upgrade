@@ -8,19 +8,6 @@ gen:
 gen-watch:
     flutter pub run build_runner watch
 
-# Mirror the artist's production assets into assets/. Re-run when design/ moves.
-assets:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    src=design/production
-    rm -f assets/icons/*.svg assets/icons/signal/*.svg assets/textures/*
-    mkdir -p assets/icons/signal assets/textures
-    cp "$src"/icons/hl-*.svg assets/icons/
-    cp "$src"/icons/signal/hl-*-signal.svg assets/icons/signal/
-    cp -R "$src"/project_emblems assets/
-    cp "$src"/textures/noise-fine.png "$src"/textures/grid-8.svg "$src"/textures/scanline-3.png assets/textures/
-    echo "assets: $(ls assets/icons/*.svg | wc -l) icons, $(ls assets/icons/signal/*.svg | wc -l) signal, $(ls assets/textures/* | wc -l) textures"
-
 analyze: pub-build
     flutter analyze
 

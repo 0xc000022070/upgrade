@@ -1,7 +1,7 @@
 # Upgrade
 
 Local-first personal control plane. Single user, no backend, no sync.
-Design and art direction live in `design/SPEC.md`.
+Design and art direction live in `docs/SPEC.md`.
 
 ## Toolchain
 
