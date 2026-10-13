@@ -37,6 +37,8 @@ final class _FakeFiles implements HostFiles {
   final copies = <String>[];
   var closed = false;
   var unreadable = false;
+  final failOnce = <String>{};
+  String? copyFails;
 
   @override
   Host get host => _nyx;
@@ -55,6 +57,9 @@ final class _FakeFiles implements HostFiles {
     int sharing = 1,
     PutProgress? onProgress,
   }) async {
+    if (failOnce.remove(path.split('/').last)) {
+      return const FileWrite.failed(FileRoute.sftp, 'denied');
+    }
     puts[path] = await body.read();
     return const FileWrite.landed(FileRoute.sftp);
   }
@@ -75,7 +80,7 @@ final class _FakeFiles implements HostFiles {
   @override
   Future<String?> copy({String? text, String? imageAt, String? mime}) async {
     copies.add(text ?? '$imageAt as $mime');
-    return null;
+    return copyFails;
   }
 
   @override
@@ -86,6 +91,7 @@ void main() {
   setUp(stubDeviceChannels);
 
   late _FakeFiles files;
+  var unreachable = 0;
 
   setUp(() {
     files = _FakeFiles({
@@ -101,7 +107,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          hostFilesOpenerProvider.overrideWithValue((_) async => files),
+          hostFilesOpenerProvider.overrideWithValue((_) async {
+            if (unreachable-- > 0) throw const SocketException('unreachable');
+            return files;
+          }),
           hostsProvider.overrideWith((ref) => Stream.value(const [_nyx])),
         ],
         child: MaterialApp(
@@ -127,7 +136,7 @@ void main() {
   ) async {
     await open(tester, (context) => showHostFiles(context, _nyx));
 
-    expect(find.text('~'), findsOneWidget);
+    expect(find.byKey(const ValueKey('files-dir-/home/luis')), findsOneWidget);
     expect(top(tester, 'src'), lessThan(top(tester, 'notes.txt')));
     expect(top(tester, 'notes.txt'), lessThan(top(tester, '.bashrc')));
     expect(find.text('main.dart'), findsNothing);
@@ -135,6 +144,10 @@ void main() {
     await tester.tap(find.text('src'));
     await tester.pumpAndSettle();
     expect(find.text('main.dart'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('files-target'))).data,
+      '/home/luis/src',
+    );
   });
 
   testWidgets('a file offers share, save and send', (tester) async {
@@ -237,5 +250,79 @@ void main() {
 
     expect(files.puts, isEmpty);
     expect(find.text('FOLDER · $unreadFolder'), findsOneWidget);
+  });
+
+  group('shared files', () {
+    late Directory scratch;
+    late List<SharedItem> shared;
+
+    setUp(() {
+      scratch = Directory.systemTemp.createTempSync('send-');
+      shared = [
+        for (final name in ['a.txt', 'b.txt'])
+          SharedFile(
+            path: (File('${scratch.path}/$name')..writeAsStringSync(name)).path,
+            name: name,
+            size: 5,
+            mime: 'text/plain',
+          ),
+      ];
+    });
+
+    tearDown(() {
+      if (scratch.existsSync()) scratch.deleteSync(recursive: true);
+    });
+
+    Future<void> settle(WidgetTester tester, Finder tap) async {
+      await tester.runAsync(() async {
+        await tester.tap(tap);
+        for (var i = 0; i < 20; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+          await tester.pump();
+        }
+      });
+      await tester.pump();
+    }
+
+    testWidgets('a retry sends only the file that failed', (tester) async {
+      files.failOnce.add('b.txt');
+      await open(tester, (context) => showSendSheet(context, shared));
+
+      await tester.tap(find.byKey(const ValueKey('send-folder')));
+      await tester.pumpAndSettle();
+      await settle(tester, find.byKey(const ValueKey('files-put-here')));
+      expect(files.puts.keys, ['/home/luis/a.txt']);
+      expect(find.text('UPLOADING · 1 FAILED'), findsOneWidget);
+
+      await settle(tester, find.byKey(const ValueKey('send-retry')));
+      expect(files.puts.keys, ['/home/luis/a.txt', '/home/luis/b.txt']);
+      expect(find.text('IN luis'), findsOneWidget);
+      await tester.pumpAndSettle(sendSheetLinger);
+    });
+
+    testWidgets('a host without a clipboard still says where files went', (
+      tester,
+    ) async {
+      files.copyFails = 'no clipboard';
+      await open(tester, (context) => showSendSheet(context, shared));
+
+      await settle(tester, find.byKey(const ValueKey('send-clipboard')));
+      expect(find.text('CLIPBOARD · no clipboard'), findsOneWidget);
+      final landed = tester.widget<SelectableText>(
+        find.byKey(const ValueKey('send-landed')),
+      );
+      expect(landed.data!.split('\n'), files.puts.keys.toList());
+    });
+  });
+
+  testWidgets('an unreachable host can be tried again', (tester) async {
+    unreachable = 1;
+    await open(tester, (context) => showHostFiles(context, _nyx));
+    expect(find.byKey(const ValueKey('files-error')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('files-reconnect')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('files-error')), findsNothing);
+    expect(find.text('notes.txt'), findsOneWidget);
   });
 }

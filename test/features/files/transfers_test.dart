@@ -52,12 +52,28 @@ void main() {
         QueuedFile(name: 'b', bytes: 100),
       ],
     );
-    expect(transfers.tally.counts, 'UP 2');
-    expect(status.moves.last.$1, 'UP 2 · 0%');
+    expect(transfers.tally.counts, '2 QUEUED');
+    expect(status.moves.last.$1, '2 QUEUED · 0%');
 
     now = now.add(const Duration(seconds: 1));
     job.report(0, job.items[0].to(AttachStage.sending, sent: 100));
     expect(transfers.tally.percent, 50);
+  });
+
+  test('a file waiting to come down is queued, not up', () {
+    final job = transfers.begin(
+      verb: 'SAVING',
+      host: 'nyx',
+      files: const [
+        QueuedFile(name: 'a', bytes: 10),
+        QueuedFile(name: 'b', bytes: 10),
+      ],
+    );
+    job.report(
+      0,
+      const AttachItem(bytes: 10, down: true).to(AttachStage.sending),
+    );
+    expect(transfers.tally.counts, 'DOWN 1 · 1 QUEUED');
   });
 
   test('ending the last job says what moved and what failed', () {

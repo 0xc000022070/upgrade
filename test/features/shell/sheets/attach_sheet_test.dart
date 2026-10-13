@@ -208,7 +208,7 @@ void main() {
       find.descendant(of: rows, matching: find.text('PATH')),
       findsNWidgets(2),
     );
-    expect(find.text('0 UP · 0 QUEUED · 2 IN'), findsOneWidget);
+    expect(find.text('0 UP · 0 QUEUED · 2 LANDED'), findsOneWidget);
     await tester.pumpAndSettle(attachSheetLinger);
   });
 }

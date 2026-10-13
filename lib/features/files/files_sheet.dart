@@ -142,9 +142,10 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
   final _open = <String>{};
 
   String? _status;
-  bool _busy = false;
   TransferJob? _job;
-  Future<void>? _running;
+  Future<void> Function()? _retry;
+  final _running = <Future<void>>{};
+  final _kept = <String>{};
   List<QueuedFile> _queue = const [];
   List<AttachItem> _items = const [];
 
@@ -154,13 +155,26 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     unawaited(_connect());
   }
 
+  bool get _busy => _job?.ended == false;
+
   @override
   void dispose() {
     final files = _files;
-    if (files != null) {
-      unawaited((_running ?? Future<void>.value()).whenComplete(files.close));
-    }
+    final kept = [..._kept];
+    unawaited(
+      Future.wait(_running).whenComplete(() {
+        files?.close();
+        return discardCopies(kept);
+      }),
+    );
     super.dispose();
+  }
+
+  void _reconnect() {
+    _files?.close();
+    _files = null;
+    setState(() => _error = null);
+    unawaited(_connect());
   }
 
   Future<void> _connect() async {
@@ -216,8 +230,15 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
 
   void _toggle(String directory) {
     setState(() {
+      if (_open.remove(directory)) {
+        if (!widget.picking && _target == directory && directory != _home) {
+          _target = directory.substring(0, directory.lastIndexOf('/'));
+        }
+      } else {
+        _open.add(directory);
+        _target = directory;
+      }
       if (widget.picking) _target = directory;
-      if (!_open.remove(directory)) _open.add(directory);
     });
     if (_open.contains(directory)) unawaited(_read(directory));
   }
@@ -225,14 +246,15 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
   Future<List<String?>> _run(
     String verb,
     List<QueuedFile> queue,
-    QueueTask task,
-  ) async {
+    QueueTask task, {
+    required Future<void> Function(List<String?> failures) again,
+  }) async {
     final items = [for (final file in queue) AttachItem(bytes: file.bytes)];
     final job = _job = ref
         .read(transfersProvider)
         .begin(verb: verb, host: widget.host.name, files: queue);
     setState(() {
-      _busy = true;
+      _retry = null;
       _status = verb;
       _queue = queue;
       _items = items;
@@ -247,14 +269,14 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
         if (mounted) setState(() {});
       },
     ).whenComplete(job.end);
-    _running = run;
-    final failures = await run;
+    _running.add(run);
+    final failures = await run.whenComplete(() => _running.remove(run));
     final failed = failures
         .where((f) => f != null && f != stoppedFailure)
         .length;
-    if (mounted) {
+    if (mounted && _job == job) {
       setState(() {
-        _busy = false;
+        if (failures.any((f) => f != null)) _retry = () => again(failures);
         _status = job.stop.stopped
             ? '$verb · STOPPED'
             : failed == 0
@@ -265,15 +287,20 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     return failures;
   }
 
-  Future<void> _uploadInto(String directory) async {
+  Future<void> _uploadInto(String directory, {List<SharedFile>? again}) async {
     final files = _files;
-    if (files == null || _busy) return;
-    final picked = await ref.read(phoneFilesProvider).pick();
-    if (picked.isEmpty || !mounted) return;
+    if (files == null) return;
+    final picked = again ?? await ref.read(phoneFilesProvider).pick();
+    if (picked.isEmpty) return;
+    if (!mounted) return discardCopies(picked.map((f) => f.path));
+    _kept.addAll(picked.map((f) => f.path));
     final listed = await files.list(directory);
-    if (listed == null || !mounted) {
-      if (mounted) setState(() => _status = 'UPLOADING · $unreadFolder');
-      return discardCopies(picked.map((f) => f.path));
+    if (!mounted) return;
+    if (listed == null) {
+      return setState(() {
+        _status = 'UPLOADING · $unreadFolder';
+        _retry = () => _uploadInto(directory, again: picked);
+      });
     }
     final taken = {for (final entry in listed) entry.name};
     final names = <String>[];
@@ -282,9 +309,8 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
       taken.add(name);
       names.add(name);
     }
-    if (!mounted) return discardCopies(picked.map((f) => f.path));
     final sharing = uploadsSharing(picked.length);
-    await _run(
+    final failures = await _run(
       'UPLOADING',
       [
         for (var i = 0; i < picked.length; i++)
@@ -298,15 +324,27 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
         sharing: sharing,
         stop: stop,
       ),
+      again: (failures) => _uploadInto(
+        directory,
+        again: [
+          for (var i = 0; i < picked.length; i++)
+            if (failures[i] != null) picked[i],
+        ],
+      ),
     );
-    await discardCopies(picked.map((f) => f.path));
+    final landed = [
+      for (var i = 0; i < picked.length; i++)
+        if (failures[i] == null) picked[i].path,
+    ];
+    _kept.removeAll(landed);
+    await discardCopies(landed);
     _open.add(directory);
     await _read(directory);
   }
 
   Future<void> _share(String path, DirEntry entry) async {
     final files = _files;
-    if (files == null || _busy) return;
+    if (files == null) return;
     final phone = ref.read(phoneFilesProvider);
     final into = File('${(await phone.outgoing()).path}/${entry.name}');
     if (!mounted) return;
@@ -315,13 +353,14 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
       [QueuedFile(name: entry.name, bytes: entry.size)],
       (_, report, stop) =>
           pullFile(files, path, into, entry.size, report, stop: stop),
+      again: (_) => _share(path, entry),
     );
     if (failures.single == null) await phone.share([into.path]);
   }
 
   Future<void> _save(String path, DirEntry entry) async {
     final files = _files;
-    if (files == null || _busy) return;
+    if (files == null) return;
     final phone = ref.read(phoneFilesProvider);
     final scratch = await phone.scratch();
     final into = File('${scratch.path}/${entry.name}');
@@ -331,6 +370,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
       [QueuedFile(name: entry.name, bytes: entry.size)],
       (_, report, stop) =>
           pullFile(files, path, into, entry.size, report, stop: stop),
+      again: (_) => _save(path, entry),
     );
     String? line;
     if (failures.single == null) {
@@ -344,18 +384,23 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     if (mounted && line != null) setState(() => _status = line);
   }
 
-  Future<void> _sendToHost(String path, DirEntry entry) async {
+  Future<void> _sendToHost(
+    String path,
+    DirEntry entry, {
+    Host? to,
+    String? into,
+  }) async {
     final files = _files;
-    if (files == null || _busy) return;
-    final target = await pickHost(context, ref, title: 'SEND TO');
+    if (files == null) return;
+    final target = to ?? await pickHost(context, ref, title: 'SEND TO');
     if (target == null || !mounted) return;
-    final folder = await pickHostFolder(context, target);
+    final folder = into ?? await pickHostFolder(context, target);
     if (folder == null || !mounted) return;
     final scratch = await ref.read(phoneFilesProvider).scratch();
-    final into = File('${scratch.path}/${entry.name}');
+    final copy = File('${scratch.path}/${entry.name}');
     final opener = ref.read(hostFilesOpenerProvider);
     HostFiles? there;
-    if (!mounted) return discardCopies([into.path]);
+    if (!mounted) return discardCopies([copy.path]);
     await _run('SENDING', [QueuedFile(name: entry.name, bytes: entry.size)], (
       _,
       report,
@@ -364,7 +409,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
       final failed = await pullFile(
         files,
         path,
-        into,
+        copy,
         entry.size,
         report,
         stop: stop,
@@ -379,13 +424,13 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
       return pushFile(
         to,
         joinPath(folder, freeName(entry.name, taken)),
-        into,
+        copy,
         report,
         stop: stop,
       );
-    });
+    }, again: (_) => _sendToHost(path, entry, to: target, into: folder));
     if (there != null && there != files) there!.close();
-    await discardCopies([into.path]);
+    await discardCopies([copy.path]);
     if (target.id == widget.host.id) await _read(folder);
   }
 
@@ -526,13 +571,43 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
                   style: tokens.label,
                 ),
               ),
-              if (_busy && _job != null && !_job!.stop.stopped)
+              if (_busy && !_job!.stop.stopped)
                 ActionBlock(
                   key: const ValueKey('files-stop'),
                   label: 'STOP',
                   tone: tokens.danger,
                   onTap: () => setState(_job!.stop.stop),
+                )
+              else if (!_busy && _retry != null)
+                ActionBlock(
+                  key: const ValueKey('files-retry'),
+                  label: 'RETRY',
+                  onTap: () {
+                    final retry = _retry!;
+                    setState(() => _retry = null);
+                    unawaited(retry());
+                  },
                 ),
+            ],
+          ),
+        if (_status != null && target != null && _error == null)
+          const SizedBox(height: Spacing.sm),
+        if (!widget.picking && target != null && _error == null)
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  target == home ? '~' : target,
+                  key: const ValueKey('files-target'),
+                  style: tokens.label,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              ActionBlock(
+                key: const ValueKey('files-upload'),
+                label: 'UPLOAD',
+                onTap: () => unawaited(_uploadInto(target)),
+              ),
             ],
           ),
         if (widget.picking && target != null) ...[
@@ -555,13 +630,23 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
           style: tokens.label.copyWith(color: tokens.textSecondary),
         ),
         const SizedBox(height: Spacing.sm),
-        if (_error case final error?)
+        if (_error case final error?) ...[
           Text(
             error,
             key: const ValueKey('files-error'),
             style: tokens.label.copyWith(color: tokens.danger),
-          )
-        else if (home == null)
+          ),
+          const SizedBox(height: Spacing.sm),
+          Row(
+            children: [
+              ActionBlock(
+                key: const ValueKey('files-reconnect'),
+                label: 'RETRY',
+                onTap: _reconnect,
+              ),
+            ],
+          ),
+        ] else if (home == null)
           const Row(children: [DotSpinner()])
         else
           ...rows,

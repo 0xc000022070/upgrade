@@ -118,7 +118,7 @@ class _QueueCount extends StatelessWidget {
       (down ? 'MOVING' : 'UP', count(const {AttachStage.sending})),
       ('QUEUED', count(const {AttachStage.queued})),
       (
-        down ? 'DONE' : 'IN',
+        'LANDED',
         count(const {
           AttachStage.landed,
           AttachStage.pasting,

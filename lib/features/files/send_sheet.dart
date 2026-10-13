@@ -48,6 +48,9 @@ class _SendSheetState extends ConsumerState<SendSheet> {
   bool _busy = false;
   TransferJob? _job;
   bool _sent = false;
+  Future<void> Function()? _retry;
+  List<String> _landed = const [];
+  List<QueuedFile> _queue = const [];
   List<AttachItem> _items = const [];
 
   late final List<SharedFile> _shared = widget.items
@@ -60,9 +63,7 @@ class _SendSheetState extends ConsumerState<SendSheet> {
     super.dispose();
   }
 
-  List<QueuedFile> get _queue => [
-    for (final file in _shared) QueuedFile(name: file.name, bytes: file.size),
-  ];
+  List<int> get _all => [for (var i = 0; i < _shared.length; i++) i];
 
   Future<HostFiles?> _open(Host host) async {
     try {
@@ -73,19 +74,29 @@ class _SendSheetState extends ConsumerState<SendSheet> {
     }
   }
 
-  Future<List<String>?> _upload(String verb, QueueTask task) async {
-    final items = [for (final file in _shared) AttachItem(bytes: file.size)];
-    if (!mounted) return null;
+  Future<List<int>> _upload(
+    Host host,
+    String verb,
+    List<int> which,
+    QueueTask task,
+  ) async {
+    final queue = [
+      for (final i in which)
+        QueuedFile(name: _shared[i].name, bytes: _shared[i].size),
+    ];
+    final items = [for (final file in queue) AttachItem(bytes: file.bytes)];
+    if (!mounted) return which;
     final job = _job = ref
         .read(transfersProvider)
-        .begin(verb: verb, host: _host?.name ?? '', files: _queue);
+        .begin(verb: verb, host: host.name, files: queue);
     setState(() {
       _status = verb;
+      _queue = queue;
       _items = items;
     });
     final failures = await runQueue(
-      _queue,
-      task,
+      queue,
+      (i, report, stop) => task(which[i], report, stop),
       stop: job.stop,
       onItem: (index, item) {
         items[index] = item;
@@ -93,10 +104,14 @@ class _SendSheetState extends ConsumerState<SendSheet> {
         if (mounted) setState(() {});
       },
     ).whenComplete(job.end);
+    final pending = [
+      for (var i = 0; i < which.length; i++)
+        if (failures[i] != null) which[i],
+    ];
     final failed = failures
         .where((f) => f != null && f != stoppedFailure)
         .length;
-    if (failed == 0 && !job.stop.stopped) return const [];
+    if (pending.isEmpty) return pending;
     if (mounted) {
       setState(
         () => _status = job.stop.stopped
@@ -104,31 +119,50 @@ class _SendSheetState extends ConsumerState<SendSheet> {
             : '$verb · $failed FAILED',
       );
     }
-    return null;
+    return pending;
   }
 
-  Future<void> _toClipboard(Host host) async {
-    setState(() => _busy = true);
+  void _begin() => setState(() {
+    _busy = true;
+    _retry = null;
+    _landed = const [];
+  });
+
+  Future<void> _toClipboard(
+    Host host, {
+    List<String>? paths,
+    List<int>? which,
+  }) async {
+    _begin();
     final files = await _open(host);
-    if (files == null) return await _done(false);
+    if (files == null) {
+      _retry = () => _toClipboard(host, paths: paths, which: which);
+      return await _done(false);
+    }
     try {
-      final sharing = uploadsSharing(_shared.length);
-      final at = [
-        for (final file in _shared)
-          remotePathFor('${const Uuid().v4()}/${file.name}'),
-      ];
-      if (await _upload(
-            'UPLOADING',
-            (i, report, stop) => pushFile(
-              files,
-              at[i],
-              File(_shared[i].path),
-              report,
-              sharing: sharing,
-              stop: stop,
-            ),
-          ) ==
-          null) {
+      final todo = which ?? _all;
+      final sharing = uploadsSharing(todo.length);
+      final at =
+          paths ??
+          [
+            for (final file in _shared)
+              remotePathFor('${const Uuid().v4()}/${file.name}'),
+          ];
+      final pending = await _upload(
+        host,
+        'UPLOADING',
+        todo,
+        (i, report, stop) => pushFile(
+          files,
+          at[i],
+          File(_shared[i].path),
+          report,
+          sharing: sharing,
+          stop: stop,
+        ),
+      );
+      if (pending.isNotEmpty) {
+        _retry = () => _toClipboard(host, paths: at, which: pending);
         return await _done(false);
       }
       var next = 0;
@@ -143,25 +177,33 @@ class _SendSheetState extends ConsumerState<SendSheet> {
         ),
       };
       if (!mounted) return;
-      setState(
-        () => _status = failed == null ? 'COPIED' : 'CLIPBOARD · $failed',
-      );
+      setState(() {
+        _status = failed == null ? 'COPIED' : 'CLIPBOARD · $failed';
+        if (failed != null) _landed = at;
+      });
       await _done(failed == null);
     } finally {
       files.close();
     }
   }
 
-  Future<void> _toFolder(Host host) async {
-    final folder = await pickHostFolder(context, host);
+  Future<void> _toFolder(Host host, {String? into, List<int>? which}) async {
+    final folder = into ?? await pickHostFolder(context, host);
     if (folder == null || !mounted) return;
-    setState(() => _busy = true);
+    _begin();
+    Future<void> again(List<int> which) =>
+        _toFolder(host, into: folder, which: which);
+    final todo = which ?? _all;
     final files = await _open(host);
-    if (files == null) return await _done(false);
+    if (files == null) {
+      _retry = () => again(todo);
+      return await _done(false);
+    }
     try {
       final listed = await files.list(folder);
       if (listed == null) {
         if (mounted) setState(() => _status = 'FOLDER · $unreadFolder');
+        _retry = () => again(todo);
         return await _done(false);
       }
       final taken = {for (final entry in listed) entry.name};
@@ -171,20 +213,23 @@ class _SendSheetState extends ConsumerState<SendSheet> {
         return free;
       }
 
-      final names = [for (final file in _shared) claim(file.name)];
-      final sharing = uploadsSharing(_shared.length);
-      if (await _upload(
-            'UPLOADING',
-            (i, report, stop) => pushFile(
-              files,
-              joinPath(folder, names[i]),
-              File(_shared[i].path),
-              report,
-              sharing: sharing,
-              stop: stop,
-            ),
-          ) ==
-          null) {
+      final names = {for (final i in todo) i: claim(_shared[i].name)};
+      final sharing = uploadsSharing(todo.length);
+      final pending = await _upload(
+        host,
+        'UPLOADING',
+        todo,
+        (i, report, stop) => pushFile(
+          files,
+          joinPath(folder, names[i]!),
+          File(_shared[i].path),
+          report,
+          sharing: sharing,
+          stop: stop,
+        ),
+      );
+      if (pending.isNotEmpty) {
+        _retry = () => again(pending);
         return await _done(false);
       }
       final now = DateTime.now();
@@ -195,6 +240,7 @@ class _SendSheetState extends ConsumerState<SendSheet> {
         );
         if (write.failure case final failure?) {
           if (mounted) setState(() => _status = 'TEXT · $failure');
+          _retry = () => again(const []);
           return await _done(false);
         }
       }
@@ -229,7 +275,7 @@ class _SendSheetState extends ConsumerState<SendSheet> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final hosts = ref.watch(hostsProvider).value ?? const <Host>[];
-    final host = _host;
+    final host = _host ?? (hosts.length == 1 ? hosts.single : null);
     final text = widget.items.whereType<SharedText>().firstOrNull?.text;
     return PanelSheetBody(
       title: 'SEND TO HOST',
@@ -276,6 +322,12 @@ class _SendSheetState extends ConsumerState<SendSheet> {
                   label: 'STOP',
                   tone: tokens.danger,
                   onTap: () => setState(_job!.stop.stop),
+                )
+              else if (!_busy && _retry != null)
+                ActionBlock(
+                  key: const ValueKey('send-retry'),
+                  label: 'RETRY',
+                  onTap: () => unawaited(_retry!()),
                 ),
             ],
           ),
@@ -306,9 +358,27 @@ class _SendSheetState extends ConsumerState<SendSheet> {
               label: candidate.name,
               selected: candidate.id == host?.id,
               onTap: () {
-                if (!_busy) setState(() => _host = candidate);
+                if (_busy || candidate.id == host?.id) return;
+                setState(() {
+                  _host = candidate;
+                  _retry = null;
+                  _landed = const [];
+                });
               },
             ),
+        if (_landed.isNotEmpty) ...[
+          const SheetRule(),
+          Text(
+            'ON THE HOST AT',
+            style: tokens.label.copyWith(color: tokens.textSecondary),
+          ),
+          const SizedBox(height: Spacing.sm),
+          SelectableText(
+            _landed.join('\n'),
+            key: const ValueKey('send-landed'),
+            style: tokens.value,
+          ),
+        ],
         if (_items.isNotEmpty) ...[
           const SheetRule(),
           TransferQueue(files: _queue, items: _items, keyPrefix: 'send'),

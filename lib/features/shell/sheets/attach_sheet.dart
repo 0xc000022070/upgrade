@@ -103,7 +103,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
 
   Future<void> _attachFiles(UserIntent intent) => _attach(
     intent,
-    'FILES',
+    'PHONE',
     () async => [
       for (final picked
           in await (widget.pickFiles ?? ref.read(phoneFilesProvider).pick)())
@@ -237,8 +237,8 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
                 ),
                 const SizedBox(width: Spacing.md),
                 ActionBlock(
-                  key: const ValueKey('attach-files'),
-                  label: 'FILES',
+                  key: const ValueKey('attach-phone'),
+                  label: 'PHONE',
                   onTap: UserIntent.onGesture(_attachFiles),
                 ),
               ],
@@ -311,7 +311,7 @@ class _AttachHelp extends StatelessWidget {
         'uploaded to the host, three at a time and the lightest first, put on '
         'the host clipboard and pasted with Ctrl+V as it lands. A host with no '
         'clipboard tool gets the file path typed at the cursor instead.',
-    'FILES picks any file off the phone. A PNG goes in like a photo; '
+    'PHONE picks any file off the phone. A PNG goes in like a photo; '
         'anything else lands under /tmp/upgrade and its path is typed at the '
         'cursor.',
     'HELD is what a crop off the SCREEN viewer is kept in, for as long as '

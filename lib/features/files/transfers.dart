@@ -62,6 +62,7 @@ final class TransferTally {
   const TransferTally({
     required this.up,
     required this.down,
+    required this.queued,
     required this.sent,
     required this.bytes,
     required this.rate,
@@ -69,16 +70,18 @@ final class TransferTally {
 
   final int up;
   final int down;
+  final int queued;
   final int sent;
   final int bytes;
   final double rate;
 
-  int get moving => up + down;
-
   int get percent => bytes == 0 ? 0 : (sent * 100 ~/ bytes).clamp(0, 100);
 
-  String get counts =>
-      [if (up > 0) 'UP $up', if (down > 0) 'DOWN $down'].join(' · ');
+  String get counts => [
+    if (up > 0) 'UP $up',
+    if (down > 0) 'DOWN $down',
+    if (queued > 0) '$queued QUEUED',
+  ].join(' · ');
 }
 
 class Transfers extends ChangeNotifier {
@@ -137,12 +140,16 @@ class Transfers extends ChangeNotifier {
   }
 
   TransferTally get tally {
-    var up = 0, down = 0, sent = 0, bytes = 0;
+    var up = 0, down = 0, queued = 0, sent = 0, bytes = 0;
     for (final job in _jobs) {
       if (job.ended) continue;
       for (final item in job.items) {
-        if (item.stage case AttachStage.queued || AttachStage.sending) {
-          item.down ? down++ : up++;
+        switch (item.stage) {
+          case AttachStage.queued:
+            queued++;
+          case AttachStage.sending:
+            item.down ? down++ : up++;
+          default:
         }
         sent += item.sent;
         bytes += item.bytes;
@@ -151,6 +158,7 @@ class Transfers extends ChangeNotifier {
     return TransferTally(
       up: up,
       down: down,
+      queued: queued,
       sent: sent,
       bytes: bytes,
       rate: _rate(),
