@@ -131,9 +131,13 @@ generate() {
   mkdir -p "$work" "$out"
   cp -r "$UPSTREAM/lib" "$work/lib"
 
-  # hooksPath too: a throwaway repo inherits the global hooks, which would judge
-  # upstream's own source as though this commit had written it.
+  # Hooks off too, from hooksPath and hook.* config: a throwaway repo inherits the global
+  # ones, which would judge upstream's own source as though this commit had written it.
   local git=(git -C "$work" -c user.email=x -c user.name=x -c commit.gpgsign=false -c core.hooksPath=/dev/null)
+  local event
+  for event in pre-commit prepare-commit-msg commit-msg post-commit; do
+    git+=(-c "hook.$event.enabled=false")
+  done
   "${git[@]}" init -q
   "${git[@]}" add -A
   "${git[@]}" commit -qm "$PACKAGE $VERSION"
