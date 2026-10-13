@@ -169,6 +169,7 @@ class PanelSheetBody extends StatelessWidget {
     required this.children,
     this.affordance,
     this.onTitleLongPress,
+    this.footer = const [],
   });
 
   final String title;
@@ -176,21 +177,36 @@ class PanelSheetBody extends StatelessWidget {
   final VoidCallback? onTitleLongPress;
   final List<Widget> children;
 
+  /// Stays below the scrolling children, so an action that ends a long list is always
+  /// in reach.
+  final List<Widget> footer;
+
   @override
   Widget build(BuildContext context) {
+    final scroll = SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: children,
+      ),
+    );
     return Panel(
       title: title,
       affordance: affordance,
       onHeaderLongPress: onTitleLongPress,
       bodyPadding: const EdgeInsets.all(Spacing.panelPadding),
       bodyFlexible: true,
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: children,
-        ),
-      ),
+      child: footer.isEmpty
+          ? scroll
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(child: scroll),
+                const SheetRule(),
+                ...footer,
+              ],
+            ),
     );
   }
 }

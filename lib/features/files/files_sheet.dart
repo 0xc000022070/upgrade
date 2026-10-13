@@ -21,6 +21,7 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/code/file_icons.dart';
 import 'package:upgrade/features/code/syntax.dart';
 import 'package:upgrade/features/files/transfer_queue.dart';
+import 'package:upgrade/features/files/transfers.dart';
 
 Future<void> showHostFiles(BuildContext context, Host host) =>
     showPanelSheet<void>(
@@ -221,6 +222,9 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     Future<String?> Function(int index, void Function(AttachItem) report) task,
   ) async {
     final items = [for (final file in queue) AttachItem(bytes: file.bytes)];
+    final job = ref
+        .read(transfersProvider)
+        .begin(verb: verb, host: widget.host.name, files: queue);
     setState(() {
       _busy = true;
       _status = verb;
@@ -232,9 +236,10 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
       task,
       onItem: (index, item) {
         items[index] = item;
+        job.report(index, item);
         if (mounted) setState(() {});
       },
-    );
+    ).whenComplete(job.end);
     _running = run;
     final failures = await run;
     final failed = failures.whereType<String>().length;
@@ -475,6 +480,21 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
         showIcon: false,
         onTap: () => Navigator.of(context).pop(),
       ),
+      footer: [
+        if (widget.picking && target != null) ...[
+          Text(
+            target == home ? '~' : target,
+            key: const ValueKey('files-target'),
+            style: tokens.label,
+          ),
+          const SizedBox(height: Spacing.sm),
+          ActionBlock(
+            key: const ValueKey('files-put-here'),
+            label: 'PUT HERE',
+            onTap: () => Navigator.of(context).pop(target),
+          ),
+        ],
+      ],
       children: [
         Text(
           widget.host.name,
@@ -491,20 +511,6 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
           const Row(children: [DotSpinner()])
         else
           ...rows,
-        if (widget.picking && target != null) ...[
-          const SheetRule(),
-          Text(
-            target == home ? '~' : target,
-            key: const ValueKey('files-target'),
-            style: tokens.label,
-          ),
-          const SizedBox(height: Spacing.sm),
-          ActionBlock(
-            key: const ValueKey('files-put-here'),
-            label: 'PUT HERE',
-            onTap: () => Navigator.of(context).pop(target),
-          ),
-        ],
         if (_status case final status?) ...[
           const SheetRule(),
           Row(

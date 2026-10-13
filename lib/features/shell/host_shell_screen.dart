@@ -31,6 +31,7 @@ import 'package:upgrade/platform/shell/shell_launch.dart';
 import 'package:upgrade/platform/vnc/keysyms.dart';
 import 'package:upgrade/features/code/diff_sheet.dart';
 import 'package:upgrade/features/files/files_sheet.dart';
+import 'package:upgrade/features/files/transfer_bar.dart';
 import 'package:upgrade/features/hosts/host_key_sheet.dart';
 import 'package:upgrade/features/shell/sheets/attach_sheet.dart';
 import 'package:upgrade/features/shell/shell_bar.dart';
@@ -1048,6 +1049,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                     ],
                   ),
                 ),
+                const TransferBar(),
                 Expanded(
                   child: Stack(
                     children: [

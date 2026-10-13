@@ -34,6 +34,20 @@ class FileBridge(private val activity: Activity) {
             "outgoing" -> result.success(swept(outgoingDir(activity)))
             "scratch" -> result.success(swept(File(activity.cacheDir, "scratch")))
             "takeShared" -> result.success(SharedInbox.take())
+            "transfers" -> {
+                val title = call.argument<String>("title") ?: ""
+                if (call.argument<Boolean>("done") == true) {
+                    TransferService.done(activity.applicationContext, title)
+                } else {
+                    TransferService.moving(
+                        activity.applicationContext,
+                        title,
+                        call.argument<String>("text") ?: "",
+                        call.argument<Int>("percent") ?: -1,
+                    )
+                }
+                result.success(null)
+            }
             else -> result.notImplemented()
         }
     }

@@ -21,6 +21,7 @@ import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/files/files_sheet.dart';
 import 'package:upgrade/features/files/transfer_queue.dart';
+import 'package:upgrade/features/files/transfers.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart' show remotePathFor;
 
 const sendSheetLinger = Duration(milliseconds: 700);
@@ -77,6 +78,9 @@ class _SendSheetState extends ConsumerState<SendSheet> {
   ) async {
     final items = [for (final file in _shared) AttachItem(bytes: file.size)];
     if (!mounted) return null;
+    final job = ref
+        .read(transfersProvider)
+        .begin(verb: verb, host: _host?.name ?? '', files: _queue);
     setState(() {
       _status = verb;
       _items = items;
@@ -86,9 +90,10 @@ class _SendSheetState extends ConsumerState<SendSheet> {
       task,
       onItem: (index, item) {
         items[index] = item;
+        job.report(index, item);
         if (mounted) setState(() {});
       },
-    );
+    ).whenComplete(job.end);
     final failed = failures.whereType<String>().length;
     if (failed == 0) return const [];
     if (mounted) setState(() => _status = '$verb · $failed FAILED');
@@ -222,6 +227,42 @@ class _SendSheetState extends ConsumerState<SendSheet> {
         showIcon: false,
         onTap: () => Navigator.of(context).pop(),
       ),
+      footer: [
+        if (host != null && !_sent)
+          Row(
+            children: [
+              ActionBlock(
+                key: const ValueKey('send-clipboard'),
+                label: 'CLIPBOARD',
+                onTap: _busy ? null : () => unawaited(_toClipboard(host)),
+              ),
+              const SizedBox(width: Spacing.md),
+              ActionBlock(
+                key: const ValueKey('send-folder'),
+                label: 'FOLDER',
+                onTap: _busy ? null : () => unawaited(_toFolder(host)),
+              ),
+            ],
+          ),
+        if (_status case final status?) ...[
+          if (host != null && !_sent) const SizedBox(height: Spacing.sm),
+          Row(
+            children: [
+              if (_busy) ...[
+                const DotSpinner(),
+                const SizedBox(width: Spacing.md),
+              ],
+              Expanded(
+                child: Text(
+                  status,
+                  key: const ValueKey('send-status'),
+                  style: tokens.label,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
       children: [
         Text(
           _summary(),
@@ -250,45 +291,9 @@ class _SendSheetState extends ConsumerState<SendSheet> {
                 if (!_busy) setState(() => _host = candidate);
               },
             ),
-        if (host != null && !_sent) ...[
+        if (_items.isNotEmpty) ...[
           const SheetRule(),
-          Row(
-            children: [
-              ActionBlock(
-                key: const ValueKey('send-clipboard'),
-                label: 'CLIPBOARD',
-                onTap: _busy ? null : () => unawaited(_toClipboard(host)),
-              ),
-              const SizedBox(width: Spacing.md),
-              ActionBlock(
-                key: const ValueKey('send-folder'),
-                label: 'FOLDER',
-                onTap: _busy ? null : () => unawaited(_toFolder(host)),
-              ),
-            ],
-          ),
-        ],
-        if (_status case final status?) ...[
-          const SheetRule(),
-          Row(
-            children: [
-              if (_busy) ...[
-                const DotSpinner(),
-                const SizedBox(width: Spacing.md),
-              ],
-              Expanded(
-                child: Text(
-                  status,
-                  key: const ValueKey('send-status'),
-                  style: tokens.label,
-                ),
-              ),
-            ],
-          ),
-          if (_items.isNotEmpty) ...[
-            const SizedBox(height: Spacing.sm),
-            TransferQueue(files: _queue, items: _items, keyPrefix: 'send'),
-          ],
+          TransferQueue(files: _queue, items: _items, keyPrefix: 'send'),
         ],
       ],
     );

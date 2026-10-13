@@ -784,13 +784,17 @@ One interval for every connection the app holds — the shell, the agent client 
 
 **A file is shared, saved or sent.** A tap or a hold on one offers `SHARE`, which pulls it to the phone and hands it to the Android share sheet; `SAVE TO PHONE`, which pulls it and asks the system where to write it; and `SEND TO HOST`, which asks for a host and then a folder on it, pulls the file to the phone and puts it there. **A hold on a folder offers `UPLOAD HERE`**: the system's document picker, any number of files of any kind, each written under its own name. It also offers `REFRESH`, which reads the folder again. A name the folder already holds is never overwritten; the newcomer becomes `name (2).ext`, and up.
 
-**Picking a folder is the same tree.** Where a transfer needs a destination the sheet opens as `[ PUT HERE ]`: a tap on a folder opens it and makes it the target, drawn in the accent and named over a `PUT HERE` block, and a hold puts the files there at once. Files are drawn dimmed and take no tap.
+**Picking a folder is the same tree.** Where a transfer needs a destination the sheet opens as `[ PUT HERE ]`: a tap on a folder opens it and makes it the target, drawn in the accent and named over a `PUT HERE` block that stays at the foot of the sheet however long the tree runs, and a hold puts the files there at once. Files are drawn dimmed and take no tap.
 
 **Upgrade is a share target.** "Share" in any app offers it, for one item or many, of any type, and for plain text. What is shared is copied into the app's cache while the sender's grant lasts, and the app opens on `[ SEND TO HOST ]`: what came in, the hosts, and once one is picked, `CLIPBOARD` and `FOLDER`. `FOLDER` asks for a folder and writes each file there, and shared text as `shared-<date>-<time>.txt`. **`CLIPBOARD` puts text in as text and anything else in as a path**: a single picture goes onto the host's clipboard as that picture, of its own type; every other file lands under `/tmp/upgrade` and its path goes onto the clipboard, one per line with any shared text. The copies are deleted once they are on the host.
 
 **`ATTACH` takes any file too.** `FILES` beside `PHOTOS` opens the document picker; a PNG goes in like a photo and anything else lands under `/tmp/upgrade` with its path typed at the cursor.
 
 **Every one of these is the same queue.** Three files move at a time, the lightest first, on the transfer link, over sftp or exec as an upload does, and each is drawn as the `ATTACH` queue draws a picture, `DOWN 43%` for a file coming to the phone. A file pulled to the phone is written whole or not at all. The share sheet is only ever handed what the app put in its outgoing cache, read-only; the cache sweeps anything older than a day.
+
+**A transfer goes on when its sheet closes, and is seen from anywhere.** While anything moves a bar sits above the nav bar and under the shell's tab strip: `UP 2 · DOWN 1`, the progress, the percent and the rate, `1.2 M/s`, over the last three seconds. A tap on it opens `[ TRANSFERS ]`, each batch by what it is doing and to which host, drawn as its queue. The status bar carries the same as a progress notification, `UP 2 · 34%` over the rate and `4 M of 12 M`, and once the last batch ends it says `MOVED 3 · 1 FAILED` and can be swiped away; the first transfer asks for permission to post it. A finished batch stays on the bar for four seconds, `DONE` or `FAILED`, and goes.
+
+**An action that ends a sheet never scrolls away.** Where a sheet's list can run past the screen — the host list of `[ SEND TO HOST ]`, the folders of the path picker, the models of a send — its actions stay pinned under it.
 
 ## Agents
 

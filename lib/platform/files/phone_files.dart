@@ -4,6 +4,12 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 
+abstract interface class TransferStatus {
+  void moving(String title, String text, int percent);
+
+  void done(String title);
+}
+
 sealed class SharedItem {
   const SharedItem();
 }
@@ -44,7 +50,7 @@ List<SharedItem> parseSharedItems(Object? raw) => [
       },
 ];
 
-class PhoneFiles {
+class PhoneFiles implements TransferStatus {
   PhoneFiles({MethodChannel? channel})
     : _channel = channel ?? const MethodChannel('dev.luisnquin.upgrade/files') {
     _channel.setMethodCallHandler((call) async {
@@ -91,4 +97,23 @@ class PhoneFiles {
   Future<bool> save(String path, String name) async =>
       await _channel.invokeMethod<bool>('save', {'path': path, 'name': name}) ??
       false;
+
+  @override
+  void moving(String title, String text, int percent) => unawaited(
+    _quiet('transfers', {'title': title, 'text': text, 'percent': percent}),
+  );
+
+  @override
+  void done(String title) =>
+      unawaited(_quiet('transfers', {'title': title, 'done': true}));
+
+  Future<void> _quiet(String method, Map<String, Object> arguments) async {
+    try {
+      await _channel.invokeMethod<void>(method, arguments);
+    } on MissingPluginException {
+      // ignored: a phone without the bridge has no status bar to draw on
+    } on PlatformException {
+      // ignored: the in-app bar still says what is moving
+    }
+  }
 }

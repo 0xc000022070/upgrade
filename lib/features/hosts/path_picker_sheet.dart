@@ -87,6 +87,11 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
         'CANCEL',
         onTap: () => Navigator.pop(context),
       ),
+      footer: [
+        if (_scan case PathScanFound(:final directories)
+            when !_manual && directories.isNotEmpty)
+          _actions(),
+      ],
       children: _body(),
     );
   }
@@ -176,32 +181,32 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
               ),
           ],
         ),
-      const SheetRule(),
-      Row(
-        children: [
-          ActionBlock(
-            label: 'TYPE A PATH',
-            tone: context.tokens.textSecondary,
-            onTap: () => setState(() => _manual = true),
-          ),
-          if (widget.multiple) ...[
-            const Spacer(),
-            ActionBlock(
-              label: 'ADD ${_chosen.length}',
-              filled: _chosen.isNotEmpty,
-              tone: _chosen.isEmpty
-                  ? context.tokens.textSecondary
-                  : context.tokens.accent,
-              onTap: () {
-                if (_chosen.isEmpty) return;
-                Navigator.pop(context, _chosen.toList());
-              },
-            ),
-          ],
-        ],
-      ),
     ];
   }
+
+  Widget _actions() => Row(
+    children: [
+      ActionBlock(
+        label: 'TYPE A PATH',
+        tone: context.tokens.textSecondary,
+        onTap: () => setState(() => _manual = true),
+      ),
+      if (widget.multiple) ...[
+        const Spacer(),
+        ActionBlock(
+          label: 'ADD ${_chosen.length}',
+          filled: _chosen.isNotEmpty,
+          tone: _chosen.isEmpty
+              ? context.tokens.textSecondary
+              : context.tokens.accent,
+          onTap: () {
+            if (_chosen.isEmpty) return;
+            Navigator.pop(context, _chosen.toList());
+          },
+        ),
+      ],
+    ],
+  );
 
   void _take(String directory) {
     if (!widget.multiple) {

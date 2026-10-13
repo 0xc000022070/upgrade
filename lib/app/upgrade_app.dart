@@ -16,6 +16,7 @@ import 'package:upgrade/design/theme.dart';
 import 'package:upgrade/features/agents/agent_status_bar.dart';
 import 'package:upgrade/features/devices/device_float.dart';
 import 'package:upgrade/features/files/shared_inbox_host.dart';
+import 'package:upgrade/features/files/transfer_bar.dart';
 import 'package:upgrade/features/home/home_screen.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/features/plugins/plugin_page.dart';
@@ -183,6 +184,7 @@ class _UpgradeShellState extends ConsumerState<UpgradeShell> {
           bottomNavigationBar: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const TransferBar(),
               const AgentStatusBar(),
               const ParkedShellBar(),
               NavBar(

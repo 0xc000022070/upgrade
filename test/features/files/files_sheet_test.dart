@@ -164,6 +164,21 @@ void main() {
     expect(files.closed, isTrue);
   });
 
+  testWidgets('put here stays in reach under a long home', (tester) async {
+    files.tree['/home/luis'] = [for (var i = 0; i < 80; i++) _dir('dir$i')];
+    await open(tester, (context) => pickHostFolder(context, _nyx));
+
+    final put = find.byKey(const ValueKey('files-put-here'));
+    expect(put, findsOneWidget);
+    expect(
+      tester.getRect(put).bottom,
+      lessThanOrEqualTo(
+        tester.view.physicalSize.height / tester.view.devicePixelRatio,
+      ),
+    );
+    expect(put.hitTestable(), findsOneWidget);
+  });
+
   testWidgets('shared text sent to the clipboard goes on as text', (
     tester,
   ) async {

@@ -20,6 +20,7 @@ import 'package:upgrade/features/shell/input/clip_paste.dart';
 import 'package:upgrade/features/shell/input/photo_attach.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/files/transfer_queue.dart';
+import 'package:upgrade/features/files/transfers.dart';
 import 'package:uuid/uuid.dart';
 
 const attachSheetLinger = Duration(milliseconds: 700);
@@ -143,6 +144,13 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
     }
     if (!mounted) return;
     final items = [for (final p in picked) AttachItem(bytes: p.queued.bytes)];
+    final job = ref
+        .read(transfersProvider)
+        .begin(
+          verb: 'ATTACHING',
+          host: widget.session.host.name,
+          files: [for (final p in picked) p.queued],
+        );
     setState(() {
       _status = 'ATTACHING 1 OF ${picked.length}';
       _queue = [for (final p in picked) p.queued];
@@ -160,9 +168,10 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
         return mounted;
       },
       onItem: (index, item) {
+        job.report(index, item);
         if (mounted) setState(() => items[index] = item);
       },
-    );
+    ).whenComplete(job.end);
     await _finish(last, count: picked.length);
   }
 

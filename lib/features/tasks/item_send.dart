@@ -225,6 +225,20 @@ class _SendFlowState extends ConsumerState<SendFlow> {
             icon: UpgradeIcons.back,
             onTap: () => _back(dispatch),
           ),
+          footer: [
+            if (dispatch.state == null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: ActionBlock(
+                  label: 'SEND',
+                  filled: true,
+                  tone: context.tokens.accent,
+                  onTap: _messageReady && _message.text.trim().isNotEmpty
+                      ? () => _send(dispatch.target)
+                      : null,
+                ),
+              ),
+          ],
           children: _dispatchBody(dispatch),
         );
     }
@@ -378,18 +392,6 @@ class _SendFlowState extends ConsumerState<SendFlow> {
       Text('MODEL', style: context.tokens.panelHeader),
       const SizedBox(height: Spacing.sm),
       _modelChoices(),
-      const SheetRule(),
-      Align(
-        alignment: Alignment.centerRight,
-        child: ActionBlock(
-          label: 'SEND',
-          filled: true,
-          tone: context.tokens.accent,
-          onTap: _messageReady && _message.text.trim().isNotEmpty
-              ? () => _send(dispatch.target)
-              : null,
-        ),
-      ),
     ];
   }
 
