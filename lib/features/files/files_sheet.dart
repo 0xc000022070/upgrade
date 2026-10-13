@@ -143,6 +143,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
 
   String? _status;
   TransferJob? _job;
+  final _live = <TransferJob>{};
   Future<void> Function()? _retry;
   final _running = <Future<void>>{};
   final _kept = <String>{};
@@ -155,7 +156,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     unawaited(_connect());
   }
 
-  bool get _busy => _job?.ended == false;
+  bool get _busy => _live.isNotEmpty;
 
   @override
   void dispose() {
@@ -231,7 +232,10 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
   void _toggle(String directory) {
     setState(() {
       if (_open.remove(directory)) {
-        if (!widget.picking && _target == directory && directory != _home) {
+        final target = _target;
+        if (target != null &&
+            directory != _home &&
+            (target == directory || target.startsWith('$directory/'))) {
           _target = directory.substring(0, directory.lastIndexOf('/'));
         }
       } else {
@@ -254,6 +258,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
         .read(transfersProvider)
         .begin(verb: verb, host: widget.host.name, files: queue);
     setState(() {
+      _live.add(job);
       _retry = null;
       _status = verb;
       _queue = queue;
@@ -274,9 +279,12 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     final failed = failures
         .where((f) => f != null && f != stoppedFailure)
         .length;
-    if (mounted && _job == job) {
+    if (mounted) {
       setState(() {
-        if (failures.any((f) => f != null)) _retry = () => again(failures);
+        _live.remove(job);
+        final missed = failures.any((f) => f != null);
+        if (missed) _retry = () => again(failures);
+        if (!missed && _job != job) return;
         _status = job.stop.stopped
             ? '$verb · STOPPED'
             : failed == 0
@@ -471,6 +479,32 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     );
   }
 
+  Widget _place(String path, Key key) {
+    final tokens = context.tokens;
+    final home = _home;
+    final shown = path == home
+        ? '~'
+        : home != null && home != '/' && path.startsWith('$home/')
+        ? '~${path.substring(home.length)}'
+        : path;
+    final slash = shown.lastIndexOf('/');
+    return Row(
+      key: key,
+      children: [
+        if (slash >= 0)
+          Flexible(
+            child: Text(
+              shown.substring(0, slash + 1),
+              style: tokens.label.copyWith(color: tokens.textSecondary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        Text(shown.substring(slash + 1), style: tokens.label, maxLines: 1),
+      ],
+    );
+  }
+
   static double _indent(int depth) => depth * Spacing.xl;
 
   Widget _note(String word, int depth) => ListRow(
@@ -571,12 +605,16 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
                   style: tokens.label,
                 ),
               ),
-              if (_busy && !_job!.stop.stopped)
+              if (_live.any((job) => !job.stop.stopped))
                 ActionBlock(
                   key: const ValueKey('files-stop'),
                   label: 'STOP',
                   tone: tokens.danger,
-                  onTap: () => setState(_job!.stop.stop),
+                  onTap: () => setState(() {
+                    for (final job in _live) {
+                      job.stop.stop();
+                    }
+                  }),
                 )
               else if (!_busy && _retry != null)
                 ActionBlock(
@@ -595,14 +633,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
         if (!widget.picking && target != null && _error == null)
           Row(
             children: [
-              Expanded(
-                child: Text(
-                  target == home ? '~' : target,
-                  key: const ValueKey('files-target'),
-                  style: tokens.label,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+              Expanded(child: _place(target, const ValueKey('files-target'))),
               ActionBlock(
                 key: const ValueKey('files-upload'),
                 label: 'UPLOAD',
@@ -611,11 +642,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
             ],
           ),
         if (widget.picking && target != null) ...[
-          Text(
-            target == home ? '~' : target,
-            key: const ValueKey('files-target'),
-            style: tokens.label,
-          ),
+          _place(target, const ValueKey('files-target')),
           const SizedBox(height: Spacing.sm),
           ActionBlock(
             key: const ValueKey('files-put-here'),

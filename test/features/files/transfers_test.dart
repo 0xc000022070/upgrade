@@ -52,8 +52,8 @@ void main() {
         QueuedFile(name: 'b', bytes: 100),
       ],
     );
-    expect(transfers.tally.counts, '2 QUEUED');
-    expect(status.moves.last.$1, '2 QUEUED · 0%');
+    expect(transfers.tally.counts, 'QUEUED 2');
+    expect(status.moves.last.$1, 'QUEUED 2 · 0%');
 
     now = now.add(const Duration(seconds: 1));
     job.report(0, job.items[0].to(AttachStage.sending, sent: 100));
@@ -73,7 +73,7 @@ void main() {
       0,
       const AttachItem(bytes: 10, down: true).to(AttachStage.sending),
     );
-    expect(transfers.tally.counts, 'DOWN 1 · 1 QUEUED');
+    expect(transfers.tally.counts, 'DOWN 1 · QUEUED 1');
   });
 
   test('ending the last job says what moved and what failed', () {

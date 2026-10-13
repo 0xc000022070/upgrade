@@ -144,10 +144,9 @@ void main() {
     await tester.tap(find.text('src'));
     await tester.pumpAndSettle();
     expect(find.text('main.dart'), findsOneWidget);
-    expect(
-      tester.widget<Text>(find.byKey(const ValueKey('files-target'))).data,
-      '/home/luis/src',
-    );
+    final target = find.byKey(const ValueKey('files-target'));
+    expect(find.descendant(of: target, matching: find.text('~/')), findsOne);
+    expect(find.descendant(of: target, matching: find.text('src')), findsOne);
   });
 
   testWidgets('a file offers share, save and send', (tester) async {
@@ -172,7 +171,13 @@ void main() {
 
     await tester.tap(find.text('src'));
     await tester.pumpAndSettle();
-    expect(find.text('/home/luis/src'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('files-target')),
+        matching: find.text('src'),
+      ),
+      findsOne,
+    );
     await tester.tap(find.byKey(const ValueKey('files-put-here')));
     await tester.pumpAndSettle();
 
@@ -312,6 +317,12 @@ void main() {
         find.byKey(const ValueKey('send-landed')),
       );
       expect(landed.data!.split('\n'), files.puts.keys.toList());
+
+      files.copyFails = null;
+      await settle(tester, find.byKey(const ValueKey('send-clipboard')));
+      expect(files.puts, hasLength(2));
+      expect(files.copies.last, landed.data);
+      await tester.pumpAndSettle(sendSheetLinger);
     });
   });
 

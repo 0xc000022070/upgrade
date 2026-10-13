@@ -115,7 +115,7 @@ class _QueueCount extends StatelessWidget {
         items.where((item) => stages.contains(item.stage)).length;
     final down = items.any((item) => item.down);
     final words = [
-      (down ? 'MOVING' : 'UP', count(const {AttachStage.sending})),
+      (down ? 'DOWN' : 'UP', count(const {AttachStage.sending})),
       ('QUEUED', count(const {AttachStage.queued})),
       (
         'LANDED',
@@ -129,7 +129,7 @@ class _QueueCount extends StatelessWidget {
       ),
     ];
     return Text(
-      [for (final (word, n) in words) '$n $word'].join(' · '),
+      [for (final (word, n) in words) '$word $n'].join(' · '),
       key: ValueKey('$keyPrefix-queue-count'),
       style: context.tokens.label.copyWith(color: context.tokens.textSecondary),
     );

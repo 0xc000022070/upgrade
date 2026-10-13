@@ -126,8 +126,13 @@ final class _LeasedFiles implements HostFiles {
 
   @override
   Future<List<DirEntry>?> list(String directory) async {
-    final reply = await _exec(listCommand(directory));
-    return reply.ok ? parseListing(reply.out) : null;
+    try {
+      final reply = await _exec(listCommand(directory));
+      return reply.ok ? parseListing(reply.out) : null;
+    } catch (_) {
+      // ignored: a listing that never came back is as unknown as one refused
+      return null;
+    }
   }
 
   @override
@@ -136,17 +141,21 @@ final class _LeasedFiles implements HostFiles {
     FileBody body, {
     int sharing = 1,
     PutProgress? onProgress,
-  }) {
+  }) async {
     final timeout = transferDeadline(body.length, sharing);
-    return putFile(
-      sftp: _lease.sftp,
-      exec: (command, feed) =>
-          transferExec(_lease, command, feed: feed, timeout: timeout),
-      path: path,
-      body: body,
-      timeout: timeout,
-      onProgress: onProgress,
-    );
+    try {
+      return await putFile(
+        sftp: _lease.sftp,
+        exec: (command, feed) =>
+            transferExec(_lease, command, feed: feed, timeout: timeout),
+        path: path,
+        body: body,
+        timeout: timeout,
+        onProgress: onProgress,
+      );
+    } catch (error) {
+      return FileWrite.failed(FileRoute.exec, filesFailureLine(error));
+    }
   }
 
   @override
@@ -173,6 +182,14 @@ final class _LeasedFiles implements HostFiles {
 
   @override
   Future<String?> copy({String? text, String? imageAt, String? mime}) async {
+    try {
+      return await _copy(text: text, imageAt: imageAt, mime: mime);
+    } catch (error) {
+      return filesFailureLine(error);
+    }
+  }
+
+  Future<String?> _copy({String? text, String? imageAt, String? mime}) async {
     assert((text == null) != (imageAt == null));
     final clipboard = _clipboard ??= parseProbe(
       await _exec(underSh(probeScript)),

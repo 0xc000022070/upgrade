@@ -51,9 +51,13 @@ const sftpHandshakeDeadline = Duration(seconds: 3);
 String putCommand(String path) {
   final slash = path.lastIndexOf('/');
   final directory = slash <= 0 ? null : path.substring(0, slash);
+  final part = shellQuote(
+    '${path.substring(0, slash + 1)}.${path.substring(slash + 1)}.part',
+  );
   return underSh(
     '${directory == null ? '' : 'mkdir -p ${shellQuote(directory)} && '}'
-    'cat > ${shellQuote(path)}',
+    '{ cat > $part && mv -f $part ${shellQuote(path)}; } '
+    '|| { rm -f $part; exit 1; }',
   );
 }
 
@@ -143,26 +147,32 @@ Future<FileWrite> putFile({
       return const FileWrite.failed(FileRoute.exec, stoppedFailure);
     }
   }
+  final String failure;
   try {
     final write = _write(channel.client, path, body, onProgress);
     await (stop?.race(write) ?? write).timeout(timeout);
+    await channel.close();
     return const FileWrite.landed(FileRoute.sftp);
   } on TransferStopped {
-    try {
-      await channel.client.remove(path).timeout(sftpHandshakeDeadline);
-    } catch (_) {
-      // ignored: a part left behind is named as the file the user stopped
-    }
-    return const FileWrite.failed(FileRoute.sftp, stoppedFailure);
+    failure = stoppedFailure;
   } on TimeoutException {
-    return const FileWrite.failed(FileRoute.sftp, 'upload timed out');
+    failure = 'upload timed out';
   } on SftpStatusError catch (error) {
-    return FileWrite.failed(FileRoute.sftp, error.message);
+    failure = error.message;
   } on SftpError catch (error) {
-    return FileWrite.failed(FileRoute.sftp, '$error');
+    failure = '$error';
+  } catch (_) {
+    await channel.close();
+    rethrow;
+  }
+  try {
+    await channel.client.remove(path).timeout(sftpHandshakeDeadline);
+  } catch (_) {
+    // ignored: a part left behind is named as the file that did not land
   } finally {
     await channel.close();
   }
+  return FileWrite.failed(FileRoute.sftp, failure);
 }
 
 Future<HostSftp?> _start(Future<HostSftp> Function() sftp) async {

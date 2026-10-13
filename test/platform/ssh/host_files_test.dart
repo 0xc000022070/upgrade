@@ -13,13 +13,16 @@ void main() {
   _widthAndOrder();
   final bytes = Uint8List.fromList(const [1, 2, 3]);
 
-  test('the command makes the directory and takes the file whole', () {
-    expect(
-      putCommand('/tmp/upgrade/a.png'),
-      "sh -c 'mkdir -p '\\''/tmp/upgrade'\\'' && cat > "
-      "'\\''/tmp/upgrade/a.png'\\'''",
-    );
-    expect(putCommand('/a.png'), "sh -c 'cat > '\\''/a.png'\\'''");
+  test('the command makes the directory and takes the file whole', () async {
+    final root = Directory.systemTemp.createTempSync('put-');
+    addTearDown(() => root.deleteSync(recursive: true));
+    final path = '${root.path}/new dir/a.png';
+    final put = await Process.start('sh', ['-c', putCommand(path)]);
+    put.stdin.add(bytes);
+    await put.stdin.close();
+    expect(await put.exitCode, 0);
+    expect(File(path).readAsBytesSync(), bytes);
+    expect(Directory('${root.path}/new dir').listSync(), hasLength(1));
   });
 
   test('a host that refuses the subsystem takes the file over exec', () async {

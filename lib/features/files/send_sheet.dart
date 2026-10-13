@@ -49,6 +49,7 @@ class _SendSheetState extends ConsumerState<SendSheet> {
   TransferJob? _job;
   bool _sent = false;
   Future<void> Function()? _retry;
+  ({String host, List<String> at})? _clipped;
   List<String> _landed = const [];
   List<QueuedFile> _queue = const [];
   List<AttachItem> _items = const [];
@@ -80,6 +81,7 @@ class _SendSheetState extends ConsumerState<SendSheet> {
     List<int> which,
     QueueTask task,
   ) async {
+    if (which.isEmpty) return const [];
     final queue = [
       for (final i in which)
         QueuedFile(name: _shared[i].name, bytes: _shared[i].size),
@@ -133,6 +135,10 @@ class _SendSheetState extends ConsumerState<SendSheet> {
     List<String>? paths,
     List<int>? which,
   }) async {
+    if (_clipped case final clipped? when clipped.host == host.id) {
+      paths ??= clipped.at;
+      which ??= const [];
+    }
     _begin();
     final files = await _open(host);
     if (files == null) {
@@ -179,7 +185,10 @@ class _SendSheetState extends ConsumerState<SendSheet> {
       if (!mounted) return;
       setState(() {
         _status = failed == null ? 'COPIED' : 'CLIPBOARD · $failed';
-        if (failed != null) _landed = at;
+        if (failed != null && at.isNotEmpty) {
+          _landed = at;
+          _clipped = (host: host.id, at: at);
+        }
       });
       await _done(failed == null);
     } finally {
@@ -274,13 +283,14 @@ class _SendSheetState extends ConsumerState<SendSheet> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final hosts = ref.watch(hostsProvider).value ?? const <Host>[];
+    final loaded = ref.watch(hostsProvider);
+    final hosts = loaded.value ?? const <Host>[];
     final host = _host ?? (hosts.length == 1 ? hosts.single : null);
     final text = widget.items.whereType<SharedText>().firstOrNull?.text;
     return PanelSheetBody(
       title: 'SEND TO HOST',
       affordance: PanelAffordance(
-        'CANCEL',
+        _job == null ? 'CANCEL' : 'CLOSE',
         showIcon: false,
         onTap: () => Navigator.of(context).pop(),
       ),
@@ -349,7 +359,9 @@ class _SendSheetState extends ConsumerState<SendSheet> {
           ),
         ],
         const SheetRule(),
-        if (hosts.isEmpty)
+        if (!loaded.hasValue)
+          const Row(children: [DotSpinner()])
+        else if (hosts.isEmpty)
           const EmptyState('no hosts')
         else
           for (final candidate in hosts)

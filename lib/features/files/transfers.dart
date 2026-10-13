@@ -80,7 +80,7 @@ final class TransferTally {
   String get counts => [
     if (up > 0) 'UP $up',
     if (down > 0) 'DOWN $down',
-    if (queued > 0) '$queued QUEUED',
+    if (queued > 0) 'QUEUED $queued',
   ].join(' · ');
 }
 
