@@ -14,6 +14,7 @@ import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/tasks/item_sheet.dart';
 import 'package:upgrade/features/tasks/item_tags.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
 import 'package:upgrade/features/tasks/link_mark.dart';
 
 class TaskRow extends ConsumerStatefulWidget {
@@ -124,12 +125,14 @@ class _TaskRowState extends ConsumerState<TaskRow> {
                 size: IconSizes.glyph,
                 color: context.tokens.accent,
               )
-            : task.prompt != null
-            ? const PromptTag()
-            : (ref.watch(sentItemsProvider).valueOrNull ?? const <String>{})
-                  .contains(task.id)
-            ? const SentTag()
-            : null,
+            : SendingTag.of(ref.watch(sendQueueProvider), task.id) ??
+                  (task.prompt != null
+                      ? const PromptTag()
+                      : (ref.watch(sentItemsProvider).valueOrNull ??
+                                const <String>{})
+                            .contains(task.id)
+                      ? const SentTag()
+                      : null),
       ),
       onTap: widget.onTap ?? () => openItemSheet(context, task.id),
       onLongPress: widget.onLongPress ?? () => openItemSheet(context, task.id),

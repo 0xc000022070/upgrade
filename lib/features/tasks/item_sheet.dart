@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
 import 'package:upgrade/application/drops/clipboard_text.dart';
 import 'package:upgrade/application/links/link_preview.dart';
 import 'package:upgrade/application/formatting.dart';
@@ -16,6 +18,7 @@ import 'package:upgrade/data/repositories/dispatch_repository.dart';
 import 'package:upgrade/data/views.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/components/flash_block.dart';
 import 'package:upgrade/design/components/inline_confirm.dart';
 import 'package:upgrade/design/components/item_line.dart';
@@ -334,11 +337,13 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                 .contains(task.id);
         return PanelSheetBody(
           title: location?.label ?? 'DROPS',
-          affordance: task.prompt != null
-              ? const PromptTag()
-              : sent
-              ? const SentTag()
-              : null,
+          affordance:
+              SendingTag.of(ref.watch(sendQueueProvider), task.id) ??
+              (task.prompt != null
+                  ? const PromptTag()
+                  : sent
+                  ? const SentTag()
+                  : null),
           onTitleLongPress: _isDrop(task)
               ? () => setState(() => _deleteRevealed = true)
               : null,
@@ -382,6 +387,48 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     return drawn;
   }
 
+  Widget _sendLine(PendingSend send) {
+    final where = '${send.target.title} · ${agentMarkName(send.kind.name)}';
+    final failed = send.state;
+    if (failed is! SendFailed) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: Spacing.sm),
+        child: Row(
+          children: [
+            const DotSpinner(),
+            const SizedBox(width: Spacing.md),
+            Expanded(child: Text(where, style: context.tokens.value)),
+          ],
+        ),
+      );
+    }
+    final queue = ref.read(sendQueueProvider.notifier);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$where · ${failed.reason}',
+            style: context.tokens.value.copyWith(color: context.tokens.warning),
+          ),
+          const SizedBox(height: Spacing.sm),
+          Wrap(
+            spacing: Spacing.md,
+            children: [
+              ActionBlock(label: 'RETRY', onTap: () => queue.retry(send.id)),
+              ActionBlock(
+                label: 'DISMISS',
+                onTap: () => queue.dismiss(send.id),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   List<Widget> _readout(Task task) {
     final drop = _isDrop(task);
     final attachments =
@@ -402,6 +449,10 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     final dispatches =
         ref.watch(itemDispatchesProvider(widget.taskId)).valueOrNull ??
         const <Dispatch>[];
+    final sends = [
+      for (final send in ref.watch(sendQueueProvider))
+        if (send.itemId == widget.taskId) send,
+    ];
     final mates = drop
         ? const <Task>[]
         : ref.watch(taskMatesProvider(widget.taskId)).valueOrNull ??
@@ -474,6 +525,17 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                 onLongPress: () => _detach(images[index]),
               ),
             ),
+          ),
+        ),
+      ],
+      if (sends.isNotEmpty) ...[
+        const SheetRule(),
+        SheetField(
+          label: 'SENDING',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [for (final send in sends) _sendLine(send)],
           ),
         ),
       ],

@@ -447,6 +447,12 @@ Done is also toggled without opening anything, by tapping the row's leading chec
 
 **Struck:** a `FieldPanel`, a `+ LINK` row and inline editors in the body. The body reads; the keyboard toolbar writes.
 
+### A send goes on after its sheet closes
+
+`SEND` closes the sheet the moment it is tapped and the send runs behind it, because an agent can take the whole of the send's deadline to come up and nothing about the item needs the sheet held open for that. While it runs, the row and the sheet's strip say `SENDING` where `SENT` stands, ahead of `PROMPT` and `SENT` and behind only the `NEXT ACTION` arrow, and the sheet lists it under `[ SENDING ]` as its destination and agent beside a spinner. A send that lands leaves that block, and the dispatch it recorded is what the row, the strip and `[ SENT ]` say from then on. A send that fails stays: the tag reads `FAILED` in red, and the line under `[ SENDING ]` gives the reason in red with `RETRY` and `DISMISS`. A retry hands the agent the same message, images and model the first try had; a later edit to the item is a new send.
+
+Either ending is said from anywhere by a toast: `SENT` over the item's title, or `FAILED` over the reason and the title with `RETRY`. Several sends run side by side, and the tag reads `FAILED` only once none of the item's sends is still going.
+
 ### Filing an item is picking a target, and pairing is picking an item
 
 `MOVE` opens a target picker: `DROPS` first, then every active project as a header row with its goals indented one level under it, then the paused projects. Archived projects are absent. Picking a project files the item as that project's drop; picking a goal files it under the goal. A bundle moves whole.

@@ -6,6 +6,7 @@ import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/shell/path_scan.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -32,11 +33,9 @@ final class _Pick extends _Step {
 }
 
 final class _Dispatch extends _Step {
-  const _Dispatch(this.target, {this.state});
+  const _Dispatch(this.target);
 
   final PathTarget target;
-
-  final SendState? state;
 }
 
 class SendFlow extends ConsumerStatefulWidget {
@@ -147,7 +146,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
     _toDispatch(PathTarget(path: path, host: host));
   }
 
-  Future<void> _send(PathTarget target) async {
+  void _send(PathTarget target) {
     final task = ref.read(taskProvider(widget.taskId)).valueOrNull;
     if (task == null || !_messageReady || _message.text.trim().isEmpty) return;
     // Read once here: a send is one message, and re-reading it inside the transport would
@@ -155,28 +154,44 @@ class _SendFlowState extends ConsumerState<SendFlow> {
     final attachments =
         ref.read(itemAttachmentsProvider(widget.taskId)).valueOrNull ??
         const <Attachment>[];
-    setState(() => _step = _Dispatch(target, state: const SendSending()));
-    final state = await ref.read(senderProvider)(
-      target: target,
-      kind: _kind,
-      model: _model,
-      itemId: widget.taskId,
-      title: task.title,
-      prompt: task.prompt,
-      message: _message.text,
-      links: [
-        for (final attachment in attachments)
-          if (attachment.kind == AttachmentKind.url) attachment.value,
-      ],
-      // An image row holds a path relative to app support; the file is what goes up.
-      imagePaths: [
-        for (final attachment in attachments)
-          if (attachment.kind == AttachmentKind.image)
-            ?ref.read(attachmentFilesProvider).absolute(attachment.value),
-      ],
-    );
-    if (!mounted) return;
-    setState(() => _step = _Dispatch(target, state: state));
+    final sender = ref.read(senderProvider);
+    final kind = _kind;
+    final model = _model;
+    final message = _message.text;
+    final links = [
+      for (final attachment in attachments)
+        if (attachment.kind == AttachmentKind.url) attachment.value,
+    ];
+    // An image row holds a path relative to app support; the file is what goes up.
+    final imagePaths = [
+      for (final attachment in attachments)
+        if (attachment.kind == AttachmentKind.image)
+          ?ref.read(attachmentFilesProvider).absolute(attachment.value),
+    ];
+    ref
+        .read(sendQueueProvider.notifier)
+        .start(
+          itemId: widget.taskId,
+          title: task.title,
+          target: target,
+          kind: kind,
+          run: () => sender(
+            target: target,
+            kind: kind,
+            model: model,
+            itemId: widget.taskId,
+            title: task.title,
+            prompt: task.prompt,
+            message: message,
+            links: links,
+            imagePaths: imagePaths,
+          ),
+        );
+    FocusScope.of(context).unfocus();
+    widget.onExit();
+    // Not maybePop: this flow's own scope refuses a pop until its back has run.
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) navigator.pop();
   }
 
   @override
@@ -192,13 +207,12 @@ class _SendFlowState extends ConsumerState<SendFlow> {
   }
 
   void _back(_Step step) {
-    if (step is _Dispatch && step.state is SendSending) return;
     if (MediaQuery.viewInsetsOf(context).bottom > 0) {
       FocusScope.of(context).unfocus();
       return;
     }
     FocusScope.of(context).unfocus();
-    if (step is _Dispatch && step.state == null) {
+    if (step is _Dispatch) {
       setState(() => _step = const _Pick());
     } else {
       widget.onExit();
@@ -226,18 +240,17 @@ class _SendFlowState extends ConsumerState<SendFlow> {
             onTap: () => _back(dispatch),
           ),
           footer: [
-            if (dispatch.state == null)
-              Align(
-                alignment: Alignment.centerRight,
-                child: ActionBlock(
-                  label: 'SEND',
-                  filled: true,
-                  tone: context.tokens.accent,
-                  onTap: _messageReady && _message.text.trim().isNotEmpty
-                      ? () => _send(dispatch.target)
-                      : null,
-                ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ActionBlock(
+                label: 'SEND',
+                filled: true,
+                tone: context.tokens.accent,
+                onTap: _messageReady && _message.text.trim().isNotEmpty
+                    ? () => _send(dispatch.target)
+                    : null,
               ),
+            ),
           ],
           children: _dispatchBody(dispatch),
         );
@@ -310,9 +323,6 @@ class _SendFlowState extends ConsumerState<SendFlow> {
   }
 
   List<Widget> _dispatchBody(_Dispatch dispatch) {
-    if (dispatch.state case final state?) {
-      return [_status(dispatch.target, state)];
-    }
     _ensureModels(dispatch.target);
     final task = ref.watch(taskProvider(widget.taskId)).valueOrNull;
     final attachmentState = ref.watch(itemAttachmentsProvider(widget.taskId));
@@ -428,58 +438,6 @@ class _SendFlowState extends ConsumerState<SendFlow> {
                 : context.tokens.textSecondary,
             onTap: () => setState(() => _model = slug),
           ),
-      ],
-    );
-  }
-
-  Widget _status(PathTarget target, SendState state) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SheetField(
-          label: 'TO',
-          child: Text(target.title, style: context.tokens.value),
-        ),
-        const SizedBox(height: Spacing.lg),
-        Row(
-          children: [
-            if (state is SendSending) ...[
-              const DotSpinner(),
-              const SizedBox(width: Spacing.md),
-            ],
-            Expanded(
-              child: Text(
-                switch (state) {
-                  SendSending() => 'SENDING',
-                  SendSent(:final paneId) => 'SENT · $paneId',
-                  SendFailed(:final reason) => reason,
-                },
-                style: context.tokens.rowTitle.copyWith(
-                  color: switch (state) {
-                    SendSending() => context.tokens.textMuted,
-                    SendSent() => context.tokens.accent,
-                    SendFailed() => context.tokens.warning,
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-        if (state is! SendSending) ...[
-          const SizedBox(height: Spacing.lg),
-          Wrap(
-            children: [
-              if (state is SendSent)
-                ActionBlock(
-                  label: 'CLOSE',
-                  onTap: () => Navigator.of(context).pop(),
-                )
-              else
-                ActionBlock(label: 'RETRY', onTap: () => _send(target)),
-            ],
-          ),
-        ],
       ],
     );
   }

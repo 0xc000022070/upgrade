@@ -1,5 +1,6 @@
 import '../../support/native_plugins.dart';
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -847,8 +848,12 @@ void main() {
       expect(seenKind, 'claude');
       expect(seenModel, 'sonnet');
       expect(seen, 'Review the revised log\n\nhttps://a.example');
-      expect(find.text('SENT · wQ:p7'), findsOneWidget);
-      expect(find.text('CLOSE'), findsOneWidget);
+      expect(find.text('[ SENDING ]'), findsNothing);
+      expect(find.byType(SentTag), findsOneWidget);
+      expect(
+        find.textContaining('NYX / UPGRADE · CLAUDE sonnet · wQ:p7 · '),
+        findsOneWidget,
+      );
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
@@ -891,13 +896,62 @@ void main() {
       await tester.tap(find.text('SEND'));
       await _drain(tester);
 
-      expect(find.text('no such directory'), findsOneWidget);
-      expect(find.text('RETRY'), findsOneWidget);
+      expect(
+        find.text('NYX / UPGRADE · CLAUDE · no such directory'),
+        findsOneWidget,
+      );
+      expect(find.text('FAILED'), findsOneWidget);
 
       await tester.tap(find.text('RETRY'));
       await _drain(tester);
       expect(attempts, 2);
-      expect(find.text('SENT · wQ:p9'), findsOneWidget);
+      expect(find.text('[ SENDING ]'), findsNothing);
+      expect(find.byType(SentTag), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    });
+
+    testWidgets('a send runs on after the sheet lets go of it', (tester) async {
+      final activity = ActivityRepository(db);
+      final id = await TaskRepository(db, activity).create(title: 'a drop');
+      await addPath();
+      final answer = Completer<SpawnResult>();
+
+      await tester.pumpWidget(
+        app(
+          id,
+          send: ({
+            required address,
+            required port,
+            required user,
+            required privateKey,
+            required kind,
+            required directory,
+            required prompt,
+            images = const <RemoteFile>[],
+            model,
+            required verifier,
+          }) => answer.future,
+        ),
+      );
+      await _drain(tester);
+      await tester.tap(find.text('SEND'));
+      await _drain(tester);
+      await tester.tap(find.text('NYX / UPGRADE'));
+      await _drain(tester);
+      await tester.tap(find.text('SEND'));
+      await _drain(tester);
+
+      expect(find.text('[ SENDING ]'), findsOneWidget);
+      expect(find.text('NYX / UPGRADE · CLAUDE'), findsOneWidget);
+      expect(find.byType(SendingTag), findsOneWidget);
+      expect(find.text('RETRY'), findsNothing);
+
+      answer.complete(const SpawnSent('wQ:p4'));
+      await _drain(tester);
+      expect(find.text('[ SENDING ]'), findsNothing);
+      expect(find.byType(SentTag), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
