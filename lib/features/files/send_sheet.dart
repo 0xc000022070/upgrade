@@ -155,16 +155,14 @@ class _SendSheetState extends ConsumerState<SendSheet> {
     final failed = [
       ...?job?.items.where((item) => item.stage == AttachStage.failed),
     ].length;
-    if (pending != null || (failed > 0 && failure == null)) {
+    if (pending != null) {
       return setState(() {
         _busy = false;
         _pending = pending;
-        _status = job!.stop.stopped
+        _status = pending.stop.stopped
             ? 'UPLOADING · STOPPED'
             : 'UPLOADING · $failed FAILED';
-        _retry = pending == null
-            ? null
-            : () => ref.read(transfersProvider).retry(pending);
+        _retry = () => ref.read(transfersProvider).retry(pending);
       });
     }
     if (failure != null) {
@@ -192,8 +190,13 @@ class _SendSheetState extends ConsumerState<SendSheet> {
     setState(() {
       _busy = false;
       _sent = true;
-      _status = into == null ? 'COPIED' : 'IN ${into.split('/').last}';
+      _status = [
+        into == null ? 'COPIED' : 'IN ${into.split('/').last}',
+        if (failed > 0) '$failed FAILED',
+      ].join(' · ');
+      if (failed > 0 && into == null) _landed = [...sent.values];
     });
+    if (failed > 0) return;
     await Future<void>.delayed(sendSheetLinger);
     if (mounted) Navigator.of(context).pop();
   }
@@ -331,6 +334,8 @@ class _SendSheetState extends ConsumerState<SendSheet> {
                   _host = candidate;
                   _retry = null;
                   _landed = const [];
+                  _status = null;
+                  _job = null;
                 });
                 if (_pending case final job?) {
                   ref.read(transfersProvider).drop(job);

@@ -124,7 +124,6 @@ class Transfers extends ChangeNotifier {
   int _failed = 0;
   int _landed = 0;
   int _stopped = 0;
-  int? _slot;
 
   List<TransferJob> get jobs => List.unmodifiable(_jobs);
 
@@ -155,12 +154,10 @@ class Transfers extends ChangeNotifier {
   Future<void> retry(TransferJob job) {
     final again = job.retry;
     if (again == null) return Future.value();
-    final slot = _jobs.indexOf(job);
-    drop(job);
-    _slot = slot;
-    return again().whenComplete(() {
-      if (_slot == slot) _slot = null;
-    });
+    job.retry = null;
+    job.kept.clear();
+    notifyListeners();
+    return again().whenComplete(() => drop(job));
   }
 
   void stopAll() {
@@ -188,6 +185,7 @@ class Transfers extends ChangeNotifier {
     String? hostId,
     required List<QueuedFile> files,
     TransferStop? stop,
+    TransferJob? replacing,
   }) {
     final job = TransferJob._(
       this,
@@ -197,11 +195,8 @@ class Transfers extends ChangeNotifier {
       files,
       stop ?? TransferStop(),
     );
-    final slot = _slot;
-    _slot = null;
-    slot != null && slot <= _jobs.length
-        ? _jobs.insert(slot, job)
-        : _jobs.add(job);
+    final at = replacing == null ? -1 : _jobs.indexOf(replacing);
+    at < 0 ? _jobs.add(job) : _jobs[at] = job;
     _ticker ??= Timer.periodic(transferTick, (_) => _tick());
     _sample();
     notifyListeners();

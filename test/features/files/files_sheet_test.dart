@@ -343,7 +343,7 @@ void main() {
       await settle(tester, find.byKey(const ValueKey('send-retry')));
 
       expect(files.puts.keys, ['/home/luis/a.txt']);
-      expect(find.text('UPLOADING · 1 FAILED'), findsOneWidget);
+      expect(find.text('IN luis · 1 FAILED'), findsOneWidget);
       expect(find.text(copyGone), findsOneWidget);
       expect(find.byKey(const ValueKey('send-retry')), findsNothing);
     });

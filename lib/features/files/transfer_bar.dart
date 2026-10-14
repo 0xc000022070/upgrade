@@ -17,17 +17,26 @@ import 'package:upgrade/platform/herdr/agent_watcher.dart' show AgentWatcher;
 const transferBarHeight = 36.0;
 
 String _settled(Transfers transfers) {
-  final failed = transfers.jobs
-      .where((job) => job.ended && job.failed)
+  final retry = transfers.jobs.where((job) => job.retry != null).length;
+  final rest = [
+    for (final job in transfers.jobs)
+      if (job.retry == null) job,
+  ];
+  final failed = rest
       .expand((job) => job.items)
       .where((item) => item.stage == AttachStage.failed)
       .length;
-  if (failed > 0) return '$failed FAILED';
-  if (transfers.jobs.any((job) => job.ended && job.note != null)) {
-    return 'FAILED';
-  }
-  if (transfers.jobs.any((job) => job.stop.stopped)) return 'STOPPED';
-  return 'DONE';
+  return [
+    if (failed > 0)
+      '$failed FAILED'
+    else if (rest.any((job) => job.note != null))
+      'FAILED'
+    else if (rest.any((job) => job.stop.stopped))
+      'STOPPED'
+    else if (rest.isNotEmpty)
+      'DONE',
+    if (retry > 0) 'RETRY $retry',
+  ].join(' · ');
 }
 
 String jobWord(TransferJob job) {
@@ -51,7 +60,7 @@ class TransferBar extends ConsumerWidget {
     final tally = transfers.tally;
     final moving = transfers.active;
     final settled = moving ? '' : _settled(transfers);
-    final failed = settled.endsWith('FAILED');
+    final failed = settled.contains('FAILED');
     return GestureDetector(
       key: const ValueKey('transfer-bar'),
       behavior: HitTestBehavior.opaque,
@@ -111,7 +120,7 @@ class TransferBadge extends ConsumerWidget {
     final tally = transfers.tally;
     final moving = transfers.active;
     final settled = moving ? '' : _settled(transfers);
-    final failed = settled.endsWith('FAILED');
+    final failed = settled.contains('FAILED');
     return GestureDetector(
       key: const ValueKey('transfer-badge'),
       behavior: HitTestBehavior.opaque,

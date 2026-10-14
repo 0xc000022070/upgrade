@@ -139,6 +139,7 @@ Future<void> uploadFiles({
   AfterUpload? then,
   void Function(TransferJob job)? began,
   UploadEnded? ended,
+  TransferJob? replacing,
 }) async {
   final job = files.isEmpty
       ? null
@@ -150,6 +151,7 @@ Future<void> uploadFiles({
             for (final file in files)
               QueuedFile(name: file.name, bytes: file.size),
           ],
+          replacing: replacing,
         );
   if (job != null) began?.call(job);
   final landed = {...sent};
@@ -230,6 +232,7 @@ Future<void> uploadFiles({
         then: then,
         began: began,
         ended: ended,
+        replacing: job,
       );
     } else if (failure == null && then != null) {
       failure = await then(link!, landed, taken);
@@ -370,13 +373,15 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     String verb,
     List<QueuedFile> queue,
     QueueTask task, {
-    required Future<void> Function() again,
+    required Future<void> Function(TransferJob replacing) again,
+    TransferJob? replacing,
   }) {
     final job = _transfers.begin(
       verb: verb,
       host: widget.host.name,
       hostId: widget.host.id,
       files: queue,
+      replacing: replacing,
     );
     _pulls.add(job);
     setState(() => _status = null);
@@ -388,7 +393,9 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
           stop: job.stop,
           onItem: job.report,
         );
-        if (mounted && failures.any((f) => f != null)) job.retry = again;
+        if (mounted && failures.any((f) => f != null)) {
+          job.retry = () => again(job);
+        }
         return failures;
       } finally {
         job.end();
@@ -419,7 +426,11 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     );
   }
 
-  Future<void> _share(String path, DirEntry entry) async {
+  Future<void> _share(
+    String path,
+    DirEntry entry, {
+    TransferJob? replacing,
+  }) async {
     final files = _files;
     if (files == null) return;
     final phone = ref.read(phoneFilesProvider);
@@ -430,12 +441,17 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
       [QueuedFile(name: entry.name, bytes: entry.size)],
       (_, report, stop) =>
           pullFile(files, path, into, entry.size, report, stop: stop),
-      again: () => _share(path, entry),
+      replacing: replacing,
+      again: (job) => _share(path, entry, replacing: job),
     );
     if (failures.single == null) await phone.share([into.path]);
   }
 
-  Future<void> _save(String path, DirEntry entry) async {
+  Future<void> _save(
+    String path,
+    DirEntry entry, {
+    TransferJob? replacing,
+  }) async {
     final files = _files;
     if (files == null) return;
     final phone = ref.read(phoneFilesProvider);
@@ -447,7 +463,8 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
       [QueuedFile(name: entry.name, bytes: entry.size)],
       (_, report, stop) =>
           pullFile(files, path, into, entry.size, report, stop: stop),
-      again: () => _save(path, entry),
+      replacing: replacing,
+      again: (job) => _save(path, entry, replacing: job),
     );
     String? line;
     if (failures.single == null) {
@@ -466,6 +483,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     DirEntry entry, {
     Host? to,
     String? into,
+    TransferJob? replacing,
   }) async {
     final files = _files;
     if (files == null) return;
@@ -478,34 +496,37 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     final opener = ref.read(hostFilesOpenerProvider);
     HostFiles? there;
     if (!mounted) return discardCopies([copy.path]);
-    await _run('SENDING', [QueuedFile(name: entry.name, bytes: entry.size)], (
-      _,
-      report,
-      stop,
-    ) async {
-      final failed = await pullFile(
-        files,
-        path,
-        copy,
-        entry.size,
-        report,
-        stop: stop,
-      );
-      if (failed != null) return failed;
-      final to = there = target.id == widget.host.id
-          ? files
-          : await opener(target);
-      final listed = await to.list(folder);
-      if (listed == null) return unreadFolder;
-      final taken = {for (final e in listed) e.name};
-      return pushFile(
-        to,
-        joinPath(folder, freeName(entry.name, taken)),
-        copy,
-        report,
-        stop: stop,
-      );
-    }, again: () => _sendToHost(path, entry, to: target, into: folder));
+    await _run(
+      'SENDING',
+      [QueuedFile(name: entry.name, bytes: entry.size)],
+      (_, report, stop) async {
+        final failed = await pullFile(
+          files,
+          path,
+          copy,
+          entry.size,
+          report,
+          stop: stop,
+        );
+        if (failed != null) return failed;
+        final to = there = target.id == widget.host.id
+            ? files
+            : await opener(target);
+        final listed = await to.list(folder);
+        if (listed == null) return unreadFolder;
+        final taken = {for (final e in listed) e.name};
+        return pushFile(
+          to,
+          joinPath(folder, freeName(entry.name, taken)),
+          copy,
+          report,
+          stop: stop,
+        );
+      },
+      replacing: replacing,
+      again: (job) =>
+          _sendToHost(path, entry, to: target, into: folder, replacing: job),
+    );
     if (there != null && there != files) there!.close();
     await discardCopies([copy.path]);
     if (target.id == widget.host.id) await _read(folder);

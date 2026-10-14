@@ -134,10 +134,43 @@ void main() {
     first.end();
     first.retry = () async {
       await Future<void>.delayed(Duration.zero);
-      transfers.begin(verb: 'AGAIN', host: 'nyx', files: const []);
+      transfers.begin(
+        verb: 'AGAIN',
+        host: 'nyx',
+        files: const [],
+        replacing: first,
+      );
     };
-    await transfers.retry(first);
-    expect([for (final job in transfers.jobs) job.verb], ['AGAIN', 'B']);
+    final run = transfers.retry(first);
+    transfers.begin(verb: 'C', host: 'nyx', files: const []);
+    await run;
+    expect([for (final job in transfers.jobs) job.verb], ['AGAIN', 'B', 'C']);
+  });
+
+  testWidgets('the bar names what is left to retry beside what finished', (
+    tester,
+  ) async {
+    final transfers = Transfers(status: status, now: () => now);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [transfersProvider.overrideWith((ref) => transfers)],
+        child: MaterialApp(
+          theme: testTheme,
+          home: const Scaffold(bottomNavigationBar: TransferBar()),
+        ),
+      ),
+    );
+    final stopped = transfers.begin(
+      verb: 'UPLOADING',
+      host: 'nyx',
+      files: const [QueuedFile(name: 'a', bytes: 1)],
+    );
+    stopped.stop.stop();
+    stopped.retry = () async {};
+    stopped.end();
+    transfers.begin(verb: 'UPLOADING', host: 'nyx', files: const []).end();
+    await tester.pump();
+    expect(find.text('DONE · RETRY 1'), findsOneWidget);
   });
 
   test('a stopped queue starts nothing more', () async {
