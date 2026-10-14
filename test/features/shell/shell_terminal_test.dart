@@ -406,6 +406,30 @@ void main() {
       },
     );
 
+    testWidgets('a tap on a held frame still reaches a mouse application', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      transport.opened.single.emit('\x1b[?1000h\x1b[?1006hword\r\n');
+      await ready(tester);
+      final session = sessions.activeFor(rose.id)!;
+
+      transport.opened.single.emit('\x1b[?2026h\x1b[2J\x1b[Hredraw');
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+      expect(session.terminal.modeGet(const TerminalMode.syncOutput()), isTrue);
+
+      await tester.tapAt(cellAt(tester, 1, 0));
+      await tester.pump();
+      expect(transport.opened.single.written, '\x1b[<0;2;1M\x1b[<0;2;1m');
+      expect(session.terminal.modeGet(const TerminalMode.syncOutput()), isTrue);
+
+      await unmount(tester);
+    });
+
     Rect pill(WidgetTester tester) => tester.getRect(
       find
           .ancestor(
