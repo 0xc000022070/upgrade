@@ -116,6 +116,7 @@ class Transfers extends ChangeNotifier {
   final DateTime Function() _now;
 
   final _jobs = <TransferJob>[];
+  final _retrying = <TransferJob>{};
   final _samples = <(DateTime, int)>[];
   int _moved = 0;
   bool _dirty = false;
@@ -156,8 +157,12 @@ class Transfers extends ChangeNotifier {
     if (again == null) return Future.value();
     job.retry = null;
     job.kept.clear();
+    _retrying.add(job);
     notifyListeners();
-    return again().whenComplete(() => drop(job));
+    return again().whenComplete(() {
+      _retrying.remove(job);
+      job.retry == null ? drop(job) : notifyListeners();
+    });
   }
 
   void stopAll() {
@@ -254,6 +259,7 @@ class Transfers extends ChangeNotifier {
       for (final job in _jobs)
         if (job.ended &&
             job.retry == null &&
+            !_retrying.contains(job) &&
             (job.seen || !job.failed) &&
             now.difference(job.endedAt!) >= transferLinger)
           job,

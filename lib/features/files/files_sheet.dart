@@ -319,6 +319,20 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     }
   }
 
+  Future<HostFiles?> _linkFor(
+    TransferJob? replacing,
+    Future<void> Function(TransferJob replacing) again,
+  ) async {
+    if (_files == null && replacing != null && mounted) {
+      setState(() => _error = null);
+      await _connect();
+    }
+    if (_files == null && replacing != null && mounted) {
+      replacing.retry = () => again(replacing);
+    }
+    return _files;
+  }
+
   Future<void> _read(String directory) async {
     final files = _files;
     if (files == null) return;
@@ -431,7 +445,10 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     DirEntry entry, {
     TransferJob? replacing,
   }) async {
-    final files = _files;
+    final files = await _linkFor(
+      replacing,
+      (job) => _share(path, entry, replacing: job),
+    );
     if (files == null) return;
     final phone = ref.read(phoneFilesProvider);
     final into = File('${(await phone.outgoing()).path}/${entry.name}');
@@ -452,7 +469,10 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     DirEntry entry, {
     TransferJob? replacing,
   }) async {
-    final files = _files;
+    final files = await _linkFor(
+      replacing,
+      (job) => _save(path, entry, replacing: job),
+    );
     if (files == null) return;
     final phone = ref.read(phoneFilesProvider);
     final scratch = await phone.scratch();
@@ -485,8 +505,11 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     String? into,
     TransferJob? replacing,
   }) async {
-    final files = _files;
-    if (files == null) return;
+    final files = await _linkFor(
+      replacing,
+      (job) => _sendToHost(path, entry, to: to, into: into, replacing: job),
+    );
+    if (files == null || !mounted) return;
     final target = to ?? await pickHost(context, ref, title: 'SEND TO');
     if (target == null || !mounted) return;
     final folder = into ?? await pickHostFolder(context, target);

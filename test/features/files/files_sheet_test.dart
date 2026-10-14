@@ -348,6 +348,18 @@ void main() {
       expect(find.byKey(const ValueKey('send-retry')), findsNothing);
     });
 
+    testWidgets('a send whose copies are all gone copies nothing', (
+      tester,
+    ) async {
+      await open(tester, (context) => showSendSheet(context, shared));
+      for (final file in shared.cast<SharedFile>()) {
+        File(file.path).deleteSync();
+      }
+
+      await settle(tester, find.byKey(const ValueKey('send-clipboard')));
+      expect(find.text('2 FAILED'), findsOneWidget);
+    });
+
     testWidgets('a lost copy does not hide a clipboard that failed', (
       tester,
     ) async {

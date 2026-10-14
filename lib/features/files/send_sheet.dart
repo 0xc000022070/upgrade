@@ -191,7 +191,8 @@ class _SendSheetState extends ConsumerState<SendSheet> {
       _busy = false;
       _sent = true;
       _status = [
-        into == null ? 'COPIED' : 'IN ${into.split('/').last}',
+        if (sent.isNotEmpty || widget.items.any((item) => item is SharedText))
+          into == null ? 'COPIED' : 'IN ${into.split('/').last}',
         if (failed > 0) '$failed FAILED',
       ].join(' · ');
       if (failed > 0 && into == null) _landed = [...sent.values];

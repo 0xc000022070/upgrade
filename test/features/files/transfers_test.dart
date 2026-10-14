@@ -147,6 +147,16 @@ void main() {
     expect([for (final job in transfers.jobs) job.verb], ['AGAIN', 'B', 'C']);
   });
 
+  test('a retry that could not start keeps its batch', () async {
+    final job = transfers.begin(verb: 'SAVING', host: 'nyx', files: const []);
+    job.end();
+    Future<void> again() async => job.retry = again;
+    job.retry = again;
+    await transfers.retry(job);
+    expect(transfers.jobs, [job]);
+    expect(job.retry, isNotNull);
+  });
+
   testWidgets('the bar names what is left to retry beside what finished', (
     tester,
   ) async {
