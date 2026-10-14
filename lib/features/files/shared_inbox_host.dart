@@ -21,6 +21,7 @@ class _SharedInboxHostState extends ConsumerState<SharedInboxHost> {
   StreamSubscription<void>? _opens;
   bool _transfers = false;
   final _waiting = <SharedItem>[];
+  var _unreadable = 0;
   bool _showing = false;
 
   @override
@@ -40,13 +41,18 @@ class _SharedInboxHostState extends ConsumerState<SharedInboxHost> {
   }
 
   Future<void> _take() async {
-    _waiting.addAll(await ref.read(phoneFilesProvider).takeShared());
-    if (!mounted || _showing || _waiting.isEmpty) return;
+    final shared = await ref.read(phoneFilesProvider).takeShared();
+    _waiting.addAll(shared.items);
+    _unreadable += shared.unreadable;
+    bool waiting() => _waiting.isNotEmpty || _unreadable > 0;
+    if (!mounted || _showing || !waiting()) return;
     _showing = true;
-    while (_waiting.isNotEmpty && mounted) {
+    while (waiting() && mounted) {
       final items = [..._waiting];
+      final unreadable = _unreadable;
       _waiting.clear();
-      await showSendSheet(context, items);
+      _unreadable = 0;
+      await showSendSheet(context, items, unreadable: unreadable);
     }
     _showing = false;
   }

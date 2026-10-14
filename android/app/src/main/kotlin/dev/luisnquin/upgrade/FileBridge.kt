@@ -205,7 +205,7 @@ class FileBridge(private val activity: Activity) {
                     "mime" to (context.contentResolver.getType(uri) ?: mimeOf(name)),
                 )
             } catch (_: Exception) {
-                // ignored: an unreadable share is dropped, and the rest still arrive
+                // ignored: an unreadable uri is not copied, and the rest still are
                 null
             }
         }
@@ -239,7 +239,9 @@ class ShareActivity : Activity() {
                 Intent.ACTION_SEND_MULTIPLE -> streamsOf(intent)
                 else -> emptyList()
             }
-            streams.mapNotNullTo(items) { FileBridge.copyIn(this, it, "shared") }
+            for (stream in streams) {
+                items.add(FileBridge.copyIn(this, stream, "shared") ?: mapOf("kind" to "unreadable"))
+            }
             if (streams.isEmpty()) {
                 intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.let {
                     items.add(mapOf("kind" to "text", "text" to it))

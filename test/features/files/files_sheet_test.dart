@@ -258,6 +258,35 @@ void main() {
     await tester.pumpAndSettle(sendSheetLinger);
   });
 
+  testWidgets('a share none of which could be read says so', (tester) async {
+    await open(
+      tester,
+      (context) => showSendSheet(context, const [], unreadable: 2),
+    );
+
+    expect(find.text('2 UNREADABLE'), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-clipboard')), findsNothing);
+    expect(find.text('CLOSE'), findsOneWidget);
+  });
+
+  testWidgets('a send beside an unreadable share stays open to say so', (
+    tester,
+  ) async {
+    await open(
+      tester,
+      (context) =>
+          showSendSheet(context, const [SharedText('hello')], unreadable: 1),
+    );
+
+    await tester.tap(find.text('nyx'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('send-clipboard')));
+    await tester.pumpAndSettle(sendSheetLinger);
+
+    expect(files.copies, ['hello']);
+    expect(find.text('COPIED · 1 UNREADABLE'), findsOneWidget);
+  });
+
   testWidgets('a folder that cannot be read takes nothing', (tester) async {
     await open(
       tester,

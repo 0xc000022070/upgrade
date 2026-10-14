@@ -24,17 +24,21 @@ import 'package:upgrade/features/files/transfers.dart';
 
 const sendSheetLinger = Duration(milliseconds: 700);
 
-Future<void> showSendSheet(BuildContext context, List<SharedItem> items) =>
-    showPanelSheet<void>(
-      context,
-      title: 'SEND TO HOST',
-      builder: (_) => SendSheet(items: items),
-    );
+Future<void> showSendSheet(
+  BuildContext context,
+  List<SharedItem> items, {
+  int unreadable = 0,
+}) => showPanelSheet<void>(
+  context,
+  title: 'SEND TO HOST',
+  builder: (_) => SendSheet(items: items, unreadable: unreadable),
+);
 
 class SendSheet extends ConsumerStatefulWidget {
-  const SendSheet({super.key, required this.items});
+  const SendSheet({super.key, required this.items, this.unreadable = 0});
 
   final List<SharedItem> items;
+  final int unreadable;
 
   @override
   ConsumerState<SendSheet> createState() => _SendSheetState();
@@ -194,10 +198,11 @@ class _SendSheetState extends ConsumerState<SendSheet> {
         if (sent.isNotEmpty || widget.items.any((item) => item is SharedText))
           into == null ? 'COPIED' : 'IN ${into.split('/').last}',
         if (failed > 0) '$failed FAILED',
+        if (widget.unreadable > 0) '${widget.unreadable} UNREADABLE',
       ].join(' · ');
       if (failed > 0 && into == null) _landed = [...sent.values];
     });
-    if (failed > 0) return;
+    if (failed > 0 || widget.unreadable > 0) return;
     await Future<void>.delayed(sendSheetLinger);
     if (mounted) Navigator.of(context).pop();
   }
@@ -229,6 +234,7 @@ class _SendSheetState extends ConsumerState<SendSheet> {
       if (_shared.isNotEmpty)
         '${_shared.length} ${_shared.length == 1 ? 'FILE' : 'FILES'} · ${sizeWord(bytes)}',
       if (texts > 0) '$texts ${texts == 1 ? 'TEXT' : 'TEXTS'}',
+      if (widget.unreadable > 0) '${widget.unreadable} UNREADABLE',
     ].join(' · ');
   }
 
@@ -241,15 +247,16 @@ class _SendSheetState extends ConsumerState<SendSheet> {
     final hosts = loaded.value ?? const <Host>[];
     final host = _host ?? (hosts.length == 1 ? hosts.single : null);
     final text = widget.items.whereType<SharedText>().firstOrNull?.text;
+    final empty = widget.items.isEmpty;
     return PanelSheetBody(
       title: 'SEND TO HOST',
       affordance: PanelAffordance(
-        _job == null ? 'CANCEL' : 'CLOSE',
+        _job == null && !empty ? 'CANCEL' : 'CLOSE',
         showIcon: false,
         onTap: () => Navigator.of(context).pop(),
       ),
       footer: [
-        if (host != null && !_sent)
+        if (host != null && !_sent && !empty)
           Row(
             children: [
               ActionBlock(
@@ -266,7 +273,8 @@ class _SendSheetState extends ConsumerState<SendSheet> {
             ],
           ),
         if (_status case final status?) ...[
-          if (host != null && !_sent) const SizedBox(height: Spacing.sm),
+          if (host != null && !_sent && !empty)
+            const SizedBox(height: Spacing.sm),
           Row(
             children: [
               if (_busy) ...[
@@ -313,7 +321,9 @@ class _SendSheetState extends ConsumerState<SendSheet> {
           ),
         ],
         const SheetRule(),
-        if (loaded.isLoading && !loaded.hasValue)
+        if (empty)
+          const EmptyState('the app that shared it did not let it be read')
+        else if (loaded.isLoading && !loaded.hasValue)
           const Row(children: [DotSpinner()])
         else if (loaded.hasError && !loaded.hasValue)
           Text(

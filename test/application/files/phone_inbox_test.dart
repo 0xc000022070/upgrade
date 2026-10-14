@@ -95,4 +95,13 @@ void main() {
     expect((items[0] as SharedText).text, 'hi');
     expect((items[1] as SharedFile).size, 3);
   });
+
+  test('a share the phone could not read is counted, not sent', () {
+    final raw = [
+      {'kind': 'unreadable'},
+      {'kind': 'file', 'path': '/c/a', 'name': 'a', 'size': 3, 'mime': 'x/y'},
+    ];
+    expect(parseSharedItems(raw).single, isA<SharedFile>());
+    expect(countUnreadable(raw), 1);
+  });
 }

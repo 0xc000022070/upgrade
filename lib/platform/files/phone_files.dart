@@ -36,9 +36,16 @@ final class SharedFile extends SharedItem {
   bool get image => mime.startsWith('image/');
 }
 
+typedef Shared = ({List<SharedItem> items, int unreadable});
+
+int countUnreadable(Object? raw) => [
+  for (final item in (raw as List<Object?>? ?? const []))
+    if (item is Map && item['kind'] == 'unreadable') item,
+].length;
+
 List<SharedItem> parseSharedItems(Object? raw) => [
   for (final item in (raw as List<Object?>? ?? const []))
-    if (item is Map)
+    if (item is Map && item['kind'] != 'unreadable')
       switch (item['kind']) {
         'text' => SharedText('${item['text'] ?? ''}'),
         _ => SharedFile(
@@ -85,13 +92,12 @@ class PhoneFiles implements TransferStatus {
     }
   }
 
-  Future<List<SharedItem>> takeShared() async {
+  Future<Shared> takeShared() async {
     try {
-      return parseSharedItems(
-        await _channel.invokeMethod<Object?>('takeShared'),
-      );
+      final raw = await _channel.invokeMethod<Object?>('takeShared');
+      return (items: parseSharedItems(raw), unreadable: countUnreadable(raw));
     } on MissingPluginException {
-      return const [];
+      return (items: const <SharedItem>[], unreadable: 0);
     }
   }
 
