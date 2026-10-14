@@ -16,6 +16,7 @@ class Toast {
     this.subject,
     this.actionLabel,
     this.onAction,
+    this.busy = false,
   });
 
   /// Raising an id that is already up replaces it where it stands, so a state turned over
@@ -32,6 +33,9 @@ class Toast {
   /// the screen that raised it by up to [toastHold], and a `WidgetRef` read after that
   /// screen is gone throws.
   final Future<void> Function(Ref ref)? onAction;
+
+  /// Something still going: it holds until the same id is raised again with how it ended.
+  final bool busy;
 
   bool get actionable => onAction != null && actionLabel != null;
 
@@ -63,6 +67,7 @@ class ToastQueue extends Notifier<List<Toast>> {
       _clocks.remove(live.removeAt(0).id)?.cancel();
     }
     state = live;
+    if (toast.busy) return;
     _clocks[toast.id] = Timer(toast.dwell, () => dismiss(toast.id));
   }
 

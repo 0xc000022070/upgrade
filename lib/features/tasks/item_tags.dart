@@ -30,7 +30,7 @@ class SendingTag extends StatelessWidget {
   Widget build(BuildContext context) => Text(
     failed ? 'FAILED' : 'SENDING',
     style: context.tokens.label.copyWith(
-      color: failed ? context.tokens.warning : null,
+      color: failed ? context.tokens.danger : null,
     ),
   );
 

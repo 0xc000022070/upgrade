@@ -5,12 +5,18 @@ import 'dart:async';
 
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
 import 'package:upgrade/application/agents/agent_state.dart';
 import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
+import 'package:upgrade/application/alerts/toasts.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/home/agent_mark.dart';
 import 'package:upgrade/features/home/agents_panel.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
@@ -77,6 +83,64 @@ Widget host(AgentPanelState state, {DateTime? now}) => ProviderScope(
 );
 
 void main() {
+  testWidgets('a send still going is a row ahead of the agents', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final answer = Completer<SendState>();
+    container
+        .read(sendQueueProvider.notifier)
+        .start(
+          itemId: 'item-1',
+          title: 'a drop on its way',
+          target: PathTarget(
+            path: AgentPath(
+              id: 'path-1',
+              hostId: 'a',
+              directory: '~/src/upgrade',
+              label: 'upgrade',
+              createdAt: DateTime.utc(2026, 9, 3),
+            ),
+            host: hostA,
+          ),
+          kind: AgentKind.all.last,
+          run: () => answer.future,
+        );
+    final state = snapshotOf([
+      agent(
+        pane: 'wQ:p1',
+        name: 'claude',
+        status: 'working',
+        work: 'other work',
+        sequence: 10,
+      ),
+    ]);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: testTheme,
+          home: Scaffold(body: AgentsPanel(state: state)),
+        ),
+      ),
+    );
+
+    expect(find.text('STARTING'), findsOneWidget);
+    expect(find.text('CODEX'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('a drop on its way')).dy,
+      lessThan(tester.getTopLeft(find.text('other work')).dy),
+    );
+
+    answer.complete(const SendFailed('spawn timed out'));
+    await tester.pump();
+    final failed = tester.widget<Text>(find.text('FAILED'));
+    expect(failed.style?.color, UpgradeTokens.house.danger);
+    expect(find.text('STARTING'), findsNothing);
+    await tester.pump(toastHold);
+  });
+
   testWidgets('a row hands its tap the host and the agent', (tester) async {
     final opened = <(Host, AgentSnapshot)>[];
     final claude = agent(

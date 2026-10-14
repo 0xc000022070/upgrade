@@ -186,6 +186,8 @@ A strip is the verb that happened, in the panel-header style and `textMuted`; th
 
 **Newest is at the top, because a strip leaves on a clock the user did not set.** Each runs its own and the oldest goes first, so the oldest belongs at the bottom, where its leaving moves nothing above it. An arrival pushes the stack down instead — and an arrival is the user's own doing, a moment after the tap that caused it.
 
+**A toast for something still going holds until it ends.** It carries a spinner before its verb and no clock, and the same strip turns into how it ended, which then takes the clock of its kind. Swiping it away is the only other way it leaves.
+
 **A toast with a verb on it holds eight seconds, and one with nothing to tap holds four.** The hold is not free: a strip stands over the breadcrumb, the title and the top of the first panel, so every second it waits is a second of the screen's own head covered, and a second in which the next tap's toast arrives on top of this one rather than instead of it. Eight is long enough to read the line and reach the word, and short enough that two taps a few seconds apart do not meet on the screen. What lets it be that short is that a toast is never the only way back to what it undoes: the thing it reverses is still on the screen behind it, and the row that did it is still the way to do it again.
 
 **A strip is swiped off either side, the way a notification is.** The clock is the app's guess at when the notice has been read and the swipe is the user saying so, and the user's answer wins: a strip flung off the side is gone at once and its clock is cancelled with it. Nothing is drawn behind it as it goes — no coloured ground, no bin glyph, no label — because there is nothing else the gesture could mean, and the strip sliding clear of the panels it was covering is the whole of the feedback. The stack closes over the gap across the same 140ms it would have taken had the clock run out.
@@ -451,7 +453,7 @@ Done is also toggled without opening anything, by tapping the row's leading chec
 
 `SEND` closes the sheet the moment it is tapped and the send runs behind it, because an agent can take the whole of the send's deadline to come up and nothing about the item needs the sheet held open for that. While it runs, the row and the sheet's strip say `SENDING` where `SENT` stands, ahead of `PROMPT` and `SENT` and behind only the `NEXT ACTION` arrow, and the sheet lists it under `[ SENDING ]` as its destination and agent beside a spinner. A send that lands leaves that block, and the dispatch it recorded is what the row, the strip and `[ SENT ]` say from then on. A send that fails stays: the tag reads `FAILED` in red, and the line under `[ SENDING ]` gives the reason in red with `RETRY` and `DISMISS`. A retry hands the agent the same message, images and model the first try had; a later edit to the item is a new send.
 
-Either ending is said from anywhere by a toast: `SENT` over the item's title, or `FAILED` over the reason and the title with `RETRY`. Several sends run side by side, and the tag reads `FAILED` only once none of the item's sends is still going.
+The send is said from anywhere by one toast that follows it: `SENDING` beside a spinner over the agent and the item's title from the tap, held for as long as the agent takes to come up, and turned in place into `SENT` over the title or `FAILED` over the reason and the title with `RETRY` once it ends. On Home it is also a row at the head of `AGENTS`, before the pane it is starting exists. Several sends run side by side, and the tag reads `FAILED` only once none of the item's sends is still going.
 
 ### Filing an item is picking a target, and pairing is picking an item
 
@@ -807,6 +809,8 @@ One interval for every connection the app holds — the shell, the agent client 
 ### The panel at the top of Home says what the agents are doing
 
 Header `AGENTS`, a count, `VIEW ALL >`. Column labels `AGENT`, `STATUS`, `WORK`. One row per working or blocked agent, most recently changed first, at most three: a 24px bordered mono glyph box, the agent's name, a 6px status dot with the status word in the state's colour — and the pane's stripped terminal title as the work, on one line, ellipsised. A footer line reads `N idle · N blocked`, the blocked count in danger when it is not zero. When nothing is working or blocked the rows collapse to that footer alone.
+
+**A send on its way is a row before it is an agent.** Until herdr has a pane to report, a send the user made from an item sheet heads the rows: the item's title as the work, the agent's mark and name, and `STARTING` beside a spinner in `--fg-dim`. One that failed reads `FAILED` beside a dot in `danger` until it is retried or dismissed. A tap opens the item's sheet, where both are. These rows come first and share the three; `STARTING` is the app's word for a pane it is waiting on, not a state herdr gives, so it takes no herdr hue and the header count stays herdr's.
 
 **The panel never assumes a host.** Until some host has an agent integration switched on — `HERDR`, `AGENTS`, or both — the panel is blocked: one dim line, `NO HOST · SET IN SYS`, no rows, no footer, and not a single connection opened. Every host with it on is polled concurrently, rows merge across hosts, and a host that fails contributes its own dim line while the others still draw rows.
 

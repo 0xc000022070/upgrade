@@ -66,7 +66,6 @@ class SendQueue extends Notifier<List<PendingSend>> {
   void retry(String id) {
     final send = _find(id);
     if (send == null || send.state is SendSending) return;
-    ref.read(toastQueueProvider.notifier).dismiss(_toastId(id));
     _put(send._to(const SendSending()));
     _run(send);
   }
@@ -79,6 +78,16 @@ class SendQueue extends Notifier<List<PendingSend>> {
   }
 
   Future<void> _run(PendingSend send) async {
+    ref
+        .read(toastQueueProvider.notifier)
+        .raise(
+          Toast(
+            id: _toastId(send.id),
+            verb: 'SENDING',
+            subject: '${send.kind.name.toUpperCase()} · ${send.title}',
+            busy: true,
+          ),
+        );
     SendState result;
     try {
       result = await send.run();
@@ -86,8 +95,11 @@ class SendQueue extends Notifier<List<PendingSend>> {
       debugPrint('upgrade.spawn ${send.target.host.name}: $error');
       result = const SendFailed('send failed');
     }
-    if (_find(send.id) == null) return;
     final toasts = ref.read(toastQueueProvider.notifier);
+    if (_find(send.id) == null) {
+      toasts.dismiss(_toastId(send.id));
+      return;
+    }
     switch (result) {
       case SendSent():
         state = [...state.where((other) => other.id != send.id)];

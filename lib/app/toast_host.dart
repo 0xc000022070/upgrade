@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/alerts/toasts.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/components/item_line.dart';
 import 'package:upgrade/design/components/keyboard_toolbar.dart';
 import 'package:upgrade/design/components/panel.dart';
@@ -269,6 +270,10 @@ class _ToastStripState extends ConsumerState<_ToastStrip>
         child: Row(
           children: [
             const SizedBox(width: Spacing.panelPadding),
+            if (toast.busy) ...[
+              const DotSpinner(),
+              const SizedBox(width: Spacing.md),
+            ],
             Text(
               toast.verb.toUpperCase(),
               style: context.tokens.panelHeader.copyWith(

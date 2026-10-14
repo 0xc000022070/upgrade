@@ -2,6 +2,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/application/pip.dart';
 import 'package:upgrade/design/tokens.dart';
@@ -15,6 +17,7 @@ import 'package:upgrade/features/agents/agents_screen.dart';
 import 'package:upgrade/features/agents/pip_action.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/features/home/agent_mark.dart';
+import 'package:upgrade/features/tasks/item_sheet.dart';
 
 class AgentsPanel extends ConsumerWidget {
   const AgentsPanel({
@@ -76,6 +79,7 @@ class AgentsPanel extends ConsumerWidget {
         error: (error, _) => _DimLine('error: $error'),
         data: (data) => _AgentsBody(
           data: data,
+          sends: ref.watch(sendQueueProvider),
           now: now ?? DateTime.now(),
           onConfigureHosts: () =>
               ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex,
@@ -92,12 +96,14 @@ class AgentsPanel extends ConsumerWidget {
 class _AgentsBody extends StatelessWidget {
   const _AgentsBody({
     required this.data,
+    required this.sends,
     required this.now,
     required this.onConfigureHosts,
     required this.onOpen,
   });
 
   final AgentPanelState data;
+  final List<PendingSend> sends;
   final DateTime now;
   final VoidCallback onConfigureHosts;
   final AgentOpen onOpen;
@@ -121,6 +127,7 @@ class _AgentsBody extends StatelessWidget {
     // Every host failed, so there is no snapshot behind the panel and a `0 idle · 0 blocked`
     // footer would read as "nothing is running" rather than "nobody answered".
     final answered = data.answered;
+    final shown = sends.take(_rowLimit).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -132,10 +139,12 @@ class _AgentsBody extends StatelessWidget {
             at: outcome.lastGoodAt,
             now: now,
           ),
-        if (failures.isNotEmpty && (active.isNotEmpty || answered))
+        if (failures.isNotEmpty &&
+            (shown.isNotEmpty || active.isNotEmpty || answered))
           const SizedBox(height: Spacing.md),
-        if (active.isNotEmpty) ...[
-          for (final row in active.take(3))
+        if (shown.isNotEmpty || active.isNotEmpty) ...[
+          for (final send in shown) _SendRow(send),
+          for (final row in active.take(_rowLimit - shown.length))
             _AgentRow(
               row.agent,
               onTap: UserIntent.onGesture(
@@ -148,6 +157,8 @@ class _AgentsBody extends StatelessWidget {
       ],
     );
   }
+
+  static const _rowLimit = 3;
 
   String _failureLine(HostOutcome outcome, bool disambiguate) =>
       disambiguate ? outcome.namedReason : outcome.reason;
@@ -227,6 +238,73 @@ class _AgentRow extends StatelessWidget {
                     style: context.tokens.value.copyWith(color: statusColor),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SendRow extends StatelessWidget {
+  const _SendRow(this.send);
+
+  final PendingSend send;
+
+  @override
+  Widget build(BuildContext context) {
+    final failed = send.state is SendFailed;
+    final statusColor = failed
+        ? context.tokens.danger
+        : context.tokens.textMuted;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => openItemSheet(context, send.itemId),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: Spacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                send.title,
+                style: context.tokens.rowTitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: Spacing.sm),
+              Row(
+                children: [
+                  AgentMark(send.kind.name),
+                  const SizedBox(width: Spacing.md),
+                  Expanded(
+                    child: Text(
+                      agentMarkName(send.kind.name),
+                      style: context.tokens.rowSubtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (failed)
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        shape: BoxShape.circle,
+                      ),
+                    )
+                  else
+                    const DotSpinner(),
+                  const SizedBox(width: Spacing.sm),
+                  Text(
+                    failed ? 'FAILED' : 'STARTING',
+                    style: context.tokens.value.copyWith(color: statusColor),
+                    maxLines: 1,
                   ),
                 ],
               ),

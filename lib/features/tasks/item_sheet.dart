@@ -411,7 +411,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         children: [
           Text(
             '$where · ${failed.reason}',
-            style: context.tokens.value.copyWith(color: context.tokens.warning),
+            style: context.tokens.value.copyWith(color: context.tokens.danger),
           ),
           const SizedBox(height: Spacing.sm),
           Wrap(

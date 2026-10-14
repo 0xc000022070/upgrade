@@ -46,16 +46,35 @@ void main() {
     final answer = Completer<SendState>();
     start(() => answer.future);
     expect(container.read(sendQueueProvider).single.state, isA<SendSending>());
-    expect(container.read(toastQueueProvider), isEmpty);
+    final sending = container.read(toastQueueProvider).single;
+    expect(
+      (sending.verb, sending.subject, sending.busy),
+      ('SENDING', 'CLAUDE · a drop', true),
+    );
 
     answer.complete(const SendSent('wQ:p1'));
     await pumpEventQueue();
     expect(container.read(sendQueueProvider), isEmpty);
     final toast = container.read(toastQueueProvider).single;
     expect(
-      (toast.verb, toast.subject, toast.actionable),
-      ('SENT', 'a drop', false),
+      (toast.id, toast.verb, toast.subject, toast.busy),
+      (sending.id, 'SENT', 'a drop', false),
     );
+  });
+
+  testWidgets('a send still going outlasts the clock of a notice', (
+    tester,
+  ) async {
+    final answer = Completer<SendState>();
+    start(() => answer.future);
+    await tester.pump(toastHold * 4);
+    expect(container.read(toastQueueProvider).single.verb, 'SENDING');
+
+    answer.complete(const SendSent('wQ:p1'));
+    await tester.pump();
+    expect(container.read(toastQueueProvider).single.verb, 'SENT');
+    await tester.pump(toastNotice);
+    expect(container.read(toastQueueProvider), isEmpty);
   });
 
   test(
