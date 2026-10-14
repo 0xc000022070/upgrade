@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:upgrade/application/agents/agents.dart' show hostsProvider;
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/spacing.dart';
@@ -29,7 +30,9 @@ ShellState? _trouble(List<ShellSession> sessions) {
 }
 
 class _View {
-  _View(ShellSessions store) : session = store.parked {
+  _View(ShellSessions store)
+    : session = store.parked,
+      lastHostId = store.parkedHostId {
     final session = this.session;
     if (session == null) {
       groups = const [];
@@ -50,11 +53,13 @@ class _View {
   }
 
   final ShellSession? session;
+  final String? lastHostId;
   late final List<_Group> groups;
   late final String? label;
 
   bool same(_View other) =>
       identical(session, other.session) &&
+      lastHostId == other.lastHostId &&
       label == other.label &&
       listEquals(
         [
@@ -68,21 +73,24 @@ class _View {
       );
 }
 
-/// Drawn whenever a session is open anywhere, so it is already standing under the sheet
+/// Drawn whenever a host is registered, so it is already standing under the sheet
 /// while the sheet is up and is on screen the instant the sheet has gone. Nothing
 /// animates it in: the sheet going down is the only thing that should be moving.
 class ParkedShellBar extends ConsumerWidget {
   const ParkedShellBar({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) =>
-      _Parked(store: ref.watch(shellSessionsProvider));
+  Widget build(BuildContext context, WidgetRef ref) => _Parked(
+    store: ref.watch(shellSessionsProvider),
+    hosts: ref.watch(hostsProvider).valueOrNull ?? const [],
+  );
 }
 
 class _Parked extends StatefulWidget {
-  const _Parked({required this.store});
+  const _Parked({required this.store, required this.hosts});
 
   final ShellSessions store;
+  final List<Host> hosts;
 
   @override
   State<_Parked> createState() => _ParkedState();
@@ -134,8 +142,106 @@ class _ParkedState extends State<_Parked> {
   @override
   Widget build(BuildContext context) {
     final session = _view.session;
-    if (session == null) return const SizedBox.shrink();
-    return _Bar(session: session, groups: _view.groups, label: _view.label);
+    if (session != null) {
+      return _Bar(session: session, groups: _view.groups, label: _view.label);
+    }
+    final hosts = widget.hosts;
+    if (hosts.isEmpty) return const SizedBox.shrink();
+    final host = hosts.firstWhere(
+      (h) => h.id == _view.lastHostId,
+      orElse: () => hosts.first,
+    );
+    return _NewShellBar(host: host);
+  }
+}
+
+class _Frame extends StatelessWidget {
+  const _Frame({
+    required this.barKey,
+    required this.semantics,
+    required this.onTap,
+    required this.child,
+  });
+
+  final Key barKey;
+  final String semantics;
+  final GestureTapCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: semantics,
+    button: true,
+    child: GestureDetector(
+      key: barKey,
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: context.tokens.surfacePrimary,
+          border: Border(
+            top: BorderSide(
+              color: context.tokens.borderNormal,
+              width: Borders.hairline,
+            ),
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          bottom: false,
+          child: SizedBox(
+            height: parkedShellBarHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.screenEdge,
+              ),
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _NewShellBar extends StatelessWidget {
+  const _NewShellBar({required this.host});
+
+  final Host host;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = context.tokens.panelHeader;
+    final ink = context.tokens.textPrimary;
+    return _Frame(
+      barKey: const ValueKey('parked-shell-new'),
+      semantics: 'new shell on ${host.name}',
+      onTap: UserIntent.onGesture(
+        (intent) => openHostShell(context, host, intent: intent, openNew: true),
+      ),
+      child: Row(
+        children: [
+          HostMark(host.system, size: IconSizes.glyph, color: ink),
+          const SizedBox(width: Spacing.md),
+          Expanded(
+            child: Text(
+              host.name.toUpperCase(),
+              key: ValueKey('parked-shell-new-host-${host.id}'),
+              style: style.copyWith(color: ink),
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: Spacing.md),
+          Text(
+            'NEW SHELL',
+            key: const ValueKey('parked-shell-verb'),
+            style: style.copyWith(color: context.tokens.accent),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -151,100 +257,71 @@ class _Bar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = this.label;
-    return Semantics(
-      label: [
+    return _Frame(
+      barKey: const ValueKey('parked-shell'),
+      semantics: [
         for (final group in groups)
           '${group.host.name} ${group.tabs} ${group.tabs == 1 ? 'shell' : 'shells'}',
       ].join(', '),
-      button: true,
-      child: GestureDetector(
-        key: const ValueKey('parked-shell'),
-        behavior: HitTestBehavior.opaque,
-        // The session, not the host: the bar lands on the tab the strip will show in
-        // front.
-        onTap: UserIntent.onGesture(
-          (intent) => openHostShell(
-            context,
-            session.host,
-            intent: intent,
-            session: session,
-          ),
+      // The session, not the host: the bar lands on the tab the strip will show in
+      // front.
+      onTap: UserIntent.onGesture(
+        (intent) => openHostShell(
+          context,
+          session.host,
+          intent: intent,
+          session: session,
         ),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: context.tokens.surfacePrimary,
-            border: Border(
-              top: BorderSide(
-                color: context.tokens.borderNormal,
-                width: Borders.hairline,
-              ),
-            ),
-          ),
-          child: SafeArea(
-            top: false,
-            bottom: false,
-            child: SizedBox(
-              height: parkedShellBarHeight,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: Spacing.screenEdge,
-                ),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final measure = _measurer(context);
-                    const long = 'TAP TO RESUME';
-                    final verb =
-                        _GroupCell.widthOf(groups.first, measure) +
-                                Spacing.md +
-                                measure(long) <=
-                            constraints.maxWidth
-                        ? long
-                        : 'RESUME';
-                    return Row(
-                      children: [
-                        Expanded(
-                          child: label == null
-                              ? _Groups(groups: groups)
-                              : Row(
-                                  children: [
-                                    Flexible(
-                                      child: _GroupCell(
-                                        group: groups.single,
-                                        front: true,
-                                      ),
-                                    ),
-                                    const SizedBox(width: Spacing.md),
-                                    Expanded(
-                                      child: Text(
-                                        label,
-                                        key: const ValueKey(
-                                          'parked-shell-label',
-                                        ),
-                                        style: context.tokens.rowKicker,
-                                        maxLines: 1,
-                                        softWrap: false,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                        const SizedBox(width: Spacing.md),
-                        Text(
-                          verb,
-                          key: const ValueKey('parked-shell-verb'),
-                          style: context.tokens.panelHeader.copyWith(
-                            color: context.tokens.accent,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final measure = _measurer(context);
+          const long = 'TAP TO RESUME';
+          final verb =
+              _GroupCell.widthOf(groups.first, measure) +
+                      Spacing.md +
+                      measure(long) <=
+                  constraints.maxWidth
+              ? long
+              : 'RESUME';
+          return Row(
+            children: [
+              Expanded(
+                child: label == null
+                    ? _Groups(groups: groups)
+                    : Row(
+                        children: [
+                          Flexible(
+                            child: _GroupCell(
+                              group: groups.single,
+                              front: true,
+                            ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
+                          const SizedBox(width: Spacing.md),
+                          Expanded(
+                            child: Text(
+                              label,
+                              key: const ValueKey('parked-shell-label'),
+                              style: context.tokens.rowKicker,
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+              const SizedBox(width: Spacing.md),
+              Text(
+                verb,
+                key: const ValueKey('parked-shell-verb'),
+                style: context.tokens.panelHeader.copyWith(
+                  color: context.tokens.accent,
                 ),
               ),
-            ),
-          ),
-        ),
+            ],
+          );
+        },
       ),
     );
   }

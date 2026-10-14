@@ -11,6 +11,7 @@ import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/shell/parked_shell_bar.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
@@ -39,6 +40,14 @@ const _nyx = Host(
   port: 22,
   user: 'luis',
   keyId: 'key-1',
+);
+
+final _key = ManagedKey(
+  id: 'key-1',
+  name: 'faraday',
+  publicKey: 'ssh-ed25519 AAAATEST faraday',
+  fingerprint: 'SHA256:key-1',
+  createdAt: DateTime(2026),
 );
 
 void main() {
@@ -81,6 +90,11 @@ void main() {
   final label = find.byKey(const ValueKey('parked-shell-label'));
   final more = find.byKey(const ValueKey('parked-shell-more'));
   final verb = find.byKey(const ValueKey('parked-shell-verb'));
+  Override registered() =>
+      hostRepositoryProvider.overrideWithValue(DriftHostRepository(db));
+  final fresh = find.byKey(const ValueKey('parked-shell-new'));
+  Finder freshHost(Host host) =>
+      find.byKey(ValueKey('parked-shell-new-host-${host.id}'));
   Finder cell(Host host) =>
       find.byKey(ValueKey('parked-shell-host-${host.id}'));
   Finder count(Host host, int tabs) =>
@@ -119,12 +133,67 @@ void main() {
     }
   }
 
-  testWidgets('nothing open, no bar', (tester) async {
+  testWidgets('no host, no bar', (tester) async {
     await tester.pumpWidget(app());
     await ready(tester);
 
     expect(find.byType(ParkedShellBar), findsOneWidget);
     expect(bar, findsNothing);
+    expect(fresh, findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a host with nothing open offers its first shell', (
+    tester,
+  ) async {
+    await DriftKeyRepository(db).save(_key);
+    await DriftHostRepository(db).save(_rose);
+    await tester.pumpWidget(app(extra: [registered()]));
+    await ready(tester);
+
+    expect(bar, findsNothing);
+    expect(fresh, findsOneWidget);
+    expect(freshHost(_rose), findsOneWidget);
+    expect(tester.widget<Text>(verb).data, 'NEW SHELL');
+
+    await tester.tap(fresh);
+    await ready(tester);
+    expect(find.text('NEW SHELL ON ROSE'), findsNothing);
+    expect(header, findsOneWidget);
+    expect(sessions.forHost(_rose.id), hasLength(1));
+
+    await unmount(tester);
+  });
+
+  testWidgets('the last tab closing offers a new shell on its host', (
+    tester,
+  ) async {
+    await DriftKeyRepository(db).save(_key);
+    await DriftHostRepository(db).save(_rose);
+    await DriftHostRepository(db).save(_nyx);
+    await tester.pumpWidget(app(extra: [registered()]));
+    await ready(tester);
+    expect(freshHost(_nyx), findsOneWidget);
+
+    final session = sessions.open(intent: testIntent(), _rose)!;
+    await ready(tester);
+    expect(bar, findsOneWidget);
+    expect(fresh, findsNothing);
+
+    await sessions.close(intent: testIntent(), _rose.id, session);
+    await ready(tester);
+
+    expect(bar, findsNothing);
+    expect(freshHost(_rose), findsOneWidget);
+
+    await DriftHostRepository(db).delete(_rose.id);
+    await ready(tester);
+    expect(freshHost(_nyx), findsOneWidget);
+
+    await DriftHostRepository(db).delete(_nyx.id);
+    await ready(tester);
+    expect(fresh, findsNothing);
 
     await unmount(tester);
   });

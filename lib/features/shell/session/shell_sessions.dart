@@ -707,6 +707,9 @@ class ShellSessions extends ChangeNotifier {
     return sessions.last;
   }
 
+  /// Outlives the host's last tab, so the bar can offer that host's next shell.
+  String? get parkedHostId => _parkedHostId;
+
   ShellSession? get parked {
     final named = activeFor(_parkedHostId ?? '');
     if (named != null) return named;
