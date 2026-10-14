@@ -32,6 +32,7 @@ enum UpgradeIcons {
   event('event'),
   expand('expand'),
   failed('failed'),
+  files('files'),
   filter('filter'),
   forward('forward'),
   goal('goal'),

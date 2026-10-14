@@ -38,6 +38,7 @@ The variant is drawn only inside the icon-glitch event. It is not a static icon 
 | agent | A pet: angular ears, two diamond eyes, an open jaw | Diamond eye nodes | None | 20 px |
 | agent-blink | The same pet with the viewer's left eye closed to a bar | Diamond eye node | Blink frame only | 20 px |
 | branch | One line of work leaving another | Diamond endpoints | None | 16 px |
+| files | A folder: a tabbed outline holding one entry | Square node | Container is the meaning | 16 px |
 | image | A picture: a frame holding two ridgelines and a square sun | Square node | Container is the meaning | 16 px |
 | diff | What was added over what was removed | None | None | 16 px |
 

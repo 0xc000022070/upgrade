@@ -217,7 +217,7 @@ class _ShellHeaderState extends State<ShellHeader> {
               _TabCell(
                 key: const ValueKey('shell-tab-files'),
                 label: 'FILES',
-                icon: UpgradeIcons.projects,
+                icon: UpgradeIcons.files,
                 onTap: onFiles,
               ),
             _Middle(
