@@ -26,12 +26,15 @@ import 'package:upgrade/features/files/transfer_queue.dart';
 import 'package:upgrade/features/files/transfers.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart' show remotePathFor;
 
-Future<void> showHostFiles(BuildContext context, Host host) =>
-    showPanelSheet<void>(
-      context,
-      title: 'FILES',
-      builder: (_) => FilesSheet(host: host),
-    );
+Future<void> showHostFiles(BuildContext context, Host host) async {
+  final transfers = ProviderScope.containerOf(context).read(transfersProvider);
+  await showPanelSheet<void>(
+    context,
+    title: 'FILES',
+    builder: (_) => FilesSheet(host: host),
+  );
+  transfers.seeAll(hostId: host.id);
+}
 
 Future<String?> pickHostFolder(BuildContext context, Host host) =>
     showPanelSheet<String>(
@@ -112,6 +115,7 @@ Future<String?> pushFile(
 }
 
 const unreadFolder = 'could not read the folder';
+const copyGone = 'the phone copy is gone';
 
 typedef AfterUpload = Future<String?> Function(
   HostFiles link,
@@ -141,6 +145,7 @@ Future<void> uploadFiles({
       : transfers.begin(
           verb: 'UPLOADING',
           host: host.name,
+          hostId: host.id,
           files: [
             for (final file in files)
               QueuedFile(name: file.name, bytes: file.size),
@@ -190,14 +195,18 @@ Future<void> uploadFiles({
       final sharing = uploadsSharing(files.length);
       failures = await runQueue(
         job.files,
-        (i, report, stop) => pushFile(
-          link!,
-          paths[i],
-          File(files[i].path),
-          report,
-          sharing: sharing,
-          stop: stop,
-        ),
+        (i, report, stop) async {
+          final copy = File(files[i].path);
+          if (!await copy.exists()) return copyGone;
+          return pushFile(
+            link!,
+            paths[i],
+            copy,
+            report,
+            sharing: sharing,
+            stop: stop,
+          );
+        },
         stop: job.stop,
         onItem: job.report,
       );
@@ -207,7 +216,7 @@ Future<void> uploadFiles({
     }
     missed = [
       for (var i = 0; i < failures.length; i++)
-        if (failures[i] != null) files[i],
+        if (failures[i] != null && failures[i] != copyGone) files[i],
     ];
     if (job != null && missed.isNotEmpty) {
       job.kept.addAll([...landed.keys, for (final file in missed) file.path]);
@@ -224,6 +233,9 @@ Future<void> uploadFiles({
       );
     } else if (failure == null && then != null) {
       failure = await then(link!, landed, taken);
+      if (job != null && failure != null) {
+        job.note = [failure, if (into == null) ...landed.values].join('\n');
+      }
     }
   } finally {
     link?.close();
@@ -257,20 +269,20 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
   final _open = <String>{};
 
   String? _status;
+  late final Transfers _transfers;
   final _pulls = <TransferJob>{};
   final _running = <Future<void>>{};
 
   @override
   void initState() {
     super.initState();
+    _transfers = ref.read(transfersProvider);
     unawaited(_connect());
   }
 
   @override
   void dispose() {
-    for (final job in _pulls) {
-      job.retry = null;
-    }
+    _pulls.forEach(_transfers.release);
     final files = _files;
     unawaited(Future.wait(_running).whenComplete(() => files?.close()));
     super.dispose();
@@ -360,9 +372,12 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     QueueTask task, {
     required Future<void> Function() again,
   }) {
-    final job = ref
-        .read(transfersProvider)
-        .begin(verb: verb, host: widget.host.name, files: queue);
+    final job = _transfers.begin(
+      verb: verb,
+      host: widget.host.name,
+      hostId: widget.host.id,
+      files: queue,
+    );
     _pulls.add(job);
     setState(() => _status = null);
     Future<List<String?>> work() async {
@@ -640,7 +655,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     final transfers = ref.watch(transfersProvider);
     final mine = [
       for (final job in transfers.jobs)
-        if (job.host == widget.host.name) job,
+        if (!widget.picking && job.hostId == widget.host.id) job,
     ];
     final live = [
       for (final job in mine)

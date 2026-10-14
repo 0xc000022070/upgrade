@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart' show SelectableText;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,6 +23,9 @@ String _settled(Transfers transfers) {
       .where((item) => item.stage == AttachStage.failed)
       .length;
   if (failed > 0) return '$failed FAILED';
+  if (transfers.jobs.any((job) => job.ended && job.note != null)) {
+    return 'FAILED';
+  }
   if (transfers.jobs.any((job) => job.stop.stopped)) return 'STOPPED';
   return 'DONE';
 }
@@ -32,6 +36,7 @@ String jobWord(TransferJob job) {
       .where((item) => item.stage == AttachStage.failed)
       .length;
   if (failed > 0) return '$failed FAILED';
+  if (job.note != null) return 'FAILED';
   return job.stop.stopped ? 'STOPPED' : 'DONE';
 }
 
@@ -279,14 +284,29 @@ class TransferJobView extends ConsumerWidget {
                 tone: tokens.danger,
                 onTap: () => transfers.stop(job),
               )
-            else if (job.ended && job.retry != null)
+            else if (job.ended && job.retry != null) ...[
+              ActionBlock(
+                key: ValueKey('$keyPrefix-dismiss'),
+                label: 'DISMISS',
+                onTap: () => transfers.dismiss(job),
+              ),
+              const SizedBox(width: Spacing.sm),
               ActionBlock(
                 key: ValueKey('$keyPrefix-retry'),
                 label: 'RETRY',
                 onTap: () => unawaited(transfers.retry(job)),
               ),
+            ],
           ],
         ),
+        if (job.note case final note?) ...[
+          const SizedBox(height: Spacing.sm),
+          SelectableText(
+            note,
+            key: ValueKey('$keyPrefix-note'),
+            style: tokens.label.copyWith(color: tokens.danger),
+          ),
+        ],
         const SizedBox(height: Spacing.sm),
         TransferQueue(files: job.files, items: job.items, keyPrefix: keyPrefix),
       ],

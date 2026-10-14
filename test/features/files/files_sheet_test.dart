@@ -332,6 +332,22 @@ void main() {
       expect(File((shared[1] as SharedFile).path).existsSync(), isFalse);
     });
 
+    testWidgets('a copy the phone lost is not offered again', (tester) async {
+      files.failOnce.add('b.txt');
+      await open(tester, (context) => showSendSheet(context, shared));
+
+      await tester.tap(find.byKey(const ValueKey('send-folder')));
+      await tester.pumpAndSettle();
+      await settle(tester, find.byKey(const ValueKey('files-put-here')));
+      File((shared[1] as SharedFile).path).deleteSync();
+      await settle(tester, find.byKey(const ValueKey('send-retry')));
+
+      expect(files.puts.keys, ['/home/luis/a.txt']);
+      expect(find.text('UPLOADING · 1 FAILED'), findsOneWidget);
+      expect(find.text(copyGone), findsOneWidget);
+      expect(find.byKey(const ValueKey('send-retry')), findsNothing);
+    });
+
     testWidgets('a host without a clipboard still says where files went', (
       tester,
     ) async {

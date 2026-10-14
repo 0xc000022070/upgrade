@@ -108,6 +108,37 @@ void main() {
     expect(transfers.jobs.single.seen, isTrue);
   });
 
+  testWidgets('a batch with a retry stays until retried or dismissed', (
+    tester,
+  ) async {
+    final job = transfers.begin(
+      verb: 'UPLOADING',
+      host: 'nyx',
+      files: const [QueuedFile(name: 'a', bytes: 1)],
+    );
+    job.report(0, job.items[0].to(AttachStage.stopped));
+    job.retry = () async {};
+    job.end();
+    transfers.seeAll();
+    now = now.add(transferLinger * 3);
+    await tester.pump(transferTick * 2);
+    expect(transfers.jobs, [job]);
+
+    transfers.dismiss(job);
+    expect(transfers.jobs, isEmpty);
+  });
+
+  test('a retried batch takes the place of the one it retries', () async {
+    final first = transfers.begin(verb: 'A', host: 'nyx', files: const []);
+    transfers.begin(verb: 'B', host: 'nyx', files: const []);
+    first.end();
+    first.retry = () async {
+      transfers.begin(verb: 'AGAIN', host: 'nyx', files: const []);
+    };
+    await transfers.retry(first);
+    expect([for (final job in transfers.jobs) job.verb], ['AGAIN', 'B']);
+  });
+
   test('a stopped queue starts nothing more', () async {
     final stop = TransferStop()..stop();
     final started = <int>[];

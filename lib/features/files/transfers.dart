@@ -34,12 +34,19 @@ String rateWord(double bytesPerSecond) {
 }
 
 final class TransferJob {
-  TransferJob._(this._owner, this.verb, this.host, this.files, this.stop)
-    : items = [for (final file in files) AttachItem(bytes: file.bytes)];
+  TransferJob._(
+    this._owner,
+    this.verb,
+    this.host,
+    this.hostId,
+    this.files,
+    this.stop,
+  ) : items = [for (final file in files) AttachItem(bytes: file.bytes)];
 
   final Transfers _owner;
   final String verb;
   final String host;
+  final String? hostId;
   final List<QueuedFile> files;
   final List<AttachItem> items;
   final TransferStop stop;
@@ -47,12 +54,14 @@ final class TransferJob {
   bool seen = false;
 
   Future<void> Function()? retry;
+  String? note;
 
   final kept = <String>[];
 
   bool get ended => endedAt != null;
 
-  bool get failed => items.any((item) => item.stage == AttachStage.failed);
+  bool get failed =>
+      note != null || items.any((item) => item.stage == AttachStage.failed);
 
   void report(int index, AttachItem item) {
     final before = items[index].sent;
@@ -115,6 +124,7 @@ class Transfers extends ChangeNotifier {
   int _failed = 0;
   int _landed = 0;
   int _stopped = 0;
+  int? _slot;
 
   List<TransferJob> get jobs => List.unmodifiable(_jobs);
 
@@ -131,11 +141,25 @@ class Transfers extends ChangeNotifier {
     if (_jobs.remove(job)) notifyListeners();
   }
 
+  void dismiss(TransferJob job) {
+    unawaited(discardCopies(job.kept));
+    drop(job);
+  }
+
+  void release(TransferJob job) {
+    if (job.retry == null) return;
+    job.retry = null;
+    _ticker ??= Timer.periodic(transferTick, (_) => _tick());
+  }
+
   Future<void> retry(TransferJob job) {
     final again = job.retry;
     if (again == null) return Future.value();
+    _slot = _jobs.indexOf(job);
     drop(job);
-    return again();
+    final run = again();
+    _slot = null;
+    return run;
   }
 
   void stopAll() {
@@ -144,10 +168,10 @@ class Transfers extends ChangeNotifier {
     }
   }
 
-  void seeAll() {
+  void seeAll({String? hostId}) {
     var changed = false;
     for (final job in _jobs) {
-      if (job.ended && !job.seen) {
+      if (job.ended && !job.seen && (hostId == null || job.hostId == hostId)) {
         job.seen = changed = true;
         job.endedAt = _now();
       }
@@ -160,11 +184,23 @@ class Transfers extends ChangeNotifier {
   TransferJob begin({
     required String verb,
     required String host,
+    String? hostId,
     required List<QueuedFile> files,
     TransferStop? stop,
   }) {
-    final job = TransferJob._(this, verb, host, files, stop ?? TransferStop());
-    _jobs.add(job);
+    final job = TransferJob._(
+      this,
+      verb,
+      host,
+      hostId,
+      files,
+      stop ?? TransferStop(),
+    );
+    final slot = _slot;
+    _slot = null;
+    slot != null && slot <= _jobs.length
+        ? _jobs.insert(slot, job)
+        : _jobs.add(job);
     _ticker ??= Timer.periodic(transferTick, (_) => _tick());
     _sample();
     notifyListeners();
@@ -221,6 +257,7 @@ class Transfers extends ChangeNotifier {
     final gone = [
       for (final job in _jobs)
         if (job.ended &&
+            job.retry == null &&
             (job.seen || !job.failed) &&
             now.difference(job.endedAt!) >= transferLinger)
           job,
@@ -234,7 +271,8 @@ class Transfers extends ChangeNotifier {
       notifyListeners();
     }
     if ((++_ticks).isEven && active) _post();
-    if (!active && _jobs.every((job) => job.failed && !job.seen)) {
+    if (!active &&
+        _jobs.every((job) => job.retry != null || (job.failed && !job.seen))) {
       _ticker?.cancel();
       _ticker = null;
       _samples.clear();

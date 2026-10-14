@@ -143,17 +143,19 @@ class _SendSheetState extends ConsumerState<SendSheet> {
       if (pending == null && failure != null) await discardCopies(sent.keys);
       return;
     }
-    if (pending != null) {
-      final failed = pending.items
-          .where((item) => item.stage == AttachStage.failed)
-          .length;
+    final failed = [
+      ...?job?.items.where((item) => item.stage == AttachStage.failed),
+    ].length;
+    if (pending != null || failed > 0) {
       return setState(() {
         _busy = false;
         _pending = pending;
-        _status = pending.stop.stopped
+        _status = job!.stop.stopped
             ? 'UPLOADING · STOPPED'
             : 'UPLOADING · $failed FAILED';
-        _retry = () => ref.read(transfersProvider).retry(pending);
+        _retry = pending == null
+            ? null
+            : () => ref.read(transfersProvider).retry(pending);
       });
     }
     if (failure != null) {
