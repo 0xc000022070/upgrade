@@ -151,7 +151,7 @@ class _ParkedState extends State<_Parked> {
       (h) => h.id == _view.lastHostId,
       orElse: () => hosts.first,
     );
-    return _NewShellBar(host: host);
+    return _NewShellBar(store: widget.store, host: host);
   }
 }
 
@@ -205,8 +205,9 @@ class _Frame extends StatelessWidget {
 }
 
 class _NewShellBar extends StatelessWidget {
-  const _NewShellBar({required this.host});
+  const _NewShellBar({required this.store, required this.host});
 
+  final ShellSessions store;
   final Host host;
 
   @override
@@ -217,7 +218,7 @@ class _NewShellBar extends StatelessWidget {
       barKey: const ValueKey('parked-shell-new'),
       semantics: 'new shell on ${host.name}',
       onTap: UserIntent.onGesture(
-        (intent) => openHostShell(context, host, intent: intent, openNew: true),
+        (intent) => pickHostShell(context, store, host, intent),
       ),
       child: Row(
         children: [

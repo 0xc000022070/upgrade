@@ -159,7 +159,11 @@ void main() {
 
     await tester.tap(fresh);
     await ready(tester);
-    expect(find.text('NEW SHELL ON ROSE'), findsNothing);
+    expect(find.text('NEW SHELL ON ROSE'), findsWidgets);
+    expect(sessions.forHost(_rose.id), isEmpty);
+
+    await tester.tap(find.byKey(const ValueKey('launch-shell')));
+    await ready(tester);
     expect(header, findsOneWidget);
     expect(sessions.forHost(_rose.id), hasLength(1));
 
