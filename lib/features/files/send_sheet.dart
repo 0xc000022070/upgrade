@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -69,6 +70,9 @@ class _SendSheetState extends ConsumerState<SendSheet> {
   }) {
     final transfers = ref.read(transfersProvider);
     if (_pending case final job?) transfers.drop(job);
+    if (_job case final job? when job.ended && job.note != null) {
+      transfers.drop(job);
+    }
     setState(() {
       _busy = _handed = true;
       _pending = null;
@@ -103,10 +107,15 @@ class _SendSheetState extends ConsumerState<SendSheet> {
   }
 
   static AfterUpload _copyTo(List<SharedItem> items) => (link, sent, _) async {
-    final landed = [
-      for (final item in items) item is SharedFile ? sent[item.path] : null,
+    final copied = [
+      for (final item in items)
+        if (item is! SharedFile || sent.containsKey(item.path)) item,
     ];
-    final failed = switch (planClipboard(items, landed)) {
+    if (copied.isEmpty) return null;
+    final landed = [
+      for (final item in copied) item is SharedFile ? sent[item.path] : null,
+    ];
+    final failed = switch (planClipboard(copied, landed)) {
       CopyText(:final text) => await link.copy(text: text),
       CopyImage(:final path, :final mime) => await link.copy(
         imageAt: path,
@@ -146,7 +155,7 @@ class _SendSheetState extends ConsumerState<SendSheet> {
     final failed = [
       ...?job?.items.where((item) => item.stage == AttachStage.failed),
     ].length;
-    if (pending != null || failed > 0) {
+    if (pending != null || (failed > 0 && failure == null)) {
       return setState(() {
         _busy = false;
         _pending = pending;
@@ -161,7 +170,9 @@ class _SendSheetState extends ConsumerState<SendSheet> {
     if (failure != null) {
       return setState(() {
         _busy = _handed = false;
-        _status = failure;
+        _status = failed > 0
+            ? 'UPLOADING · $failed FAILED · $failure'
+            : failure;
         if (into == null && sent.isNotEmpty) {
           _landed = [...sent.values];
           _clipped = (host: host.id, sent: sent);
@@ -171,7 +182,8 @@ class _SendSheetState extends ConsumerState<SendSheet> {
           into: into,
           files: [
             for (final file in _shared)
-              if (!sent.containsKey(file.path)) file,
+              if (!sent.containsKey(file.path) && File(file.path).existsSync())
+                file,
           ],
           sent: sent,
         );

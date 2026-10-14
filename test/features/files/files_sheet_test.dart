@@ -348,6 +348,24 @@ void main() {
       expect(find.byKey(const ValueKey('send-retry')), findsNothing);
     });
 
+    testWidgets('a lost copy does not hide a clipboard that failed', (
+      tester,
+    ) async {
+      files.failOnce.add('b.txt');
+      await open(tester, (context) => showSendSheet(context, shared));
+
+      await settle(tester, find.byKey(const ValueKey('send-clipboard')));
+      File((shared[1] as SharedFile).path).deleteSync();
+      files.copyFails = 'no clipboard';
+      await settle(tester, find.byKey(const ValueKey('send-retry')));
+
+      expect(
+        find.text('UPLOADING · 1 FAILED · CLIPBOARD · no clipboard'),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('send-landed')), findsOneWidget);
+    });
+
     testWidgets('a host without a clipboard still says where files went', (
       tester,
     ) async {

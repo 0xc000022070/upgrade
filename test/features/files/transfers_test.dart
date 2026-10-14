@@ -133,6 +133,7 @@ void main() {
     transfers.begin(verb: 'B', host: 'nyx', files: const []);
     first.end();
     first.retry = () async {
+      await Future<void>.delayed(Duration.zero);
       transfers.begin(verb: 'AGAIN', host: 'nyx', files: const []);
     };
     await transfers.retry(first);

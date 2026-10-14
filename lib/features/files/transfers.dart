@@ -155,11 +155,12 @@ class Transfers extends ChangeNotifier {
   Future<void> retry(TransferJob job) {
     final again = job.retry;
     if (again == null) return Future.value();
-    _slot = _jobs.indexOf(job);
+    final slot = _jobs.indexOf(job);
     drop(job);
-    final run = again();
-    _slot = null;
-    return run;
+    _slot = slot;
+    return again().whenComplete(() {
+      if (_slot == slot) _slot = null;
+    });
   }
 
   void stopAll() {
