@@ -20,7 +20,7 @@ index b65b489..9e5f884 100644
    ///
    /// Programs enable DEC private modes 9, 1000, 1002, or 1003 to receive
 diff --git a/lib/src/controller/terminal_session.dart b/lib/src/controller/terminal_session.dart
-index 13abf32..dd92c2a 100644
+index 13abf32..6e4da4d 100644
 --- a/lib/src/controller/terminal_session.dart
 +++ b/lib/src/controller/terminal_session.dart
 @@ -176,6 +176,12 @@ final class TerminalSession extends TerminalController with ChangeNotifier {
@@ -36,6 +36,19 @@ index 13abf32..dd92c2a 100644
    bool get isDisposed => _disposed;
  
    bool get isResizeDeferred => _deferResize && _restorationState == .restoring;
+@@ -887,10 +893,8 @@ final class TerminalSession extends TerminalController with ChangeNotifier {
+       );
+       installDefaultKittyPngDecoder();
+       _wireTerminalCallbacks();
+-      if (applyConfig) {
+-        _applyModes();
+-        _applyTerminalOptions();
+-      }
++      if (applyConfig) _applyModes();
++      _applyTerminalOptions();
+       _pwd = _terminal.pwd;
+       _state = _readState();
+       _terminal.addListener(_onTerminalChanged);
 diff --git a/lib/src/foundation/selection_frame.dart b/lib/src/foundation/selection_frame.dart
 new file mode 100644
 index 0000000..cfc4b4a
