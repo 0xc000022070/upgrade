@@ -104,7 +104,11 @@ class _SelectionActionsState extends State<ShellSelectionActions> {
     final selection = selectionOf(terminal);
     final rows = selection == null
         ? const <Rect>[]
-        : widget.geometry?.selectionRects(selection) ?? const <Rect>[];
+        : widget.geometry?.selectionRects(
+                selection,
+                frame: terminal.selectionFrame,
+              ) ??
+              const <Rect>[];
     return CustomSingleChildLayout(
       delegate: _SelectionLayout(rows),
       child: DecoratedBox(

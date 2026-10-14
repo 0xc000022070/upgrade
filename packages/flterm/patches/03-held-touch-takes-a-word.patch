@@ -1,9 +1,9 @@
-# over a mouse application a held touch is its button held down, a touch on a frame held for synchronized output still reaches it, and a touch over a selection is the selection's
+# over a mouse application a held touch takes the word under it, a touch on a frame held for synchronized output still reaches it, and a touch over a selection is the selection's
 #
 # Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just flterm-patches`.
 
 diff --git a/lib/src/input/interaction_region.dart b/lib/src/input/interaction_region.dart
-index b0dedc8..fe1c061 100644
+index b0dedc8..8ae6252 100644
 --- a/lib/src/input/interaction_region.dart
 +++ b/lib/src/input/interaction_region.dart
 @@ -3,7 +3,13 @@ import 'package:flutter/gestures.dart';
@@ -21,15 +21,12 @@ index b0dedc8..fe1c061 100644
  import 'package:meta/meta.dart';
  
  import '../foundation.dart';
-@@ -363,16 +369,23 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+@@ -363,16 +369,20 @@ final class _InteractionRegionState extends State<InteractionRegion> {
        return;
      }
      Focus.maybeOf(context)?.requestFocus();
 -    if (_terminalOwnsInteraction) return;
-+    if (_terminalOwnsInteraction) {
-+      _holdForApplication();
-+      return;
-+    }
++    if (_terminalOwnsInteraction && !_reclaimHeldTouch()) return;
      if (!widget.settings.longPressSelection) {
        _cancelSelectionPress();
        return;
@@ -47,45 +44,27 @@ index b0dedc8..fe1c061 100644
      );
      if (widget.settings.touchSelectionHandles && !_selectionHandlesVisible) {
        _visibleHandleSelectionSnapshot = _selectionSnapshotOf(
-@@ -382,6 +395,30 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+@@ -382,6 +392,19 @@ final class _InteractionRegionState extends State<InteractionRegion> {
      }
    }
  
-+  /// A finger held still over an application reading the mouse is its button held down:
-+  /// the press goes out under the finger, the drag after it is the button's motion, and
-+  /// the lift lets it go. A multiplexer selects inside its own pane that way, which a
-+  /// selection of the whole grid cannot. A touch reports its click on the lift, so
-+  /// nothing has been sent before the hold.
-+  void _holdForApplication() {
++  /// A finger held still is a press for the selection and not a click, which a touch
++  /// only reports on its lift, so the application has been sent nothing yet.
++  bool _reclaimHeldTouch() {
 +    final id = _interactionPointer;
 +    final pointer = id == null ? null : _activePointers[id];
 +    if (pointer == null || pointer.kind != .touch || !pointer.tapCandidate) {
-+      return;
++      return false;
 +    }
-+    pointer
-+      ..tapCandidate = false
-+      ..held = true
-+      ..buttons = kPrimaryButton;
-+    HapticFeedback.selectionClick();
-+    _sendMouseEvent(
-+      .press,
-+      pointer.position,
-+      button: pointer.button,
-+      target: pointer.target,
-+    );
++    _activePointers.remove(id);
++    _terminalOwnsInteraction = false;
++    return true;
 +  }
 +
    bool _handleModifierKey(KeyEvent _) {
      final drag = _drag;
      if (drag != null) _updateDrag(drag.localPosition);
-@@ -393,12 +430,19 @@ final class _InteractionRegionState extends State<InteractionRegion> {
-     _cancelSelectionInteraction(widget.selection, clearSelection: true);
-     if (kind == .touch) {
-       Focus.maybeOf(context)?.requestFocus();
--      _activePointers.removeWhere((_, pointer) => pointer.kind == .touch);
-+      _activePointers.removeWhere(
-+        (_, pointer) => pointer.kind == .touch && !pointer.held,
-+      );
+@@ -397,8 +420,13 @@ final class _InteractionRegionState extends State<InteractionRegion> {
      }
    }
  
@@ -101,7 +80,7 @@ index b0dedc8..fe1c061 100644
  
    void _handleSelectionChanged() {
      if (!_selectionHandlesVisible) return;
-@@ -412,7 +456,18 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+@@ -412,7 +440,18 @@ final class _InteractionRegionState extends State<InteractionRegion> {
      }
    }
  
@@ -121,7 +100,7 @@ index b0dedc8..fe1c061 100644
      final settings = widget.settings;
      final cell = widget.metrics.cellAt(position);
      _updateSelection(
-@@ -420,7 +475,7 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+@@ -420,7 +459,7 @@ final class _InteractionRegionState extends State<InteractionRegion> {
          SelectionPressInput(
            pixelX: position.dx,
            pixelY: position.dy,
@@ -130,7 +109,7 @@ index b0dedc8..fe1c061 100644
            wordBoundaries: settings.wordBoundaries,
            repeatDistance: kDoubleTapSlop,
            repeatInterval: kDoubleTapTimeout,
-@@ -441,7 +496,11 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+@@ -441,7 +480,11 @@ final class _InteractionRegionState extends State<InteractionRegion> {
      }
      _hideSelectionHandles();
      Focus.maybeOf(context)?.requestFocus();
@@ -143,16 +122,7 @@ index b0dedc8..fe1c061 100644
      if (widget.links.handlePress(
        localPosition: details.localPosition,
        metrics: widget.metrics,
-@@ -486,7 +545,7 @@ final class _InteractionRegionState extends State<InteractionRegion> {
-   void _handleTrackedCancel(PointerCancelEvent event) {
-     _consumeTap = false;
-     final pointer = _activePointers[event.pointer];
--    if (pointer != null && pointer.kind != .touch) {
-+    if (pointer != null && (pointer.kind != .touch || pointer.held)) {
-       _cancelTrackedPointer(event.pointer, event.localPosition);
-     } else {
-       _activePointers.remove(event.pointer);
-@@ -511,7 +570,11 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+@@ -511,7 +554,11 @@ final class _InteractionRegionState extends State<InteractionRegion> {
        _cancelSelectionInteraction(widget.selection, clearSelection: true);
        return;
      }
@@ -165,51 +135,7 @@ index b0dedc8..fe1c061 100644
      final button = tracked ? _buttonForDownEvent(event) : null;
      if (_interactionPointer == null) {
        _interactionPointer = event.pointer;
-@@ -570,7 +633,7 @@ final class _InteractionRegionState extends State<InteractionRegion> {
-     } else {
-       pointer.position = event.localPosition;
-     }
--    if (pointer.kind == .touch) return;
-+    if (pointer.kind == .touch && !pointer.held) return;
-     _sendMouseEvent(
-       .motion,
-       event.localPosition,
-@@ -639,6 +702,14 @@ final class _InteractionRegionState extends State<InteractionRegion> {
-       _updateMouseButtons(pointer, 0, position);
-     } else if (pointer.kind == .stylus || pointer.kind == .invertedStylus) {
-       _updateStylusButton(pointer, 0, position);
-+    } else if (pointer.kind == .touch && pointer.held) {
-+      pointer.buttons = 0;
-+      _sendMouseEvent(
-+        .release,
-+        position,
-+        button: pointer.button,
-+        target: pointer.target,
-+      );
-     } else if (pointer.kind == .touch && pointer.tapCandidate) {
-       pointer.buttons = kPrimaryButton;
-       _sendMouseEvent(
-@@ -661,7 +732,7 @@ final class _InteractionRegionState extends State<InteractionRegion> {
-   void _cancelTrackedPointer(int pointerId, Offset position) {
-     final pointer = _activePointers[pointerId];
-     if (pointer == null) return;
--    if (pointer.kind == .touch) {
-+    if (pointer.kind == .touch && !pointer.held) {
-       _activePointers.remove(pointerId);
-     } else {
-       _releaseTrackedPointer(pointerId, position);
-@@ -669,7 +740,9 @@ final class _InteractionRegionState extends State<InteractionRegion> {
-   }
- 
-   void _releaseTrackedPointers() {
--    _activePointers.removeWhere((_, pointer) => pointer.kind == .touch);
-+    _activePointers.removeWhere(
-+      (_, pointer) => pointer.kind == .touch && !pointer.held,
-+    );
-     while (_activePointers.isNotEmpty) {
-       final entry = _activePointers.entries.first;
-       _releaseTrackedPointer(entry.key, entry.value.position);
-@@ -714,6 +787,7 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+@@ -714,6 +761,7 @@ final class _InteractionRegionState extends State<InteractionRegion> {
      Offset position, {
      bool rectangle = false,
      bool beginPress = false,
@@ -217,7 +143,7 @@ index b0dedc8..fe1c061 100644
      required Duration? timeStamp,
    }) {
      final cell = widget.metrics.cellAt(position);
-@@ -725,7 +799,7 @@ final class _InteractionRegionState extends State<InteractionRegion> {
+@@ -725,7 +773,7 @@ final class _InteractionRegionState extends State<InteractionRegion> {
        fixedRectangle: rectangle,
        lastRectangle: block,
      );
@@ -226,11 +152,3 @@ index b0dedc8..fe1c061 100644
    }
  
    void _stopAutoScroll() {
-@@ -934,6 +1008,7 @@ final class _TrackedPointer {
-   int buttons;
-   Offset position;
-   bool tapCandidate;
-+  bool held = false;
- 
-   _TrackedPointer({
-     required this.button,

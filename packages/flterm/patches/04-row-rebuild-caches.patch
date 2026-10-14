@@ -26,7 +26,7 @@ index 7f4df97..af959ef 100644
  
  /// Row-retained shaped text runs.
 diff --git a/lib/src/rendering/frame_builder.dart b/lib/src/rendering/frame_builder.dart
-index 16a21c6..0709469 100644
+index 16a21c6..d0a68d8 100644
 --- a/lib/src/rendering/frame_builder.dart
 +++ b/lib/src/rendering/frame_builder.dart
 @@ -11,6 +11,7 @@ import '../links/link_snapshot.dart';
@@ -67,6 +67,28 @@ index 16a21c6..0709469 100644
    /// Rebuilds only rows containing SGR 5 blinking cells on the next sync.
    void markBlinkRowsDirty() {
      for (var row = 0; row < _blinkRows.length; row++) {
+@@ -162,6 +172,8 @@ class FrameBuilder {
+         dirty != .clean &&
+         (dirty != .partial || !_dirtyRows.anyDirty);
+     _rows.reset(_renderState);
++    final terminal = _terminal;
++    final frame = terminal == null ? null : selectionFrames[terminal];
+ 
+     while (useDirtyIterator ? _rows.nextDirty() : _rows.next()) {
+       final row = _rows.viewportY;
+@@ -174,7 +186,11 @@ class FrameBuilder {
+           _dirtyRows.isDirty(row)) {
+         final decoded = _decodedRow(id, _rows);
+         _blinkRows[row] =
+-            _rowBuilder.rebuildRow(row, decoded, selection: _rows.selection)
++            _rowBuilder.rebuildRow(
++              row,
++              decoded,
++              selection: clipToFrame(_rows.selection, frame),
++            )
+             ? 1
+             : 0;
+       }
 diff --git a/lib/src/rendering/frame_rows.dart b/lib/src/rendering/frame_rows.dart
 index ee66803..7115258 100644
 --- a/lib/src/rendering/frame_rows.dart

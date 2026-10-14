@@ -1,0 +1,406 @@
+# a selection on the alternate screen keeps to the pane framed around its press
+#
+# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just flterm-patches`.
+
+diff --git a/lib/src/controller/terminal_controller.dart b/lib/src/controller/terminal_controller.dart
+index b65b489..9e5f884 100644
+--- a/lib/src/controller/terminal_controller.dart
++++ b/lib/src/controller/terminal_controller.dart
+@@ -163,6 +163,12 @@ sealed class TerminalController implements Listenable {
+   /// independent of whether the selection is currently visible in a view.
+   bool get hasSelection;
+ 
++  /// The viewport box the selection keeps to, or null when it may run across the grid.
++  ///
++  /// A press on the alternate screen inside a pane an application frames with box
++  /// drawing rules keeps the selection, its highlight and its text to that pane.
++  CellRange? get selectionFrame;
++
+   /// The current mouse tracking mode requested by the terminal program.
+   ///
+   /// Programs enable DEC private modes 9, 1000, 1002, or 1003 to receive
+diff --git a/lib/src/controller/terminal_session.dart b/lib/src/controller/terminal_session.dart
+index 13abf32..dd92c2a 100644
+--- a/lib/src/controller/terminal_session.dart
++++ b/lib/src/controller/terminal_session.dart
+@@ -176,6 +176,12 @@ final class TerminalSession extends TerminalController with ChangeNotifier {
+     return _selection.hasSelection;
+   }
+ 
++  @override
++  CellRange? get selectionFrame {
++    _checkNotDisposed();
++    return _selection.frame;
++  }
++
+   bool get isDisposed => _disposed;
+ 
+   bool get isResizeDeferred => _deferResize && _restorationState == .restoring;
+diff --git a/lib/src/foundation/selection_frame.dart b/lib/src/foundation/selection_frame.dart
+new file mode 100644
+index 0000000..e9fd6f0
+--- /dev/null
++++ b/lib/src/foundation/selection_frame.dart
+@@ -0,0 +1,99 @@
++import 'package:flutter/foundation.dart' show internal;
++import 'package:libghostty/libghostty.dart' show Position;
++
++import 'cell_range.dart';
++
++/// The box drawn around [cell] by the rules an application frames its panes with, read
++/// through [codepointAt], or null when no rule closes it on any side or [cell] is a rule.
++///
++/// A side is a rule that runs across the box: a column of vertical strokes three rows
++/// long through the press row, or a row of horizontal strokes spanning the box's columns.
++/// A lone `│` in a line of text is neither, so it does not cut the box.
++@internal
++CellRange? frameAround(
++  Position cell, {
++  required int rows,
++  required int cols,
++  required int Function(int row, int col) codepointAt,
++}) {
++  final row = cell.row;
++  final col = cell.col;
++  if (row < 0 || row >= rows || col < 0 || col >= cols) return null;
++  final under = codepointAt(row, col);
++  if (_vertical(under) || _horizontal(under)) return null;
++
++  bool sideAt(int x) {
++    if (!_vertical(codepointAt(row, x))) return false;
++    var run = 1;
++    for (var y = row - 1; y >= 0 && _vertical(codepointAt(y, x)); y--) {
++      run++;
++    }
++    for (var y = row + 1; y < rows && _vertical(codepointAt(y, x)); y++) {
++      run++;
++    }
++    return run >= 3;
++  }
++
++  var left = 0;
++  for (var x = col - 1; x >= 0; x--) {
++    if (sideAt(x)) {
++      left = x + 1;
++      break;
++    }
++  }
++  var right = cols - 1;
++  for (var x = col + 1; x < cols; x++) {
++    if (sideAt(x)) {
++      right = x - 1;
++      break;
++    }
++  }
++
++  bool edgeAt(int y) {
++    for (var x = left; x <= right; x++) {
++      if (!_horizontal(codepointAt(y, x))) return false;
++    }
++    return true;
++  }
++
++  var top = 0;
++  for (var y = row - 1; y >= 0; y--) {
++    if (edgeAt(y)) {
++      top = y + 1;
++      break;
++    }
++  }
++  var bottom = rows - 1;
++  for (var y = row + 1; y < rows; y++) {
++    if (edgeAt(y)) {
++      bottom = y - 1;
++      break;
++    }
++  }
++
++  if (left == 0 && right == cols - 1 && top == 0 && bottom == rows - 1) {
++    return null;
++  }
++  return CellRange(
++    start: Position(row: top, col: left),
++    end: Position(row: bottom, col: right),
++  );
++}
++
++/// Light, heavy, dashed and double lines that run through a cell top to bottom, and the
++/// corners, tees and crosses any rule meets another with.
++bool _vertical(int c) => switch (c) {
++  0x2502 || 0x2503 || 0x2506 || 0x2507 || 0x250A || 0x250B => true,
++  0x254E || 0x254F || 0x2551 => true,
++  _ => _joint(c),
++};
++
++/// The same for lines that run through a cell side to side.
++bool _horizontal(int c) => switch (c) {
++  0x2500 || 0x2501 || 0x2504 || 0x2505 || 0x2508 || 0x2509 => true,
++  0x254C || 0x254D || 0x2550 => true,
++  _ => _joint(c),
++};
++
++bool _joint(int c) =>
++    (c >= 0x250C && c <= 0x254B) || (c >= 0x2552 && c <= 0x2570);
+diff --git a/lib/src/foundation/viewport_selection.dart b/lib/src/foundation/viewport_selection.dart
+index 3c0663d..070a1bf 100644
+--- a/lib/src/foundation/viewport_selection.dart
++++ b/lib/src/foundation/viewport_selection.dart
+@@ -1,5 +1,24 @@
+ import 'package:flutter/foundation.dart' show immutable, internal;
+-import 'package:libghostty/libghostty.dart' show GridRef, Position, Selection;
++import 'package:libghostty/libghostty.dart'
++    show GridRef, Position, RowSelectionRange, Selection;
++
++import 'cell_range.dart';
++
++/// The viewport box a terminal's selection keeps to, set while the selection lives inside
++/// a pane an application frames on its alternate screen.
++@internal
++final selectionFrames = Expando<CellRange>('selection frame');
++
++/// [range] cut to the columns of [frame], or null when nothing of it is left.
++@internal
++RowSelectionRange? clipToFrame(RowSelectionRange? range, CellRange? frame) {
++  if (range == null || frame == null) return range;
++  final start = range.startCol < frame.start.col
++      ? frame.start.col
++      : range.startCol;
++  final end = range.endCol > frame.end.col ? frame.end.col : range.endCol;
++  return start > end ? null : (startCol: start, endCol: end);
++}
+ 
+ /// Projects a selection into clipped viewport rows and exclusive column ends.
+ @internal
+@@ -38,6 +57,7 @@ final class ViewportSelection {
+     required int rows,
+     required int cols,
+     required int viewportOffset,
++    CellRange? frame,
+   }) {
+     var start = positionOf(selection.start, viewportOffset);
+     var end = positionOf(selection.end, viewportOffset);
+@@ -67,13 +87,15 @@ final class ViewportSelection {
+         endCol,
+       );
+     }
++    final left = frame == null ? 0 : frame.start.col.clamp(0, cols);
++    final right = frame == null ? cols : (frame.end.col + 1).clamp(0, cols);
+     return ViewportSelection._(
+       firstRow,
+       lastRow,
+-      firstRow == start.row ? start.col.clamp(0, cols) : 0,
+-      lastRow == end.row ? (end.col + 1).clamp(0, cols) : cols,
+-      0,
+-      cols,
++      firstRow == start.row ? start.col.clamp(left, right) : left,
++      lastRow == end.row ? (end.col + 1).clamp(left, right) : right,
++      left,
++      right,
+     );
+   }
+ }
+diff --git a/lib/src/input/selection_session.dart b/lib/src/input/selection_session.dart
+index b07cf0f..0645bf8 100644
+--- a/lib/src/input/selection_session.dart
++++ b/lib/src/input/selection_session.dart
+@@ -3,7 +3,10 @@ import 'dart:async';
+ import 'package:flutter/foundation.dart' hide Key;
+ import 'package:libghostty/libghostty.dart';
+ 
++import '../foundation/cell_range.dart';
++import '../foundation/selection_frame.dart';
+ import '../foundation/surface_geometry.dart';
++import '../foundation/viewport_selection.dart';
+ 
+ /// A normalized terminal selection pointer update.
+ @immutable
+@@ -103,6 +106,7 @@ final class SelectionInteraction extends ChangeNotifier {
+ 
+   void handlePress(SelectionPressInput event) {
+     _checkNotDisposed();
++    _selection._frame = _frameAround(_cellAt(event.pixelX, event.pixelY));
+     final ref = _viewportRef(_cellAt(event.pixelX, event.pixelY));
+     if (ref == null) {
+       _selection._set(null, clearIfNull: true);
+@@ -242,6 +246,13 @@ final class SelectionInteraction extends ChangeNotifier {
+   }
+ 
+   Position _clampViewportPoint(Position position) {
++    final frame = _selection._frame;
++    if (frame != null) {
++      return Position(
++        row: position.row.clamp(frame.start.row, frame.end.row),
++        col: position.col.clamp(frame.start.col, frame.end.col),
++      );
++    }
+     return Position(
+       row: position.row.clamp(0, _rows - 1),
+       col: position.col.clamp(0, _columns - 1),
+@@ -275,6 +286,27 @@ final class SelectionInteraction extends ChangeNotifier {
+     );
+   }
+ 
++  /// A selection made on the alternate screen keeps to the pane framed around its press,
++  /// where a multiplexer's rules split the screen into programs of their own.
++  CellRange? _frameAround(Position cell) {
++    final terminal = _selection._terminal;
++    if (terminal.activeScreen != .alternate) return null;
++    _ensureGridSize();
++    return frameAround(
++      cell,
++      rows: _rows,
++      cols: _columns,
++      codepointAt: (row, col) {
++        final graphemes = GridRef.at(
++          terminal,
++          Position(row: row, col: col),
++          pointTag: .viewport,
++        ).graphemes;
++        return graphemes.isEmpty ? 0 : graphemes.first;
++      },
++    );
++  }
++
+   SelectionGestureGeometry _gestureGeometry() {
+     _ensureGridSize();
+     return SelectionGestureGeometry(
+@@ -378,6 +410,7 @@ final class SelectionSession {
+   final VoidCallback? _endMutation;
+   final VoidCallback _notifyChanged;
+   SelectionInteraction? _interaction;
++  CellRange? _frame;
+ 
+   SelectionSession(
+     this._terminal,
+@@ -386,6 +419,8 @@ final class SelectionSession {
+     this._endMutation,
+   ]);
+ 
++  CellRange? get frame => _terminal.selection == null ? null : _frame;
++
+   bool get hasSelection => _terminal.selection != null;
+ 
+   void clear({required bool notify}) {
+@@ -426,11 +461,18 @@ final class SelectionSession {
+   void notifyNativeSelectionChanged() =>
+       _interaction?._notifySelectionChanged();
+ 
+-  void selectAll() => _set(_terminal.selectAll());
++  void selectAll() {
++    _frame = null;
++    _set(_terminal.selectAll());
++  }
+ 
+   String selectedText({FormatterFormat format = .plain}) {
+     final selection = _terminal.selection;
+     if (selection == null) return '';
++    final frame = _frame;
++    if (frame != null && !selection.rectangle) {
++      return _framedText(selection, frame, format);
++    }
+     return _terminal.formatSelection(
+           format: format,
+           unwrap: !selection.rectangle,
+@@ -445,6 +487,7 @@ final class SelectionSession {
+     required PointTag pointTag,
+     required bool rectangle,
+   }) {
++    _frame = null;
+     _set(
+       .fromRefs(
+         start: .at(_terminal, start, pointTag: pointTag),
+@@ -477,10 +520,65 @@ final class SelectionSession {
+     }
+   }
+ 
++  /// Each row cut to the pane's columns. A row its text fills to the pane's right edge
++  /// ran on into the next, the way a multiplexer wraps a long line, and is joined to it.
++  String _framedText(
++    Selection selection,
++    CellRange frame,
++    FormatterFormat format,
++  ) {
++    final geometry = _terminal.geometry;
++    final range = ViewportSelection.resolve(
++      selection,
++      rows: geometry.rows,
++      cols: geometry.cols,
++      viewportOffset: _terminal.scrollbar.offset,
++      frame: frame,
++    );
++    if (range == null) return '';
++    final text = StringBuffer();
++    for (var row = range.firstRow; row <= range.lastRow; row++) {
++      final start = range.startColumn(row);
++      final end = range.endColumn(row);
++      if (start >= end) {
++        if (row < range.lastRow) text.write('\n');
++        continue;
++      }
++      final line =
++          _terminal.formatSelection(
++            format: format,
++            selection: .fromRefs(
++              start: .at(
++                _terminal,
++                Position(row: row, col: start),
++                pointTag: .viewport,
++              ),
++              end: .at(
++                _terminal,
++                Position(row: row, col: end - 1),
++                pointTag: .viewport,
++              ),
++            ),
++          ) ??
++          '';
++      final trimmed = line.trimRight();
++      text.write(trimmed);
++      if (row == range.lastRow) break;
++      final filled =
++          end == frame.end.col + 1 &&
++          trimmed.length == line.length &&
++          line.isNotEmpty;
++      if (!filled) text.write('\n');
++    }
++    return text.toString();
++  }
++
+   void _setTerminalSelection(Selection? value) {
++    if (value == null) _frame = null;
+     _beginMutation?.call();
+     try {
+       _terminal.selection = value;
++      selectionFrames[_terminal] = value == null ? null : _frame;
+     } finally {
+       _endMutation?.call();
+     }
+diff --git a/lib/src/view/terminal_view_geometry.dart b/lib/src/view/terminal_view_geometry.dart
+index 6b4acd9..3c60154 100644
+--- a/lib/src/view/terminal_view_geometry.dart
++++ b/lib/src/view/terminal_view_geometry.dart
+@@ -123,7 +123,8 @@ final class TerminalViewGeometry {
+   /// Rectangular and reversed selections are normalized. A selection outside
+   /// the visible rows returns an empty list. As with other [Selection]
+   /// operations, the snapshot must not have been invalidated by a terminal
+-  /// mutation.
++  /// mutation. A [frame], such as [TerminalController.selectionFrame], cuts
++  /// every row to its columns.
+   ///
+   /// ```dart
+   /// return Stack(
+@@ -133,12 +134,13 @@ final class TerminalViewGeometry {
+   ///   ],
+   /// );
+   /// ```
+-  List<Rect> selectionRects(Selection selection) {
++  List<Rect> selectionRects(Selection selection, {CellRange? frame}) {
+     final range = ViewportSelection.resolve(
+       selection,
+       rows: _rows,
+       cols: _cols,
+       viewportOffset: _viewportOffset,
++      frame: frame,
+     );
+     if (range == null) return const [];
+     return [

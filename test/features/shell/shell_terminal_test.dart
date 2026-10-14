@@ -292,17 +292,9 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('a hold over a mouse application is its button held down', (
+    testWidgets('a long press is not a click on the application under it', (
       tester,
     ) async {
-      final haptics = <String>[];
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-            if (call.method == 'HapticFeedback.vibrate') {
-              haptics.add(call.arguments as String);
-            }
-            return null;
-          });
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions, db: db));
@@ -313,20 +305,105 @@ void main() {
 
       final gesture = await hold(tester, cellAt(tester, 1, 0));
       await tester.pump();
-      expect(transport.opened.single.written, '\x1b[<0;2;1M');
-      expect(haptics, ['HapticFeedbackType.selectionClick']);
-
       await gesture.moveTo(cellAt(tester, 5, 0));
       await tester.pump();
       await gesture.up();
       await ready(tester);
 
-      expect(
-        transport.opened.single.written,
-        '\x1b[<0;2;1M\x1b[<32;6;1M\x1b[<0;6;1m',
+      expect(selected(session), 'word');
+      expect(transport.opened.single.written, isEmpty);
+      expect(find.byKey(const ValueKey('shell-copy')), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    /// A sidebar, a pane and a pane beside it, split by rules the way a multiplexer
+    /// draws them on the alternate screen.
+    String panes(List<String> middle) {
+      final rows = StringBuffer('\x1b[?1049h\x1b[?1002h\x1b[?1006h');
+      for (var row = 0; row < 6; row++) {
+        final text = row < middle.length ? middle[row] : '';
+        rows.write(
+          '\x1b[${row + 1};1H${'side'.padRight(10)}│'
+          '${text.padRight(19)}│right',
+        );
+      }
+      return rows.toString();
+    }
+
+    testWidgets('a selection keeps to the pane it was pressed in', (
+      tester,
+    ) async {
+      final writes = recordClipboardWrites();
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      transport.opened.single.emit(
+        panes(['alpha one', 'beta two', 'gamma', 'a' * 19, 'bbb']),
       );
-      expect(session.terminal.hasSelection, isFalse);
-      expect(find.byKey(const ValueKey('shell-copy')), findsNothing);
+      await ready(tester);
+      final session = sessions.activeFor(rose.id)!;
+
+      final gesture = await hold(tester, cellAt(tester, 12, 0));
+      await tester.pump();
+      await gesture.moveTo(cellAt(tester, 3, 4));
+      await tester.pump();
+      await gesture.up();
+      await ready(tester);
+
+      final frame = session.terminal.selectionFrame!;
+      expect(frame.start, const Position(row: 0, col: 11));
+      expect(frame.end.col, 29);
+      expect(selected(session), 'alpha one\nbeta two\ngamma\n${'a' * 19}bbb');
+      expect(transport.opened.single.written, isEmpty);
+
+      final actions = tester.widget<ShellSelectionActions>(
+        find.byType(ShellSelectionActions),
+      );
+      final rows = actions.geometry!.selectionRects(
+        selectionOf(session.terminal)!,
+        frame: frame,
+      );
+      final first = cellRect(tester, 11, 0).left;
+      final last = cellRect(tester, 29, 0).right;
+      final origin = tester.getTopLeft(
+        find
+            .ancestor(
+              of: find.byType(ShellSelectionActions),
+              matching: find.byType(Stack),
+            )
+            .first,
+      );
+      for (final row in rows) {
+        expect(row.left + origin.dx, greaterThanOrEqualTo(first - 0.01));
+        expect(row.right + origin.dx, lessThanOrEqualTo(last + 0.01));
+      }
+
+      await tester.tap(find.byKey(const ValueKey('shell-copy')));
+      await tester.pump(const Duration(seconds: 1));
+      expect(writes, ['alpha one\nbeta two\ngamma\n${'a' * 19}bbb']);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a rule in a shell\'s output does not cut a selection', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions, db: db));
+      await ready(tester);
+      transport.opened.single.emit(
+        panes(['alpha']).replaceFirst('\x1b[?1049h', ''),
+      );
+      await ready(tester);
+      final session = sessions.activeFor(rose.id)!;
+
+      await press(tester, cellAt(tester, 12, 0));
+
+      expect(session.terminal.selectionFrame, isNull);
+      expect(selected(session), 'alpha');
 
       await unmount(tester);
     });
