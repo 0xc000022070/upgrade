@@ -280,7 +280,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
   void initState() {
     super.initState();
     _transfers = ref.read(transfersProvider);
-    unawaited(_connect());
+    unawaited(_connectOnce());
   }
 
   @override
@@ -291,12 +291,17 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     super.dispose();
   }
 
+  Future<void>? _connecting;
+
   void _reconnect() {
     _files?.close();
     _files = null;
     setState(() => _error = null);
-    unawaited(_connect());
+    unawaited(_connectOnce());
   }
+
+  Future<void> _connectOnce() =>
+      _connecting ??= _connect().whenComplete(() => _connecting = null);
 
   Future<void> _connect() async {
     try {
@@ -325,7 +330,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
   ) async {
     if (_files == null && replacing != null && mounted) {
       setState(() => _error = null);
-      await _connect();
+      await _connectOnce();
     }
     if (_files == null && replacing != null && mounted) {
       replacing.retry = () => again(replacing);

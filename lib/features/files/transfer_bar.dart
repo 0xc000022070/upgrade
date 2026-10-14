@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/design/components/progress_bar.dart';
@@ -40,6 +41,7 @@ String _settled(Transfers transfers) {
 }
 
 String jobWord(TransferJob job) {
+  if (job.retrying) return 'RETRYING';
   if (!job.ended) return job.stop.stopped ? 'STOPPING' : 'MOVING';
   final failed = job.items
       .where((item) => item.stage == AttachStage.failed)
@@ -279,6 +281,10 @@ class TransferJobView extends ConsumerWidget {
       children: [
         Row(
           children: [
+            if (job.retrying) ...[
+              const DotSpinner(),
+              const SizedBox(width: Spacing.md),
+            ],
             Expanded(
               child: Text(
                 '${job.verb} · ${job.host} · ${jobWord(job)}',

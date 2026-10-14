@@ -60,6 +60,8 @@ final class TransferJob {
 
   bool get ended => endedAt != null;
 
+  bool get retrying => _owner._retrying.contains(this);
+
   bool get failed =>
       note != null || items.any((item) => item.stage == AttachStage.failed);
 

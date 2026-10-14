@@ -150,11 +150,18 @@ void main() {
   test('a retry that could not start keeps its batch', () async {
     final job = transfers.begin(verb: 'SAVING', host: 'nyx', files: const []);
     job.end();
-    Future<void> again() async => job.retry = again;
+    final words = <String>[];
+    Future<void> again() async {
+      words.add(jobWord(job));
+      job.retry = again;
+    }
+
     job.retry = again;
     await transfers.retry(job);
     expect(transfers.jobs, [job]);
     expect(job.retry, isNotNull);
+    expect(words, ['RETRYING']);
+    expect(jobWord(job), 'DONE');
   });
 
   testWidgets('the bar names what is left to retry beside what finished', (
