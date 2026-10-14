@@ -38,10 +38,10 @@ index 13abf32..dd92c2a 100644
    bool get isResizeDeferred => _deferResize && _restorationState == .restoring;
 diff --git a/lib/src/foundation/selection_frame.dart b/lib/src/foundation/selection_frame.dart
 new file mode 100644
-index 0000000..e9fd6f0
+index 0000000..cfc4b4a
 --- /dev/null
 +++ b/lib/src/foundation/selection_frame.dart
-@@ -0,0 +1,99 @@
+@@ -0,0 +1,104 @@
 +import 'package:flutter/foundation.dart' show internal;
 +import 'package:libghostty/libghostty.dart' show Position;
 +
@@ -51,7 +51,8 @@ index 0000000..e9fd6f0
 +/// through [codepointAt], or null when no rule closes it on any side or [cell] is a rule.
 +///
 +/// A side is a rule that runs across the box: a column of vertical strokes three rows
-+/// long through the press row, or a row of horizontal strokes spanning the box's columns.
++/// long through the press row, or a row of horizontal strokes spanning the box's columns
++/// whose ends meet a corner or tee, or the screen's edge.
 +/// A lone `│` in a line of text is neither, so it does not cut the box.
 +@internal
 +CellRange? frameAround(
@@ -93,11 +94,15 @@ index 0000000..e9fd6f0
 +    }
 +  }
 +
++  // A pane's edge meets the sides it runs between: tmux and herdr draw a corner or a tee
++  // where it does. A table's rule inside a pane ends against the pane's plain `│` instead.
++  bool endAt(int y, int x) => x < 0 || x >= cols || _joint(codepointAt(y, x));
++
 +  bool edgeAt(int y) {
 +    for (var x = left; x <= right; x++) {
 +      if (!_horizontal(codepointAt(y, x))) return false;
 +    }
-+    return true;
++    return endAt(y, left - 1) && endAt(y, right + 1);
 +  }
 +
 +  var top = 0;
@@ -200,7 +205,7 @@ index 3c0663d..070a1bf 100644
    }
  }
 diff --git a/lib/src/input/selection_session.dart b/lib/src/input/selection_session.dart
-index b07cf0f..0645bf8 100644
+index b07cf0f..fe0a620 100644
 --- a/lib/src/input/selection_session.dart
 +++ b/lib/src/input/selection_session.dart
 @@ -3,7 +3,10 @@ import 'dart:async';
@@ -236,15 +241,20 @@ index b07cf0f..0645bf8 100644
      return Position(
        row: position.row.clamp(0, _rows - 1),
        col: position.col.clamp(0, _columns - 1),
-@@ -275,6 +286,27 @@ final class SelectionInteraction extends ChangeNotifier {
+@@ -275,6 +286,32 @@ final class SelectionInteraction extends ChangeNotifier {
      );
    }
  
-+  /// A selection made on the alternate screen keeps to the pane framed around its press,
-+  /// where a multiplexer's rules split the screen into programs of their own.
++  /// A selection made under a screen-drawing program keeps to the pane framed around its
++  /// press, where a multiplexer's rules split the screen into programs of their own. Such a
++  /// program is on the alternate screen or reading the mouse: tmux told to leave the
++  /// alternate screen alone still draws its panes over the primary one.
 +  CellRange? _frameAround(Position cell) {
 +    final terminal = _selection._terminal;
-+    if (terminal.activeScreen != .alternate) return null;
++    if (terminal.activeScreen != .alternate &&
++        terminal.mouseTracking == .none) {
++      return null;
++    }
 +    _ensureGridSize();
 +    return frameAround(
 +      cell,
@@ -264,7 +274,7 @@ index b07cf0f..0645bf8 100644
    SelectionGestureGeometry _gestureGeometry() {
      _ensureGridSize();
      return SelectionGestureGeometry(
-@@ -378,6 +410,7 @@ final class SelectionSession {
+@@ -378,6 +415,7 @@ final class SelectionSession {
    final VoidCallback? _endMutation;
    final VoidCallback _notifyChanged;
    SelectionInteraction? _interaction;
@@ -272,7 +282,7 @@ index b07cf0f..0645bf8 100644
  
    SelectionSession(
      this._terminal,
-@@ -386,6 +419,8 @@ final class SelectionSession {
+@@ -386,6 +424,8 @@ final class SelectionSession {
      this._endMutation,
    ]);
  
@@ -281,7 +291,7 @@ index b07cf0f..0645bf8 100644
    bool get hasSelection => _terminal.selection != null;
  
    void clear({required bool notify}) {
-@@ -426,11 +461,18 @@ final class SelectionSession {
+@@ -426,11 +466,18 @@ final class SelectionSession {
    void notifyNativeSelectionChanged() =>
        _interaction?._notifySelectionChanged();
  
@@ -301,7 +311,7 @@ index b07cf0f..0645bf8 100644
      return _terminal.formatSelection(
            format: format,
            unwrap: !selection.rectangle,
-@@ -445,6 +487,7 @@ final class SelectionSession {
+@@ -445,6 +492,7 @@ final class SelectionSession {
      required PointTag pointTag,
      required bool rectangle,
    }) {
@@ -309,7 +319,7 @@ index b07cf0f..0645bf8 100644
      _set(
        .fromRefs(
          start: .at(_terminal, start, pointTag: pointTag),
-@@ -477,10 +520,65 @@ final class SelectionSession {
+@@ -477,12 +525,72 @@ final class SelectionSession {
      }
    }
  
@@ -357,10 +367,13 @@ index b07cf0f..0645bf8 100644
 +      final trimmed = line.trimRight();
 +      text.write(trimmed);
 +      if (row == range.lastRow) break;
++      // A row ending in a box-drawing stroke is a drawing that fills the pane, not a
++      // line wrapped at its edge.
 +      final filled =
 +          end == frame.end.col + 1 &&
 +          trimmed.length == line.length &&
-+          line.isNotEmpty;
++          line.isNotEmpty &&
++          !_boxDrawing(line.codeUnitAt(line.length - 1));
 +      if (!filled) text.write('\n');
 +    }
 +    return text.toString();
@@ -375,6 +388,10 @@ index b07cf0f..0645bf8 100644
      } finally {
        _endMutation?.call();
      }
+   }
+ }
++
++bool _boxDrawing(int c) => c >= 0x2500 && c <= 0x257F;
 diff --git a/lib/src/view/terminal_view_geometry.dart b/lib/src/view/terminal_view_geometry.dart
 index 6b4acd9..3c60154 100644
 --- a/lib/src/view/terminal_view_geometry.dart

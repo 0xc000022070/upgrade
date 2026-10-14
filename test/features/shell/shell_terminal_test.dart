@@ -387,6 +387,35 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets(
+      'tmux drawing over the primary screen still has panes, and a table in one is not an edge',
+      (tester) async {
+        final transport = FakeShellTransport();
+        final sessions = fakeShellSessions(transport);
+        await tester.pumpWidget(app(sessions, db: db));
+        await ready(tester);
+        transport.opened.single.emit(
+          panes(['alpha one', '├${'─' * 17}┤', 'beta'])
+              .replaceFirst('\x1b[?1049h', ''),
+        );
+        await ready(tester);
+        final session = sessions.activeFor(rose.id)!;
+
+        final gesture = await hold(tester, cellAt(tester, 12, 0));
+        await tester.pump();
+        await gesture.moveTo(cellAt(tester, 3, 2));
+        await tester.pump();
+        await gesture.up();
+        await ready(tester);
+
+        expect(session.terminal.selectionFrame?.start.col, 11);
+        expect(selected(session), 'alpha one\n├${'─' * 17}┤\nbeta');
+        expect(transport.opened.single.written, isEmpty);
+
+        await unmount(tester);
+      },
+    );
+
     testWidgets('a rule in a shell\'s output does not cut a selection', (
       tester,
     ) async {
@@ -395,7 +424,7 @@ void main() {
       await tester.pumpWidget(app(sessions, db: db));
       await ready(tester);
       transport.opened.single.emit(
-        panes(['alpha']).replaceFirst('\x1b[?1049h', ''),
+        panes(['alpha']).replaceFirst('\x1b[?1049h\x1b[?1002h', ''),
       );
       await ready(tester);
       final session = sessions.activeFor(rose.id)!;
