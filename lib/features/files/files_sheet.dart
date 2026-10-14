@@ -311,6 +311,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
         return;
       }
       _files = files;
+      if (_home != null) return;
       final home = await files.home();
       if (!mounted) return;
       setState(() {
@@ -328,18 +329,27 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     TransferJob? replacing,
     Future<void> Function(TransferJob replacing) again,
   ) async {
-    if (_files == null && replacing != null && mounted) {
-      setState(() => _error = null);
-      await _connectOnce();
-    }
-    if (_files == null && replacing != null && mounted) {
+    final files = await _live();
+    if (files == null && replacing != null && mounted) {
       replacing.retry = () => again(replacing);
+    }
+    return files;
+  }
+
+  Future<HostFiles?> _live() async {
+    if (_files case final files? when files.closed) {
+      files.close();
+      _files = null;
+    }
+    if (_files == null && mounted) {
+      if (_error != null) setState(() => _error = null);
+      await _connectOnce();
     }
     return _files;
   }
 
   Future<void> _read(String directory) async {
-    final files = _files;
+    final files = await _live();
     if (files == null) return;
     List<DirEntry>? entries;
     try {

@@ -61,6 +61,8 @@ abstract interface class HostFiles {
 
   Future<String?> copy({String? text, String? imageAt, String? mime});
 
+  bool get closed;
+
   void close();
 }
 
@@ -113,6 +115,9 @@ final class _LeasedFiles implements HostFiles {
   final Host host;
   final HostLease _lease;
   HostClipboard? _clipboard;
+
+  @override
+  bool get closed => _lease.closed;
 
   Future<ExecResult> _exec(String command, {Uint8List? stdin}) =>
       leaseExec(_lease, command, stdin: stdin, timeout: remoteCommandDeadline);

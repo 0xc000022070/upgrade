@@ -37,6 +37,7 @@ final class _FakeFiles implements HostFiles {
   final Map<String, List<DirEntry>> tree;
   final puts = <String, List<int>>{};
   final copies = <String>[];
+  @override
   var closed = false;
   var unreadable = false;
   final failOnce = <String>{};
@@ -50,7 +51,7 @@ final class _FakeFiles implements HostFiles {
 
   @override
   Future<List<DirEntry>?> list(String directory) async =>
-      unreadable ? null : tree[directory];
+      unreadable || closed ? null : tree[directory];
 
   @override
   Future<FileWrite> put(
@@ -94,6 +95,7 @@ void main() {
 
   late _FakeFiles files;
   var unreachable = 0;
+  var opened = 0;
 
   setUp(() {
     files = _FakeFiles({
@@ -111,7 +113,8 @@ void main() {
         overrides: [
           hostFilesOpenerProvider.overrideWithValue((_) async {
             if (unreachable-- > 0) throw const SocketException('unreachable');
-            return files;
+            opened++;
+            return files..closed = false;
           }),
           hostsProvider.overrideWith((ref) => Stream.value(const [_nyx])),
         ],
@@ -149,6 +152,20 @@ void main() {
     final target = find.byKey(const ValueKey('files-target'));
     expect(find.descendant(of: target, matching: find.text('~/')), findsOne);
     expect(find.descendant(of: target, matching: find.text('src')), findsOne);
+  });
+
+  testWidgets('a link that died is opened again by the next tap', (
+    tester,
+  ) async {
+    await open(tester, (context) => showHostFiles(context, _nyx));
+    final before = opened;
+    files.closed = true;
+
+    await tester.tap(find.text('src'));
+    await tester.pumpAndSettle();
+    expect(opened, before + 1);
+    expect(find.text('main.dart'), findsOneWidget);
+    expect(find.byKey(const ValueKey('files-dir-/home/luis')), findsOneWidget);
   });
 
   testWidgets('a file offers share, save and send', (tester) async {
