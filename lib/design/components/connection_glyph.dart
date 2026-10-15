@@ -8,7 +8,7 @@ import 'package:upgrade/design/tokens.dart';
 class ConnectionGlyph extends StatefulWidget {
   const ConnectionGlyph({super.key, required this.dedicated, this.traffic});
 
-  static const size = Size(24, 14);
+  static const size = Size(16, 10);
 
   static const traversal = 22;
 
@@ -130,8 +130,8 @@ class ConnectionGlyphPainter extends CustomPainter {
     required this.dot,
   });
 
-  static const _stroke = 1.25;
-  static const _node = 2.0;
+  static const _stroke = 1.0;
+  static const _node = 1.5;
   static const _dot = 1.0;
 
   final bool dedicated;
@@ -163,7 +163,7 @@ class ConnectionGlyphPainter extends CustomPainter {
             for (final y in [top, bottom])
               Path()
                 ..moveTo(left + _node, y)
-                ..cubicTo(merge - 2, y, merge - 3, mid, merge, mid)
+                ..cubicTo(merge - 1.5, y, merge - 2, mid, merge, mid)
                 ..lineTo(right - _node, mid),
           ];
     for (final route in routes) {

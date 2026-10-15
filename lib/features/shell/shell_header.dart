@@ -729,7 +729,7 @@ class _FeatureRail extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: Spacing.md),
             child: VerticalDivider(
-              width: Spacing.md,
+              width: Spacing.sm,
               thickness: Borders.hairline,
               color: tokens.borderSubtle,
             ),
