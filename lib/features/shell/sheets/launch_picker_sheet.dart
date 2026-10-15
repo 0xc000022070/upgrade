@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:upgrade/application/shell/launch_scan.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/connection_glyph.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/panel.dart';
@@ -76,7 +77,8 @@ class _LaunchPickerBody extends ConsumerStatefulWidget {
 
 class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
   LaunchScan _scan = const LaunchScanLoading();
-  bool _plex = true;
+  bool _dedicated = false;
+  bool _advanced = false;
 
   @override
   void initState() {
@@ -111,21 +113,89 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
 
   void _pick(UserIntent intent, ShellLaunch? launch) {
     Navigator.pop(context);
-    widget.onPick(intent, launch, ownConnection: !_plex);
+    widget.onPick(intent, launch, ownConnection: _dedicated);
   }
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_advanced,
+      onPopInvokedWithResult: (popped, _) {
+        if (!popped) setState(() => _advanced = false);
+      },
+      child: _advanced ? _advancedPage() : _launchPage(),
+    );
+  }
+
+  Widget _advancedPage() {
+    final tokens = context.tokens;
+    Widget choice(String label, String detail, {required bool dedicated}) =>
+        ListRow(
+          key: ValueKey('launch-connection-${label.toLowerCase()}'),
+          leading: ConnectionGlyph(dedicated: dedicated),
+          leadingWidth: ConnectionGlyph.size.width,
+          title: label,
+          subtitle: detail,
+          trailing: _dedicated == dedicated
+              ? UpgradeIcon(
+                  UpgradeIcons.check,
+                  size: IconSizes.check,
+                  color: tokens.accent,
+                )
+              : null,
+          onTap: () => setState(() => _dedicated = dedicated),
+        );
+    return PanelSheetBody(
+      title: 'ADVANCED OPTIONS',
+      affordance: PanelAffordance(
+        'BACK',
+        key: const ValueKey('launch-advanced-back'),
+        icon: UpgradeIcons.back,
+        onTap: () => setState(() => _advanced = false),
+      ),
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: Spacing.sm),
+          child: Text('CONNECTION', style: tokens.label),
+        ),
+        ListRowGroup(
+          children: [
+            choice(
+              'SHARED',
+              'one ssh connection with pickers, send and files',
+              dedicated: false,
+            ),
+            choice(
+              'DEDICATED',
+              'an ssh connection of its own',
+              dedicated: true,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _launchPage() {
     return PanelSheetBody(
       title: widget.title,
-      affordance: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PlexToggle(on: _plex, onTap: () => setState(() => _plex = !_plex)),
-          const SizedBox(width: Spacing.lg),
-          PanelAffordance('CANCEL', onTap: () => Navigator.pop(context)),
-        ],
+      affordance: PanelAffordance(
+        'CANCEL',
+        onTap: () => Navigator.pop(context),
       ),
+      footer: [
+        ListRow(
+          key: const ValueKey('launch-advanced'),
+          title: 'ADVANCED OPTIONS',
+          value: _dedicated ? 'DEDICATED' : 'SHARED',
+          trailing: UpgradeIcon(
+            UpgradeIcons.forward,
+            size: IconSizes.affordance,
+            color: context.tokens.textMuted,
+          ),
+          onTap: () => setState(() => _advanced = true),
+        ),
+      ],
       children: [
         ListRowGroup(
           children: [
@@ -283,46 +353,6 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
         ],
       ),
     ];
-  }
-}
-
-class PlexToggle extends StatelessWidget {
-  const PlexToggle({super.key, required this.on, required this.onTap});
-
-  final bool on;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return TapExpansion(
-      child: GestureDetector(
-        key: const ValueKey('launch-plex'),
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: PlexMark(on: on, style: tokens.panelHeader),
-      ),
-    );
-  }
-}
-
-class PlexMark extends StatelessWidget {
-  const PlexMark({super.key, required this.on, required this.style});
-
-  final bool on;
-  final TextStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Text(
-      'PLEX',
-      style: style.copyWith(
-        color: on ? tokens.accent : tokens.textDisabled,
-        decoration: on ? null : TextDecoration.lineThrough,
-        decorationColor: tokens.textDisabled,
-      ),
-    );
   }
 }
 

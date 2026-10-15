@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/cell_divider.dart';
+import 'package:upgrade/design/components/connection_glyph.dart';
 import 'package:upgrade/design/components/key_cell.dart';
 import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
@@ -18,7 +19,6 @@ import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/hosts/host_strip.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/features/shell/sheets/launch_picker_sheet.dart';
 import 'package:upgrade/features/shell/shell_status.dart';
 
 const _headerHeight = TapTargets.minHeight;
@@ -739,10 +739,10 @@ class _FeatureRail extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                PlexMark(
-                  key: const ValueKey('shell-tab-plex'),
-                  on: !session.ownConnection,
-                  style: tokens.pipMeta,
+                ConnectionGlyph(
+                  key: const ValueKey('shell-tab-connection'),
+                  dedicated: session.ownConnection,
+                  traffic: session.output,
                 ),
               ],
             ),

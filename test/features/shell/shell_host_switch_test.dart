@@ -329,7 +329,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('shell-new-host-h2')));
     await ready(tester);
     expect(find.text('NEW SHELL ON NYX'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('launch-plex')));
+    await tester.tap(find.byKey(const ValueKey('launch-advanced')));
+    await ready(tester);
+    await tester.tap(find.byKey(const ValueKey('launch-connection-dedicated')));
+    await tester.tap(find.byKey(const ValueKey('launch-advanced-back')));
     await ready(tester);
     await tester.tap(find.byKey(const ValueKey('launch-shell')));
     await ready(tester);

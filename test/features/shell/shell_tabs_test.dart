@@ -6,6 +6,7 @@ import 'package:upgrade/application/shell/launch_scan.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/cell_divider.dart';
+import 'package:upgrade/design/components/connection_glyph.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/design/components/scan_sweep.dart';
@@ -212,27 +213,29 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    expect(headerWords(tester), ['ROSE', '1', 'PLEX', '+', '×']);
+    expect(headerWords(tester), ['ROSE', '1', '+', '×']);
 
     await unmount(tester);
   });
 
-  testWidgets('the tab on screen reads PLEX, struck when NEW SHELL ON struck '
-      'it, and a tap on it does nothing', (tester) async {
+  ConnectionGlyphPainter railGlyph(WidgetTester tester) =>
+      tester
+              .widget<CustomPaint>(
+                find.descendant(
+                  of: find.byKey(const ValueKey('shell-tab-connection')),
+                  matching: find.byType(CustomPaint),
+                ),
+              )
+              .painter!
+          as ConnectionGlyphPainter;
+
+  testWidgets('the tab on screen draws its connection, dedicated when ADVANCED '
+      'OPTIONS said so, and a tap on it does nothing', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    TextDecoration? plex() => tester
-        .widget<Text>(
-          find.descendant(
-            of: find.byKey(const ValueKey('shell-tab-plex')),
-            matching: find.byType(Text),
-          ),
-        )
-        .style
-        ?.decoration;
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('shell-tab-h1-1')),
@@ -240,7 +243,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(plex(), isNull);
+    expect(railGlyph(tester).dedicated, isFalse);
 
     await tester.tap(find.byKey(const ValueKey('shell-tab-features')));
     await ready(tester);
@@ -250,14 +253,61 @@ void main() {
     await ready(tester);
     await tester.tap(find.byKey(const ValueKey('shell-new-host-h1')));
     await ready(tester);
-    await tester.tap(find.byKey(const ValueKey('launch-plex')));
+    expect(find.text('SHARED'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('launch-advanced')));
     await ready(tester);
+    expect(find.text('ADVANCED OPTIONS'), findsOneWidget);
+    expect(find.byKey(const ValueKey('launch-shell')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('launch-connection-dedicated')));
+    await ready(tester);
+    await tester.binding.handlePopRoute();
+    await ready(tester);
+    expect(find.text('DEDICATED'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('launch-shell')));
     await ready(tester);
 
     expect(sessions.activeFor('h1')!.ownConnection, isTrue);
     expect(transport.alone, [false, true]);
-    expect(plex(), TextDecoration.lineThrough);
+    expect(railGlyph(tester).dedicated, isTrue);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the connection glyph runs its dots only while the tab has '
+      'traffic', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+    await tester.pump(const Duration(seconds: 3));
+    expect(railGlyph(tester).step, isNull);
+
+    transport.opened.single.emit('x');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(railGlyph(tester).step, isNotNull);
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(railGlyph(tester).step, isNull);
+
+    await unmount(tester);
+  });
+
+  testWidgets('under reduce-motion the connection glyph stays still', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: app(sessions),
+      ),
+    );
+    await ready(tester);
+
+    transport.opened.single.emit('x');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(railGlyph(tester).step, isNull);
 
     await unmount(tester);
   });
