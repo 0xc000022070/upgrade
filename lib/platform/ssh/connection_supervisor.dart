@@ -17,12 +17,13 @@
 ///   [ConnectionSupervisor.pty]. Other code runs commands through a [HostChannels] view,
 ///   which answers null while no host is held and never dials.
 /// - [HostLinks.claim], [HostLinks.renounce], [HostLinks.sleep], [HostLinks.wake],
-///   [HostLinks.recheckAll], [HostLinks.close], [HostUse.tab] and [HostLease.client] are
-///   used only where the fence allows (fence).
+///   [HostLinks.recheckAll], [HostLinks.close], [HostUse.tab], [HostUse.ownTab] and
+///   [HostLease.client] are used only where the fence allows (fence).
 ///
 /// Lanes: a pool keeps one control link and one screen link per host identity, and
-/// [HostUse.lane] picks the link (tested: host_links). Outside this sit the
-/// [HostLinks.probe] host key check, one overflow control link for a host at its session
+/// [HostUse.lane] picks the link (tested: host_links). A tab opened [HostUse.alone] dials a
+/// control link of its own that nothing else rides and that ends with it. Outside this sit
+/// the [HostLinks.probe] host key check, one overflow control link for a host at its session
 /// limit, one transfer link a file goes up on so it never queues behind or ahead of a held
 /// link's keepalive ([HostLease.sftp], [HostLease.upload]), and a silent link a waking use
 /// set aside for its holders. One pool per isolate
@@ -140,10 +141,11 @@ abstract interface class HostChannels {
 
 /// A tab's claim on its host's shared control link. Its channels answer null once it lets go.
 final class ConnectionSupervisor implements HostChannels {
-  ConnectionSupervisor._(this._connector, this._target);
+  ConnectionSupervisor._(this._connector, this._target, this._use);
 
   final SshConnector _connector;
   final HostTarget _target;
+  final HostUse _use;
   PinnedHostKey? _trusted;
   _State _state = const _Idle();
   var _claimed = false;
@@ -401,6 +403,7 @@ final class ConnectionSupervisor implements HostChannels {
       lease = await _connector._claim(
         _target,
         HostKeyVerifier.pinnedOnly(_trusted),
+        _use,
       );
     } catch (error) {
       debugPrint('upgrade.shell $endpoint: redial: $error');
@@ -553,6 +556,7 @@ final class SshConnector {
     required OpenReason reason,
     required Future<T> Function(ConnectionSupervisor supervisor) startup,
     void Function(Reconnect retry)? failed,
+    bool alone = false,
   }) async {
     if (_refuses(reason, '$address:$port')) {
       throw StateError('a refused ${reason.runtimeType} dials nothing');
@@ -567,12 +571,13 @@ final class SshConnector {
       );
     }
     final target = HostTarget(address, port, user, privateKey);
-    final supervisor = ConnectionSupervisor._(this, target)
+    final use = alone ? HostUse.ownTab : HostUse.tab;
+    final supervisor = ConnectionSupervisor._(this, target, use)
       .._log('dial for ${purpose.cause}');
     final HostLease lease;
     try {
       lease = await _SettleWait(purpose.attended ? timeout : null)
-          .outlast(() => _claim(target, verifier));
+          .outlast(() => _claim(target, verifier, use));
     } catch (error) {
       if (isHostFailure(error)) failed?.call(Reconnect._(_DialFailed(error)));
       rethrow;
@@ -588,15 +593,18 @@ final class SshConnector {
     }
   }
 
-  Future<HostLease> _claim(HostTarget target, HostKeyVerifier verifier) =>
-      _links.claim(
-        address: target.address,
-        port: target.port,
-        user: target.user,
-        privateKey: target.privateKey,
-        verifier: verifier,
-        use: HostUse.tab,
-      );
+  Future<HostLease> _claim(
+    HostTarget target,
+    HostKeyVerifier verifier,
+    HostUse use,
+  ) => _links.claim(
+    address: target.address,
+    port: target.port,
+    user: target.user,
+    privateKey: target.privateKey,
+    verifier: verifier,
+    use: use,
+  );
 }
 
 final class _SettleWait {

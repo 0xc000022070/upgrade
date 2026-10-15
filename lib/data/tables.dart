@@ -224,6 +224,8 @@ class ShellTabs extends Table {
 
   DateTimeColumn get retiredAt => dateTime().nullable()();
 
+  BoolColumn get ownConnection => boolean().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {hostId, number};
 }

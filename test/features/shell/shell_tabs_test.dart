@@ -7,6 +7,7 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/cell_divider.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/design/components/scan_sweep.dart';
 import 'package:upgrade/design/motion.dart';
 import 'package:upgrade/design/spacing.dart';
@@ -27,12 +28,13 @@ import '../../support/shell_route.dart';
 import '../../support/themed_app.dart';
 
 String labelOfTab(WidgetTester tester, int number) => tester
-    .widget<Text>(
+    .widgetList<Text>(
       find.descendant(
         of: find.byKey(ValueKey('shell-tab-h1-$number')),
         matching: find.byType(Text),
       ),
     )
+    .first
     .data!;
 
 Color? dotOfTab(WidgetTester tester, int number) =>
@@ -210,7 +212,88 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    expect(headerWords(tester), ['ROSE', '1', '+', '×']);
+    expect(headerWords(tester), ['ROSE', '1', 'PLEX', '+', '×']);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the tab on screen reads PLEX, struck when NEW SHELL ON struck '
+      'it, and a tap on it does nothing', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+
+    TextDecoration? plex() => tester
+        .widget<Text>(
+          find.descendant(
+            of: find.byKey(const ValueKey('shell-tab-plex')),
+            matching: find.byType(Text),
+          ),
+        )
+        .style
+        ?.decoration;
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('shell-tab-h1-1')),
+        matching: find.byKey(const ValueKey('shell-tab-features')),
+      ),
+      findsOneWidget,
+    );
+    expect(plex(), isNull);
+
+    await tester.tap(find.byKey(const ValueKey('shell-tab-features')));
+    await ready(tester);
+    expect(find.byType(ConfirmSheetBody), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
+    await ready(tester);
+    await tester.tap(find.byKey(const ValueKey('shell-new-host-h1')));
+    await ready(tester);
+    await tester.tap(find.byKey(const ValueKey('launch-plex')));
+    await ready(tester);
+    await tester.tap(find.byKey(const ValueKey('launch-shell')));
+    await ready(tester);
+
+    expect(sessions.activeFor('h1')!.ownConnection, isTrue);
+    expect(transport.alone, [false, true]);
+    expect(plex(), TextDecoration.lineThrough);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a tab behind the one on screen carries no rail', (tester) async {
+    const host = Host(
+      id: 'h1',
+      name: 'NYX',
+      address: '100.64.0.1',
+      port: 22,
+      user: 'luis',
+      keyId: 'key-1',
+    );
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    sessions.open(intent: testIntent(), host);
+    sessions.open(intent: testIntent(), host);
+    await tester.pumpWidget(
+      app(
+        sessions,
+        home: HostShellRoute(host: host, intent: testIntent()),
+      ),
+    );
+    await ready(tester);
+
+    final behind = sessions
+        .forHost('h1')
+        .firstWhere((session) => session != sessions.activeFor('h1'));
+    expect(find.byKey(const ValueKey('shell-tab-features')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(ValueKey('shell-tab-h1-${behind.number}')),
+        matching: find.byKey(const ValueKey('shell-tab-features')),
+      ),
+      findsNothing,
+    );
 
     await unmount(tester);
   });
@@ -517,8 +600,12 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
+      final rail = tester.getSize(
+        find.byKey(const ValueKey('shell-tab-features')),
+      );
       expect(
-        tester.getSize(find.byKey(const ValueKey('shell-tab-h1-1'))).width,
+        tester.getSize(find.byKey(const ValueKey('shell-tab-h1-1'))).width -
+            rail.width,
         lessThan(60),
       );
 

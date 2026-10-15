@@ -30,6 +30,7 @@ enum HostLane { control, screen }
 
 enum HostUse {
   tab('tab'),
+  ownTab('own tab'),
   herdrPoll('herdr poll'),
   send('send'),
   launchScan('launch scan'),
@@ -52,6 +53,7 @@ enum HostUse {
   HostLane get lane => switch (this) {
     vnc || deviceDock => HostLane.screen,
     tab ||
+    ownTab ||
     herdrPoll ||
     send ||
     launchScan ||
@@ -66,10 +68,12 @@ enum HostUse {
     files => HostLane.control,
   };
 
-  bool get yields => this != tab;
+  bool get yields => this != tab && this != ownTab;
+
+  bool get alone => this == ownTab;
 
   bool get wakes => switch (this) {
-    tab || send || alertAction || files => true,
+    tab || ownTab || send || alertAction || files => true,
     herdrPoll ||
     launchScan ||
     pathScan ||
@@ -321,7 +325,7 @@ class HostLinks {
       if (_asleep && !use.wakes) {
         throw const SocketException('host links asleep');
       }
-      if (pinned != null) {
+      if (pinned != null && !use.alone) {
         final live = _links[key];
         if (live != null) {
           if (await _vouched(live, use) && !live.ended) {
@@ -343,6 +347,9 @@ class HostLinks {
       // Dialling again during that window is how the user's own dial gets dropped.
       final settling = _settling[identity];
       if (settling != null) throw DialSettling(settling.settled);
+      if (use.alone) {
+        return _landed(await _dialLink(target, verifier, use, identity), use);
+      }
       final pending = _Pending(target, use.lane);
       pending.link = _dialLink(target, verifier, use, identity).then((link) {
         if (pending.renounced) {

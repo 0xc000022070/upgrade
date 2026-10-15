@@ -1478,6 +1478,12 @@ PlatformSignal? signal(NetworkChanged change) => change.signal;
     }, reason: 'HostLinks.lease forwards any use to claim; $_seam');
   });
 
+  test('only the supervisor takes a link of a tab\'s own', () {
+    expect(_reads(_hostLinksUri, 'HostUse', 'ownTab', except: _hostLinks), {
+      _supervisor: 1,
+    }, reason: 'an own link is dialed fresh and never shared; $_seam');
+  });
+
   test('only the supervisor renounces a host link', () {
     expect(_members(_links({'renounce'}), except: _hostLinks), {
       _supervisor: 1,

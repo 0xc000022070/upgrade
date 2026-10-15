@@ -18,6 +18,7 @@ import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/hosts/host_strip.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/features/shell/sheets/launch_picker_sheet.dart';
 import 'package:upgrade/features/shell/shell_status.dart';
 
 const _headerHeight = TapTargets.minHeight;
@@ -298,6 +299,7 @@ class _ShellHeaderState extends State<ShellHeader> {
                       session: session,
                       grouped: true,
                       active: session == widget.active,
+                      rail: session == widget.active,
                       onTap: () => widget.onSelect(group, session),
                     ),
                   ),
@@ -598,6 +600,7 @@ class _TabCell extends StatelessWidget {
     this.grouped = false,
     this.dimmed = false,
     this.tint,
+    this.rail = false,
   }) : assert(label != null || icon != null, 'a word or a mark, not neither');
 
   final String? label;
@@ -617,8 +620,24 @@ class _TabCell extends StatelessWidget {
   /// ink of whether it is the tab on screen.
   final Color? tint;
 
+  final bool rail;
+
   @override
   Widget build(BuildContext context) {
+    final session = this.session;
+    final cell = _cell(context);
+    if (session == null || !rail) return cell;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        cell,
+        _FeatureRail(session: session),
+      ],
+    );
+  }
+
+  Widget _cell(BuildContext context) {
     final tint =
         this.tint ??
         switch ((active, dimmed)) {
@@ -682,6 +701,53 @@ class _TabCell extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _FeatureRail extends StatelessWidget {
+  const _FeatureRail({required this.session});
+
+  final ShellSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Container(
+      key: const ValueKey('shell-tab-features'),
+      padding: const EdgeInsets.only(right: Spacing.sm),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: tokens.accent, width: Borders.hairline * 2),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: Spacing.md),
+            child: VerticalDivider(
+              width: Spacing.md,
+              thickness: Borders.hairline,
+              color: tokens.borderSubtle,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: Spacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                PlexMark(
+                  key: const ValueKey('shell-tab-plex'),
+                  on: !session.ownConnection,
+                  style: tokens.pipMeta,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

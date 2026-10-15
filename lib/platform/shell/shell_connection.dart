@@ -115,6 +115,7 @@ typedef ShellOpener = Future<ShellConnection> Function({
   String? persistentSession,
   required HostKeyVerifier verifier,
   void Function(Reconnect retry)? failed,
+  bool alone,
 });
 
 enum ShellFailureKind {

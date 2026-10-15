@@ -784,7 +784,7 @@ One interval for every connection the app holds — the shell, the agent client 
 
 **The agent list, the send, the path, model and launch pickers, the engine, the devices, the screen, the workspace, the files sheet and the plugin hosts share one ssh connection per host**, opened by the first of them to ask, held thirty seconds past the last one done with it, and dialled again once, for all of them, when it drops. A channel the host refuses because that connection already carries all it allows fails only what asked for it, as `host busy`, and the connection stays.
 
-**Every connection is opened in one place, and only two are not the shared one.** The terminal tab dials its own, so a tab that redials never drops what everything else is riding, and the host-key check dials one that hangs up once the key is answered. The watcher and an answer from a notification run where the app's connections cannot reach, so each holds one shared connection per host of its own, by the same rules. A test fails the build when anything else opens a connection.
+**Every connection is opened in one place, and only two are not the shared one.** A terminal tab rides the shared connection unless it was opened on one of its own, and then it dials one that nothing else rides and that ends with the tab, so a tab that redials on it never drops what everything else is riding. The host-key check dials one that hangs up once the key is answered. The watcher and an answer from a notification run where the app's connections cannot reach, so each holds one shared connection per host of its own, by the same rules. A test fails the build when anything else opens a connection.
 
 ### A host's files move both ways, from anywhere
 
@@ -1177,6 +1177,16 @@ The header is one row of 44: the strip of host groups and a `+` inline, the acti
 **A tab carries its state**, the same dot the cards carry, in front of the word: a tab that dropped, gave up or exited is seen without being visited. A tab opened on tmux or herdr, or on a pane attached from the agents panel, draws that program's logo in place of the dot, in the colour the dot would have been, so what the tab is and how it stands read from one mark. It is the one thing on a tab that changes with nobody touching it.
 
 **The tab in use is on the screen.** The strip scrolls, and a tab going active — by a tap, by being opened, or by the one beside it closing — is brought into view. A strip that scrolled the shell the user is typing in off its own edge is how a tab is lost.
+
+### The tab on screen carries a rail of what it runs with
+
+**The active tab grows a rail at its right edge**, after a `borderSubtle` hairline that stops short of the row's top and bottom, with the tab's accent underline carried under it so the rail reads as part of the tab and not a cell beside it. The rail is a list read from the top: one word per feature in `pipMeta`, the first one level with the top of the hairline, so the room under it is where the next feature goes. It is read-only; a tap on it does nothing. Tabs not on screen carry no rail, because the strip is where every shell is found and nine rails would cost it the room.
+
+**The one feature today is `PLEX`**: in the accent while the tab rides the host's shared connection, struck through in `textDisabled` while it rides one of its own.
+
+**The choice is made once, in `NEW SHELL ON`.** The menu's title bar carries `PLEX` beside `CANCEL`, lit by default; a tap strikes it, and whatever row is picked next opens on a connection of its own. The choice holds for the life of the tab: nothing switches a tab already open, so the choice never redials one. Only the tab moves: the pickers, the send, the workspace and the files sheet stay on the shared connection.
+
+**The choice is written down with the tab** in a nullable `own_connection` on its row, null for shared, so a restart dials each tab back on the connection it had. The v22-to-v23 migration leaves the column null, and every tab written before it comes back shared.
 
 ### A tab the host has not drawn on yet carries the spinner
 

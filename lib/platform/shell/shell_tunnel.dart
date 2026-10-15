@@ -60,6 +60,7 @@ class ShellTunnel {
     String? persistentSession,
     required HostKeyVerifier verifier,
     void Function(Reconnect retry)? failed,
+    bool alone = false,
   }) => _guard(
     '$address:$port',
     () => _connector.establish(
@@ -70,6 +71,7 @@ class ShellTunnel {
       verifier: verifier,
       reason: reason,
       failed: failed,
+      alone: alone,
       startup: (supervisor) => _start(
         supervisor,
         address: address,

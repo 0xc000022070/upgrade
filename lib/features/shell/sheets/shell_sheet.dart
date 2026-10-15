@@ -25,6 +25,7 @@ void openHostShell(
   String? directory,
   PaneRef? pane,
   ShellLaunch? launch,
+  bool ownConnection = false,
   bool openNew = false,
 }) {
   final container = ProviderScope.containerOf(context, listen: false);
@@ -61,6 +62,7 @@ void openHostShell(
     directory: directory,
     pane: pane,
     launch: launch,
+    ownConnection: ownConnection,
     openNew: openNew,
   );
   _openShellRoutes[navigator] = route;
@@ -86,13 +88,14 @@ Future<void> pickHostShell(
   await showLaunchPicker(
     context,
     host,
-    onPick: (picked, launch) {
+    onPick: (picked, launch, {ownConnection = false}) {
       if (!context.mounted) return;
       openHostShell(
         context,
         host,
         intent: picked,
         launch: launch,
+        ownConnection: ownConnection,
         openNew: true,
       );
     },
@@ -108,6 +111,7 @@ class ShellSheetRoute extends DragSheetRoute<void> with KeepsScreensEdge {
     this.directory,
     this.pane,
     this.launch,
+    this.ownConnection = false,
     this.openNew = false,
   });
 
@@ -125,6 +129,8 @@ class ShellSheetRoute extends DragSheetRoute<void> with KeepsScreensEdge {
   final PaneRef? pane;
 
   final ShellLaunch? launch;
+
+  final bool ownConnection;
 
   final bool openNew;
 
@@ -147,6 +153,7 @@ class ShellSheetRoute extends DragSheetRoute<void> with KeepsScreensEdge {
       directory: directory,
       pane: pane,
       launch: launch,
+      ownConnection: ownConnection,
       openNew: openNew,
     );
   }
@@ -164,6 +171,7 @@ class _SheetContents extends StatefulWidget {
     this.directory,
     this.pane,
     this.launch,
+    this.ownConnection = false,
     this.openNew = false,
   });
 
@@ -174,6 +182,7 @@ class _SheetContents extends StatefulWidget {
   final String? directory;
   final PaneRef? pane;
   final ShellLaunch? launch;
+  final bool ownConnection;
   final bool openNew;
 
   @override
@@ -187,6 +196,7 @@ class _SheetContentsState extends State<_SheetContents> {
   late ShellSession? _session = widget.session;
   late var _openNew = widget.openNew || widget.launch != null;
   late ShellLaunch? _openLaunch = widget.launch;
+  late var _openOwn = widget.ownConnection;
 
   void _switchTo(Host host, ShellSession? session) {
     if (host.id == _host.id) return;
@@ -198,7 +208,12 @@ class _SheetContentsState extends State<_SheetContents> {
     });
   }
 
-  void _openOn(Host host, ShellLaunch? launch, UserIntent intent) {
+  void _openOn(
+    Host host,
+    ShellLaunch? launch,
+    UserIntent intent, {
+    bool ownConnection = false,
+  }) {
     if (host.id == _host.id) return;
     setState(() {
       _host = host;
@@ -206,6 +221,7 @@ class _SheetContentsState extends State<_SheetContents> {
       _session = null;
       _openNew = true;
       _openLaunch = launch;
+      _openOwn = ownConnection;
     });
   }
 
@@ -218,6 +234,7 @@ class _SheetContentsState extends State<_SheetContents> {
       session: _session,
       openNew: _openNew,
       openLaunch: _openLaunch,
+      openOwn: _openOwn,
       // Only the host the sheet opened on is the one they were meant for: switching
       // hosts carries nothing of the directory or the agent it came from.
       command: _host.id == widget.host.id ? widget.command : null,

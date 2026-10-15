@@ -104,6 +104,7 @@ class _DelayedShellTabs extends InMemoryShellTabRepository {
     String? herdrSession,
     String? herdrPane,
     String? launch,
+    bool ownConnection = false,
     DateTime? openedAt,
   }) async {
     started = true;
@@ -115,6 +116,7 @@ class _DelayedShellTabs extends InMemoryShellTabRepository {
       herdrSession: herdrSession,
       herdrPane: herdrPane,
       launch: launch,
+      ownConnection: ownConnection,
       openedAt: openedAt,
     );
   }
@@ -1601,6 +1603,30 @@ void main() {
     await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
+  testWidgets('a tab opened on a connection of its own redials on one', (
+    tester,
+  ) async {
+    final tabs = InMemoryShellTabRepository();
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport, tabs: tabs);
+    final session = sessions.open(
+      intent: testIntent(),
+      _rose,
+      ownConnection: true,
+    )!;
+    await _pumpDial(tester);
+    expect(session.ownConnection, isTrue);
+    expect((await tabs.all()).single.ownConnection, isTrue);
+
+    transport.opened.single.drop();
+    await tester.pump();
+    await tester.pump(shellReconnectDelays.first);
+    await _pumpDial(tester);
+    expect(transport.alone, [true, true]);
+
+    await sessions.close(intent: testIntent(), _rose.id, session);
+  });
+
   testWidgets('a revival that gives up on a changed key says the key changed', (
     tester,
   ) async {
@@ -2676,6 +2702,25 @@ void main() {
         contains('-- reconnected --'),
       );
       expect(after.activeFor(_rose.id)!.number, 1);
+    });
+
+    test('a tab of its own comes back on a connection of its own', () async {
+      final tabs = InMemoryShellTabRepository();
+      final before = fakeShellSessions(FakeShellTransport(), tabs: tabs);
+      before.open(intent: testIntent(), _rose);
+      before.open(intent: testIntent(), _rose, ownConnection: true);
+      await _settle();
+
+      final transport = FakeShellTransport();
+      final after = fakeShellSessions(transport, tabs: tabs);
+      await after.restore(hosts, AppResumed(testSignal()));
+      await _settle();
+
+      expect(after.forHost(_rose.id).map((session) => session.ownConnection), [
+        false,
+        true,
+      ]);
+      expect(transport.alone, [false, true]);
     });
 
     test('moved tabs and groups come back where they were put', () async {

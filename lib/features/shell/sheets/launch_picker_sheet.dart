@@ -19,7 +19,11 @@ import 'package:upgrade/platform/shell/shell_launch.dart';
 import 'package:upgrade/features/hosts/host_key_sheet.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 
-typedef LaunchPicked = void Function(UserIntent intent, ShellLaunch? launch);
+typedef LaunchPicked = void Function(
+  UserIntent intent,
+  ShellLaunch? launch, {
+  bool ownConnection,
+});
 
 const tmuxLogo = 'assets/icons/launch-tmux.svg';
 const herdrLogo = 'assets/icons/launch-herdr.svg';
@@ -72,6 +76,7 @@ class _LaunchPickerBody extends ConsumerStatefulWidget {
 
 class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
   LaunchScan _scan = const LaunchScanLoading();
+  bool _plex = true;
 
   @override
   void initState() {
@@ -106,16 +111,20 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
 
   void _pick(UserIntent intent, ShellLaunch? launch) {
     Navigator.pop(context);
-    widget.onPick(intent, launch);
+    widget.onPick(intent, launch, ownConnection: !_plex);
   }
 
   @override
   Widget build(BuildContext context) {
     return PanelSheetBody(
       title: widget.title,
-      affordance: PanelAffordance(
-        'CANCEL',
-        onTap: () => Navigator.pop(context),
+      affordance: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PlexToggle(on: _plex, onTap: () => setState(() => _plex = !_plex)),
+          const SizedBox(width: Spacing.lg),
+          PanelAffordance('CANCEL', onTap: () => Navigator.pop(context)),
+        ],
       ),
       children: [
         ListRowGroup(
@@ -274,6 +283,46 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
         ],
       ),
     ];
+  }
+}
+
+class PlexToggle extends StatelessWidget {
+  const PlexToggle({super.key, required this.on, required this.onTap});
+
+  final bool on;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return TapExpansion(
+      child: GestureDetector(
+        key: const ValueKey('launch-plex'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: PlexMark(on: on, style: tokens.panelHeader),
+      ),
+    );
+  }
+}
+
+class PlexMark extends StatelessWidget {
+  const PlexMark({super.key, required this.on, required this.style});
+
+  final bool on;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Text(
+      'PLEX',
+      style: style.copyWith(
+        color: on ? tokens.accent : tokens.textDisabled,
+        decoration: on ? null : TextDecoration.lineThrough,
+        decorationColor: tokens.textDisabled,
+      ),
+    );
   }
 }
 

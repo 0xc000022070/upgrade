@@ -272,7 +272,7 @@ void main() {
     await raise(tester);
 
     final step =
-        tester.getCenter(tab(_nyx, 3)) - tester.getCenter(tab(_nyx, 1));
+        tester.getTopRight(tab(_nyx, 3)) - tester.getTopLeft(tab(_nyx, 1));
     await carry(tester, tab(_nyx, 1), step + const Offset(20, 0));
 
     expect([for (final s in sessions.forHost(_nyx.id)) s.number], [2, 3, 1]);
@@ -293,7 +293,8 @@ void main() {
     await raise(tester);
 
     final step =
-        tester.getTopRight(tab(_nyx, 2)) - tester.getCenter(label(_rose));
+        tester.getTopRight(find.byKey(const ValueKey('shell-group-h2'))) -
+        tester.getTopLeft(find.byKey(const ValueKey('shell-group-h1')));
     await carry(tester, label(_rose), step + const Offset(20, 0));
 
     expect(
@@ -328,11 +329,14 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('shell-new-host-h2')));
     await ready(tester);
     expect(find.text('NEW SHELL ON NYX'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('launch-plex')));
+    await ready(tester);
     await tester.tap(find.byKey(const ValueKey('launch-shell')));
     await ready(tester);
 
     expect(sessions.forHost(_nyx.id), hasLength(2));
     expect(sessions.activeFor(_nyx.id)!.number, 2);
+    expect(sessions.activeFor(_nyx.id)!.ownConnection, isTrue);
     expect(tab(_nyx, 2), findsOneWidget);
     expect(ModalRoute.of(tester.element(header)), same(route));
 

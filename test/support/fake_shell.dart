@@ -301,6 +301,7 @@ class FakeShellTransport {
   final reasons = <OpenReason>[];
   final tabSessions = <String?>[];
   final persistentSessions = <String?>[];
+  final alone = <bool>[];
 
   ShellContinuity? continuity;
   ShellTransport transport = ShellTransport.ssh;
@@ -332,8 +333,10 @@ class FakeShellTransport {
     String? tabSession,
     String? persistentSession,
     void Function(Reconnect retry)? failed,
+    bool alone = false,
   }) async {
     reasons.add(reason);
+    this.alone.add(alone);
     sizes.add([columns, rows]);
     verifiers.add(verifier);
     commands.add(command);

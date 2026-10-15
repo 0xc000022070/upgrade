@@ -311,6 +311,8 @@ class ShellSession extends ChangeNotifier {
 
   ShellLaunch? launch;
 
+  bool ownConnection = false;
+
   /// What the bar has armed, waiting for the next key or character. It lives here rather
   /// than in the bar because the IME types straight into the terminal, where the bar is not
   /// in the path, and because switching tabs has to switch the armed set with the session.
@@ -926,6 +928,7 @@ class ShellSessions extends ChangeNotifier {
     String? directory,
     PaneRef? pane,
     ShellLaunch? launch,
+    bool ownConnection = false,
   }) {
     if (!canOpen(host.id)) return null;
     final number = _nextNumber[host.id] ?? 1;
@@ -938,6 +941,7 @@ class ShellSessions extends ChangeNotifier {
       herdrSession: pane?.session,
       herdrPane: pane?.pane,
       launch: launch?.tag,
+      ownConnection: ownConnection,
     );
     return _start(
       host,
@@ -949,6 +953,7 @@ class ShellSessions extends ChangeNotifier {
       pane: pane,
       launch: launch,
       remoteSession: remoteSession,
+      ownConnection: ownConnection,
       beforeConnect: persisted,
     );
   }
@@ -963,6 +968,7 @@ class ShellSessions extends ChangeNotifier {
     PaneRef? pane,
     ShellLaunch? launch,
     String? remoteSession,
+    bool ownConnection = false,
     bool restored = false,
     Future<void>? beforeConnect,
     Uint8List? snapshot,
@@ -978,7 +984,8 @@ class ShellSessions extends ChangeNotifier {
           ..command = command
           ..cwd = directory
           ..pane = pane
-          ..launch = launch;
+          ..launch = launch
+          ..ownConnection = ownConnection;
     session.painted.value = snapshot != null;
     answerInColours(session.terminal, UpgradeTokens.house.terminal);
     _byHost.putIfAbsent(host.id, () => []).add(session);
@@ -1275,6 +1282,7 @@ class ShellSessions extends ChangeNotifier {
         pane: pane,
         launch: launch,
         remoteSession: remoteSession,
+        ownConnection: row.ownConnection,
         restored: true,
         snapshot: await snapshots?.read(host.id, row.number),
       );
@@ -1777,6 +1785,7 @@ class ShellSessions extends ChangeNotifier {
         command: shellMarked(session.mark, command: session.command),
         tabSession: session.tab,
         persistentSession: null,
+        alone: session.ownConnection,
         verifier: verifierFor(
           host,
           // Null on a reconnect and on anything else that arrives without a route in

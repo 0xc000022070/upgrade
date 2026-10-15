@@ -55,6 +55,7 @@ class HostShellRoute extends ConsumerStatefulWidget {
     this.onOpenHost,
     this.openNew = false,
     this.openLaunch,
+    this.openOwn = false,
     this.intent,
   });
 
@@ -65,7 +66,12 @@ class HostShellRoute extends ConsumerStatefulWidget {
   /// header's host name a label.
   final void Function(Host host, ShellSession? session)? onSwitchHost;
 
-  final void Function(Host host, ShellLaunch? launch, UserIntent intent)?
+  final void Function(
+    Host host,
+    ShellLaunch? launch,
+    UserIntent intent, {
+    bool ownConnection,
+  })?
   onOpenHost;
 
   /// Opens a fresh tab during this route's first frame even when the host already has
@@ -73,6 +79,8 @@ class HostShellRoute extends ConsumerStatefulWidget {
   final bool openNew;
 
   final ShellLaunch? openLaunch;
+
+  final bool openOwn;
 
   final ShellSession? session;
 
@@ -177,6 +185,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
             directory: commanded ? widget.directory : null,
             pane: commanded ? widget.pane : null,
             launch: fresh ? widget.openLaunch : null,
+            ownConnection: fresh && widget.openOwn,
           );
         }
       }
@@ -724,7 +733,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     showLaunchPicker(
       context,
       host,
-      onPick: (intent, launch) {
+      onPick: (intent, launch, {ownConnection = false}) {
         if (!mounted) return;
         if (host.id == widget.host.id) {
           if (!_store.canOpen(host.id)) return;
@@ -733,10 +742,16 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
             intent: intent,
             prompt: _askHostKey,
             launch: launch,
+            ownConnection: ownConnection,
           );
           return;
         }
-        widget.onOpenHost?.call(host, launch, intent);
+        widget.onOpenHost?.call(
+          host,
+          launch,
+          intent,
+          ownConnection: ownConnection,
+        );
       },
     ),
   );

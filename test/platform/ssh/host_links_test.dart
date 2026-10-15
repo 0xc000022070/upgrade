@@ -591,12 +591,12 @@ void main() {
       );
     });
 
-    test('every control use shares one dial', () async {
+    test('every shared control use shares one dial', () async {
       final dial = FakeDial();
       final links = HostLinks(dial: dial.call);
       final leases = await Future.wait([
         for (final use in HostUse.values)
-          if (use.lane == HostLane.control) as(links, use),
+          if (use.lane == HostLane.control && !use.alone) as(links, use),
       ]);
       expect(dial.dials, 1);
       expect(links.open, 1);
@@ -604,6 +604,25 @@ void main() {
         leases.every((lease) => identical(lease.client, leases.first.client)),
         isTrue,
       );
+      links.close();
+    });
+
+    test('a tab of its own dials a link nothing else rides', () async {
+      final dial = FakeDial();
+      final links = HostLinks(dial: dial.call);
+      final shared = await as(links, HostUse.tab);
+      final own = await as(links, HostUse.ownTab);
+      final other = await as(links, HostUse.ownTab);
+      final send = await as(links, HostUse.send);
+
+      expect(dial.dials, 3);
+      expect(identical(own.client, shared.client), isFalse);
+      expect(identical(own.client, other.client), isFalse);
+      expect(identical(send.client, shared.client), isTrue);
+
+      own.release();
+      expect(dial.clients[1].isClosed, isTrue);
+      expect(shared.closed, isFalse);
       links.close();
     });
 

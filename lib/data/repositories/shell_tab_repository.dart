@@ -14,6 +14,7 @@ class ShellTab {
     this.launch,
     this.position,
     this.retiredAt,
+    this.ownConnection = false,
   });
 
   final String hostId;
@@ -26,6 +27,7 @@ class ShellTab {
   final String? launch;
   final int? position;
   final DateTime? retiredAt;
+  final bool ownConnection;
 }
 
 abstract class ShellTabRepository {
@@ -38,6 +40,7 @@ abstract class ShellTabRepository {
     String? herdrSession,
     String? herdrPane,
     String? launch,
+    bool ownConnection = false,
     DateTime? openedAt,
   });
 
@@ -80,6 +83,7 @@ class DriftShellTabRepository implements ShellTabRepository {
     String? herdrSession,
     String? herdrPane,
     String? launch,
+    bool ownConnection = false,
     DateTime? openedAt,
   }) async {
     _validateIdentity(remoteSession, herdrSession, herdrPane);
@@ -96,6 +100,7 @@ class DriftShellTabRepository implements ShellTabRepository {
             herdrSession: Value(herdrSession),
             herdrPane: Value(herdrPane),
             launch: Value(launch),
+            ownConnection: Value(ownConnection ? true : null),
             retiredAt: const Value(null),
           ),
         );
@@ -165,6 +170,7 @@ class DriftShellTabRepository implements ShellTabRepository {
     launch: row.launch,
     position: row.position,
     retiredAt: row.retiredAt,
+    ownConnection: row.ownConnection ?? false,
   );
 }
 
@@ -191,6 +197,7 @@ class InMemoryShellTabRepository implements ShellTabRepository {
     String? herdrSession,
     String? herdrPane,
     String? launch,
+    bool ownConnection = false,
     DateTime? openedAt,
   }) async {
     _validateIdentity(remoteSession, herdrSession, herdrPane);
@@ -205,6 +212,7 @@ class InMemoryShellTabRepository implements ShellTabRepository {
         herdrSession: herdrSession,
         herdrPane: herdrPane,
         launch: launch,
+        ownConnection: ownConnection,
       ),
     );
     await activate(hostId, number);
@@ -231,6 +239,7 @@ class InMemoryShellTabRepository implements ShellTabRepository {
         launch: tab.launch,
         position: tab.position,
         retiredAt: DateTime.now(),
+        ownConnection: tab.ownConnection,
       );
     }
   }
@@ -257,6 +266,7 @@ class InMemoryShellTabRepository implements ShellTabRepository {
         launch: tab.launch,
         position: tab.position,
         retiredAt: tab.retiredAt,
+        ownConnection: tab.ownConnection,
       );
     }
   }
@@ -278,6 +288,7 @@ class InMemoryShellTabRepository implements ShellTabRepository {
         launch: tab.launch,
         position: index,
         retiredAt: tab.retiredAt,
+        ownConnection: tab.ownConnection,
       );
     }
   }

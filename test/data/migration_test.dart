@@ -88,7 +88,7 @@ void main() {
       const ShellTabsCompanion(launch: Value('tmux:0')),
     );
     expect((await db.select(db.shellTabs).getSingle()).launch, 'tmux:0');
-    expect(await _userVersion(db), 22);
+    expect(await _userVersion(db), 23);
   });
 
   test(
@@ -110,7 +110,7 @@ void main() {
       expect(row.number, 3);
       expect(row.remoteSession, 'm0123456789abcdef');
       expect(row.launch, 'tmux:0');
-      expect(await _userVersion(db), 22);
+      expect(await _userVersion(db), 23);
     },
   );
 
@@ -136,7 +136,7 @@ void main() {
       const ShellTabsCompanion(position: Value(0)),
     );
     expect((await db.select(db.shellTabs).getSingle()).position, 0);
-    expect(await _userVersion(db), 22);
+    expect(await _userVersion(db), 23);
   });
 
   test('a v21 host keeps its row and gains a null system', () async {
@@ -160,6 +160,34 @@ void main() {
       const HostsCompanion(system: Value('nixos')),
     );
     expect((await db.select(db.hosts).getSingle()).system, 'nixos');
-    expect(await _userVersion(db), 22);
+    expect(await _userVersion(db), 23);
+  });
+
+  test('a v22 shell tab keeps its row and rides the shared link', () async {
+    final first = AppDatabase(NativeDatabase(file));
+    await first.customStatement(
+      'ALTER TABLE shell_tabs DROP COLUMN own_connection',
+    );
+    await first.customStatement(
+      "INSERT INTO shell_tabs (host_id, number, active, opened_at, "
+      "remote_session, launch, position) VALUES ('h1', 3, 1, "
+      "'2026-09-29T00:00:00.000Z', 'm0123456789abcdef', 'tmux:0', 0)",
+    );
+    await first.customStatement('PRAGMA user_version = 22');
+    await first.close();
+
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(db.close);
+
+    final row = await db.select(db.shellTabs).getSingle();
+    expect(row.number, 3);
+    expect(row.launch, 'tmux:0');
+    expect(row.position, 0);
+    expect(row.ownConnection, isNull);
+    await (db.update(db.shellTabs)..where((t) => t.number.equals(3))).write(
+      const ShellTabsCompanion(ownConnection: Value(true)),
+    );
+    expect((await db.select(db.shellTabs).getSingle()).ownConnection, isTrue);
+    expect(await _userVersion(db), 23);
   });
 }
