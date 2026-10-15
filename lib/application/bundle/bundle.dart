@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/raw_tables.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
 import 'package:upgrade/platform/files/attachment_store.dart';
@@ -277,15 +278,28 @@ class BundleTransfer {
   final Atomically atomically;
 
   Future<Bundle> gather() async {
+    final dumped = await raw.dump();
+    final local = _phoneLinuxHost(dumped);
+    final allHosts = await hosts.all();
+    final kept = [
+      for (final host in allHosts)
+        if (host.id != local) host,
+    ];
+    final usedKeys = {for (final host in kept) host.keyId};
+    final localKeys = {
+      for (final host in allHosts)
+        if (host.id == local && !usedKeys.contains(host.keyId)) host.keyId,
+    };
     final gathered = <BundleKey>[];
     for (final key in await keys.all()) {
+      if (localKeys.contains(key.id)) continue;
       final privateKey = await store.read(key.id);
       if (privateKey == null) continue;
       gathered.add(BundleKey(key: key, privateKey: privateKey));
     }
     final machines = <BundleHost>[];
     final directories = <BundlePath>[];
-    for (final host in await hosts.all()) {
+    for (final host in kept) {
       machines.add(
         BundleHost(
           host: host,
@@ -305,7 +319,18 @@ class BundleTransfer {
         );
       }
     }
-    final rows = await raw.dump();
+    final rows = local == null
+        ? dumped
+        : {
+            for (final table in dumped.entries)
+              table.key: [
+                for (final row in table.value)
+                  if (row['host_id'] != local &&
+                      !(table.key == 'settings' &&
+                          row['key'] == SettingsRepository.phoneLinuxHost))
+                    row,
+              ],
+          };
     return Bundle(
       keys: gathered,
       hosts: machines,
@@ -313,6 +338,16 @@ class BundleTransfer {
       rows: rows,
       files: await _pictures(rows),
     );
+  }
+
+  static String? _phoneLinuxHost(Map<String, List<Map<String, Object?>>> rows) {
+    for (final row in rows['settings'] ?? const <Map<String, Object?>>[]) {
+      if (row['key'] == SettingsRepository.phoneLinuxHost) {
+        final id = row['value'];
+        return id is String && id.isNotEmpty ? id : null;
+      }
+    }
+    return null;
   }
 
   Future<Map<String, Uint8List>> _pictures(

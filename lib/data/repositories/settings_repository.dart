@@ -21,6 +21,8 @@ class SettingsRepository {
 
   static const shellBarLayout = 'shell_bar_layout';
 
+  static const phoneLinuxHost = 'phone_linux_host';
+
   Stream<bool> watchFlag(String key, {required bool orElse}) {
     return (_db.select(_db.settings)..where((s) => s.key.equals(key)))
         .watchSingleOrNull()

@@ -6,6 +6,7 @@ import 'package:upgrade/data/repositories/shell_tab_repository.dart';
 import 'package:upgrade/data/shell_snapshot_store.dart';
 import 'package:upgrade/application/alerts/pin_alerts.dart';
 import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart' show Host;
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:dartssh2/dartssh2.dart' show SSHChannelRequestError;
 import 'package:upgrade/platform/shell/shell_connection.dart';
@@ -299,6 +300,7 @@ class FakeShellTransport {
   final commands = <String?>[];
 
   final reasons = <OpenReason>[];
+  final ports = <int>[];
   final tabSessions = <String?>[];
   final persistentSessions = <String?>[];
   final alone = <bool>[];
@@ -336,6 +338,7 @@ class FakeShellTransport {
     bool alone = false,
   }) async {
     reasons.add(reason);
+    ports.add(port);
     this.alone.add(alone);
     sizes.add([columns, rows]);
     verifiers.add(verifier);
@@ -399,6 +402,7 @@ ShellSessions fakeShellSessions(
   PinNotifier? notifier,
   DateTime Function() now = DateTime.now,
   Future<void> Function(String hostId, HostSystem system)? recordSystem,
+  Future<Host> Function(Host host)? beforeDial,
 }) => ShellSessions(
   readPrivateKey: (_) async => privateKey,
   pinHostKey: pinHostKey ?? (_, _) async {},
@@ -413,4 +417,5 @@ ShellSessions fakeShellSessions(
   notifier: notifier,
   now: now,
   recordSystem: recordSystem,
+  beforeDial: beforeDial,
 );

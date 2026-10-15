@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import 'package:upgrade/application/phone_linux.dart';
 import 'package:upgrade/application/shell/launch_scan.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/components/action_block.dart';
@@ -89,9 +90,21 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
   Future<void> _load() async {
     setState(() => _scan = const LaunchScanLoading());
     final store = ref.read(shellSessionsProvider);
+    final Host host;
+    try {
+      host =
+          await ref.read(phoneLinuxHostProvider)?.ensure(widget.host) ??
+          widget.host;
+    } catch (error) {
+      debugPrint('upgrade.launch ${widget.host.name}: $error');
+      if (mounted) {
+        setState(() => _scan = const LaunchScanFailed('linux did not start'));
+      }
+      return;
+    }
     final scan = await ref.read(launchScannerProvider)(
-      widget.host,
-      verifier: store.verifierFor(widget.host, prompt: _askHostKey),
+      host,
+      verifier: store.verifierFor(host, prompt: _askHostKey),
     );
     if (mounted) setState(() => _scan = scan);
   }

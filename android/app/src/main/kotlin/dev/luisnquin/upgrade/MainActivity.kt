@@ -162,6 +162,11 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
+        MethodChannel(messenger, "dev.luisnquin.upgrade/linux")
+            .setMethodCallHandler { call, result ->
+                PhoneLinux.handle(this, call.method, call.arguments as? Map<*, *>, result)
+            }
+
         val speech = MethodChannel(messenger, "dev.luisnquin.upgrade/speech")
         dictation?.destroy()
         dictation = Dictation(this, speech).also { speech.setMethodCallHandler(it::handle) }
@@ -186,6 +191,18 @@ class MainActivity : FlutterActivity() {
         EventChannel(messenger, "dev.luisnquin.upgrade/device/throttle")
             .setStreamHandler(ThrottleStreamHandler(applicationContext, power))
 
+        EventChannel(messenger, "dev.luisnquin.upgrade/linux/state")
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
+                    PhoneLinux.sink = sink
+                    PhoneLinux.changed(applicationContext)
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    PhoneLinux.sink = null
+                }
+            })
+
         EventChannel(messenger, "dev.luisnquin.upgrade/device/network")
             .setStreamHandler(NetworkStreamHandler(connectivity))
     }
@@ -196,6 +213,7 @@ class MainActivity : FlutterActivity() {
         MethodChannel(messenger, "dev.luisnquin.upgrade/device").setMethodCallHandler(null)
         MethodChannel(messenger, "dev.luisnquin.upgrade/pip").setMethodCallHandler(null)
         MethodChannel(messenger, "dev.luisnquin.upgrade/speech").setMethodCallHandler(null)
+        MethodChannel(messenger, "dev.luisnquin.upgrade/linux").setMethodCallHandler(null)
         shared?.setMethodCallHandler(null)
         shared = null
         SharedInbox.listener = null

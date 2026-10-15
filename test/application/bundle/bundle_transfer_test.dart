@@ -8,6 +8,7 @@ import 'package:upgrade/data/raw_tables.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/platform/files/attachment_store.dart';
 import 'package:upgrade/platform/bundle_cipher.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
@@ -181,6 +182,52 @@ void main() {
     expect(bundle.paths.first.projectId, 'proj-1');
     expect(bundle.paths.last.projectId, isNull);
     expect(Bundle.decode(bundle.encode()).paths.first.projectId, 'proj-1');
+  });
+
+  test('the Linux on the phone stays on the phone', () async {
+    await a.seed();
+    await a.keys.save(_key('k-phone'));
+    await a.store.write('k-phone', 'PEM k-phone');
+    await a.hosts.save(
+      Host(
+        id: 'h-phone',
+        name: 'THIS PHONE',
+        address: '127.0.0.1',
+        port: 26009,
+        user: 'root',
+        keyId: 'k-phone',
+      ),
+    );
+    await a.db
+        .into(a.db.settings)
+        .insert(
+          SettingsCompanion.insert(
+            key: SettingsRepository.phoneLinuxHost,
+            value: 'h-phone',
+          ),
+        );
+    for (final host in ['h1', 'h-phone']) {
+      await a.db
+          .into(a.db.shellTabs)
+          .insert(
+            ShellTabsCompanion.insert(
+              hostId: host,
+              number: 1,
+              active: true,
+              openedAt: DateTime.utc(2026, 9, 5),
+            ),
+          );
+    }
+
+    final bundle = await a.transfer.gather();
+
+    expect(bundle.hosts.map((h) => h.host.id), ['h1']);
+    expect(bundle.keys.map((k) => k.key.id), ['k1', 'k2']);
+    expect(bundle.rows['shell_tabs']!.map((row) => row['host_id']), ['h1']);
+    expect(
+      bundle.rows['settings']!.map((row) => row['key']),
+      isNot(contains(SettingsRepository.phoneLinuxHost)),
+    );
   });
 
   test('gather takes every table the four do not cover', () async {

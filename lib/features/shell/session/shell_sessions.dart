@@ -10,6 +10,7 @@ import 'package:upgrade/application/agents/agent_kind.dart';
 import 'package:upgrade/application/agents/agent_input.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/application/phone_linux.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -606,6 +607,7 @@ class ShellSessions extends ChangeNotifier {
     required this.readPrivateKey,
     required this.pinHostKey,
     this.recordSystem,
+    this.beforeDial,
     this.tabs,
     this.snapshots,
     this.snapshotQuiet = const Duration(seconds: 5),
@@ -646,6 +648,8 @@ class ShellSessions extends ChangeNotifier {
   final Future<void> Function(String hostId, PinnedHostKey key) pinHostKey;
 
   final Future<void> Function(String hostId, HostSystem system)? recordSystem;
+
+  final Future<Host> Function(Host host)? beforeDial;
 
   final _systemAsked = <String>{};
   final _answering = <String>{};
@@ -1733,7 +1737,7 @@ class ShellSessions extends ChangeNotifier {
   }
 
   Future<void> _connect(
-    Host host,
+    Host target,
     ShellSession session, {
     required OpenReason reason,
     HostKeyPrompt? prompt,
@@ -1744,7 +1748,7 @@ class ShellSessions extends ChangeNotifier {
     if (!attempt.isCurrent) return;
     final String? privateKey;
     try {
-      privateKey = await readPrivateKey(host.keyId);
+      privateKey = await readPrivateKey(target.keyId);
     } catch (error) {
       // A key store that cannot answer now (locked, or not yet up after a boot) is not
       // a host that went away, so nothing dials until the user asks again.
@@ -1763,6 +1767,22 @@ class ShellSessions extends ChangeNotifier {
       session.state = const ShellFailed(ShellFailureKind.keyRejected);
       session.changed();
       return;
+    }
+
+    var host = target;
+    final ready = beforeDial;
+    if (ready != null && !reconnected) {
+      try {
+        host = await ready(target);
+      } catch (error) {
+        _fail(
+          session,
+          ShellFailure(ShellFailureKind.unreachable, detail: '$error'),
+          attempt,
+        );
+        return;
+      }
+      if (!attempt.isCurrent) return;
     }
 
     // The size the view has already settled on, when it has: a shell started at the
@@ -2329,6 +2349,7 @@ final shellSessionsProvider = Provider<ShellSessions>((ref) {
     readPrivateKey: ref.watch(ed25519KeysProvider).privateKey,
     pinHostKey: ref.watch(hostRepositoryProvider).pinHostKey,
     recordSystem: ref.watch(hostRepositoryProvider).recordSystem,
+    beforeDial: ref.watch(phoneLinuxHostProvider)?.ensure,
     tabs: ref.watch(shellTabRepositoryProvider),
     snapshots: ref.watch(shellSnapshotStoreProvider),
     notifier: const PinNotifications(),

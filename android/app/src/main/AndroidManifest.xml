@@ -67,6 +67,17 @@
         <receiver
             android:name=".TransferStopReceiver"
             android:exported="false" />
+        <service
+            android:name=".LinuxService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Runs a Linux userland the user installed in the app, so its terminals and the programs started in them keep running while the app is not in front."/>
+        </service>
+        <receiver
+            android:name=".LinuxStopReceiver"
+            android:exported="false" />
         <!-- The plugin declares the service without a type, which an API 34+ device
              refuses to start. The override names it and the subtype Google wants. -->
         <service

@@ -356,6 +356,56 @@ void main() {
     await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
+  testWidgets('the host is readied before the first dial and not on a '
+      'reconnect', (tester) async {
+    final transport = FakeShellTransport();
+    final readied = <String>[];
+    final sessions = fakeShellSessions(
+      transport,
+      beforeDial: (host) async {
+        readied.add(host.id);
+        return Host(
+          id: host.id,
+          name: host.name,
+          address: host.address,
+          port: 26009,
+          user: host.user,
+          keyId: host.keyId,
+        );
+      },
+    );
+    final session = sessions.open(intent: testIntent(), _rose)!;
+    await _pumpDial(tester);
+
+    transport.opened.single.drop();
+    await tester.pump();
+    await tester.pump(shellReconnectDelays.first);
+    await _pumpDial(tester);
+
+    expect(readied, [_rose.id]);
+    expect(transport.ports.first, 26009);
+    expect(session.state, isA<ShellLive>());
+
+    await sessions.close(intent: testIntent(), _rose.id, session);
+  });
+
+  test('a host that could not be readied fails without a dial', () async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(
+      transport,
+      beforeDial: (_) async => throw StateError('sshd exited 255'),
+    );
+
+    final session = sessions.open(intent: testIntent(), _rose)!;
+    await _settle();
+    await _settle();
+
+    final failure = session.state.failure!;
+    expect(failure.kind, ShellFailureKind.unreachable);
+    expect(failure.detail, contains('sshd exited 255'));
+    expect(transport.ports, isEmpty);
+  });
+
   test('bytes flow both ways through the connection', () async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);

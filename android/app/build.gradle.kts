@@ -25,6 +25,16 @@ android {
         versionName = flutter.versionName
     }
 
+    sourceSets["main"].jniLibs.srcDir(
+        System.getenv("PROOT_ANDROID_LIBS")
+            ?: error("PROOT_ANDROID_LIBS is unset; build from the nix dev shell"),
+    )
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     buildTypes {
         release {
             // TODO: a real signing config. Debug keys for now, so `flutter run --release` works.

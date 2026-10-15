@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/application/phone_linux.dart';
 import 'package:upgrade/app/static_surface.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -13,6 +14,7 @@ import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/meta.dart';
 import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/design/components/panel_text_action.dart';
 import 'package:upgrade/design/components/segment_switch.dart';
 import 'package:upgrade/design/components/section.dart';
@@ -25,6 +27,7 @@ import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_key_dial.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/links/link_probe.dart';
+import 'package:upgrade/platform/phone_linux.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/code/code_list.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
@@ -195,6 +198,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
             label: 'ADD HOST',
             onTap: () => openHostForm(context),
           ),
+          const _PhoneLinuxAction(),
         ],
       ],
     );
@@ -372,6 +376,8 @@ class _HostPanel extends ConsumerWidget {
             ),
             _HookRows(key: ValueKey('hooks-${host.id}'), host: host),
           ],
+          if (ref.watch(phoneLinuxHostIdProvider).valueOrNull == host.id)
+            _PhoneLinuxRow(host: host),
           _ClipboardRow(host: host),
           _ShellRow(host: host),
           if (integrations.contains(IntegrationKind.vnc)) ...[
@@ -908,5 +914,186 @@ class _HostActions extends ConsumerWidget {
         const PanelAffordance('DETAILS'),
       ],
     );
+  }
+}
+
+class _PhoneLinuxAction extends ConsumerStatefulWidget {
+  const _PhoneLinuxAction();
+
+  @override
+  ConsumerState<_PhoneLinuxAction> createState() => _PhoneLinuxActionState();
+}
+
+class _PhoneLinuxActionState extends ConsumerState<_PhoneLinuxAction> {
+  bool _starting = false;
+  bool _failed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final linux = ref.watch(phoneLinuxHostProvider);
+    final id = ref.watch(phoneLinuxHostIdProvider);
+    if (linux == null || !id.hasValue || id.value != null) {
+      return const SizedBox.shrink();
+    }
+    return PanelTextAction(
+      label: _starting
+          ? 'PREPARING'
+          : _failed
+          ? 'LINUX ON THIS PHONE · FAILED'
+          : 'LINUX ON THIS PHONE',
+      onTap: _starting ? null : () => unawaited(_install(linux)),
+    );
+  }
+
+  Future<void> _install(PhoneLinuxHost linux) async {
+    final go = await confirmSheet(
+      context,
+      title: 'LINUX ON THIS PHONE',
+      confirmLabel: 'INSTALL',
+      message:
+          'Downloads Ubuntu 24.04 and its ssh server, about 70 MB, and adds '
+          '${PhoneLinuxHost.name} to your hosts. It runs as an app, without root.',
+    );
+    if (!go || !mounted) return;
+    setState(() {
+      _starting = true;
+      _failed = false;
+    });
+    try {
+      await linux.install();
+    } catch (error) {
+      debugPrint('upgrade.linux install: $error');
+      if (mounted) setState(() => _failed = true);
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
+  }
+}
+
+class _PhoneLinuxRow extends ConsumerStatefulWidget {
+  const _PhoneLinuxRow({required this.host});
+
+  final Host host;
+
+  @override
+  ConsumerState<_PhoneLinuxRow> createState() => _PhoneLinuxRowState();
+}
+
+class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
+  String? _busy;
+  String? _failure;
+
+  @override
+  Widget build(BuildContext context) {
+    final state =
+        ref.watch(phoneLinuxStateProvider).valueOrNull ??
+        PhoneLinuxState.absent;
+    final linux = ref.watch(phoneLinuxHostProvider)!;
+    final warning = context.tokens.warning;
+    final busy = _busy;
+    final (String value, Color? color, String? action) = switch (state) {
+      PhoneLinuxState(phase: PhoneLinuxPhase.download, :final percent) => (
+        percent == null ? 'DOWNLOADING' : 'DOWNLOADING $percent%',
+        null,
+        null,
+      ),
+      PhoneLinuxState(phase: PhoneLinuxPhase.unpack) => (
+        'UNPACKING',
+        null,
+        null,
+      ),
+      PhoneLinuxState(phase: PhoneLinuxPhase.setup) => (
+        'INSTALLING SSH',
+        null,
+        null,
+      ),
+      PhoneLinuxState(installed: false, phase: PhoneLinuxPhase.failed) => (
+        state.error ?? 'failed',
+        warning,
+        'RETRY',
+      ),
+      PhoneLinuxState(installed: false) => ('NOT INSTALLED', null, 'INSTALL'),
+      PhoneLinuxState(running: true) => ('RUNNING', null, 'STOP'),
+      _ => ('STOPPED', null, 'START'),
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MetaRow(
+          'LINUX',
+          _failure ?? value,
+          strong: state.running,
+          color: _failure == null ? color : warning,
+          trailing: action == null
+              ? null
+              : PanelAffordance(
+                  busy ?? action,
+                  showIcon: false,
+                  onTap: busy == null ? () => _act(linux, action) : null,
+                ),
+        ),
+        if (state.installed && !state.installing)
+          _MetaRow(
+            'SYSTEM',
+            'UBUNTU 24.04',
+            trailing: PanelAffordance(
+              busy == 'REMOVING' ? busy! : 'REMOVE',
+              showIcon: false,
+              color: warning,
+              onTap: busy == null ? () => _remove(linux) : null,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _act(PhoneLinuxHost linux, String action) async {
+    setState(() {
+      _failure = null;
+      _busy = switch (action) {
+        'STOP' => 'STOPPING',
+        'START' => 'STARTING',
+        _ => 'PREPARING',
+      };
+    });
+    try {
+      switch (action) {
+        case 'STOP':
+          await linux.stop();
+        case 'START':
+          await linux.ensure(widget.host);
+        default:
+          await linux.install();
+      }
+    } catch (error) {
+      debugPrint('upgrade.linux $action: $error');
+      if (mounted) setState(() => _failure = '${action.toLowerCase()} failed');
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
+  }
+
+  Future<void> _remove(PhoneLinuxHost linux) async {
+    final go = await confirmSheet(
+      context,
+      title: 'REMOVE LINUX',
+      confirmLabel: 'REMOVE',
+      message:
+          'Deletes the system with every file in it, and the '
+          '${PhoneLinuxHost.name} host.',
+    );
+    if (!go || !mounted) return;
+    setState(() {
+      _failure = null;
+      _busy = 'REMOVING';
+    });
+    try {
+      await linux.remove();
+    } catch (error) {
+      debugPrint('upgrade.linux remove: $error');
+      if (mounted) setState(() => _failure = 'remove failed');
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
   }
 }
