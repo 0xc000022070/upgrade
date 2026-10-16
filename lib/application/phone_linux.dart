@@ -27,7 +27,7 @@ class PhoneLinuxHost {
   }) : _random = random ?? Random.secure(),
        _now = now ?? DateTime.now;
 
-  static const name = 'THIS PHONE';
+  static const defaultName = 'PHONE';
   static const address = '127.0.0.1';
 
   final PhoneLinux platform;
@@ -52,7 +52,13 @@ class PhoneLinuxHost {
   }
 
   Future<void> install(PhoneLinuxSetup setup) async {
-    final host = await this.host() ?? await _create();
+    final name = setup.name?.trim();
+    final named = name == null || name.isEmpty ? null : name;
+    final known = await this.host();
+    final host = known ?? await _create(named ?? defaultName);
+    if (known != null && named != null && named != known.name) {
+      await hosts.save(_copy(known, name: named));
+    }
     await hosts.recordSystem(host.id, setup.distro.system);
     await platform.install(publicKey: await _publicKey(host), setup: setup);
   }
@@ -83,7 +89,7 @@ class PhoneLinuxHost {
     await secrets.delete(host.keyId);
   }
 
-  Future<Host> _create() async {
+  Future<Host> _create(String name) async {
     final keyId = const Uuid().v4();
     final generated = await secrets.generate(id: keyId, name: 'upgrade-phone');
     await keys.save(
@@ -130,19 +136,21 @@ class PhoneLinuxHost {
       pinnedAt: _now(),
     );
     await hosts.pinHostKey(host.id, key);
-    return Host(
-      id: host.id,
-      name: host.name,
-      address: host.address,
-      port: host.port,
-      user: host.user,
-      keyId: host.keyId,
-      hostKey: key,
-      vncUsername: host.vncUsername,
-      vncPassword: host.vncPassword,
-      system: host.system,
-    );
+    return _copy(host, hostKey: key);
   }
+
+  Host _copy(Host host, {String? name, PinnedHostKey? hostKey}) => Host(
+    id: host.id,
+    name: name ?? host.name,
+    address: host.address,
+    port: host.port,
+    user: host.user,
+    keyId: host.keyId,
+    hostKey: hostKey ?? host.hostKey,
+    vncUsername: host.vncUsername,
+    vncPassword: host.vncPassword,
+    system: host.system,
+  );
 }
 
 HostKeyOffer hostKeyOffer(String line) {

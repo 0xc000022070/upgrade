@@ -285,6 +285,7 @@ class _ShellHeaderState extends State<ShellHeader> {
               key: ValueKey('shell-group-label-${group.id}'),
               name: group.name,
               system: group.system,
+              hostId: group.id,
               front: front,
               hidden: sessions.length - shown.length,
               onTap: () => widget.onFold(group),

@@ -85,14 +85,14 @@ enum class Distro(
     }
 }
 
-data class Setup(val distro: Distro, val nix: Boolean, val homeManager: Boolean) {
-    val mark get() = listOfNotNull(distro.id, "nix".takeIf { nix }, "home-manager".takeIf { homeManager })
+data class Setup(val distro: Distro, val nix: Boolean) {
+    val mark get() = listOfNotNull(distro.id, "nix".takeIf { nix })
         .joinToString("") { "$it\n" }
 
     companion object {
         fun read(mark: List<String>): Setup {
             val words = mark.map { it.trim() }
-            return Setup(Distro.of(words.firstOrNull()) ?: Distro.UBUNTU, "nix" in words, "home-manager" in words)
+            return Setup(Distro.of(words.firstOrNull()) ?: Distro.UBUNTU, "nix" in words)
         }
     }
 }
@@ -121,12 +121,6 @@ private object Nix {
         printf 'ref: refs/heads/master\n' > ${'$'}cache/HEAD
         printf '[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = true\n' > ${'$'}cache/config
     """.trimIndent()
-
-    val HOME_MANAGER = """
-        set -eu
-        . /root/.nix-profile/etc/profile.d/nix.sh
-        nix run home-manager/master -- init --switch
-    """.trimIndent()
 }
 
 object PhoneLinux {
@@ -134,7 +128,7 @@ object PhoneLinux {
     private const val READY_MARK = ".upgrade-ready"
     private const val SSHD_CONFIG = "/etc/ssh/upgrade_sshd_config"
     private const val AUTHORIZED = "/etc/ssh/upgrade_authorized_keys"
-    private val BUSY = setOf("download", "unpack", "setup", "nix", "homeManager")
+    private val BUSY = setOf("download", "unpack", "setup", "nix")
 
     private val SSHD = """
         for gid in ${'$'}(id -G); do
@@ -190,8 +184,7 @@ object PhoneLinux {
                 val distro = Distro.of(args?.get("distro") as? String)
                 if (key == null || distro == null) return result.error("args", "publicKey and distro required", null)
                 if (phase in BUSY) return result.success(state(app))
-                val homeManager = args?.get("homeManager") == true
-                val setup = Setup(distro, homeManager || args?.get("nix") == true, homeManager)
+                val setup = Setup(distro, args?.get("nix") == true)
                 installing = setup
                 phase = "download"
                 percent = 0
@@ -262,7 +255,6 @@ object PhoneLinux {
         "hostKey" to (hostKey ?: readHostKey(context)),
         "distro" to setup(context)?.distro?.id,
         "nix" to (setup(context)?.nix == true),
-        "homeManager" to (setup(context)?.homeManager == true),
     )
 
     private fun readHostKey(context: Context): String? {
@@ -313,11 +305,6 @@ object PhoneLinux {
             changed(context)
             nix.inputStream().use { TarUnpacker(File(root, Nix.UNPACKED), 1).unpack(XZInputStream(BufferedInputStream(it, 1 shl 16))) }
             step(context, root, "nix", Nix.INSTALL, 20)
-        }
-        if (setup.homeManager) {
-            phase = "homeManager"
-            changed(context)
-            step(context, root, "home manager", Nix.HOME_MANAGER, 60)
         }
         writeSshd(root, publicKey)
         File(root, READY_MARK).writeText(setup.mark)

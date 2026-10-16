@@ -253,7 +253,12 @@ class _NewShellBar extends StatelessWidget {
                 : menu.open(position: details.localPosition),
       child: Row(
         children: [
-          HostMark(host.system, size: IconSizes.glyph, color: ink),
+          HostMark(
+            host.system,
+            hostId: host.id,
+            size: IconSizes.glyph,
+            color: ink,
+          ),
           const SizedBox(width: Spacing.md),
           Expanded(
             child: Text(
@@ -466,7 +471,12 @@ class _GroupCell extends StatelessWidget {
       key: ValueKey('parked-shell-host-${group.host.id}'),
       mainAxisSize: MainAxisSize.min,
       children: [
-        HostMark(group.host.system, size: IconSizes.glyph, color: ink),
+        HostMark(
+          group.host.system,
+          hostId: group.host.id,
+          size: IconSizes.glyph,
+          color: ink,
+        ),
         const SizedBox(width: Spacing.md),
         Flexible(
           child: ConstrainedBox(

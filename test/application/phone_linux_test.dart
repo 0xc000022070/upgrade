@@ -93,11 +93,11 @@ void main() {
   test('the install makes one host and one key, and reuses them', () async {
     await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.arch));
     await linux.install(
-      const PhoneLinuxSetup(PhoneLinuxDistro.alpine, homeManager: true),
+      const PhoneLinuxSetup(PhoneLinuxDistro.alpine, nix: true),
     );
 
     final host = (await hosts.all()).single;
-    expect(host.name, 'THIS PHONE');
+    expect(host.name, 'PHONE');
     expect(host.address, '127.0.0.1');
     expect(host.user, 'root');
     expect(host.port, inInclusiveRange(20000, 39999));
@@ -107,16 +107,11 @@ void main() {
     expect(await store.read(key.id), isNotNull);
     expect(
       platform.installs.map(
-        (install) => (
-          install.$1,
-          install.$2.distro,
-          install.$2.nix,
-          install.$2.homeManager,
-        ),
+        (install) => (install.$1, install.$2.distro, install.$2.nix),
       ),
       [
-        (key.publicKey, PhoneLinuxDistro.arch, false, false),
-        (key.publicKey, PhoneLinuxDistro.alpine, true, true),
+        (key.publicKey, PhoneLinuxDistro.arch, false),
+        (key.publicKey, PhoneLinuxDistro.alpine, true),
       ],
     );
     expect((await linux.host())?.id, host.id);
@@ -213,23 +208,33 @@ void main() {
     expect(PhoneLinuxState.from({'distro': 'gentoo'}).setup, isNull);
   });
 
+  test(
+    'the name typed at install names the host, and a retry keeps it',
+    () async {
+      await linux.install(
+        const PhoneLinuxSetup(PhoneLinuxDistro.alpine, name: ' PIXEL '),
+      );
+      expect((await hosts.all()).single.name, 'PIXEL');
+      expect((await keys.all()).single.name, 'PIXEL');
+
+      await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.alpine));
+      expect((await hosts.all()).single.name, 'PIXEL');
+
+      await linux.install(
+        const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu, name: 'P7'),
+      );
+      final host = (await hosts.all()).single;
+      expect(host.name, 'P7');
+      expect(host.system, HostSystem.ubuntu);
+    },
+  );
+
   test('the system carries its nix choice back for a retry', () {
-    final setup = PhoneLinuxState.from({
-      'distro': 'alpine',
-      'nix': true,
-      'homeManager': true,
-    }).setup!;
+    final setup = PhoneLinuxState.from({'distro': 'alpine', 'nix': true})
+        .setup!;
 
     expect(setup.distro, PhoneLinuxDistro.alpine);
     expect(setup.nix, isTrue);
-    expect(setup.homeManager, isTrue);
-  });
-
-  test('home manager brings nix with it', () {
-    expect(
-      const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu, homeManager: true).nix,
-      isTrue,
-    );
   });
 
   test('a line that is not a key is refused', () {

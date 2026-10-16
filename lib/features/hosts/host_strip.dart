@@ -15,6 +15,7 @@ class HostGroupCell extends StatelessWidget {
     super.key,
     required this.name,
     required this.system,
+    this.hostId,
     required this.front,
     required this.onTap,
     this.hidden = 0,
@@ -23,6 +24,7 @@ class HostGroupCell extends StatelessWidget {
 
   final String name;
   final HostSystem? system;
+  final String? hostId;
   final bool front;
   final int hidden;
   final VoidCallback onTap;
@@ -61,7 +63,12 @@ class HostGroupCell extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                HostMark(system, size: IconSizes.affordance, color: ink),
+                HostMark(
+                  system,
+                  hostId: hostId,
+                  size: IconSizes.affordance,
+                  color: ink,
+                ),
                 const SizedBox(width: Spacing.xs),
                 ConstrainedBox(
                   constraints: const BoxConstraints(

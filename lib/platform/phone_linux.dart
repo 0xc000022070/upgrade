@@ -2,16 +2,7 @@ import 'package:flutter/services.dart';
 
 import 'package:upgrade/data/enums.dart';
 
-enum PhoneLinuxPhase {
-  idle,
-  download,
-  unpack,
-  setup,
-  nix,
-  homeManager,
-  ready,
-  failed,
-}
+enum PhoneLinuxPhase { idle, download, unpack, setup, nix, ready, failed }
 
 enum PhoneLinuxDistro {
   ubuntu(HostSystem.ubuntu, 'UBUNTU 24.04', 'apt · about 70 MB to download'),
@@ -37,15 +28,13 @@ enum PhoneLinuxDistro {
 }
 
 class PhoneLinuxSetup {
-  const PhoneLinuxSetup(
-    this.distro, {
-    bool nix = false,
-    this.homeManager = false,
-  }) : nix = nix || homeManager;
+  const PhoneLinuxSetup(this.distro, {this.nix = false, this.name});
 
   final PhoneLinuxDistro distro;
   final bool nix;
-  final bool homeManager;
+
+  /// The host's name; a retry carries none and keeps the one it has.
+  final String? name;
 }
 
 class PhoneLinuxState {
@@ -58,7 +47,6 @@ class PhoneLinuxState {
     this.hostKey,
     this.distro,
     this.nix = false,
-    this.homeManager = false,
   });
 
   static const absent = PhoneLinuxState(
@@ -79,21 +67,17 @@ class PhoneLinuxState {
 
   final PhoneLinuxDistro? distro;
   final bool nix;
-  final bool homeManager;
 
   PhoneLinuxSetup? get setup {
     final distro = this.distro;
-    return distro == null
-        ? null
-        : PhoneLinuxSetup(distro, nix: nix, homeManager: homeManager);
+    return distro == null ? null : PhoneLinuxSetup(distro, nix: nix);
   }
 
   bool get installing =>
       phase == PhoneLinuxPhase.download ||
       phase == PhoneLinuxPhase.unpack ||
       phase == PhoneLinuxPhase.setup ||
-      phase == PhoneLinuxPhase.nix ||
-      phase == PhoneLinuxPhase.homeManager;
+      phase == PhoneLinuxPhase.nix;
 
   factory PhoneLinuxState.from(Map<Object?, Object?> raw) {
     final percent = raw['percent'] as int? ?? -1;
@@ -109,7 +93,6 @@ class PhoneLinuxState {
       hostKey: raw['hostKey'] as String?,
       distro: PhoneLinuxDistro.of(raw['distro']),
       nix: raw['nix'] == true,
-      homeManager: raw['homeManager'] == true,
     );
   }
 }
@@ -133,7 +116,6 @@ class PhoneLinux {
     'publicKey': publicKey,
     'distro': setup.distro.name,
     'nix': setup.nix,
-    'homeManager': setup.homeManager,
   });
 
   Future<PhoneLinuxState> start({

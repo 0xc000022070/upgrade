@@ -1178,7 +1178,12 @@ class _HostRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            HostMark(host.system, size: IconSizes.affordance, color: ink),
+            HostMark(
+              host.system,
+              hostId: host.id,
+              size: IconSizes.affordance,
+              color: ink,
+            ),
             const SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(

@@ -17,6 +17,7 @@ import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/meta.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
 import 'package:upgrade/design/components/panel_text_action.dart';
 import 'package:upgrade/design/components/segment_switch.dart';
 import 'package:upgrade/design/components/section.dart';
@@ -235,7 +236,7 @@ class _HostSummary extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  HostMark(host.system),
+                  HostMark(host.system, hostId: host.id),
                   const SizedBox(width: Spacing.sm),
                   Expanded(
                     child: Text(
@@ -333,7 +334,7 @@ class _HostPanel extends ConsumerWidget {
         .toList();
     return Panel(
       title: host.name,
-      leading: HostMark(host.system),
+      leading: HostMark(host.system, hostId: host.id),
       onHeaderLongPress: () => showHostFiles(context, host),
       affordance: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1032,11 +1033,6 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
         null,
         null,
       ),
-      PhoneLinuxState(phase: PhoneLinuxPhase.homeManager) => (
-        'INSTALLING HOME MANAGER',
-        null,
-        null,
-      ),
       PhoneLinuxState(installed: false, phase: PhoneLinuxPhase.failed) => (
         state.error ?? 'failed',
         warning,
@@ -1101,10 +1097,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
             ),
           ),
         if (widget.system && state.installed && !state.installing && state.nix)
-          _MetaRow(
-            'NIX',
-            state.homeManager ? 'WITH HOME MANAGER' : 'INSTALLED',
-          ),
+          const _MetaRow('NIX', 'INSTALLED'),
       ],
     );
   }
@@ -1155,7 +1148,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
       confirmLabel: 'REMOVE',
       message:
           'Deletes the system with every file in it, and the '
-          '${PhoneLinuxHost.name} host.',
+          '${widget.host.name} host.',
     );
     if (!go || !mounted) return;
     setState(() {
@@ -1190,7 +1183,13 @@ class _PhoneLinuxPicker extends StatefulWidget {
 class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
   var _distro = PhoneLinuxDistro.ubuntu;
   var _nix = false;
-  var _homeManager = false;
+  final _name = TextEditingController(text: PhoneLinuxHost.defaultName);
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1217,13 +1216,8 @@ class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
                 label: 'INSTALL',
                 tone: tokens.accent,
                 filled: true,
-                onTap: () => Navigator.of(context).pop(
-                  PhoneLinuxSetup(
-                    _distro,
-                    nix: _nix,
-                    homeManager: _nix && _homeManager,
-                  ),
-                ),
+                onTap: () => Navigator.of(context)
+                    .pop(PhoneLinuxSetup(_distro, nix: _nix, name: _name.text)),
               ),
             ),
           ],
@@ -1231,16 +1225,28 @@ class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
       ],
       children: [
         Text(
-          'Adds ${PhoneLinuxHost.name} to your hosts. '
-          'It runs as an app, without root.',
+          'Adds this phone to your hosts. It runs as an app, without root.',
           style: tokens.prose,
+        ),
+        const SizedBox(height: Spacing.md),
+        SheetField(
+          label: 'NAME',
+          child: UpgradeField(
+            key: const ValueKey('phone-linux-name'),
+            controller: _name,
+            hint: PhoneLinuxHost.defaultName,
+          ),
         ),
         const SizedBox(height: Spacing.md),
         ListRowGroup(
           children: [
             for (final distro in PhoneLinuxDistro.values)
               ListRow(
-                leading: HostMark(distro.system, size: IconSizes.glyph),
+                leading: HostMark(
+                  distro.system,
+                  phone: true,
+                  size: IconSizes.glyph,
+                ),
                 title: distro.label,
                 subtitle: distro.detail,
                 subtitleMaxLines: 2,
@@ -1266,19 +1272,6 @@ class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
               subtitleMaxLines: 2,
               onTap: () => setState(() => _nix = !_nix),
             ),
-            if (_nix)
-              Padding(
-                padding: const EdgeInsets.only(
-                  left: IconSizes.glyph + Spacing.md,
-                ),
-                child: ListRow(
-                  leading: box(_homeManager),
-                  title: 'HOME MANAGER',
-                  subtitle: 'Your home as a flake · about 2.4 GB in the store',
-                  subtitleMaxLines: 2,
-                  onTap: () => setState(() => _homeManager = !_homeManager),
-                ),
-              ),
           ],
         ),
       ],
