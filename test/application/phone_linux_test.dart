@@ -20,6 +20,7 @@ class _Platform implements PhoneLinux {
   final stops = <String>[];
   final removes = <String>[];
   final adopted = <String>[];
+  final added = <(String, Set<PhoneLinuxTool>)>[];
   String? hostKey = _hostKey;
 
   PhoneLinuxState get _ready => PhoneLinuxState(
@@ -55,6 +56,12 @@ class _Platform implements PhoneLinux {
     required int port,
   }) async {
     starts.add((id, publicKey, port));
+    return _ready;
+  }
+
+  @override
+  Future<PhoneLinuxState> addTools(String id, Set<PhoneLinuxTool> tools) async {
+    added.add((id, tools));
     return _ready;
   }
 
@@ -285,6 +292,57 @@ void main() {
 
     expect(setup.distro, PhoneLinuxDistro.alpine);
     expect(setup.nix, isTrue);
+  });
+
+  test('tools ride the install and are added to their own system', () async {
+    final one = await linux.install(
+      const PhoneLinuxSetup(
+        PhoneLinuxDistro.alpine,
+        tools: {PhoneLinuxTool.tmux, PhoneLinuxTool.claude},
+      ),
+    );
+    final two = await linux.install(
+      const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu),
+    );
+
+    await linux.addTools(two, {PhoneLinuxTool.cursor});
+
+    expect(platform.installs.first.$3.tools, {
+      PhoneLinuxTool.tmux,
+      PhoneLinuxTool.claude,
+    });
+    expect(platform.installs.last.$3.tools, isEmpty);
+    final (id, tools) = platform.added.single;
+    expect(id, two.id);
+    expect(id, isNot(one.id));
+    expect(tools, {PhoneLinuxTool.cursor});
+  });
+
+  test(
+    'the system reads back its tools, the one installing, and what failed',
+    () {
+      final state = PhoneLinuxState.from({
+        'installed': true,
+        'distro': 'ubuntu',
+        'tools': ['tmux', 'emacs', 'codex'],
+        'tool': 'herdr',
+        'pending': ['herdr', 'opencode'],
+        'toolsError': 'herdr exited 1',
+      });
+
+      expect(state.tools, {PhoneLinuxTool.tmux, PhoneLinuxTool.codex});
+      expect(state.tool, PhoneLinuxTool.herdr);
+      expect(state.pending, {PhoneLinuxTool.herdr, PhoneLinuxTool.opencode});
+      expect(state.toolsError, 'herdr exited 1');
+      expect(state.setup!.tools, state.tools);
+      expect(PhoneLinuxState.from({'tool': null}).tool, isNull);
+    },
+  );
+
+  test('a glibc tool does not fit alpine', () {
+    expect(PhoneLinuxTool.cursor.fits(PhoneLinuxDistro.alpine), isFalse);
+    expect(PhoneLinuxTool.cursor.fits(PhoneLinuxDistro.ubuntu), isTrue);
+    expect(PhoneLinuxTool.claude.fits(PhoneLinuxDistro.alpine), isTrue);
   });
 
   test('a line that is not a key is refused', () {

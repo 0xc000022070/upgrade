@@ -84,6 +84,11 @@ class PhoneLinuxHost {
     return _pinned(host, state);
   }
 
+  Future<void> addTools(Host host, Set<PhoneLinuxTool> tools) async {
+    await _adopted;
+    await platform.addTools(host.id, tools);
+  }
+
   Future<void> stop(Host host) async {
     await _adopted;
     await platform.stop(host.id);

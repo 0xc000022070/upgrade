@@ -85,14 +85,77 @@ enum class Distro(
     }
 }
 
-data class Setup(val distro: Distro, val nix: Boolean) {
-    val mark get() = listOfNotNull(distro.id, "nix".takeIf { nix })
+enum class Tool(val id: String, private val script: String, val glibc: Boolean = false) {
+    TMUX("tmux", ""),
+    HERDR("herdr", fetch("https://herdr.dev/install.sh", "sh") + link("/root/.local/bin/herdr")),
+    CLAUDE(
+        "claude",
+        fetch("https://claude.ai/install.sh", "bash") + link("/root/.local/bin/claude"),
+    ),
+    CODEX("codex", fetch("https://chatgpt.com/codex/install.sh", "sh") + link("/root/.local/bin/codex")),
+    CURSOR(
+        "cursor",
+        fetch("https://cursor.com/install", "bash") +
+            link("/root/.local/bin/cursor-agent") + link("/root/.local/bin/agent"),
+        glibc = true,
+    ),
+    OPENCODE(
+        "opencode",
+        fetch("https://opencode.ai/install", "bash", "--no-modify-path") + link("/root/.opencode/bin/opencode"),
+    );
+
+    fun fits(distro: Distro) = !glibc || distro != Distro.ALPINE
+
+    private fun packaged(distro: Distro) = this == TMUX || this == OPENCODE && distro == Distro.ARCH
+
+    fun script(distro: Distro): String {
+        if (packaged(distro)) {
+            return "set -eu\n" + when (distro) {
+                Distro.UBUNTU -> "export DEBIAN_FRONTEND=noninteractive\n" +
+                    "apt-get -o APT::Sandbox::User=root update\n" +
+                    "apt-get -o APT::Sandbox::User=root install -y --no-install-recommends $id"
+                Distro.ARCH -> "pacman -Sy --needed --noconfirm $id"
+                Distro.ALPINE -> "apk -U add $id"
+            }
+        }
+        val needs = when (distro) {
+            Distro.UBUNTU -> "export DEBIAN_FRONTEND=noninteractive\n" +
+                "command -v curl >/dev/null || { apt-get -o APT::Sandbox::User=root update && " +
+                "apt-get -o APT::Sandbox::User=root install -y --no-install-recommends curl ca-certificates; }"
+            Distro.ARCH -> "command -v curl >/dev/null || pacman -Sy --needed --noconfirm curl"
+            Distro.ALPINE -> "apk -U add bash curl libgcc libstdc++" + if (this == CLAUDE) " ripgrep" else ""
+        }
+        val musl = if (this == CLAUDE && distro == Distro.ALPINE) {
+            "\ntest -e /root/.claude/settings.json || { mkdir -p /root/.claude; " +
+                "printf '{\"env\": {\"USE_BUILTIN_RIPGREP\": \"0\"}}\\n' > /root/.claude/settings.json; }"
+        } else {
+            ""
+        }
+        return "set -eu\n$needs\n$script$musl"
+    }
+
+    companion object {
+        fun of(id: String?) = entries.firstOrNull { it.id == id }
+    }
+}
+
+private fun fetch(url: String, shell: String, vararg args: String) =
+    "curl -fsSL $url -o /tmp/upgrade-install\n$shell /tmp/upgrade-install ${args.joinToString(" ")}\nrm -f /tmp/upgrade-install\n"
+
+private fun link(path: String) = "ln -sf $path /usr/local/bin/${path.substringAfterLast('/')}\n"
+
+data class Setup(val distro: Distro, val nix: Boolean, val tools: Set<Tool> = emptySet()) {
+    val mark get() = (listOfNotNull(distro.id, "nix".takeIf { nix }) + Tool.entries.filter { it in tools }.map { it.id })
         .joinToString("") { "$it\n" }
 
     companion object {
         fun read(mark: List<String>): Setup {
             val words = mark.map { it.trim() }
-            return Setup(Distro.of(words.firstOrNull()) ?: Distro.UBUNTU, "nix" in words)
+            return Setup(
+                Distro.of(words.firstOrNull()) ?: Distro.UBUNTU,
+                "nix" in words,
+                words.mapNotNull { Tool.of(it) }.toSet(),
+            )
         }
     }
 }
@@ -131,6 +194,10 @@ private class LinuxSystem(val id: String, val dir: File) {
     @Volatile var installing: Setup? = null
     @Volatile var sshd: Process? = null
     @Volatile var port = 0
+    @Volatile var adding = false
+    @Volatile var tool: Tool? = null
+    @Volatile var pending = emptySet<Tool>()
+    @Volatile var toolsError: String? = null
 
     val rootfs get() = File(dir, "rootfs")
     val fakes get() = File(dir, "proc")
@@ -198,7 +265,7 @@ object PhoneLinux {
 
     fun running() = systems.values.count { it.running }
 
-    private fun busy() = systems.values.any { it.busy }
+    private fun busy() = systems.values.any { it.busy || it.adding }
 
     private fun settle(context: Context) {
         if (running() == 0 && !busy()) LinuxService.stop(context) else LinuxService.refresh(context)
@@ -223,8 +290,8 @@ object PhoneLinux {
                 val distro = Distro.of(args?.get("distro") as? String)
                 if (key == null || distro == null) return result.error("args", "publicKey and distro required", null)
                 val system = system(app, id)
-                if (system.busy) return result.success(state(system))
-                val setup = Setup(distro, args?.get("nix") == true)
+                if (system.busy || system.adding) return result.success(state(system))
+                val setup = Setup(distro, args?.get("nix") == true, tools(args))
                 system.installing = setup
                 system.phase = "download"
                 system.percent = 0
@@ -235,6 +302,7 @@ object PhoneLinux {
                     try {
                         synchronized(system) { install(app, system, key, setup) }
                         system.phase = "ready"
+                        if (setup.tools.isNotEmpty()) add(app, system, setup.tools)
                     } catch (failure: Exception) {
                         Log.e(TAG, "install", failure)
                         system.error = failure.message ?: failure.toString()
@@ -267,6 +335,12 @@ object PhoneLinux {
                         if (outcome == null) result.success(state(system)) else result.error("start", outcome, null)
                     }
                 }
+            }
+            "tools" -> {
+                val system = system(app, id)
+                if (!system.installed || system.busy || system.adding) return result.success(state(system))
+                add(app, system, tools(args))
+                result.success(state(system))
             }
             "stop" -> {
                 val system = system(app, id)
@@ -312,7 +386,43 @@ object PhoneLinux {
             "hostKey" to (system.hostKey ?: readHostKey(system)),
             "distro" to setup?.distro?.id,
             "nix" to (setup?.nix == true),
+            "tools" to Tool.entries.filter { it in setup?.tools.orEmpty() }.map { it.id },
+            "tool" to system.tool?.id,
+            "pending" to Tool.entries.filter { it in system.pending }.map { it.id },
+            "toolsError" to system.toolsError,
         )
+    }
+
+    private fun tools(args: Map<*, *>?) =
+        (args?.get("tools") as? List<*>).orEmpty().mapNotNull { Tool.of(it as? String) }.toSet()
+
+    private fun add(context: Context, system: LinuxSystem, tools: Set<Tool>) {
+        system.adding = true
+        system.pending = tools
+        system.toolsError = null
+        changed(context)
+        LinuxService.foreground(context)
+        jobs.execute {
+            try {
+                for (tool in Tool.entries.filter { it in tools }) {
+                    val setup = system.setup ?: throw IllegalStateException("Linux is not installed")
+                    if (tool in setup.tools || !tool.fits(setup.distro)) continue
+                    system.tool = tool
+                    changed(context)
+                    step(context, system, tool.id, tool.script(setup.distro), 20)
+                    File(system.rootfs, READY_MARK).writeText(setup.copy(tools = setup.tools + tool).mark)
+                }
+                system.pending = emptySet()
+            } catch (failure: Exception) {
+                Log.e(TAG, "tools", failure)
+                system.toolsError = failure.message ?: failure.toString()
+            } finally {
+                system.tool = null
+                system.adding = false
+                settle(context)
+                changed(context)
+            }
+        }
     }
 
     private fun readHostKey(system: LinuxSystem): String? {
@@ -365,7 +475,7 @@ object PhoneLinux {
             step(context, system, "nix", Nix.INSTALL, 20)
         }
         writeSshd(root, publicKey)
-        File(root, READY_MARK).writeText(setup.mark)
+        File(root, READY_MARK).writeText(setup.copy(tools = emptySet()).mark)
         archive.delete()
         nix.delete()
         system.hostKey = readHostKey(system)

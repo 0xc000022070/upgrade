@@ -27,11 +27,42 @@ enum PhoneLinuxDistro {
       values.where((distro) => distro.name == id).firstOrNull;
 }
 
+enum PhoneLinuxTool {
+  tmux('TMUX', 'The terminal multiplexer · about 1 MB'),
+  herdr('HERDR', 'The agent multiplexer · about 27 MB'),
+  claude('CLAUDE CODE', "Anthropic's coding agent · about 250 MB"),
+  codex('CODEX', "OpenAI's coding agent · about 370 MB"),
+  cursor('CURSOR AGENT', "Cursor's coding agent · about 550 MB", glibc: true),
+  opencode('OPENCODE', 'The open coding agent · about 190 MB');
+
+  const PhoneLinuxTool(this.label, this.detail, {this.glibc = false});
+
+  final String label;
+  final String detail;
+
+  /// Ships a binary built against glibc, which Alpine's musl cannot load.
+  final bool glibc;
+
+  bool fits(PhoneLinuxDistro distro) =>
+      !glibc || distro != PhoneLinuxDistro.alpine;
+
+  static Set<PhoneLinuxTool> parse(Object? raw) => {
+    for (final id in raw as List<Object?>? ?? const [])
+      ...values.where((tool) => tool.name == id),
+  };
+}
+
 class PhoneLinuxSetup {
-  const PhoneLinuxSetup(this.distro, {this.nix = false, this.name});
+  const PhoneLinuxSetup(
+    this.distro, {
+    this.nix = false,
+    this.tools = const {},
+    this.name,
+  });
 
   final PhoneLinuxDistro distro;
   final bool nix;
+  final Set<PhoneLinuxTool> tools;
 
   /// The host's name; a retry carries none and keeps the one it has.
   final String? name;
@@ -47,6 +78,10 @@ class PhoneLinuxState {
     this.hostKey,
     this.distro,
     this.nix = false,
+    this.tools = const {},
+    this.tool,
+    this.pending = const {},
+    this.toolsError,
   });
 
   static const absent = PhoneLinuxState(
@@ -68,9 +103,19 @@ class PhoneLinuxState {
   final PhoneLinuxDistro? distro;
   final bool nix;
 
+  final Set<PhoneLinuxTool> tools;
+
+  final PhoneLinuxTool? tool;
+
+  final Set<PhoneLinuxTool> pending;
+
+  final String? toolsError;
+
   PhoneLinuxSetup? get setup {
     final distro = this.distro;
-    return distro == null ? null : PhoneLinuxSetup(distro, nix: nix);
+    return distro == null
+        ? null
+        : PhoneLinuxSetup(distro, nix: nix, tools: tools);
   }
 
   bool get installing =>
@@ -93,6 +138,10 @@ class PhoneLinuxState {
       hostKey: raw['hostKey'] as String?,
       distro: PhoneLinuxDistro.of(raw['distro']),
       nix: raw['nix'] == true,
+      tools: PhoneLinuxTool.parse(raw['tools']),
+      tool: PhoneLinuxTool.parse([raw['tool']]).firstOrNull,
+      pending: PhoneLinuxTool.parse(raw['pending']),
+      toolsError: raw['toolsError'] as String?,
     );
   }
 }
@@ -123,7 +172,14 @@ class PhoneLinux {
     'publicKey': publicKey,
     'distro': setup.distro.name,
     'nix': setup.nix,
+    'tools': [for (final tool in setup.tools) tool.name],
   });
+
+  Future<PhoneLinuxState> addTools(String id, Set<PhoneLinuxTool> tools) =>
+      _call('tools', {
+        'id': id,
+        'tools': [for (final tool in tools) tool.name],
+      });
 
   Future<PhoneLinuxState> start(
     String id, {
