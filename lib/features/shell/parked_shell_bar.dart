@@ -159,13 +159,15 @@ class _Frame extends StatelessWidget {
   const _Frame({
     required this.barKey,
     required this.semantics,
-    required this.onTap,
+    this.onTap,
+    this.onTapUp,
     required this.child,
   });
 
   final Key barKey;
   final String semantics;
-  final GestureTapCallback onTap;
+  final GestureTapCallback? onTap;
+  final GestureTapUpCallback? onTapUp;
   final Widget child;
 
   @override
@@ -176,6 +178,7 @@ class _Frame extends StatelessWidget {
       key: barKey,
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
+      onTapUp: onTapUp,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: context.tokens.surfacePrimary,
@@ -240,9 +243,14 @@ class _NewShellBar extends StatelessWidget {
           ? UserIntent.onGesture(
               (intent) => pickHostShell(context, store, host, intent),
             )
-          : menu.isOpen
-          ? menu.close
-          : menu.open,
+          : null,
+      // The menu opens at the finger and is kept on screen, so a tap on the right
+      // lands it against the right edge.
+      onTapUp: menu == null
+          ? null
+          : (details) => menu.isOpen
+                ? menu.close()
+                : menu.open(position: details.localPosition),
       child: Row(
         children: [
           HostMark(host.system, size: IconSizes.glyph, color: ink),

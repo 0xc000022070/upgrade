@@ -195,6 +195,33 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the host menu opens on the side the bar was tapped', (
+    tester,
+  ) async {
+    await DriftKeyRepository(db).save(_key);
+    await DriftHostRepository(db).save(_rose);
+    await DriftHostRepository(db).save(_nyx);
+    await tester.pumpWidget(app(extra: [registered()]));
+    await ready(tester);
+    final row = find.byKey(ValueKey('parked-shell-new-pick-${_rose.id}'));
+    final width = tester.getSize(fresh).width;
+    final y = tester.getCenter(fresh).dy;
+
+    await tester.tapAt(Offset(width - 8, y));
+    await ready(tester);
+    expect(tester.getRect(row).right, greaterThan(width * 0.75));
+
+    await tester.tapAt(Offset(width - 8, y));
+    await ready(tester);
+    expect(row, findsNothing);
+
+    await tester.tapAt(Offset(8, y));
+    await ready(tester);
+    expect(tester.getRect(row).left, lessThan(width * 0.25));
+
+    await unmount(tester);
+  });
+
   testWidgets('the last tab closing offers a new shell on its host', (
     tester,
   ) async {
