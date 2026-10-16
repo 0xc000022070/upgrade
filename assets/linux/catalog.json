@@ -1,0 +1,121 @@
+{
+  "distros": [
+    {
+      "id": "ubuntu",
+      "label": "UBUNTU 24.04",
+      "manager": "apt",
+      "libc": "glibc",
+      "download_mb": 70,
+      "rootfs": {
+        "url": "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz",
+        "sha256": "04207713ece899c3740823d33690441ad3a7f0ded1101aca744e2b0f37ac7ff2",
+        "strip": 0
+      },
+      "base": ["openssh-server"],
+      "installer_needs": ["curl", "ca-certificates"]
+    },
+    {
+      "id": "arch",
+      "label": "ARCH LINUX ARM",
+      "manager": "pacman",
+      "libc": "glibc",
+      "download_mb": 160,
+      "unpacked_mb": 840,
+      "rootfs": {
+        "url": "https://github.com/termux/proot-distro/releases/download/v4.34.2/archlinux-aarch64-pd-v4.34.2.tar.xz",
+        "sha256": "dabc2382ddcb725969cf7b9e2f3b102ec862ea6e0294198a30c71e9a4b837f81",
+        "strip": 1
+      },
+      "base": ["openssh"],
+      "installer_needs": ["curl"]
+    },
+    {
+      "id": "alpine",
+      "label": "ALPINE LINUX 3.24",
+      "manager": "apk",
+      "libc": "musl",
+      "download_mb": 4,
+      "rootfs": {
+        "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/aarch64/alpine-minirootfs-3.24.2-aarch64.tar.gz",
+        "sha256": "9bf70a7f18ea44094cbb5f70c58f9af129c8214745743db0e68e5502cc2ce773",
+        "strip": 0
+      },
+      "base": ["openssh", "tzdata"],
+      "installer_needs": ["bash", "curl", "libgcc", "libstdc++"]
+    }
+  ],
+  "nix": {
+    "download_mb": 25
+  },
+  "tools": [
+    {
+      "id": "tmux",
+      "label": "TMUX",
+      "blurb": "The terminal multiplexer",
+      "mb": 1,
+      "packages": { "ubuntu": "tmux", "arch": "tmux", "alpine": "tmux" }
+    },
+    {
+      "id": "herdr",
+      "label": "HERDR",
+      "blurb": "The agent multiplexer",
+      "mb": 27,
+      "installer": {
+        "url": "https://herdr.dev/install.sh",
+        "shell": "sh",
+        "links": ["/root/.local/bin/herdr"]
+      }
+    },
+    {
+      "id": "claude",
+      "label": "CLAUDE CODE",
+      "blurb": "Anthropic's coding agent",
+      "mb": 250,
+      "installer": {
+        "url": "https://claude.ai/install.sh",
+        "shell": "bash",
+        "links": ["/root/.local/bin/claude"]
+      },
+      "needs": { "alpine": ["ripgrep"] },
+      "after": {
+        "alpine": "test -e /root/.claude/settings.json || { mkdir -p /root/.claude; printf '{\"env\": {\"USE_BUILTIN_RIPGREP\": \"0\"}}\\n' > /root/.claude/settings.json; }"
+      }
+    },
+    {
+      "id": "codex",
+      "label": "CODEX",
+      "blurb": "OpenAI's coding agent",
+      "mb": 370,
+      "installer": {
+        "url": "https://chatgpt.com/codex/install.sh",
+        "shell": "sh",
+        "links": ["/root/.local/bin/codex"]
+      }
+    },
+    {
+      "id": "cursor",
+      "label": "CURSOR AGENT",
+      "blurb": "Cursor's coding agent",
+      "mb": 550,
+      "libc": "glibc",
+      "installer": {
+        "url": "https://cursor.com/install",
+        "shell": "bash",
+        "links": ["/root/.local/bin/cursor-agent", "/root/.local/bin/agent"]
+      }
+    },
+    {
+      "id": "opencode",
+      "label": "OPENCODE",
+      "blurb": "The open coding agent",
+      "mb": 190,
+      "packages": { "arch": "opencode" },
+      "installer": {
+        "url": "https://opencode.ai/install",
+        "shell": "bash",
+        "args": ["--no-modify-path"],
+        "links": ["/root/.opencode/bin/opencode"]
+      }
+    }
+  ]
+}

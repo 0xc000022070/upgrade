@@ -84,6 +84,7 @@ flutter:
     - assets/plugin_emblems/
     - assets/sprites/mascot/
     - assets/textures/
+    - assets/linux/catalog.json
 
   fonts:
     - family: Barlow Condensed

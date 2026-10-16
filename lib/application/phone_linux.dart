@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'package:uuid/uuid.dart';
@@ -64,7 +65,7 @@ class PhoneLinuxHost {
       host = _copy(host, name: named);
       await hosts.save(host);
     }
-    await hosts.recordSystem(host.id, setup.distro.system);
+    await hosts.recordSystem(host.id, systemOf(setup.distro));
     await platform.install(
       host.id,
       publicKey: await _publicKey(host),
@@ -84,7 +85,7 @@ class PhoneLinuxHost {
     return _pinned(host, state);
   }
 
-  Future<void> addTools(Host host, Set<PhoneLinuxTool> tools) async {
+  Future<void> addTools(Host host, Set<String> tools) async {
     await _adopted;
     await platform.addTools(host.id, tools);
   }
@@ -209,6 +210,10 @@ HostKeyOffer hostKeyOffer(String line) {
 }
 
 final phoneLinuxProvider = Provider<PhoneLinux>((ref) => const PhoneLinux());
+
+final phoneLinuxCatalogProvider = FutureProvider<PhoneLinuxCatalog>(
+  (ref) => PhoneLinuxCatalog.load(rootBundle),
+);
 
 final phoneLinuxHostProvider = Provider<PhoneLinuxHost?>((ref) {
   if (!Platform.isAndroid) return null;

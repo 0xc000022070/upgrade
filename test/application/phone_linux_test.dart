@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:drift/native.dart';
@@ -20,7 +22,7 @@ class _Platform implements PhoneLinux {
   final stops = <String>[];
   final removes = <String>[];
   final adopted = <String>[];
-  final added = <(String, Set<PhoneLinuxTool>)>[];
+  final added = <(String, Set<String>)>[];
   String? hostKey = _hostKey;
 
   PhoneLinuxState get _ready => PhoneLinuxState(
@@ -60,7 +62,7 @@ class _Platform implements PhoneLinux {
   }
 
   @override
-  Future<PhoneLinuxState> addTools(String id, Set<PhoneLinuxTool> tools) async {
+  Future<PhoneLinuxState> addTools(String id, Set<String> tools) async {
     added.add((id, tools));
     return _ready;
   }
@@ -111,11 +113,9 @@ void main() {
       (await hosts.all()).singleWhere((host) => host.id == id);
 
   test('every install makes its own host and key', () async {
-    final arch = await linux.install(
-      const PhoneLinuxSetup(PhoneLinuxDistro.arch),
-    );
+    final arch = await linux.install(const PhoneLinuxSetup('arch'));
     final alpine = await linux.install(
-      const PhoneLinuxSetup(PhoneLinuxDistro.alpine, nix: true),
+      const PhoneLinuxSetup('alpine', nix: true),
     );
 
     final all = await hosts.all();
@@ -134,29 +134,23 @@ void main() {
       platform.installs.map(
         (install) => (install.$1, install.$3.distro, install.$3.nix),
       ),
-      [
-        (arch.id, PhoneLinuxDistro.arch, false),
-        (alpine.id, PhoneLinuxDistro.alpine, true),
-      ],
+      [(arch.id, 'arch', false), (alpine.id, 'alpine', true)],
     );
     expect(await linux.hostIds(), [arch.id, alpine.id]);
   });
 
   test('an install into a host keeps the host and its key', () async {
     final first = await linux.install(
-      const PhoneLinuxSetup(PhoneLinuxDistro.alpine, name: ' PIXEL '),
+      const PhoneLinuxSetup('alpine', name: ' PIXEL '),
     );
     expect(first.name, 'PIXEL');
     expect((await keys.all()).single.name, 'PIXEL');
 
-    await linux.install(
-      const PhoneLinuxSetup(PhoneLinuxDistro.alpine),
-      into: first,
-    );
+    await linux.install(const PhoneLinuxSetup('alpine'), into: first);
     expect((await hosts.all()).single.name, 'PIXEL');
 
     await linux.install(
-      const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu, name: 'P7'),
+      const PhoneLinuxSetup('ubuntu', name: 'P7'),
       into: first,
     );
     final host = (await hosts.all()).single;
@@ -166,7 +160,7 @@ void main() {
   });
 
   test('another host is dialled as it is, with nothing started', () async {
-    await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu));
+    await linux.install(const PhoneLinuxSetup('ubuntu'));
     final other = Host(
       id: 'rose',
       name: 'rose',
@@ -181,12 +175,8 @@ void main() {
   });
 
   test('each system is started on its own port and its key pinned', () async {
-    final one = await linux.install(
-      const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu),
-    );
-    final two = await linux.install(
-      const PhoneLinuxSetup(PhoneLinuxDistro.arch),
-    );
+    final one = await linux.install(const PhoneLinuxSetup('ubuntu'));
+    final two = await linux.install(const PhoneLinuxSetup('arch'));
 
     final ready = await linux.ensure(one);
     await linux.ensure(two);
@@ -207,9 +197,7 @@ void main() {
   });
 
   test('a system with no host key yet leaves the host unpinned', () async {
-    final host = await linux.install(
-      const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu),
-    );
+    final host = await linux.install(const PhoneLinuxSetup('ubuntu'));
     platform.hostKey = null;
 
     final ready = await linux.ensure(host);
@@ -219,12 +207,8 @@ void main() {
   });
 
   test('stop and remove reach only their own system', () async {
-    final one = await linux.install(
-      const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu),
-    );
-    final two = await linux.install(
-      const PhoneLinuxSetup(PhoneLinuxDistro.alpine),
-    );
+    final one = await linux.install(const PhoneLinuxSetup('ubuntu'));
+    final two = await linux.install(const PhoneLinuxSetup('alpine'));
 
     await linux.stop(two);
     await linux.remove(one);
@@ -245,9 +229,7 @@ void main() {
   });
 
   test('remove keeps a key another host still signs in with', () async {
-    final phone = await linux.install(
-      const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu),
-    );
+    final phone = await linux.install(const PhoneLinuxSetup('ubuntu'));
     await hosts.save(
       Host(
         id: 'rose',
@@ -271,51 +253,44 @@ void main() {
 
     expect(await linux.hostIds(), ['old']);
     await linux.watchStates().first;
-    await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.alpine));
+    await linux.install(const PhoneLinuxSetup('alpine'));
 
     expect(platform.adopted, ['old']);
     expect((await linux.hostIds()).first, 'old');
   });
 
-  test('the system names its distro, and an unknown one is none', () {
+  test('the system names its distro, and the host takes its mark', () {
     expect(
       PhoneLinuxState.from({'installed': true, 'distro': 'arch'}).distro,
-      PhoneLinuxDistro.arch,
+      'arch',
     );
-    expect(PhoneLinuxState.from({'distro': 'gentoo'}).distro, isNull);
-    expect(PhoneLinuxState.from({'distro': 'gentoo'}).setup, isNull);
+    expect(PhoneLinuxState.from({}).setup, isNull);
+    expect(systemOf('alpine'), HostSystem.alpine);
+    expect(systemOf('gentoo'), HostSystem.linux);
   });
 
   test('the system carries its nix choice back for a retry', () {
     final setup = PhoneLinuxState.from({'distro': 'alpine', 'nix': true})
         .setup!;
 
-    expect(setup.distro, PhoneLinuxDistro.alpine);
+    expect(setup.distro, 'alpine');
     expect(setup.nix, isTrue);
   });
 
   test('tools ride the install and are added to their own system', () async {
     final one = await linux.install(
-      const PhoneLinuxSetup(
-        PhoneLinuxDistro.alpine,
-        tools: {PhoneLinuxTool.tmux, PhoneLinuxTool.claude},
-      ),
+      const PhoneLinuxSetup('alpine', tools: {'tmux', 'claude'}),
     );
-    final two = await linux.install(
-      const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu),
-    );
+    final two = await linux.install(const PhoneLinuxSetup('ubuntu'));
 
-    await linux.addTools(two, {PhoneLinuxTool.cursor});
+    await linux.addTools(two, {'cursor'});
 
-    expect(platform.installs.first.$3.tools, {
-      PhoneLinuxTool.tmux,
-      PhoneLinuxTool.claude,
-    });
+    expect(platform.installs.first.$3.tools, {'tmux', 'claude'});
     expect(platform.installs.last.$3.tools, isEmpty);
     final (id, tools) = platform.added.single;
     expect(id, two.id);
     expect(id, isNot(one.id));
-    expect(tools, {PhoneLinuxTool.cursor});
+    expect(tools, {'cursor'});
   });
 
   test(
@@ -324,25 +299,56 @@ void main() {
       final state = PhoneLinuxState.from({
         'installed': true,
         'distro': 'ubuntu',
-        'tools': ['tmux', 'emacs', 'codex'],
+        'tools': ['tmux', 'codex'],
         'tool': 'herdr',
         'pending': ['herdr', 'opencode'],
         'toolsError': 'herdr exited 1',
       });
 
-      expect(state.tools, {PhoneLinuxTool.tmux, PhoneLinuxTool.codex});
-      expect(state.tool, PhoneLinuxTool.herdr);
-      expect(state.pending, {PhoneLinuxTool.herdr, PhoneLinuxTool.opencode});
+      expect(state.tools, {'tmux', 'codex'});
+      expect(state.tool, 'herdr');
+      expect(state.pending, {'herdr', 'opencode'});
       expect(state.toolsError, 'herdr exited 1');
       expect(state.setup!.tools, state.tools);
       expect(PhoneLinuxState.from({'tool': null}).tool, isNull);
     },
   );
 
-  test('a glibc tool does not fit alpine', () {
-    expect(PhoneLinuxTool.cursor.fits(PhoneLinuxDistro.alpine), isFalse);
-    expect(PhoneLinuxTool.cursor.fits(PhoneLinuxDistro.ubuntu), isTrue);
-    expect(PhoneLinuxTool.claude.fits(PhoneLinuxDistro.alpine), isTrue);
+  group('the catalog', () {
+    final catalog = PhoneLinuxCatalog.fromJson(
+      jsonDecode(File(PhoneLinuxCatalog.asset).readAsStringSync())
+          as Map<String, Object?>,
+    );
+    PhoneLinuxDistro distro(String id) => catalog.distro(id)!;
+    PhoneLinuxTool tool(String id) => catalog.tool(id)!;
+
+    test('offers each distro the host marks know', () {
+      expect(catalog.distros.map((distro) => distro.system), [
+        HostSystem.ubuntu,
+        HostSystem.arch,
+        HostSystem.alpine,
+      ]);
+      expect(distro('arch').detail, contains('MB unpacked'));
+      expect(distro('ubuntu').detail, isNot(contains('unpacked')));
+    });
+
+    test('keeps a glibc tool off alpine', () {
+      expect(tool('cursor').fits(distro('alpine')), isFalse);
+      expect(tool('cursor').fits(distro('ubuntu')), isTrue);
+      expect(tool('claude').fits(distro('alpine')), isTrue);
+    });
+
+    test('names a tool it no longer offers by its id', () {
+      expect(catalog.toolLabel('claude'), 'CLAUDE CODE');
+      expect(catalog.toolLabel('emacs'), 'EMACS');
+    });
+
+    test('gives every tool a way onto every distro it fits', () {
+      for (final tool in catalog.tools) {
+        expect(catalog.distros.where(tool.fits), isNotEmpty, reason: tool.id);
+      }
+      expect(catalog.tools.map((tool) => tool.id), isNot(contains('nix')));
+    });
   });
 
   test('a line that is not a key is refused', () {

@@ -50,6 +50,7 @@ enum UpgradeIcons {
   pause('pause'),
   pending('pending'),
   phone('phone'),
+  phoneFrame('phone-frame'),
   pin('pin'),
   pip('pip'),
   plugins('plugins'),

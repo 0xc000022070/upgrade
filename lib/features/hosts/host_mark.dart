@@ -46,34 +46,31 @@ class HostMark extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ink = color ?? context.tokens.textSecondary;
-    final glyph = UpgradeIcon(systemGlyph(system), size: size, color: ink);
     final onPhone = phone || hostId != null && ref.isPhoneLinux(hostId!);
     return Semantics(
       label: onPhone
           ? '${systemWord(system)} on this phone'
           : systemWord(system),
       child: onPhone
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: size / 2,
-                  height: size,
-                  child: ClipRect(
-                    child: OverflowBox(
-                      maxWidth: size,
-                      child: UpgradeIcon(
-                        UpgradeIcons.phone,
-                        size: size,
-                        color: ink,
-                      ),
+          ? SizedBox.square(
+              dimension: size,
+              child: Stack(
+                children: [
+                  UpgradeIcon(UpgradeIcons.phoneFrame, size: size, color: ink),
+                  // The system glyph sits on the screen, above the frame's chin.
+                  Positioned(
+                    left: size / 4,
+                    top: size * 4.25 / 24,
+                    child: UpgradeIcon(
+                      systemGlyph(system),
+                      size: size / 2,
+                      color: ink,
                     ),
                   ),
-                ),
-                glyph,
-              ],
+                ],
+              ),
             )
-          : glyph,
+          : UpgradeIcon(systemGlyph(system), size: size, color: ink),
     );
   }
 }

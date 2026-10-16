@@ -947,8 +947,13 @@ class _PhoneLinuxActionState extends ConsumerState<_PhoneLinuxAction> {
 
   Future<void> _install(PhoneLinuxHost linux) async {
     final name = await linux.freeName();
+    final catalog = await ref.read(phoneLinuxCatalogProvider.future);
     if (!mounted) return;
-    final setup = await pickPhoneLinuxSetup(context, name: name);
+    final setup = await pickPhoneLinuxSetup(
+      context,
+      catalog: catalog,
+      name: name,
+    );
     if (setup == null || !mounted) return;
     setState(() {
       _starting = true;
@@ -1085,7 +1090,13 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
         if (widget.system && state.installed && !state.installing)
           _MetaRow(
             'SYSTEM',
-            state.distro?.label ?? 'LINUX',
+            ref
+                    .watch(phoneLinuxCatalogProvider)
+                    .valueOrNull
+                    ?.distro(state.distro)
+                    ?.label ??
+                state.distro?.toUpperCase() ??
+                'LINUX',
             trailing: PanelAffordance(
               busy == 'REMOVING' ? busy! : 'REMOVE',
               showIcon: false,
@@ -1103,25 +1114,22 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
 
   Widget _tools(PhoneLinuxHost linux, PhoneLinuxState state) {
     final warning = context.tokens.warning;
-    final distro = state.distro;
+    final catalog = ref.watch(phoneLinuxCatalogProvider).valueOrNull;
+    final distro = catalog?.distro(state.distro);
     final tool = state.tool;
     final error = _toolsFailure ?? state.toolsError;
     final missing =
         distro != null &&
-        PhoneLinuxTool.values.any(
-          (tool) => tool.fits(distro) && !state.tools.contains(tool),
+        catalog!.tools.any(
+          (tool) => tool.fits(distro) && !state.tools.contains(tool.id),
         );
+    String label(String id) => catalog?.toolLabel(id) ?? id.toUpperCase();
     final (String value, Color? color, String? action) = tool != null
-        ? ('INSTALLING ${tool.label}', null, null)
+        ? ('INSTALLING ${label(tool)}', null, null)
         : error != null
         ? (error, warning, state.pending.isEmpty ? null : 'RETRY')
         : (
-            state.tools.isEmpty
-                ? 'NONE'
-                : [
-                    for (final tool in PhoneLinuxTool.values)
-                      if (state.tools.contains(tool)) tool.label,
-                  ].join(' · '),
+            state.tools.isEmpty ? 'NONE' : state.tools.map(label).join(' · '),
             null,
             missing ? 'ADD' : null,
           );
@@ -1145,12 +1153,14 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
     PhoneLinuxState state,
     String action,
   ) async {
-    final distro = state.distro;
-    if (distro == null) return;
+    final catalog = await ref.read(phoneLinuxCatalogProvider.future);
+    final distro = catalog.distro(state.distro);
+    if (distro == null || !mounted) return;
     final tools = action == 'RETRY'
         ? state.pending
         : await pickPhoneLinuxTools(
             context,
+            catalog: catalog,
             distro: distro,
             installed: state.tools,
           );
@@ -1189,9 +1199,15 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
           await linux.ensure(widget.host);
           if (reason != null) store.redialHost(widget.host.id, reason);
         default:
+          final catalog = await ref.read(phoneLinuxCatalogProvider.future);
+          if (!mounted) return;
           final setup =
               (action == 'RETRY' ? state.setup : null) ??
-              await pickPhoneLinuxSetup(context, name: widget.host.name);
+              await pickPhoneLinuxSetup(
+                context,
+                catalog: catalog,
+                name: widget.host.name,
+              );
           if (setup == null) return;
           await linux.install(setup, into: widget.host);
       }
@@ -1230,16 +1246,18 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
 
 Future<PhoneLinuxSetup?> pickPhoneLinuxSetup(
   BuildContext context, {
+  required PhoneLinuxCatalog catalog,
   required String name,
 }) => showPanelSheet<PhoneLinuxSetup>(
   context,
   title: 'LINUX ON THIS PHONE',
-  builder: (context) => _PhoneLinuxPicker(name: name),
+  builder: (context) => _PhoneLinuxPicker(catalog: catalog, name: name),
 );
 
 class _PhoneLinuxPicker extends StatefulWidget {
-  const _PhoneLinuxPicker({required this.name});
+  const _PhoneLinuxPicker({required this.catalog, required this.name});
 
+  final PhoneLinuxCatalog catalog;
   final String name;
 
   @override
@@ -1247,9 +1265,10 @@ class _PhoneLinuxPicker extends StatefulWidget {
 }
 
 class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
-  var _distro = PhoneLinuxDistro.ubuntu;
+  late var _distro = widget.catalog.distros.first;
   var _nix = false;
-  final _tools = <PhoneLinuxTool>{};
+  var _choosingTools = false;
+  final _tools = <String>{};
   late final _name = TextEditingController(text: widget.name);
 
   @override
@@ -1258,105 +1277,146 @@ class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
     super.dispose();
   }
 
+  String get _named {
+    final name = _name.text.trim();
+    return name.isEmpty ? widget.name : name;
+  }
+
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final tools = _choosingTools;
     return PanelSheetBody(
-      title: 'LINUX ON THIS PHONE',
+      title: tools ? 'LINUX ON THIS PHONE · TOOLS' : 'LINUX ON THIS PHONE',
       footer: [
         Row(
           children: [
             Expanded(
               child: ActionBlock(
-                label: 'CANCEL',
-                onTap: () => Navigator.of(context).pop(),
+                label: tools ? 'BACK' : 'CANCEL',
+                onTap: tools
+                    ? () => setState(() => _choosingTools = false)
+                    : () => Navigator.of(context).pop(),
               ),
             ),
             const SizedBox(width: Spacing.md),
             Expanded(
               child: ActionBlock(
-                label: 'INSTALL',
+                key: ValueKey(
+                  tools ? 'phone-linux-install' : 'phone-linux-next',
+                ),
+                label: tools ? 'INSTALL' : 'NEXT',
                 tone: tokens.accent,
                 filled: true,
-                onTap: () => Navigator.of(context).pop(
-                  PhoneLinuxSetup(
-                    _distro,
-                    nix: _nix,
-                    tools: {
-                      for (final tool in _tools)
-                        if (tool.fits(_distro)) tool,
-                    },
-                    name: _name.text,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-      children: [
-        Text(
-          'Adds this phone to your hosts. It runs as an app, without root.',
-          style: tokens.prose,
-        ),
-        const SizedBox(height: Spacing.md),
-        SheetField(
-          label: 'NAME',
-          child: UpgradeField(
-            key: const ValueKey('phone-linux-name'),
-            controller: _name,
-            hint: widget.name,
-          ),
-        ),
-        const SizedBox(height: Spacing.md),
-        ListRowGroup(
-          children: [
-            for (final distro in PhoneLinuxDistro.values)
-              ListRow(
-                leading: HostMark(
-                  distro.system,
-                  phone: true,
-                  size: IconSizes.glyph,
-                ),
-                leadingWidth: IconSizes.glyph * 1.5,
-                title: distro.label,
-                subtitle: distro.detail,
-                subtitleMaxLines: 2,
-                trailing: distro == _distro
-                    ? UpgradeIcon(
-                        UpgradeIcons.check,
-                        size: IconSizes.check,
-                        color: tokens.accent,
+                onTap: tools
+                    ? () => Navigator.of(context).pop(
+                        PhoneLinuxSetup(
+                          _distro.id,
+                          nix: _nix,
+                          tools: {
+                            for (final tool in widget.catalog.tools)
+                              if (_tools.contains(tool.id) &&
+                                  tool.fits(_distro))
+                                tool.id,
+                          },
+                          name: _name.text,
+                        ),
                       )
-                    : null,
-                onTap: () => setState(() => _distro = distro),
+                    : () => setState(() => _choosingTools = true),
               ),
-          ],
-        ),
-        const SizedBox(height: Spacing.lg),
-        ListRowGroup(
-          children: [
-            ListRow(
-              leading: _checkbox(context, _nix),
-              title: 'NIX',
-              subtitle:
-                  'The package manager, for root · about 25 MB to download',
-              subtitleMaxLines: 2,
-              onTap: () => setState(() => _nix = !_nix),
             ),
           ],
         ),
-        const SizedBox(height: Spacing.lg),
-        _ToolRows(
-          distro: _distro,
-          tools: PhoneLinuxTool.values,
-          chosen: _tools,
-          onToggle: (tool) =>
-              setState(() => _tools.remove(tool) || _tools.add(tool)),
-        ),
       ],
+      children: tools ? _toolStep(context) : _systemStep(context),
     );
   }
+
+  List<Widget> _systemStep(BuildContext context) {
+    final tokens = context.tokens;
+    return [
+      Text(
+        'Adds this phone to your hosts. It runs as an app, without root.',
+        style: tokens.prose,
+      ),
+      const SizedBox(height: Spacing.md),
+      SheetField(
+        label: 'NAME',
+        child: UpgradeField(
+          key: const ValueKey('phone-linux-name'),
+          controller: _name,
+          hint: widget.name,
+        ),
+      ),
+      const SizedBox(height: Spacing.md),
+      ListRowGroup(
+        children: [
+          for (final distro in widget.catalog.distros)
+            ListRow(
+              key: ValueKey('phone-linux-distro-${distro.id}'),
+              leading: HostMark(
+                distro.system,
+                phone: true,
+                size: IconSizes.glyph,
+              ),
+              title: distro.label,
+              subtitle: distro.detail,
+              subtitleMaxLines: 2,
+              trailing: distro == _distro
+                  ? UpgradeIcon(
+                      UpgradeIcons.check,
+                      size: IconSizes.check,
+                      color: tokens.accent,
+                    )
+                  : null,
+              onTap: () => setState(() => _distro = distro),
+            ),
+        ],
+      ),
+      const SizedBox(height: Spacing.lg),
+      ListRowGroup(
+        children: [
+          ListRow(
+            key: const ValueKey('phone-linux-nix'),
+            leading: _checkbox(context, _nix),
+            title: 'NIX',
+            subtitle:
+                'The package manager, for root · '
+                'about ${widget.catalog.nixMb} MB to download',
+            subtitleMaxLines: 2,
+            onTap: () => setState(() => _nix = !_nix),
+          ),
+        ],
+      ),
+    ];
+  }
+
+  List<Widget> _toolStep(BuildContext context) => [
+    ListRowGroup(
+      children: [
+        ListRow(
+          key: const ValueKey('phone-linux-chosen'),
+          leading: HostMark(_distro.system, phone: true, size: IconSizes.glyph),
+          title: _named,
+          subtitle: [_distro.label, if (_nix) 'NIX'].join(' · '),
+          trailing: PanelAffordance(
+            'CHANGE',
+            showIcon: false,
+            onTap: () => setState(() => _choosingTools = false),
+          ),
+          onTap: () => setState(() => _choosingTools = false),
+        ),
+      ],
+    ),
+    const SizedBox(height: Spacing.lg),
+    _ToolRows(
+      distro: _distro,
+      tools: widget.catalog.tools,
+      chosen: _tools,
+      onToggle: (tool) =>
+          setState(() => _tools.remove(tool.id) || _tools.add(tool.id)),
+    ),
+  ];
 }
 
 Widget _checkbox(BuildContext context, bool checked) => UpgradeIcon(
@@ -1375,7 +1435,7 @@ class _ToolRows extends StatelessWidget {
 
   final PhoneLinuxDistro distro;
   final Iterable<PhoneLinuxTool> tools;
-  final Set<PhoneLinuxTool> chosen;
+  final Set<String> chosen;
   final ValueChanged<PhoneLinuxTool> onToggle;
 
   @override
@@ -1388,8 +1448,8 @@ class _ToolRows extends StatelessWidget {
           for (final tool in tools)
             if (tool.fits(distro))
               ListRow(
-                key: ValueKey('phone-linux-tool-${tool.name}'),
-                leading: _checkbox(context, chosen.contains(tool)),
+                key: ValueKey('phone-linux-tool-${tool.id}'),
+                leading: _checkbox(context, chosen.contains(tool.id)),
                 title: tool.label,
                 subtitle: tool.detail,
                 subtitleMaxLines: 2,
@@ -1397,11 +1457,13 @@ class _ToolRows extends StatelessWidget {
               )
             else
               ListRow(
-                key: ValueKey('phone-linux-tool-${tool.name}'),
+                key: ValueKey('phone-linux-tool-${tool.id}'),
                 leading: _checkbox(context, false),
                 title: tool.label,
                 titleColor: muted,
-                subtitle: 'Needs glibc, which ${distro.label} does not have',
+                subtitle: tool.libc == null || tool.libc == distro.libc
+                    ? 'Not offered on ${distro.label}'
+                    : 'Needs ${tool.libc}, which ${distro.label} does not have',
                 subtitleColor: muted,
                 subtitleMaxLines: 2,
               ),
@@ -1411,18 +1473,19 @@ class _ToolRows extends StatelessWidget {
   }
 }
 
-Future<Set<PhoneLinuxTool>?> pickPhoneLinuxTools(
+Future<Set<String>?> pickPhoneLinuxTools(
   BuildContext context, {
+  required PhoneLinuxCatalog catalog,
   required PhoneLinuxDistro distro,
-  required Set<PhoneLinuxTool> installed,
-}) => showPanelSheet<Set<PhoneLinuxTool>>(
+  required Set<String> installed,
+}) => showPanelSheet<Set<String>>(
   context,
   title: 'TOOLS',
   builder: (context) => _PhoneLinuxToolPicker(
     distro: distro,
     tools: [
-      for (final tool in PhoneLinuxTool.values)
-        if (!installed.contains(tool)) tool,
+      for (final tool in catalog.tools)
+        if (!installed.contains(tool.id)) tool,
     ],
   ),
 );
@@ -1438,7 +1501,7 @@ class _PhoneLinuxToolPicker extends StatefulWidget {
 }
 
 class _PhoneLinuxToolPickerState extends State<_PhoneLinuxToolPicker> {
-  final _chosen = <PhoneLinuxTool>{};
+  final _chosen = <String>{};
 
   @override
   Widget build(BuildContext context) {
@@ -1474,7 +1537,7 @@ class _PhoneLinuxToolPickerState extends State<_PhoneLinuxToolPicker> {
           tools: widget.tools,
           chosen: _chosen,
           onToggle: (tool) =>
-              setState(() => _chosen.remove(tool) || _chosen.add(tool)),
+              setState(() => _chosen.remove(tool.id) || _chosen.add(tool.id)),
         ),
       ],
     );

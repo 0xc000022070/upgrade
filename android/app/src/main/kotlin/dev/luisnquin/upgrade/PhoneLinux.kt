@@ -17,6 +17,7 @@ import android.os.SystemClock
 import android.system.Os
 import android.system.OsConstants
 import android.util.Log
+import io.flutter.FlutterInjector
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.BufferedInputStream
@@ -32,129 +33,117 @@ import java.util.TimeZone
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
+import org.json.JSONArray
+import org.json.JSONObject
 import org.tukaani.xz.XZInputStream
 
-enum class Distro(
-    val url: String,
-    val sha256: String,
-    val archive: String,
-    val strip: Int,
-    val setup: String,
-) {
-    UBUNTU(
-        "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz",
-        "04207713ece899c3740823d33690441ad3a7f0ded1101aca744e2b0f37ac7ff2",
-        "rootfs.tar.gz",
-        0,
-        """
-            set -eu
-            export DEBIAN_FRONTEND=noninteractive
-            apt-get -o APT::Sandbox::User=root update
-            apt-get -o APT::Sandbox::User=root install -y --no-install-recommends openssh-server
-        """.trimIndent(),
-    ),
-    ARCH(
-        "https://github.com/termux/proot-distro/releases/download/v4.34.2/archlinux-aarch64-pd-v4.34.2.tar.xz",
-        "dabc2382ddcb725969cf7b9e2f3b102ec862ea6e0294198a30c71e9a4b837f81",
-        "rootfs.tar.xz",
-        1,
-        """
-            set -eu
-            pacman -Q openssh >/dev/null || pacman -Sy --noconfirm openssh
-        """.trimIndent(),
-    ),
-    ALPINE(
-        "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/aarch64/alpine-minirootfs-3.24.2-aarch64.tar.gz",
-        "9bf70a7f18ea44094cbb5f70c58f9af129c8214745743db0e68e5502cc2ce773",
-        "rootfs.tar.gz",
-        0,
-        """
-            set -eu
-            apk update
-            apk add openssh tzdata
-        """.trimIndent(),
-    );
+enum class Manager {
+    APT,
+    PACMAN,
+    APK;
 
-    val id get() = name.lowercase()
+    fun ensure(packages: List<String>): String {
+        if (packages.isEmpty()) return ""
+        val names = packages.joinToString(" ")
+        return when (this) {
+            APT -> "export DEBIAN_FRONTEND=noninteractive\n" +
+                "dpkg -s $names >/dev/null 2>&1 || { apt-get -o APT::Sandbox::User=root update && " +
+                "apt-get -o APT::Sandbox::User=root install -y --no-install-recommends $names; }"
+            PACMAN -> "pacman -Q $names >/dev/null 2>&1 || pacman -Sy --needed --noconfirm $names"
+            APK -> "apk -U add $names"
+        }
+    }
+}
+
+class Distro(json: JSONObject) {
+    val id: String = json.getString("id")
+    val manager = Manager.valueOf(json.getString("manager").uppercase())
+    val libc: String = json.getString("libc")
+    private val rootfs = json.getJSONObject("rootfs")
+    val url: String = rootfs.getString("url")
+    val sha256: String = rootfs.getString("sha256")
+    val strip = rootfs.getInt("strip")
+    private val base = strings(json.optJSONArray("base"))
+    val installerNeeds = strings(json.optJSONArray("installer_needs"))
+
+    val archive get() = archiveOf(url)
+
+    val setup get() = "set -eu\n" + manager.ensure(base)
 
     fun open(input: InputStream): InputStream =
         if (archive.endsWith(".xz")) XZInputStream(input) else GZIPInputStream(input)
 
     companion object {
-        fun of(id: String?) = entries.firstOrNull { it.id == id }
+        val ARCHIVES = listOf("rootfs.tar.gz", "rootfs.tar.xz")
+
+        fun archiveOf(url: String) = if (url.endsWith(".xz")) ARCHIVES[1] else ARCHIVES[0]
     }
 }
 
-enum class Tool(val id: String, private val script: String, val glibc: Boolean = false) {
-    TMUX("tmux", ""),
-    HERDR("herdr", fetch("https://herdr.dev/install.sh", "sh") + link("/root/.local/bin/herdr")),
-    CLAUDE(
-        "claude",
-        fetch("https://claude.ai/install.sh", "bash") + link("/root/.local/bin/claude"),
-    ),
-    CODEX("codex", fetch("https://chatgpt.com/codex/install.sh", "sh") + link("/root/.local/bin/codex")),
-    CURSOR(
-        "cursor",
-        fetch("https://cursor.com/install", "bash") +
-            link("/root/.local/bin/cursor-agent") + link("/root/.local/bin/agent"),
-        glibc = true,
-    ),
-    OPENCODE(
-        "opencode",
-        fetch("https://opencode.ai/install", "bash", "--no-modify-path") + link("/root/.opencode/bin/opencode"),
-    );
+class Tool(json: JSONObject) {
+    val id: String = json.getString("id")
+    private val libc: String? = json.optString("libc").ifEmpty { null }
+    private val packages = json.optJSONObject("packages")
+    private val installer = json.optJSONObject("installer")
+    private val needs = json.optJSONObject("needs")
+    private val after = json.optJSONObject("after")
 
-    fun fits(distro: Distro) = !glibc || distro != Distro.ALPINE
-
-    private fun packaged(distro: Distro) = this == TMUX || this == OPENCODE && distro == Distro.ARCH
+    fun fits(distro: Distro) =
+        (libc == null || libc == distro.libc) && (packages?.has(distro.id) == true || installer != null)
 
     fun script(distro: Distro): String {
-        if (packaged(distro)) {
-            return "set -eu\n" + when (distro) {
-                Distro.UBUNTU -> "export DEBIAN_FRONTEND=noninteractive\n" +
-                    "apt-get -o APT::Sandbox::User=root update\n" +
-                    "apt-get -o APT::Sandbox::User=root install -y --no-install-recommends $id"
-                Distro.ARCH -> "pacman -Sy --needed --noconfirm $id"
-                Distro.ALPINE -> "apk -U add $id"
-            }
+        packages?.optString(distro.id)?.takeIf { it.isNotEmpty() }?.let {
+            return "set -eu\n" + distro.manager.ensure(listOf(it))
         }
-        val needs = when (distro) {
-            Distro.UBUNTU -> "export DEBIAN_FRONTEND=noninteractive\n" +
-                "command -v curl >/dev/null || { apt-get -o APT::Sandbox::User=root update && " +
-                "apt-get -o APT::Sandbox::User=root install -y --no-install-recommends curl ca-certificates; }"
-            Distro.ARCH -> "command -v curl >/dev/null || pacman -Sy --needed --noconfirm curl"
-            Distro.ALPINE -> "apk -U add bash curl libgcc libstdc++" + if (this == CLAUDE) " ripgrep" else ""
-        }
-        val musl = if (this == CLAUDE && distro == Distro.ALPINE) {
-            "\ntest -e /root/.claude/settings.json || { mkdir -p /root/.claude; " +
-                "printf '{\"env\": {\"USE_BUILTIN_RIPGREP\": \"0\"}}\\n' > /root/.claude/settings.json; }"
-        } else {
-            ""
-        }
-        return "set -eu\n$needs\n$script$musl"
-    }
-
-    companion object {
-        fun of(id: String?) = entries.firstOrNull { it.id == id }
+        val installer = installer ?: throw IllegalStateException("$id has no way onto ${distro.id}")
+        val shell = installer.getString("shell")
+        val args = strings(installer.optJSONArray("args")).joinToString(" ")
+        val links = strings(installer.optJSONArray("links"))
+            .joinToString("") { "ln -sf $it /usr/local/bin/${it.substringAfterLast('/')}\n" }
+        val extra = after?.optString(distro.id).orEmpty()
+        return "set -eu\n" +
+            distro.manager.ensure(distro.installerNeeds + strings(needs?.optJSONArray(distro.id))) + "\n" +
+            "curl -fsSL ${installer.getString("url")} -o /tmp/upgrade-install\n" +
+            "$shell /tmp/upgrade-install $args\n" +
+            "rm -f /tmp/upgrade-install\n" +
+            links + extra
     }
 }
 
-private fun fetch(url: String, shell: String, vararg args: String) =
-    "curl -fsSL $url -o /tmp/upgrade-install\n$shell /tmp/upgrade-install ${args.joinToString(" ")}\nrm -f /tmp/upgrade-install\n"
+class Catalog(json: JSONObject) {
+    val distros = objects(json.getJSONArray("distros")).map { Distro(it) }
+    val tools = objects(json.getJSONArray("tools")).map { Tool(it) }
 
-private fun link(path: String) = "ln -sf $path /usr/local/bin/${path.substringAfterLast('/')}\n"
+    fun distro(id: String?) = distros.firstOrNull { it.id == id }
+    fun tool(id: String?) = tools.firstOrNull { it.id == id }
 
-data class Setup(val distro: Distro, val nix: Boolean, val tools: Set<Tool> = emptySet()) {
-    val mark get() = (listOfNotNull(distro.id, "nix".takeIf { nix }) + Tool.entries.filter { it in tools }.map { it.id })
-        .joinToString("") { "$it\n" }
+    companion object {
+        private const val ASSET = "assets/linux/catalog.json"
+        @Volatile private var loaded: Catalog? = null
+
+        fun of(context: Context): Catalog = loaded ?: synchronized(this) {
+            loaded ?: run {
+                val key = FlutterInjector.instance().flutterLoader().getLookupKeyForAsset(ASSET)
+                Catalog(JSONObject(context.assets.open(key).use { it.reader().readText() }))
+            }.also { loaded = it }
+        }
+    }
+}
+
+private fun strings(array: JSONArray?) = (0 until (array?.length() ?: 0)).map { array!!.getString(it) }
+
+private fun objects(array: JSONArray) = (0 until array.length()).map { array.getJSONObject(it) }
+
+data class Setup(val distro: String, val nix: Boolean, val tools: List<String> = emptyList()) {
+    val mark get() = (listOfNotNull(distro, "nix".takeIf { nix }) + tools).joinToString("") { "$it\n" }
 
     companion object {
         fun read(mark: List<String>): Setup {
-            val words = mark.map { it.trim() }
+            val words = mark.map { it.trim() }.filter { it.isNotEmpty() }
             return Setup(
-                Distro.of(words.firstOrNull()) ?: Distro.UBUNTU,
+                words.firstOrNull() ?: "ubuntu",
                 "nix" in words,
-                words.mapNotNull { Tool.of(it) }.toSet(),
+                words.drop(1).filter { it != "nix" },
             )
         }
     }
@@ -195,8 +184,8 @@ private class LinuxSystem(val id: String, val dir: File) {
     @Volatile var sshd: Process? = null
     @Volatile var port = 0
     @Volatile var adding = false
-    @Volatile var tool: Tool? = null
-    @Volatile var pending = emptySet<Tool>()
+    @Volatile var tool: String? = null
+    @Volatile var pending = emptyList<String>()
     @Volatile var toolsError: String? = null
 
     val rootfs get() = File(dir, "rootfs")
@@ -214,7 +203,7 @@ private class LinuxSystem(val id: String, val dir: File) {
         }
 
     val parts get() = if (dir.name == "linux") {
-        listOf(rootfs, fakes, temp, File(dir, PhoneLinux.LEGACY)) + Distro.entries.map { File(dir, it.archive) } + File(dir, Nix.ARCHIVE)
+        listOf(rootfs, fakes, temp, File(dir, PhoneLinux.LEGACY)) + Distro.ARCHIVES.map { File(dir, it) } + File(dir, Nix.ARCHIVE)
     } else {
         listOf(dir)
     }
@@ -287,11 +276,11 @@ object PhoneLinux {
             }
             "install" -> {
                 val key = args?.get("publicKey") as? String
-                val distro = Distro.of(args?.get("distro") as? String)
+                val distro = Catalog.of(app).distro(args?.get("distro") as? String)
                 if (key == null || distro == null) return result.error("args", "publicKey and distro required", null)
                 val system = system(app, id)
                 if (system.busy || system.adding) return result.success(state(system))
-                val setup = Setup(distro, args?.get("nix") == true, tools(args))
+                val setup = Setup(distro.id, args?.get("nix") == true, tools(app, args))
                 system.installing = setup
                 system.phase = "download"
                 system.percent = 0
@@ -339,7 +328,7 @@ object PhoneLinux {
             "tools" -> {
                 val system = system(app, id)
                 if (!system.installed || system.busy || system.adding) return result.success(state(system))
-                add(app, system, tools(args))
+                add(app, system, tools(app, args))
                 result.success(state(system))
             }
             "stop" -> {
@@ -384,19 +373,21 @@ object PhoneLinux {
             "percent" to system.percent,
             "error" to system.error,
             "hostKey" to (system.hostKey ?: readHostKey(system)),
-            "distro" to setup?.distro?.id,
+            "distro" to setup?.distro,
             "nix" to (setup?.nix == true),
-            "tools" to Tool.entries.filter { it in setup?.tools.orEmpty() }.map { it.id },
-            "tool" to system.tool?.id,
-            "pending" to Tool.entries.filter { it in system.pending }.map { it.id },
+            "tools" to setup?.tools.orEmpty(),
+            "tool" to system.tool,
+            "pending" to system.pending,
             "toolsError" to system.toolsError,
         )
     }
 
-    private fun tools(args: Map<*, *>?) =
-        (args?.get("tools") as? List<*>).orEmpty().mapNotNull { Tool.of(it as? String) }.toSet()
+    private fun tools(context: Context, args: Map<*, *>?): List<String> {
+        val asked = (args?.get("tools") as? List<*>).orEmpty()
+        return Catalog.of(context).tools.map { it.id }.filter { it in asked }
+    }
 
-    private fun add(context: Context, system: LinuxSystem, tools: Set<Tool>) {
+    private fun add(context: Context, system: LinuxSystem, tools: List<String>) {
         system.adding = true
         system.pending = tools
         system.toolsError = null
@@ -404,15 +395,17 @@ object PhoneLinux {
         LinuxService.foreground(context)
         jobs.execute {
             try {
-                for (tool in Tool.entries.filter { it in tools }) {
+                val catalog = Catalog.of(context)
+                for (tool in catalog.tools.filter { it.id in tools }) {
                     val setup = system.setup ?: throw IllegalStateException("Linux is not installed")
-                    if (tool in setup.tools || !tool.fits(setup.distro)) continue
-                    system.tool = tool
+                    val distro = catalog.distro(setup.distro) ?: throw IllegalStateException("${setup.distro} is not offered")
+                    if (tool.id in setup.tools || !tool.fits(distro)) continue
+                    system.tool = tool.id
                     changed(context)
-                    step(context, system, tool.id, tool.script(setup.distro), 20)
-                    File(system.rootfs, READY_MARK).writeText(setup.copy(tools = setup.tools + tool).mark)
+                    step(context, system, tool.id, tool.script(distro), 20)
+                    File(system.rootfs, READY_MARK).writeText(setup.copy(tools = setup.tools + tool.id).mark)
                 }
-                system.pending = emptySet()
+                system.pending = emptyList()
             } catch (failure: Exception) {
                 Log.e(TAG, "tools", failure)
                 system.toolsError = failure.message ?: failure.toString()
@@ -432,9 +425,9 @@ object PhoneLinux {
 
     private fun install(context: Context, system: LinuxSystem, publicKey: String, setup: Setup) {
         if (system.installed) return
-        val distro = setup.distro
+        val distro = Catalog.of(context).distro(setup.distro) ?: throw IllegalStateException("${setup.distro} is not offered")
         val dir = system.dir.apply { mkdirs() }
-        for (other in Distro.entries) if (other.archive != distro.archive) File(dir, other.archive).delete()
+        for (other in Distro.ARCHIVES) if (other != distro.archive) File(dir, other).delete()
         val archive = File(dir, distro.archive)
         if (!archive.exists() || sha256(archive) != distro.sha256) download(context, system, distro.url, distro.sha256, archive)
         val nix = File(dir, Nix.ARCHIVE)
@@ -451,7 +444,7 @@ object PhoneLinux {
         archive.inputStream().use { TarUnpacker(root, distro.strip).unpack(distro.open(BufferedInputStream(it, 1 shl 16))) }
         File(root, "etc/resolv.conf").apply { delete() }.writeText("nameserver 1.1.1.1\nnameserver 8.8.8.8\n")
         File(root, "etc/hosts").writeText("127.0.0.1 localhost\n::1 localhost\n")
-        if (distro == Distro.UBUNTU) {
+        if (distro.manager == Manager.APT) {
             File(root, "usr/sbin/policy-rc.d").apply { writeText("#!/bin/sh\nexit 101\n") }.setExecutable(true, false)
         }
         val zone = TimeZone.getDefault().id
@@ -475,7 +468,7 @@ object PhoneLinux {
             step(context, system, "nix", Nix.INSTALL, 20)
         }
         writeSshd(root, publicKey)
-        File(root, READY_MARK).writeText(setup.copy(tools = emptySet()).mark)
+        File(root, READY_MARK).writeText(setup.copy(tools = emptyList()).mark)
         archive.delete()
         nix.delete()
         system.hostKey = readHostKey(system)

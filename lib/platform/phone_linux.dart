@@ -1,56 +1,97 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 
 import 'package:upgrade/data/enums.dart';
 
 enum PhoneLinuxPhase { idle, download, unpack, setup, nix, ready, failed }
 
-enum PhoneLinuxDistro {
-  ubuntu(HostSystem.ubuntu, 'UBUNTU 24.04', 'apt · about 70 MB to download'),
-  arch(
-    HostSystem.arch,
-    'ARCH LINUX ARM',
-    'pacman · about 160 MB to download, 840 MB unpacked',
-  ),
-  alpine(
-    HostSystem.alpine,
-    'ALPINE LINUX 3.24',
-    'apk · about 4 MB to download',
-  );
+class PhoneLinuxDistro {
+  PhoneLinuxDistro.fromJson(Map<String, Object?> json)
+    : id = json['id']! as String,
+      label = json['label']! as String,
+      manager = json['manager']! as String,
+      libc = json['libc']! as String,
+      downloadMb = json['download_mb']! as int,
+      unpackedMb = json['unpacked_mb'] as int?;
 
-  const PhoneLinuxDistro(this.system, this.label, this.detail);
-
-  final HostSystem system;
+  final String id;
   final String label;
-  final String detail;
+  final String manager;
+  final String libc;
+  final int downloadMb;
+  final int? unpackedMb;
 
-  static PhoneLinuxDistro? of(Object? id) =>
-      values.where((distro) => distro.name == id).firstOrNull;
+  HostSystem get system => systemOf(id);
+
+  String get detail =>
+      '$manager · about $downloadMb MB to download'
+      '${unpackedMb == null ? '' : ', $unpackedMb MB unpacked'}';
 }
 
-enum PhoneLinuxTool {
-  tmux('TMUX', 'The terminal multiplexer · about 1 MB'),
-  herdr('HERDR', 'The agent multiplexer · about 27 MB'),
-  claude('CLAUDE CODE', "Anthropic's coding agent · about 250 MB"),
-  codex('CODEX', "OpenAI's coding agent · about 370 MB"),
-  cursor('CURSOR AGENT', "Cursor's coding agent · about 550 MB", glibc: true),
-  opencode('OPENCODE', 'The open coding agent · about 190 MB');
+class PhoneLinuxTool {
+  PhoneLinuxTool.fromJson(Map<String, Object?> json)
+    : id = json['id']! as String,
+      label = json['label']! as String,
+      blurb = json['blurb']! as String,
+      mb = json['mb']! as int,
+      libc = json['libc'] as String?,
+      _packaged = {...?(json['packages'] as Map<String, Object?>?)?.keys},
+      _installer = json['installer'] != null;
 
-  const PhoneLinuxTool(this.label, this.detail, {this.glibc = false});
-
+  final String id;
   final String label;
-  final String detail;
+  final String blurb;
+  final int mb;
 
-  /// Ships a binary built against glibc, which Alpine's musl cannot load.
-  final bool glibc;
+  /// The C library the tool's binary is built against; none runs on any.
+  final String? libc;
+
+  final Set<String> _packaged;
+  final bool _installer;
+
+  String get detail => '$blurb · about $mb MB';
 
   bool fits(PhoneLinuxDistro distro) =>
-      !glibc || distro != PhoneLinuxDistro.alpine;
-
-  static Set<PhoneLinuxTool> parse(Object? raw) => {
-    for (final id in raw as List<Object?>? ?? const [])
-      ...values.where((tool) => tool.name == id),
-  };
+      (libc == null || libc == distro.libc) &&
+      (_installer || _packaged.contains(distro.id));
 }
+
+class PhoneLinuxCatalog {
+  PhoneLinuxCatalog.fromJson(Map<String, Object?> json)
+    : distros = [
+        for (final raw in json['distros']! as List<Object?>)
+          PhoneLinuxDistro.fromJson(raw! as Map<String, Object?>),
+      ],
+      nixMb = (json['nix']! as Map<String, Object?>)['download_mb']! as int,
+      tools = [
+        for (final raw in json['tools']! as List<Object?>)
+          PhoneLinuxTool.fromJson(raw! as Map<String, Object?>),
+      ];
+
+  static const asset = 'assets/linux/catalog.json';
+
+  static Future<PhoneLinuxCatalog> load(AssetBundle bundle) async =>
+      PhoneLinuxCatalog.fromJson(
+        jsonDecode(await bundle.loadString(asset)) as Map<String, Object?>,
+      );
+
+  final List<PhoneLinuxDistro> distros;
+  final int nixMb;
+  final List<PhoneLinuxTool> tools;
+
+  PhoneLinuxDistro? distro(String? id) =>
+      distros.where((distro) => distro.id == id).firstOrNull;
+
+  PhoneLinuxTool? tool(String? id) =>
+      tools.where((tool) => tool.id == id).firstOrNull;
+
+  String toolLabel(String id) => tool(id)?.label ?? id.toUpperCase();
+}
+
+HostSystem systemOf(String distro) =>
+    HostSystem.values.where((system) => system.name == distro).firstOrNull ??
+    HostSystem.linux;
 
 class PhoneLinuxSetup {
   const PhoneLinuxSetup(
@@ -60,9 +101,9 @@ class PhoneLinuxSetup {
     this.name,
   });
 
-  final PhoneLinuxDistro distro;
+  final String distro;
   final bool nix;
-  final Set<PhoneLinuxTool> tools;
+  final Set<String> tools;
 
   /// The host's name; a retry carries none and keeps the one it has.
   final String? name;
@@ -100,14 +141,14 @@ class PhoneLinuxState {
 
   final String? hostKey;
 
-  final PhoneLinuxDistro? distro;
+  final String? distro;
   final bool nix;
 
-  final Set<PhoneLinuxTool> tools;
+  final Set<String> tools;
 
-  final PhoneLinuxTool? tool;
+  final String? tool;
 
-  final Set<PhoneLinuxTool> pending;
+  final Set<String> pending;
 
   final String? toolsError;
 
@@ -136,15 +177,19 @@ class PhoneLinuxState {
       percent: percent < 0 ? null : percent,
       error: raw['error'] as String?,
       hostKey: raw['hostKey'] as String?,
-      distro: PhoneLinuxDistro.of(raw['distro']),
+      distro: raw['distro'] as String?,
       nix: raw['nix'] == true,
-      tools: PhoneLinuxTool.parse(raw['tools']),
-      tool: PhoneLinuxTool.parse([raw['tool']]).firstOrNull,
-      pending: PhoneLinuxTool.parse(raw['pending']),
+      tools: _ids(raw['tools']),
+      tool: raw['tool'] as String?,
+      pending: _ids(raw['pending']),
       toolsError: raw['toolsError'] as String?,
     );
   }
 }
+
+Set<String> _ids(Object? raw) => {
+  for (final id in raw as List<Object?>? ?? const []) id! as String,
+};
 
 class PhoneLinux {
   const PhoneLinux();
@@ -170,15 +215,15 @@ class PhoneLinux {
   }) => _call('install', {
     'id': id,
     'publicKey': publicKey,
-    'distro': setup.distro.name,
+    'distro': setup.distro,
     'nix': setup.nix,
-    'tools': [for (final tool in setup.tools) tool.name],
+    'tools': [...setup.tools],
   });
 
-  Future<PhoneLinuxState> addTools(String id, Set<PhoneLinuxTool> tools) =>
+  Future<PhoneLinuxState> addTools(String id, Set<String> tools) =>
       _call('tools', {
         'id': id,
-        'tools': [for (final tool in tools) tool.name],
+        'tools': [...tools],
       });
 
   Future<PhoneLinuxState> start(
