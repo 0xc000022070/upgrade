@@ -27,6 +27,10 @@ String systemWord(HostSystem? system) => switch (system) {
   HostSystem.other || null => 'host',
 };
 
+const _phoneViewBox = 24.0;
+const _phoneScreen = Rect.fromLTRB(4, 1, 20, 19.5);
+const _glyphScale = 0.5;
+
 class HostMark extends ConsumerWidget {
   const HostMark(
     this.system, {
@@ -47,6 +51,9 @@ class HostMark extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ink = color ?? context.tokens.textSecondary;
     final onPhone = phone || hostId != null && ref.isPhoneLinux(hostId!);
+    const glyphUnits = _phoneViewBox * _glyphScale;
+    final glyphAt =
+        _phoneScreen.center - const Offset(glyphUnits, glyphUnits) / 2;
     return Semantics(
       label: onPhone
           ? '${systemWord(system)} on this phone'
@@ -57,13 +64,12 @@ class HostMark extends ConsumerWidget {
               child: Stack(
                 children: [
                   UpgradeIcon(UpgradeIcons.phoneFrame, size: size, color: ink),
-                  // The system glyph sits on the screen, above the frame's chin.
                   Positioned(
-                    left: size / 4,
-                    top: size * 4.25 / 24,
+                    left: size * glyphAt.dx / _phoneViewBox,
+                    top: size * glyphAt.dy / _phoneViewBox,
                     child: UpgradeIcon(
                       systemGlyph(system),
-                      size: size / 2,
+                      size: size * _glyphScale,
                       color: ink,
                     ),
                   ),
