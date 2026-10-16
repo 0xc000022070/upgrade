@@ -4,11 +4,9 @@
   callPackage,
   rustPlatform,
   lld,
+  ghosttyVt ? callPackage ./libghostty-vt.nix { },
 }:
 
-let
-  ghosttyVt = callPackage ./libghostty-vt.nix { };
-in
 rustPlatform.buildRustPackage {
   pname = "upgraded";
   version = "0.1.0";

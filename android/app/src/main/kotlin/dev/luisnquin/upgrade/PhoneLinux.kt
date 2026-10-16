@@ -394,6 +394,7 @@ object PhoneLinux {
             "-b", "/sys",
             *procFakes(context),
             "-b", "${temp.path}:/dev/shm",
+            "-b", "${File(native, "libupgraded.so").path}:/usr/local/bin/upgraded",
             "-w", "/root",
             "/usr/bin/env", "-i",
             "HOME=/root",

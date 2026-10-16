@@ -8,6 +8,7 @@ let
 
   testfmt = pkgs.callPackage ./testfmt.nix { };
   prootAndroid = pkgs.callPackage ./proot-android.nix { };
+  engineAndroid = pkgs.callPackage ./engine/android.nix { };
 
   ghosttySrc = pkgs.callPackage ./ghostty-src.nix { };
   ghosttyVt = pkgs.callPackage ./engine/libghostty-vt.nix { };
@@ -72,6 +73,7 @@ pkgs.mkShell {
   LIBGHOSTTY_REV = libghosttyRev;
   JAVA_HOME = "${jdk}";
   PROOT_ANDROID_LIBS = prootAndroid;
+  ENGINE_ANDROID_LIBS = engineAndroid;
 
   shellHook = ''
     export UPGRADE_BUILD="$(${pkgs.git}/bin/git rev-parse --short HEAD 2>/dev/null || echo dev)"

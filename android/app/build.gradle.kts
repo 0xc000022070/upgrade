@@ -25,9 +25,11 @@ android {
         versionName = flutter.versionName
     }
 
-    sourceSets["main"].jniLibs.srcDir(
+    sourceSets["main"].jniLibs.srcDirs(
         System.getenv("PROOT_ANDROID_LIBS")
             ?: error("PROOT_ANDROID_LIBS is unset; build from the nix dev shell"),
+        System.getenv("ENGINE_ANDROID_LIBS")
+            ?: error("ENGINE_ANDROID_LIBS is unset; build from the nix dev shell"),
     )
     packaging {
         jniLibs {
