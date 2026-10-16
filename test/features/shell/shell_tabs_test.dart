@@ -53,20 +53,13 @@ Color? dotOfTab(WidgetTester tester, int number) =>
             as BoxDecoration)
         .color;
 
-Color? inkOfInfoMark(WidgetTester tester) => tester
-    .widget<Text>(
-      find.descendant(
-        of: find.byKey(const ValueKey('shell-tab-info')),
-        matching: find.byType(Text),
-      ),
-    )
-    .style
-    ?.color;
-
-/// The sheet's own transition and no more: a tab on a reconnect schedule moves on under a
-/// longer pump.
+/// A double tap on the tab on screen, then the sheet's own transition and no more: a tab
+/// on a reconnect schedule moves on under a longer pump.
 Future<void> openInfo(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('shell-tab-info')));
+  final tab = find.byKey(const ValueKey('shell-tab-active'));
+  await tester.tap(tab);
+  await tester.pump(const Duration(milliseconds: 50));
+  await tester.tap(tab);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 200));
 }
@@ -93,7 +86,6 @@ void main() {
     await ready(tester);
 
     expect(find.text('MOSH'), findsNothing);
-    expect(find.byKey(const ValueKey('shell-tab-info')), findsNothing);
 
     await unmount(tester);
   });
@@ -107,12 +99,9 @@ void main() {
     final connection = transport.opened.single;
     connection.emit('\$ ');
     await ready(tester);
-    expect(find.byKey(const ValueKey('shell-tab-info')), findsNothing);
 
     connection.setControlDown(true);
     await ready(tester);
-    expect(find.byKey(const ValueKey('shell-tab-info')), findsOneWidget);
-    expect(inkOfInfoMark(tester), UpgradeColors.warning);
 
     await openInfo(tester);
     expect(find.byKey(const ValueKey('shell-info-background')), findsOneWidget);
@@ -124,7 +113,6 @@ void main() {
 
     connection.setControlDown(false);
     await ready(tester);
-    expect(find.byKey(const ValueKey('shell-tab-info')), findsNothing);
 
     await unmount(tester);
   });
@@ -360,9 +348,7 @@ void main() {
     await tester.tap(find.text('KEEP'));
     await ready(tester);
 
-    expect(headerWords(tester), contains('(i)'));
     expect(find.text('EXITED 1'), findsNothing);
-    expect(inkOfInfoMark(tester), UpgradeColors.warning);
 
     await openInfo(tester);
 

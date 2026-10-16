@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -53,6 +54,11 @@ String shellSessionLabel(ShellSession session) => shellTabLabel(
   session.number,
 );
 
+/// Outside the header: a tap on another host's tab brings up a new header before the
+/// second tap lands.
+ShellSession? _tapped;
+Timer? _tapWindow;
+
 class ShellHeader extends StatefulWidget {
   const ShellHeader({
     super.key,
@@ -72,6 +78,9 @@ class ShellHeader extends StatefulWidget {
     required this.onDiff,
     this.diffReady = false,
     this.onFiles,
+    this.onMachine,
+    this.machineAlert = false,
+    this.reasonLine,
     this.onPin,
     this.pinStale = false,
   });
@@ -88,8 +97,9 @@ class ShellHeader extends StatefulWidget {
   final void Function(int from, int to) onMoveGroup;
   final ValueChanged<Host> onNew;
   final VoidCallback? onClose;
-  final VoidCallback? onStop;
-  final VoidCallback? onReconnect;
+  final ValueChanged<ShellSession>? onStop;
+
+  final ValueChanged<ShellSession>? onReconnect;
 
   /// Null when there is none to open — a host with no registered directory and a tab that
   /// has never said where it is.
@@ -100,6 +110,12 @@ class ShellHeader extends StatefulWidget {
   final bool diffReady;
 
   final VoidCallback? onFiles;
+
+  final VoidCallback? onMachine;
+
+  final bool machineAlert;
+
+  final String? reasonLine;
 
   /// Non-null while a passphrase ask the user swiped away is still open on the host.
   final VoidCallback? onPin;
@@ -157,8 +173,6 @@ class _ShellHeaderState extends State<ShellHeader> {
 
   @override
   Widget build(BuildContext context) {
-    final host = widget.host;
-    final active = widget.active;
     final onClose = widget.onClose;
     final onDiff = widget.onDiff;
     // The menu is an overlay rather than a route, so back would pop the sheet under it.
@@ -221,12 +235,14 @@ class _ShellHeaderState extends State<ShellHeader> {
                 icon: UpgradeIcons.files,
                 onTap: onFiles,
               ),
-            _Middle(
-              host: host.name,
-              session: active,
-              onStop: widget.onStop,
-              onReconnect: widget.onReconnect,
-            ),
+            if (widget.onMachine case final onMachine?)
+              _TabCell(
+                key: const ValueKey('shell-tab-machine'),
+                label: 'MACHINE',
+                icon: UpgradeIcons.systemServer,
+                tint: widget.machineAlert ? context.tokens.warning : null,
+                onTap: onMachine,
+              ),
             if (onClose != null) ...[
               const SizedBox(width: Spacing.md),
               const CellDivider(),
@@ -295,12 +311,15 @@ class _ShellHeaderState extends State<ShellHeader> {
                   child: KeyedSubtree(
                     key: session == widget.active ? _activeTab : null,
                     child: _TabCell(
+                      key: session == widget.active
+                          ? const ValueKey('shell-tab-active')
+                          : null,
                       label: shellSessionLabel(session),
                       session: session,
                       grouped: true,
                       active: session == widget.active,
                       rail: session == widget.active,
-                      onTap: () => widget.onSelect(group, session),
+                      onTap: () => _tap(group, session),
                     ),
                   ),
                 ),
@@ -311,74 +330,43 @@ class _ShellHeaderState extends State<ShellHeader> {
     );
   }
 
-  Widget _plus(BuildContext context) {
-    return HostMenu(
-      key: const ValueKey('shell-strip-plus'),
-      title: 'NEW SHELL ON',
-      hosts: widget.newHosts,
-      current: widget.host.id,
-      itemKey: (host) => 'shell-new-host-${host.id}',
-      onPick: widget.onNew,
-      controller: _newMenu,
-      onOpen: () => setState(() => _newMenuOpen = true),
-      onClose: () => setState(() => _newMenuOpen = false),
-      builder: (context, controller, child) => _TabCell(
-        key: const ValueKey('shell-tab-new'),
-        label: '+',
-        onTap: controller.isOpen ? controller.close : controller.open,
-      ),
-    );
-  }
-}
-
-class _Middle extends StatelessWidget {
-  const _Middle({
-    required this.host,
-    required this.session,
-    required this.onStop,
-    required this.onReconnect,
-  });
-
-  final String host;
-  final ShellSession? session;
-  final VoidCallback? onStop;
-  final VoidCallback? onReconnect;
-
-  @override
-  Widget build(BuildContext context) {
-    final session = this.session;
-    // The middle is empty while the tab is live on a held host, and the mark comes out
-    // in warning only once there is something behind it to read.
-    if (session == null ||
-        (session.state is ShellLive && !session.controlStale)) {
-      return const SizedBox.shrink();
+  void _tap(Host group, ShellSession session) {
+    final again = _tapped == session;
+    _tapWindow?.cancel();
+    _tapped = again ? null : session;
+    _tapWindow = again ? null : Timer(kDoubleTapTimeout, () => _tapped = null);
+    if (again) {
+      unawaited(_readout(session));
+    } else {
+      widget.onSelect(group, session);
     }
-    return _TabCell(
-      key: const ValueKey('shell-tab-info'),
-      label: '(i)',
-      tint: context.tokens.warning,
-      onTap: () => _open(context, session),
-    );
   }
 
-  Future<void> _open(BuildContext context, ShellSession session) {
-    final title = '${host.toUpperCase()} ${session.number}';
+  Future<void> _readout(ShellSession session) {
+    final title = '${session.host.name.toUpperCase()} ${session.number}';
+    final onStop = widget.onStop;
+    final onReconnect = widget.onReconnect;
     return showPanelSheet<void>(
       context,
       title: title,
-      // The session is read again on every notify: a tab that reconnects under
-      // the open sheet takes its `STOP` away with it, rather than leaving a
-      // control that would answer nothing.
+      // The session is read again on every notify: a tab that comes back under the open
+      // sheet takes its `STOP` and `RECONNECT` away with it, rather than leaving controls
+      // that would answer nothing.
       builder: (context) => ListenableBuilder(
         listenable: session,
         builder: (context, _) {
           final state = session.state;
-          final stop = state is ShellDropped || state is ShellWaiting
-              ? onStop
-              : null;
+          final redialable = session.redialable;
           final stale = state is ShellLive && session.controlStale;
-          final reconnect = stale ? onReconnect : null;
-          final failure = stale ? session.controlFailure : null;
+          final failure = stale
+              ? switch (session.controlFailure) {
+                  final control? => (
+                    kind: control.kind,
+                    detail: control.detail,
+                  ),
+                  null => null,
+                }
+              : state.failure;
           return PanelSheetBody(
             title: title,
             children: [
@@ -413,8 +401,9 @@ class _Middle extends StatelessWidget {
                   host: session.host,
                   kind: failure.kind,
                   detail: failure.detail,
+                  line: stale ? null : widget.reasonLine,
                 ),
-              if (reconnect != null) ...[
+              if (onReconnect != null && (redialable || stale)) ...[
                 const SheetRule(),
                 PanelTextAction(
                   key: const ValueKey('shell-info-reconnect'),
@@ -422,11 +411,12 @@ class _Middle extends StatelessWidget {
                   icon: UpgradeIcons.sync,
                   onTap: () {
                     Navigator.of(context).pop();
-                    reconnect();
+                    onReconnect(session);
                   },
                 ),
               ],
-              if (stop != null) ...[
+              if (onStop != null &&
+                  (state is ShellDropped || state is ShellWaiting)) ...[
                 const SheetRule(),
                 PanelTextAction(
                   key: const ValueKey('shell-info-stop'),
@@ -434,7 +424,7 @@ class _Middle extends StatelessWidget {
                   icon: UpgradeIcons.close,
                   onTap: () {
                     Navigator.of(context).pop();
-                    stop();
+                    onStop(session);
                   },
                 ),
               ],
@@ -445,28 +435,46 @@ class _Middle extends StatelessWidget {
     );
   }
 
-  String _stateWord(ShellState state) => switch (state) {
-    ShellLive() => 'LIVE',
-    ShellConnecting() => 'CONNECTING',
-    ShellReconnecting() => 'RECONNECTING',
-    ShellDisconnected() => 'DISCONNECTED',
-    ShellDropped(:final attempt) =>
-      'RECONNECTING $attempt/${shellReconnectDelays.length}',
-    ShellExited(:final code) => 'EXITED ${code ?? '—'}',
-    ShellWaiting() || ShellFailed() => 'DISCONNECTED',
-  };
-
-  /// The state's own transport while it carries one, and the connection's while it does
-  /// not. A dash once there is no connection left to ask.
-  String _transportWord(ShellSession session) {
-    final carried = switch (session.state) {
-      ShellLive(:final transport) ||
-      ShellReconnecting(:final transport) ||
-      ShellDisconnected(:final transport) => transport,
-      _ => session.connection?.transport,
-    };
-    return carried?.name.toUpperCase() ?? '—';
+  Widget _plus(BuildContext context) {
+    return HostMenu(
+      key: const ValueKey('shell-strip-plus'),
+      title: 'NEW SHELL ON',
+      hosts: widget.newHosts,
+      current: widget.host.id,
+      itemKey: (host) => 'shell-new-host-${host.id}',
+      onPick: widget.onNew,
+      controller: _newMenu,
+      onOpen: () => setState(() => _newMenuOpen = true),
+      onClose: () => setState(() => _newMenuOpen = false),
+      builder: (context, controller, child) => _TabCell(
+        key: const ValueKey('shell-tab-new'),
+        label: '+',
+        onTap: controller.isOpen ? controller.close : controller.open,
+      ),
+    );
   }
+}
+
+String _stateWord(ShellState state) => switch (state) {
+  ShellLive() => 'LIVE',
+  ShellConnecting() => 'CONNECTING',
+  ShellReconnecting() => 'RECONNECTING',
+  ShellDisconnected() => 'DISCONNECTED',
+  ShellDropped(:final attempt) =>
+    'RECONNECTING $attempt/${shellReconnectDelays.length}',
+  ShellExited(:final code) => 'EXITED ${code ?? '—'}',
+  ShellWaiting() => 'WAITING',
+  ShellFailed() => 'FAILED',
+};
+
+String _transportWord(ShellSession session) {
+  final carried = switch (session.state) {
+    ShellLive(:final transport) ||
+    ShellReconnecting(:final transport) ||
+    ShellDisconnected(:final transport) => transport,
+    _ => session.connection?.transport,
+  };
+  return carried?.name.toUpperCase() ?? '—';
 }
 
 /// Only the failures the schedule gave up on or never took reach this row: a key the host
@@ -479,11 +487,14 @@ class ShellReasonRow extends StatefulWidget {
     required this.host,
     required this.kind,
     this.detail,
+    this.line,
   });
 
   final Host host;
   final ShellFailureKind kind;
   final String? detail;
+
+  final String? line;
 
   @override
   State<ShellReasonRow> createState() => _ShellReasonRowState();
@@ -520,7 +531,7 @@ class _ShellReasonRowState extends State<ShellReasonRow> {
                 children: [
                   Expanded(
                     child: Text(
-                      widget.kind.line.on(widget.host.name),
+                      widget.line ?? widget.kind.line.on(widget.host.name),
                       style: context.tokens.panelHeader.copyWith(
                         color: context.tokens.warning,
                       ),
@@ -616,8 +627,8 @@ class _TabCell extends StatelessWidget {
   final VoidCallback? onTap;
 
   /// What the cell is drawn in, when what it is drawn in is not the cell's own business:
-  /// the info mark stands in warning for as long as it stands at all, rather than in the
-  /// ink of whether it is the tab on screen.
+  /// the machine mark goes to warning while the machine is why the tab is down, rather
+  /// than taking the ink of whether it is the tab on screen.
   final Color? tint;
 
   final bool rail;

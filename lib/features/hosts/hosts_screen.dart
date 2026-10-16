@@ -966,10 +966,34 @@ class _PhoneLinuxActionState extends ConsumerState<_PhoneLinuxAction> {
   }
 }
 
+Future<void> showMachineSheet(BuildContext context, Host host) =>
+    showPanelSheet<void>(
+      context,
+      title: host.name.toUpperCase(),
+      builder: (context) => PanelSheetBody(
+        title: host.name.toUpperCase(),
+        children: [
+          Consumer(
+            builder: (context, ref, _) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _MetaRow('ADDRESS', '${host.address}:${host.port}'),
+                _LinkRow(host: host, outcome: null),
+                if (ref.watch(phoneLinuxHostIdProvider).valueOrNull == host.id)
+                  _PhoneLinuxRow(host: host, system: false),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
 class _PhoneLinuxRow extends ConsumerStatefulWidget {
-  const _PhoneLinuxRow({required this.host});
+  const _PhoneLinuxRow({required this.host, this.system = true});
 
   final Host host;
+
+  final bool system;
 
   @override
   ConsumerState<_PhoneLinuxRow> createState() => _PhoneLinuxRowState();
@@ -1020,7 +1044,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
       ),
       PhoneLinuxState(installed: false) => ('NOT INSTALLED', null, 'INSTALL'),
       PhoneLinuxState(running: true) => ('RUNNING', null, 'STOP'),
-      _ => ('STOPPED', null, 'START'),
+      _ => ('STOPPED', warning, 'START'),
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1030,15 +1054,42 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
           _failure ?? value,
           strong: state.running,
           color: _failure == null ? color : warning,
-          trailing: action == null
+          trailing: busy != null
+              ? PanelAffordance(busy, showIcon: false)
+              : action == null
               ? null
-              : PanelAffordance(
-                  busy ?? action,
-                  showIcon: false,
-                  onTap: busy == null ? () => _act(linux, state, action) : null,
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (action == 'STOP') ...[
+                      PanelAffordance(
+                        'RESTART',
+                        key: const ValueKey('phone-linux-restart'),
+                        showIcon: false,
+                        onTap: UserIntent.onGesture(
+                          (intent) => unawaited(
+                            _act(linux, state, 'RESTART', UserAction(intent)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: Spacing.lg),
+                    ],
+                    PanelAffordance(
+                      action,
+                      key: ValueKey('phone-linux-${action.toLowerCase()}'),
+                      showIcon: false,
+                      onTap: action == 'START'
+                          ? UserIntent.onGesture(
+                              (intent) => unawaited(
+                                _act(linux, state, action, UserAction(intent)),
+                              ),
+                            )
+                          : () => unawaited(_act(linux, state, action, null)),
+                    ),
+                  ],
                 ),
         ),
-        if (state.installed && !state.installing)
+        if (widget.system && state.installed && !state.installing)
           _MetaRow(
             'SYSTEM',
             state.distro?.label ?? 'LINUX',
@@ -1049,7 +1100,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
               onTap: busy == null ? () => _remove(linux) : null,
             ),
           ),
-        if (state.installed && !state.installing && state.nix)
+        if (widget.system && state.installed && !state.installing && state.nix)
           _MetaRow(
             'NIX',
             state.homeManager ? 'WITH HOME MANAGER' : 'INSTALLED',
@@ -1062,12 +1113,15 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
     PhoneLinuxHost linux,
     PhoneLinuxState state,
     String action,
+    UserAction? reason,
   ) async {
+    final store = ref.read(shellSessionsProvider);
     setState(() {
       _failure = null;
       _busy = switch (action) {
         'STOP' => 'STOPPING',
         'START' => 'STARTING',
+        'RESTART' => 'RESTARTING',
         _ => 'PREPARING',
       };
     });
@@ -1075,8 +1129,10 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
       switch (action) {
         case 'STOP':
           await linux.stop();
-        case 'START':
+        case 'START' || 'RESTART':
+          if (action == 'RESTART') await linux.stop();
           await linux.ensure(widget.host);
+          if (reason != null) store.redialHost(widget.host.id, reason);
         default:
           final setup =
               (action == 'RETRY' ? state.setup : null) ??

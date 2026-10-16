@@ -7,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:upgrade/application/agents/agent_input.dart';
 import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/application/agents/agent_kind.dart';
 import 'package:upgrade/features/shell/host_shell_screen.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
@@ -20,20 +19,13 @@ import '../../support/platform_channels.dart';
 import '../../support/reasons.dart';
 import '../../support/shell_route.dart';
 
-Color? inkOfInfoMark(WidgetTester tester) => tester
-    .widget<Text>(
-      find.descendant(
-        of: find.byKey(const ValueKey('shell-tab-info')),
-        matching: find.byType(Text),
-      ),
-    )
-    .style
-    ?.color;
-
-/// The sheet's own transition and no more: a tab on a reconnect schedule moves on under a
-/// longer pump.
+/// A double tap on the tab on screen, then the sheet's own transition and no more: a tab
+/// on a reconnect schedule moves on under a longer pump.
 Future<void> openInfo(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('shell-tab-info')));
+  final tab = find.byKey(const ValueKey('shell-tab-active'));
+  await tester.tap(tab);
+  await tester.pump(const Duration(milliseconds: 50));
+  await tester.tap(tab);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 200));
 }
@@ -391,7 +383,6 @@ void main() {
 
     expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('CONNECTING'), findsNothing);
-    expect(inkOfInfoMark(tester), UpgradeColors.warning);
     expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
     expect(find.text('RETRY'), findsNothing);
 
@@ -414,7 +405,6 @@ void main() {
     expect(find.textContaining('/'), findsNothing);
     expect(find.text('CONNECTING'), findsNothing);
     expect(find.text('RETRY'), findsNothing);
-    expect(find.byKey(const ValueKey('shell-tab-info')), findsNothing);
     expect(
       tester.getSize(find.byKey(const ValueKey('shell-header'))).height,
       44,
@@ -438,7 +428,6 @@ void main() {
     await ready(tester);
 
     expect(find.text('EXITED 130'), findsNothing);
-    expect(inkOfInfoMark(tester), UpgradeColors.warning);
 
     await openInfo(tester);
     expect(find.text('EXITED 130'), findsOneWidget);
@@ -457,9 +446,8 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a refused shell draws its reason line and no way back', (
-    tester,
-  ) async {
+  testWidgets('a refused shell draws its reason line, and only its readout '
+      'dials it again', (tester) async {
     final transport = FakeShellTransport()
       ..refuse = const ShellFailure(ShellFailureKind.shellRefused);
     await tester.pumpWidget(app(fakeShellSessions(transport)));
@@ -472,8 +460,9 @@ void main() {
     expect(transport.opened, isEmpty);
 
     await openInfo(tester);
-    expect(find.text('DISCONNECTED'), findsOneWidget);
+    expect(find.text('FAILED'), findsOneWidget);
     expect(find.text('STOP'), findsNothing);
+    expect(find.byKey(const ValueKey('shell-info-reconnect')), findsOneWidget);
 
     await unmount(tester);
   });
@@ -548,7 +537,6 @@ void main() {
     await ready(tester);
 
     expect(find.textContaining('RECONNECTING'), findsNothing);
-    expect(inkOfInfoMark(tester), UpgradeColors.warning);
     expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('shell-reason')));
     await tester.pump();
@@ -567,6 +555,51 @@ void main() {
     expect(find.textContaining('RECONNECTING'), findsNothing);
     expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
     expect(transport.opened, hasLength(1));
+
+    await unmount(tester);
+  });
+
+  testWidgets('a single tap on the tab opens nothing, and a double tap reads '
+      'LIVE with nothing to press', (tester) async {
+    final transport = FakeShellTransport();
+    await tester.pumpWidget(app(fakeShellSessions(transport)));
+    await ready(tester);
+
+    await tester.tap(find.byKey(const ValueKey('shell-tab-active')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.byKey(const ValueKey('shell-tab-active')));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const ValueKey('shell-info-state')), findsNothing);
+
+    await openInfo(tester);
+    expect(find.text('LIVE'), findsOneWidget);
+    expect(find.text('SSH'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-info-reconnect')), findsNothing);
+    expect(find.byKey(const ValueKey('shell-info-stop')), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a stopped tab reads FAILED, and RECONNECT dials it again', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions));
+    await ready(tester);
+
+    transport.opened.single.drop();
+    await ready(tester);
+    await openInfo(tester);
+    await tester.tap(find.byKey(const ValueKey('shell-info-stop')));
+    await ready(tester);
+
+    await openInfo(tester);
+    expect(find.text('FAILED'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('shell-info-reconnect')));
+    await ready(tester);
+
+    expect(transport.opened, hasLength(2));
 
     await unmount(tester);
   });
@@ -608,8 +641,8 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a spent schedule reads DISCONNECTED with STOP in the sheet '
-      'and a reason under the header', (tester) async {
+  testWidgets('a spent schedule reads WAITING with STOP in the sheet, '
+      'FAILED after it, and a reason under the header', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
@@ -626,7 +659,7 @@ void main() {
     expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
 
     await openInfo(tester);
-    expect(find.text('DISCONNECTED'), findsOneWidget);
+    expect(find.text('WAITING'), findsOneWidget);
     expect(find.textContaining('RECONNECTING'), findsNothing);
     expect(find.byKey(const ValueKey('shell-info-stop')), findsOneWidget);
 
@@ -634,8 +667,8 @@ void main() {
     await ready(tester);
 
     await openInfo(tester);
-    expect(find.text('DISCONNECTED'), findsOneWidget);
-    expect(find.byKey(const ValueKey('shell-reason')), findsOneWidget);
+    expect(find.text('FAILED'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-reason')), findsNWidgets(2));
 
     await unmount(tester);
   });

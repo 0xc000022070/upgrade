@@ -10,6 +10,7 @@ import 'package:upgrade/application/agents/agent_kind.dart';
 import 'package:upgrade/application/drops/clips.dart';
 import 'package:upgrade/application/alerts/pin_alerts.dart';
 import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/application/phone_linux.dart';
 import 'package:upgrade/application/shell/shell_font.dart';
 import 'package:upgrade/application/whisper.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -33,6 +34,7 @@ import 'package:upgrade/features/code/diff_sheet.dart';
 import 'package:upgrade/features/files/files_sheet.dart';
 import 'package:upgrade/features/files/transfer_bar.dart';
 import 'package:upgrade/features/hosts/host_key_sheet.dart';
+import 'package:upgrade/features/hosts/hosts_screen.dart' show showMachineSheet;
 import 'package:upgrade/features/shell/sheets/attach_sheet.dart';
 import 'package:upgrade/features/shell/shell_bar.dart';
 import 'package:upgrade/features/shell/shell_header.dart';
@@ -988,6 +990,21 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
             ];
             _follow(active);
             final state = active?.state;
+            final phoneLinux = ref.watch(phoneLinuxHostIdProvider).valueOrNull;
+            final linux = ref.watch(phoneLinuxStateProvider).valueOrNull;
+            final linuxStopped =
+                phoneLinux != null &&
+                linux != null &&
+                linux.installed &&
+                !linux.installing &&
+                !linux.running;
+            final machine = active?.host ?? widget.host;
+            final reasonLine =
+                linuxStopped &&
+                    machine.id == phoneLinux &&
+                    state?.failure?.kind == ShellFailureKind.unreachable
+                ? 'linux stopped · start it from machine'
+                : null;
             final diffTargets = _diffTargets();
             _askRepository(active);
             return Column(
@@ -1037,19 +1054,24 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                               context,
                               active?.host ?? widget.host,
                             ),
-                            onStop: active == null
-                                ? null
-                                : () => store.stopReconnect(active),
-                            onReconnect: active == null
-                                ? null
-                                : UserIntent.onGesture(
-                                    (intent) => unawaited(
-                                      store.reconnectControl(
-                                        active,
-                                        UserAction(intent),
-                                      ),
-                                    ),
-                                  ),
+                            onMachine: () => showMachineSheet(context, machine),
+                            machineAlert:
+                                linuxStopped && machine.id == phoneLinux,
+                            reasonLine: reasonLine,
+                            onStop: store.stopReconnect,
+                            onReconnect: UserIntent.onGestureWith((
+                              intent,
+                              ShellSession session,
+                            ) {
+                              final action = UserAction(intent);
+                              if (session.state is ShellLive) {
+                                unawaited(
+                                  store.reconnectControl(session, action),
+                                );
+                              } else {
+                                store.redial(session, action);
+                              }
+                            }),
                             onPin: swiped == null ? null : _onPinReopen,
                             pinStale: swiped?.stale ?? false,
                           );
@@ -1060,6 +1082,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                           host: widget.host,
                           kind: failure.kind,
                           detail: failure.detail,
+                          line: reasonLine,
                         ),
                     ],
                   ),

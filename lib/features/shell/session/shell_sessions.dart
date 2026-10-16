@@ -450,6 +450,15 @@ class ShellSession extends ChangeNotifier {
 
   ShellFailure? controlFailure;
 
+  bool get redialable {
+    final state = this.state;
+    final connection = this.connection;
+    return (state is ShellDropped ||
+            state is ShellWaiting ||
+            state is ShellFailed) &&
+        (connection == null || connection.ended != null);
+  }
+
   void _unwatch() {
     unawaited(_health?.cancel());
     _health = null;
@@ -2232,6 +2241,25 @@ class ShellSessions extends ChangeNotifier {
     session.state = ShellDropped(1, kind: waiting.kind, detail: waiting.detail);
     session.changed();
     unawaited(_redial(session, reason));
+  }
+
+  void redial(ShellSession session, UserAction action) {
+    if (_held > 0 || !session.redialable) return;
+    final failure = session.state.failure;
+    session._reconnect?.cancel();
+    session.state = ShellDropped(
+      1,
+      kind: failure?.kind ?? ShellFailureKind.streamClosed,
+      detail: failure?.detail,
+    );
+    session.changed();
+    unawaited(_redial(session, action));
+  }
+
+  void redialHost(String hostId, UserAction action) {
+    for (final session in List.of(forHost(hostId))) {
+      redial(session, action);
+    }
   }
 
   Future<void> reconnectControl(ShellSession session, UserAction action) async {
