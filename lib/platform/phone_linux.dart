@@ -103,31 +103,45 @@ class PhoneLinux {
   static const _calls = MethodChannel('dev.luisnquin.upgrade/linux');
   static const _changes = EventChannel('dev.luisnquin.upgrade/linux/state');
 
-  Stream<PhoneLinuxState> watch() => _changes.receiveBroadcastStream().map(
-    (raw) => PhoneLinuxState.from(raw as Map<Object?, Object?>),
-  );
+  Stream<Map<String, PhoneLinuxState>> watch() => _changes
+      .receiveBroadcastStream()
+      .map((raw) => _systems(raw as Map<Object?, Object?>));
 
-  Future<PhoneLinuxState> state() => _call('state');
+  Future<Map<String, PhoneLinuxState>> states() async {
+    final raw = await _calls.invokeMapMethod<Object?, Object?>('state');
+    return raw == null ? const {} : _systems(raw);
+  }
 
-  Future<PhoneLinuxState> install({
+  Future<void> adopt(String id) => _call('adopt', {'id': id});
+
+  Future<PhoneLinuxState> install(
+    String id, {
     required String publicKey,
     required PhoneLinuxSetup setup,
   }) => _call('install', {
+    'id': id,
     'publicKey': publicKey,
     'distro': setup.distro.name,
     'nix': setup.nix,
   });
 
-  Future<PhoneLinuxState> start({
+  Future<PhoneLinuxState> start(
+    String id, {
     required String publicKey,
     required int port,
-  }) => _call('start', {'publicKey': publicKey, 'port': port});
+  }) => _call('start', {'id': id, 'publicKey': publicKey, 'port': port});
 
-  Future<PhoneLinuxState> stop() => _call('stop');
+  Future<PhoneLinuxState> stop(String id) => _call('stop', {'id': id});
 
-  Future<PhoneLinuxState> remove() => _call('remove');
+  Future<PhoneLinuxState> remove(String id) => _call('remove', {'id': id});
 
-  Future<PhoneLinuxState> _call(String method, [Object? args]) async {
+  static Map<String, PhoneLinuxState> _systems(Map<Object?, Object?> raw) => {
+    for (final MapEntry(:key, :value)
+        in (raw['systems'] as Map<Object?, Object?>? ?? const {}).entries)
+      key as String: PhoneLinuxState.from(value as Map<Object?, Object?>),
+  };
+
+  Future<PhoneLinuxState> _call(String method, Object? args) async {
     final raw = await _calls.invokeMapMethod<Object?, Object?>(method, args);
     return raw == null ? PhoneLinuxState.absent : PhoneLinuxState.from(raw);
   }

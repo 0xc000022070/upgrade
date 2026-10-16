@@ -123,12 +123,42 @@ private object Nix {
     """.trimIndent()
 }
 
+private class LinuxSystem(val id: String, val dir: File) {
+    @Volatile var phase = "idle"
+    @Volatile var percent = -1
+    @Volatile var error: String? = null
+    @Volatile var hostKey: String? = null
+    @Volatile var installing: Setup? = null
+    @Volatile var sshd: Process? = null
+    @Volatile var port = 0
+
+    val rootfs get() = File(dir, "rootfs")
+    val fakes get() = File(dir, "proc")
+    val temp get() = File(dir, "tmp")
+    val installed get() = File(rootfs, PhoneLinux.READY_MARK).exists()
+    val running get() = sshd?.isAlive == true
+    val busy get() = phase in setOf("download", "unpack", "setup", "nix")
+
+    val setup: Setup?
+        get() {
+            val mark = File(rootfs, PhoneLinux.READY_MARK)
+            if (!mark.exists()) return installing
+            return Setup.read(mark.readLines())
+        }
+
+    val parts get() = if (dir.name == "linux") {
+        listOf(rootfs, fakes, temp, File(dir, PhoneLinux.LEGACY)) + Distro.entries.map { File(dir, it.archive) } + File(dir, Nix.ARCHIVE)
+    } else {
+        listOf(dir)
+    }
+}
+
 object PhoneLinux {
     private const val TAG = "PhoneLinux"
-    private const val READY_MARK = ".upgrade-ready"
+    const val READY_MARK = ".upgrade-ready"
+    const val LEGACY = "legacy"
     private const val SSHD_CONFIG = "/etc/ssh/upgrade_sshd_config"
     private const val AUTHORIZED = "/etc/ssh/upgrade_authorized_keys"
-    private val BUSY = setOf("download", "unpack", "setup", "nix")
 
     private val SSHD = """
         for gid in ${'$'}(id -G); do
@@ -138,146 +168,174 @@ object PhoneLinux {
         exec /usr/sbin/sshd -D -e -f @CONFIG@ -o Port=@PORT@
     """.trimIndent()
 
-    private val jobs = Executors.newSingleThreadExecutor()
+    private val jobs = Executors.newCachedThreadPool()
     private val main = Handler(Looper.getMainLooper())
-
-    @Volatile var phase = "idle"
-        private set
-    @Volatile var percent = -1
-        private set
-    @Volatile var error: String? = null
-        private set
-    @Volatile var hostKey: String? = null
-        private set
-    @Volatile private var installing: Setup? = null
-    @Volatile private var sshd: Process? = null
-    @Volatile private var sshdPort = 0
+    private val systems = java.util.concurrent.ConcurrentHashMap<String, LinuxSystem>()
 
     @Volatile var sink: EventChannel.EventSink? = null
 
     fun changed(context: Context) {
-        val now = state(context)
+        val now = states(context)
         main.post { sink?.success(now) }
     }
 
     private fun base(context: Context) = File(context.filesDir, "linux")
-    private fun rootfs(context: Context) = File(base(context), "rootfs")
-    private fun fakes(context: Context) = File(base(context), "proc")
-    private fun temp(context: Context) = File(base(context), "tmp")
+    private fun shelf(context: Context) = File(base(context), "systems")
 
-    fun installed(context: Context) = File(rootfs(context), READY_MARK).exists()
+    private fun legacyId(context: Context) =
+        File(base(context), LEGACY).takeIf { it.exists() }?.readText()?.trim()?.takeIf { it.isNotEmpty() }
 
-    private fun setup(context: Context): Setup? {
-        val mark = File(rootfs(context), READY_MARK)
-        if (!mark.exists()) return installing
-        return Setup.read(mark.readLines())
+    private fun system(context: Context, id: String): LinuxSystem = systems.getOrPut(id) {
+        LinuxSystem(id, if (legacyId(context) == id) base(context) else File(shelf(context), id))
     }
 
-    fun running() = sshd?.isAlive == true
+    private fun known(context: Context): List<LinuxSystem> {
+        val ids = shelf(context).list().orEmpty().toMutableSet()
+        legacyId(context)?.let { ids += it }
+        ids += systems.keys
+        return ids.map { system(context, it) }
+    }
+
+    fun running() = systems.values.count { it.running }
+
+    private fun busy() = systems.values.any { it.busy }
+
+    private fun settle(context: Context) {
+        if (running() == 0 && !busy()) LinuxService.stop(context) else LinuxService.refresh(context)
+    }
 
     fun handle(context: Context, method: String, args: Map<*, *>?, result: MethodChannel.Result) {
         val app = context.applicationContext
+        if (method == "state") return result.success(states(app))
+        val id = args?.get("id") as? String ?: return result.error("args", "id required", null)
+        if (id.isEmpty() || id.contains('/') || id.startsWith(".")) return result.error("args", "bad id", null)
         when (method) {
-            "state" -> result.success(state(app))
+            "adopt" -> {
+                val marker = File(base(app), LEGACY)
+                if (!marker.exists() && File(base(app), "rootfs").exists()) {
+                    systems.remove(id)
+                    marker.writeText(id)
+                }
+                result.success(null)
+            }
             "install" -> {
                 val key = args?.get("publicKey") as? String
                 val distro = Distro.of(args?.get("distro") as? String)
                 if (key == null || distro == null) return result.error("args", "publicKey and distro required", null)
-                if (phase in BUSY) return result.success(state(app))
+                val system = system(app, id)
+                if (system.busy) return result.success(state(system))
                 val setup = Setup(distro, args?.get("nix") == true)
-                installing = setup
-                phase = "download"
-                percent = 0
-                error = null
+                system.installing = setup
+                system.phase = "download"
+                system.percent = 0
+                system.error = null
                 changed(app)
                 LinuxService.foreground(app)
                 jobs.execute {
                     try {
-                        install(app, key, setup)
-                        phase = "ready"
+                        synchronized(system) { install(app, system, key, setup) }
+                        system.phase = "ready"
                     } catch (failure: Exception) {
                         Log.e(TAG, "install", failure)
-                        error = failure.message ?: failure.toString()
-                        phase = "failed"
+                        system.error = failure.message ?: failure.toString()
+                        system.phase = "failed"
                     } finally {
-                        percent = -1
-                        if (!running()) LinuxService.stop(app)
+                        system.percent = -1
+                        settle(app)
                         changed(app)
                     }
                 }
-                result.success(state(app))
+                result.success(state(system))
             }
             "start" -> {
                 val key = args?.get("publicKey") as? String
                 val port = args?.get("port") as? Int
                 if (key == null || port == null) return result.error("args", "publicKey and port required", null)
+                val system = system(app, id)
                 LinuxService.foreground(app)
                 jobs.execute {
                     val outcome = try {
-                        start(app, key, port)
+                        synchronized(system) { start(app, system, key, port) }
                         null
                     } catch (failure: Exception) {
                         Log.e(TAG, "start", failure)
-                        if (!running()) LinuxService.stop(app)
                         failure.message ?: failure.toString()
                     }
+                    settle(app)
                     changed(app)
                     main.post {
-                        if (outcome == null) result.success(state(app)) else result.error("start", outcome, null)
+                        if (outcome == null) result.success(state(system)) else result.error("start", outcome, null)
                     }
                 }
             }
             "stop" -> {
-                stop(app)
-                result.success(state(app))
+                val system = system(app, id)
+                jobs.execute {
+                    synchronized(system) { kill(app, system) }
+                    settle(app)
+                    changed(app)
+                    main.post { result.success(state(system)) }
+                }
             }
-            "remove" -> jobs.execute {
-                stop(app)
-                val outcome = runCatching { deleteTree(base(app)) }
-                phase = "idle"
-                hostKey = null
-                installing = null
-                changed(app)
-                main.post {
-                    outcome.fold({ result.success(state(app)) }, { result.error("remove", it.message, null) })
+            "remove" -> {
+                val system = system(app, id)
+                jobs.execute {
+                    val outcome = runCatching {
+                        synchronized(system) {
+                            kill(app, system)
+                            for (part in system.parts) deleteTree(part)
+                        }
+                    }
+                    systems.remove(id)
+                    settle(app)
+                    changed(app)
+                    main.post {
+                        outcome.fold({ result.success(state(system)) }, { result.error("remove", it.message, null) })
+                    }
                 }
             }
             else -> result.notImplemented()
         }
     }
 
-    private fun state(context: Context): Map<String, Any?> = mapOf(
-        "installed" to installed(context),
-        "running" to running(),
-        "phase" to phase,
-        "percent" to percent,
-        "error" to error,
-        "hostKey" to (hostKey ?: readHostKey(context)),
-        "distro" to setup(context)?.distro?.id,
-        "nix" to (setup(context)?.nix == true),
-    )
+    private fun states(context: Context): Map<String, Any?> =
+        mapOf("systems" to known(context).associate { it.id to state(it) })
 
-    private fun readHostKey(context: Context): String? {
-        val pub = File(rootfs(context), "etc/ssh/ssh_host_ed25519_key.pub")
+    private fun state(system: LinuxSystem): Map<String, Any?> {
+        val setup = system.setup
+        return mapOf(
+            "installed" to system.installed,
+            "running" to system.running,
+            "phase" to system.phase,
+            "percent" to system.percent,
+            "error" to system.error,
+            "hostKey" to (system.hostKey ?: readHostKey(system)),
+            "distro" to setup?.distro?.id,
+            "nix" to (setup?.nix == true),
+        )
+    }
+
+    private fun readHostKey(system: LinuxSystem): String? {
+        val pub = File(system.rootfs, "etc/ssh/ssh_host_ed25519_key.pub")
         return if (pub.exists()) pub.readText().trim() else null
     }
 
-    private fun install(context: Context, publicKey: String, setup: Setup) {
-        if (installed(context)) return
+    private fun install(context: Context, system: LinuxSystem, publicKey: String, setup: Setup) {
+        if (system.installed) return
         val distro = setup.distro
-        val base = base(context).apply { mkdirs() }
-        for (other in Distro.entries) if (other.archive != distro.archive) File(base, other.archive).delete()
-        val archive = File(base, distro.archive)
-        if (!archive.exists() || sha256(archive) != distro.sha256) download(context, distro.url, distro.sha256, archive)
-        val nix = File(base, Nix.ARCHIVE)
+        val dir = system.dir.apply { mkdirs() }
+        for (other in Distro.entries) if (other.archive != distro.archive) File(dir, other.archive).delete()
+        val archive = File(dir, distro.archive)
+        if (!archive.exists() || sha256(archive) != distro.sha256) download(context, system, distro.url, distro.sha256, archive)
+        val nix = File(dir, Nix.ARCHIVE)
         if (!setup.nix) nix.delete()
-        else if (!nix.exists() || sha256(nix) != Nix.SHA256) download(context, Nix.URL, Nix.SHA256, nix)
-        phase = "unpack"
-        percent = -1
+        else if (!nix.exists() || sha256(nix) != Nix.SHA256) download(context, system, Nix.URL, Nix.SHA256, nix)
+        system.phase = "unpack"
+        system.percent = -1
         changed(context)
         // Never moved after unpack: PRoot stores hard links as absolute symlinks, so a
         // renamed rootfs is full of dead links. The ready mark says it is whole.
-        val root = rootfs(context)
+        val root = system.rootfs
         deleteTree(root)
         root.mkdirs()
         archive.inputStream().use { TarUnpacker(root, distro.strip).unpack(distro.open(BufferedInputStream(it, 1 shl 16))) }
@@ -292,35 +350,35 @@ object PhoneLinux {
         File(root, "etc/timezone").writeText("$zone\n")
         File(root, "root").mkdirs()
         File(root, "tmp").mkdirs()
-        phase = "setup"
+        system.phase = "setup"
         changed(context)
         val script = distro.setup + "\n" + """
             mkdir -p /run/sshd
             passwd -d root
             test -f /etc/ssh/ssh_host_ed25519_key || ssh-keygen -q -t ed25519 -N '' -f /etc/ssh/ssh_host_ed25519_key
         """.trimIndent()
-        step(context, root, "setup", script, 20)
+        step(context, system, "setup", script, 20)
         if (setup.nix) {
-            phase = "nix"
+            system.phase = "nix"
             changed(context)
             nix.inputStream().use { TarUnpacker(File(root, Nix.UNPACKED), 1).unpack(XZInputStream(BufferedInputStream(it, 1 shl 16))) }
-            step(context, root, "nix", Nix.INSTALL, 20)
+            step(context, system, "nix", Nix.INSTALL, 20)
         }
         writeSshd(root, publicKey)
         File(root, READY_MARK).writeText(setup.mark)
         archive.delete()
         nix.delete()
-        hostKey = readHostKey(context)
+        system.hostKey = readHostKey(system)
     }
 
-    private fun step(context: Context, root: File, name: String, script: String, minutes: Long) {
-        val exit = run(context, root, name, script, TimeUnit.MINUTES.toSeconds(minutes))
+    private fun step(context: Context, system: LinuxSystem, name: String, script: String, minutes: Long) {
+        val exit = run(context, system, name, script, TimeUnit.MINUTES.toSeconds(minutes))
         if (exit != 0) throw IllegalStateException("$name exited $exit")
     }
 
-    private fun download(context: Context, url: String, sha256: String, target: File) {
+    private fun download(context: Context, system: LinuxSystem, url: String, sha256: String, target: File) {
         val part = File(target.path + ".part")
-        percent = 0
+        system.percent = 0
         changed(context)
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.connectTimeout = 15_000
@@ -340,8 +398,8 @@ object PhoneLinux {
                         digest.update(buffer, 0, n)
                         read += n
                         val now = if (total > 0) (read * 100 / total).toInt() else -1
-                        if (now != percent) {
-                            percent = now
+                        if (now != system.percent) {
+                            system.percent = now
                             changed(context)
                         }
                     }
@@ -390,31 +448,29 @@ object PhoneLinux {
         )
     }
 
-    @Synchronized
-    private fun start(context: Context, publicKey: String, port: Int) {
-        if (!installed(context)) throw IllegalStateException("Linux is not installed")
-        if (running() && sshdPort == port) {
-            writeSshd(rootfs(context), publicKey)
+    private fun start(context: Context, system: LinuxSystem, publicKey: String, port: Int) {
+        if (!system.installed) throw IllegalStateException("Linux is not installed")
+        if (system.running && system.port == port) {
+            writeSshd(system.rootfs, publicKey)
             return
         }
-        kill(context)
-        writeSshd(rootfs(context), publicKey)
-        val process = builder(context, rootfs(context), SSHD.replace("@CONFIG@", SSHD_CONFIG).replace("@PORT@", "$port"))
+        kill(context, system)
+        writeSshd(system.rootfs, publicKey)
+        val process = builder(context, system, SSHD.replace("@CONFIG@", SSHD_CONFIG).replace("@PORT@", "$port"))
             .redirectErrorStream(true)
             .start()
-        sshd = process
-        sshdPort = port
+        system.sshd = process
+        system.port = port
         Thread {
-            runCatching { process.inputStream.bufferedReader().forEachLine { Log.i(TAG, "sshd: $it") } }
+            runCatching { process.inputStream.bufferedReader().forEachLine { Log.i(TAG, "sshd ${system.id}: $it") } }
             val code = runCatching { process.waitFor() }.getOrDefault(-1)
-            Log.i(TAG, "sshd exited $code")
-            if (sshd === process) {
-                sshd = null
-                LinuxService.stop(context)
+            Log.i(TAG, "sshd ${system.id} exited $code")
+            if (system.sshd === process) {
+                system.sshd = null
+                settle(context)
                 changed(context)
             }
         }.start()
-        LinuxService.foreground(context)
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
         while (System.nanoTime() < deadline) {
             if (!process.isAlive) throw IllegalStateException("sshd exited ${process.exitValue()}")
@@ -436,28 +492,57 @@ object PhoneLinux {
         false
     }
 
-    fun stop(context: Context) {
-        kill(context)
+    fun stopAll(context: Context) {
+        killAll(context)
         LinuxService.stop(context)
         changed(context)
     }
 
     /// PRoot dies alone on a signal and leaves its tracees running, so every process the
     /// system runs is found by the loader PRoot executes it through.
-    fun kill(context: Context) {
-        val process = sshd
-        sshd = null
-        val loader = File(context.applicationInfo.nativeLibraryDir, "libproot-loader.so").path
-        signalTracees(loader, OsConstants.SIGTERM)
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3)
-        while (tracees(loader).isNotEmpty() && System.nanoTime() < deadline) Thread.sleep(50)
-        signalTracees(loader, OsConstants.SIGKILL)
+    fun killAll(context: Context) {
+        val processes = systems.values.mapNotNull { system -> system.sshd.also { system.sshd = null } }
+        terminate(context) { true }
+        for (process in processes) if (!process.waitFor(2, TimeUnit.SECONDS)) process.destroyForcibly()
+    }
+
+    /// One system's processes are told from another's by the files they map, which PRoot
+    /// opens from that system's rootfs, or failing that by the PRoot they descend from.
+    private fun kill(context: Context, system: LinuxSystem) {
+        val process = system.sshd
+        system.sshd = null
+        val proot = File(context.applicationInfo.nativeLibraryDir, "libproot.so").path
+        terminate(context) { pid -> owned(pid, system, proot) }
         if (process != null && !process.waitFor(2, TimeUnit.SECONDS)) process.destroyForcibly()
     }
 
-    private fun signalTracees(loader: String, signal: Int) {
-        for (pid in tracees(loader)) runCatching { Os.kill(pid, signal) }
+    private fun terminate(context: Context, mine: (Int) -> Boolean) {
+        val loader = File(context.applicationInfo.nativeLibraryDir, "libproot-loader.so").path
+        fun ours() = tracees(loader).filter(mine)
+        for (pid in ours()) runCatching { Os.kill(pid, OsConstants.SIGTERM) }
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3)
+        while (ours().isNotEmpty() && System.nanoTime() < deadline) Thread.sleep(50)
+        for (pid in ours()) runCatching { Os.kill(pid, OsConstants.SIGKILL) }
     }
+
+    private fun owned(pid: Int, system: LinuxSystem, proot: String): Boolean {
+        val rootfs = system.rootfs.canonicalPath + "/"
+        val maps = runCatching { File("/proc/$pid/maps").readText() }.getOrNull()
+        if (maps != null && maps.contains(rootfs)) return true
+        var at = pid
+        repeat(64) {
+            at = parent(at) ?: return false
+            if (runCatching { Os.readlink("/proc/$at/exe") }.getOrNull() != proot) return@repeat
+            val args = runCatching { File("/proc/$at/cmdline").readText().split('\u0000') }.getOrNull() ?: return false
+            return args.getOrNull(args.indexOf("-r") + 1) == system.rootfs.path
+        }
+        return false
+    }
+
+    private fun parent(pid: Int): Int? = runCatching {
+        val stat = File("/proc/$pid/stat").readText()
+        stat.substring(stat.lastIndexOf(')') + 2).split(' ')[1].toInt()
+    }.getOrNull()?.takeIf { it > 1 }
 
     private fun tracees(loader: String): List<Int> =
         File("/proc").listFiles().orEmpty().mapNotNull { entry ->
@@ -465,8 +550,8 @@ object PhoneLinux {
             pid.takeIf { runCatching { Os.readlink("/proc/$pid/exe") }.getOrNull() == loader }
         }
 
-    private fun run(context: Context, root: File, name: String, script: String, timeoutSeconds: Long): Int {
-        val process = builder(context, root, script).redirectErrorStream(true).start()
+    private fun run(context: Context, system: LinuxSystem, name: String, script: String, timeoutSeconds: Long): Int {
+        val process = builder(context, system, script).redirectErrorStream(true).start()
         val reader = Thread { runCatching { process.inputStream.bufferedReader().forEachLine { Log.i(TAG, it) } } }
         reader.start()
         if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
@@ -477,8 +562,8 @@ object PhoneLinux {
         return process.exitValue()
     }
 
-    private fun procFakes(context: Context): Array<String> {
-        val dir = fakes(context).apply { mkdirs() }
+    private fun procFakes(system: LinuxSystem): Array<String> {
+        val dir = system.fakes.apply { mkdirs() }
         val up = SystemClock.elapsedRealtime() / 1000.0
         val boot = System.currentTimeMillis() / 1000 - up.toLong()
         val cpus = Runtime.getRuntime().availableProcessors()
@@ -497,19 +582,19 @@ object PhoneLinux {
         }.toTypedArray()
     }
 
-    private fun builder(context: Context, root: File, script: String): ProcessBuilder {
+    private fun builder(context: Context, system: LinuxSystem, script: String): ProcessBuilder {
         val native = File(context.applicationInfo.nativeLibraryDir)
-        val temp = temp(context).apply { mkdirs() }
+        val temp = system.temp.apply { mkdirs() }
         val builder = ProcessBuilder(
             File(native, "libproot.so").path,
             "--kill-on-exit",
             "--link2symlink",
             "-0",
-            "-r", root.path,
+            "-r", system.rootfs.path,
             "-b", "/dev",
             "-b", "/proc",
             "-b", "/sys",
-            *procFakes(context),
+            *procFakes(system),
             "-b", "${temp.path}:/dev/shm",
             "-b", "${File(native, "libupgraded.so").path}:/usr/local/bin/upgraded",
             "-w", "/root",
@@ -725,7 +810,7 @@ class LinuxService : Service() {
     }
 
     override fun onDestroy() {
-        PhoneLinux.kill(this)
+        PhoneLinux.killAll(this)
         PhoneLinux.changed(this)
         super.onDestroy()
     }
@@ -746,6 +831,11 @@ class LinuxService : Service() {
 
         fun stop(context: Context) {
             context.stopService(Intent(context, LinuxService::class.java))
+        }
+
+        fun refresh(context: Context) {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(ID, notification(context))
         }
 
         private fun notification(context: Context): Notification {
@@ -773,10 +863,17 @@ class LinuxService : Service() {
                 Intent(context, LinuxStopReceiver::class.java).setAction(STOP),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            val installing = !PhoneLinux.running()
+            val running = PhoneLinux.running()
+            val installing = running == 0
             builder
                 .setSmallIcon(context.applicationInfo.icon)
-                .setContentTitle(if (installing) "LINUX · INSTALLING" else "LINUX · RUNNING")
+                .setContentTitle(
+                    when (running) {
+                        0 -> "LINUX · INSTALLING"
+                        1 -> "LINUX · RUNNING"
+                        else -> "LINUX · $running RUNNING"
+                    },
+                )
                 .setContentIntent(open)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
@@ -791,5 +888,5 @@ class LinuxService : Service() {
 }
 
 class LinuxStopReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) = PhoneLinux.stop(context.applicationContext)
+    override fun onReceive(context: Context, intent: Intent) = PhoneLinux.stopAll(context.applicationContext)
 }

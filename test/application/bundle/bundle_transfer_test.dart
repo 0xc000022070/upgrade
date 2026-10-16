@@ -202,7 +202,7 @@ void main() {
         .into(a.db.settings)
         .insert(
           SettingsCompanion.insert(
-            key: SettingsRepository.phoneLinuxHost,
+            key: SettingsRepository.phoneLinuxHosts,
             value: 'h-phone',
           ),
         );
@@ -226,7 +226,7 @@ void main() {
     expect(bundle.rows['shell_tabs']!.map((row) => row['host_id']), ['h1']);
     expect(
       bundle.rows['settings']!.map((row) => row['key']),
-      isNot(contains(SettingsRepository.phoneLinuxHost)),
+      isNot(contains(SettingsRepository.phoneLinuxHosts)),
     );
   });
 

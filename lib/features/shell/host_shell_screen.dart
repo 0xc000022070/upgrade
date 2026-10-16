@@ -990,18 +990,15 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
             ];
             _follow(active);
             final state = active?.state;
-            final phoneLinux = ref.watch(phoneLinuxHostIdProvider).valueOrNull;
-            final linux = ref.watch(phoneLinuxStateProvider).valueOrNull;
+            final machine = active?.host ?? widget.host;
+            final linux = ref.phoneLinuxState(machine.id);
             final linuxStopped =
-                phoneLinux != null &&
-                linux != null &&
+                ref.isPhoneLinux(machine.id) &&
                 linux.installed &&
                 !linux.installing &&
                 !linux.running;
-            final machine = active?.host ?? widget.host;
             final reasonLine =
                 linuxStopped &&
-                    machine.id == phoneLinux &&
                     state?.failure?.kind == ShellFailureKind.unreachable
                 ? 'linux stopped · start it from machine'
                 : null;
@@ -1055,8 +1052,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                               active?.host ?? widget.host,
                             ),
                             onMachine: () => showMachineSheet(context, machine),
-                            machineAlert:
-                                linuxStopped && machine.id == phoneLinux,
+                            machineAlert: linuxStopped,
                             reasonLine: reasonLine,
                             onStop: store.stopReconnect,
                             onReconnect: UserIntent.onGestureWith((

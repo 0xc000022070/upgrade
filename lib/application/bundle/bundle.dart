@@ -279,16 +279,17 @@ class BundleTransfer {
 
   Future<Bundle> gather() async {
     final dumped = await raw.dump();
-    final local = _phoneLinuxHost(dumped);
+    final local = _phoneLinuxHosts(dumped);
     final allHosts = await hosts.all();
     final kept = [
       for (final host in allHosts)
-        if (host.id != local) host,
+        if (!local.contains(host.id)) host,
     ];
     final usedKeys = {for (final host in kept) host.keyId};
     final localKeys = {
       for (final host in allHosts)
-        if (host.id == local && !usedKeys.contains(host.keyId)) host.keyId,
+        if (local.contains(host.id) && !usedKeys.contains(host.keyId))
+          host.keyId,
     };
     final gathered = <BundleKey>[];
     for (final key in await keys.all()) {
@@ -319,15 +320,15 @@ class BundleTransfer {
         );
       }
     }
-    final rows = local == null
+    final rows = local.isEmpty
         ? dumped
         : {
             for (final table in dumped.entries)
               table.key: [
                 for (final row in table.value)
-                  if (row['host_id'] != local &&
+                  if (!local.contains(row['host_id']) &&
                       !(table.key == 'settings' &&
-                          row['key'] == SettingsRepository.phoneLinuxHost))
+                          row['key'] == SettingsRepository.phoneLinuxHosts))
                     row,
               ],
           };
@@ -340,14 +341,18 @@ class BundleTransfer {
     );
   }
 
-  static String? _phoneLinuxHost(Map<String, List<Map<String, Object?>>> rows) {
+  static Set<String> _phoneLinuxHosts(
+    Map<String, List<Map<String, Object?>>> rows,
+  ) {
     for (final row in rows['settings'] ?? const <Map<String, Object?>>[]) {
-      if (row['key'] == SettingsRepository.phoneLinuxHost) {
-        final id = row['value'];
-        return id is String && id.isNotEmpty ? id : null;
+      if (row['key'] == SettingsRepository.phoneLinuxHosts) {
+        final ids = row['value'];
+        if (ids is String) {
+          return ids.split(' ').where((id) => id.isNotEmpty).toSet();
+        }
       }
     }
-    return null;
+    return const {};
   }
 
   Future<Map<String, Uint8List>> _pictures(

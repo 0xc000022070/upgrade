@@ -38,55 +38,81 @@ class PhoneLinuxHost {
   final Random _random;
   final DateTime Function() _now;
 
-  Stream<String?> watchHostId() => settings
-      .watchRaw(SettingsRepository.phoneLinuxHost)
-      .map((id) => id == null || id.isEmpty ? null : id);
+  late final Future<void> _adopted = _adopt();
 
-  Future<Host?> host() async {
-    final id = await settings.text(
-      SettingsRepository.phoneLinuxHost,
-      orElse: '',
-    );
-    if (id.isEmpty) return null;
-    return (await hosts.all()).where((host) => host.id == id).firstOrNull;
+  Stream<Set<String>> watchHostIds() => settings
+      .watchRaw(SettingsRepository.phoneLinuxHosts)
+      .map((raw) => _parse(raw).toSet());
+
+  Future<List<String>> hostIds() async => _parse(
+    await settings.text(SettingsRepository.phoneLinuxHosts, orElse: ''),
+  );
+
+  Stream<Map<String, PhoneLinuxState>> watchStates() async* {
+    await _adopted;
+    yield* platform.watch();
   }
 
-  Future<void> install(PhoneLinuxSetup setup) async {
+  Future<Host> install(PhoneLinuxSetup setup, {Host? into}) async {
+    await _adopted;
     final name = setup.name?.trim();
     final named = name == null || name.isEmpty ? null : name;
-    final known = await this.host();
-    final host = known ?? await _create(named ?? defaultName);
-    if (known != null && named != null && named != known.name) {
-      await hosts.save(_copy(known, name: named));
+    var host = into;
+    if (host == null) {
+      host = await _create(named ?? await freeName());
+    } else if (named != null && named != host.name) {
+      host = _copy(host, name: named);
+      await hosts.save(host);
     }
     await hosts.recordSystem(host.id, setup.distro.system);
-    await platform.install(publicKey: await _publicKey(host), setup: setup);
+    await platform.install(
+      host.id,
+      publicKey: await _publicKey(host),
+      setup: setup,
+    );
+    return host;
   }
 
   Future<Host> ensure(Host host) async {
-    final id = await settings.text(
-      SettingsRepository.phoneLinuxHost,
-      orElse: '',
-    );
-    if (host.id != id) return host;
+    if (!(await hostIds()).contains(host.id)) return host;
+    await _adopted;
     final state = await platform.start(
+      host.id,
       publicKey: await _publicKey(host),
       port: host.port,
     );
     return _pinned(host, state);
   }
 
-  Future<void> stop() => platform.stop();
+  Future<void> stop(Host host) async {
+    await _adopted;
+    await platform.stop(host.id);
+  }
 
-  Future<void> remove() async {
-    await platform.remove();
-    final host = await this.host();
-    await settings.clear(SettingsRepository.phoneLinuxHost);
-    if (host == null) return;
+  Future<void> remove(Host host) async {
+    await _adopted;
+    await platform.remove(host.id);
+    await _write([
+      for (final id in await hostIds())
+        if (id != host.id) id,
+    ]);
     await hosts.delete(host.id);
     if ((await hosts.all()).any((other) => other.keyId == host.keyId)) return;
     await keys.delete(host.keyId);
     await secrets.delete(host.keyId);
+  }
+
+  Future<void> _adopt() async {
+    final ids = await hostIds();
+    if (ids.isNotEmpty) await platform.adopt(ids.first);
+  }
+
+  Future<String> freeName() async {
+    final taken = {for (final host in await hosts.all()) host.name};
+    if (!taken.contains(defaultName)) return defaultName;
+    for (var n = 2; ; n++) {
+      if (!taken.contains('$defaultName $n')) return '$defaultName $n';
+    }
   }
 
   Future<Host> _create(String name) async {
@@ -101,18 +127,32 @@ class PhoneLinuxHost {
         createdAt: _now(),
       ),
     );
+    final used = {for (final host in await hosts.all()) host.port};
+    var port = 20000 + _random.nextInt(20000);
+    while (used.contains(port)) {
+      port = 20000 + _random.nextInt(20000);
+    }
     final host = Host(
       id: const Uuid().v4(),
       name: name,
       address: address,
-      port: 20000 + _random.nextInt(20000),
+      port: port,
       user: 'root',
       keyId: keyId,
     );
     await hosts.save(host);
-    await settings.setText(SettingsRepository.phoneLinuxHost, host.id);
+    await _write([...await hostIds(), host.id]);
     return host;
   }
+
+  Future<void> _write(List<String> ids) => ids.isEmpty
+      ? settings.clear(SettingsRepository.phoneLinuxHosts)
+      : settings.setText(SettingsRepository.phoneLinuxHosts, ids.join(' '));
+
+  static List<String> _parse(String? raw) => [
+    for (final id in (raw ?? '').split(' '))
+      if (id.isNotEmpty) id,
+  ];
 
   Future<String> _publicKey(Host host) async {
     final key = (await keys.all())
@@ -176,16 +216,22 @@ final phoneLinuxHostProvider = Provider<PhoneLinuxHost?>((ref) {
   );
 });
 
-final phoneLinuxHostIdProvider = StreamProvider<String?>((ref) {
+final phoneLinuxHostIdsProvider = StreamProvider<Set<String>>((ref) {
   final linux = ref.watch(phoneLinuxHostProvider);
-  return linux == null ? Stream.value(null) : linux.watchHostId();
+  return linux == null ? Stream.value(const {}) : linux.watchHostIds();
 });
 
-final phoneLinuxStateProvider = StreamProvider.autoDispose<PhoneLinuxState>((
-  ref,
-) {
-  if (ref.watch(phoneLinuxHostProvider) == null) {
-    return Stream.value(PhoneLinuxState.absent);
-  }
-  return ref.watch(phoneLinuxProvider).watch();
-});
+final phoneLinuxStatesProvider =
+    StreamProvider.autoDispose<Map<String, PhoneLinuxState>>((ref) {
+      final linux = ref.watch(phoneLinuxHostProvider);
+      return linux == null ? Stream.value(const {}) : linux.watchStates();
+    });
+
+extension PhoneLinuxRef on WidgetRef {
+  bool isPhoneLinux(String hostId) =>
+      watch(phoneLinuxHostIdsProvider).valueOrNull?.contains(hostId) ?? false;
+
+  PhoneLinuxState phoneLinuxState(String hostId) =>
+      watch(phoneLinuxStatesProvider).valueOrNull?[hostId] ??
+      PhoneLinuxState.absent;
+}

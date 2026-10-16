@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import 'package:upgrade/app/static_surface.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/application/phone_linux.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
@@ -281,13 +282,24 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   Future<void> _delete() async {
     final host = widget.host;
     if (host == null) return;
+    final linux = ref.read(phoneLinuxHostProvider);
+    final onPhone = (await linux?.hostIds())?.contains(host.id) ?? false;
+    if (!mounted) return;
     final confirmed = await confirmSheet(
       context,
       title: 'DELETE HOST?',
       confirmLabel: 'DELETE',
+      message: onPhone
+          ? 'Deletes the system with every file in it, and the '
+                '${host.name} host.'
+          : null,
     );
     if (!confirmed || !mounted) return;
-    await ref.read(hostRepositoryProvider).delete(host.id);
+    if (onPhone) {
+      await linux!.remove(host);
+    } else {
+      await ref.read(hostRepositoryProvider).delete(host.id);
+    }
     if (!mounted) return;
     await _deletePreview(host.id);
     if (mounted) {

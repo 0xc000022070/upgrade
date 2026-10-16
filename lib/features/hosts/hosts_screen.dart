@@ -380,8 +380,7 @@ class _HostPanel extends ConsumerWidget {
             ),
             _HookRows(key: ValueKey('hooks-${host.id}'), host: host),
           ],
-          if (ref.watch(phoneLinuxHostIdProvider).valueOrNull == host.id)
-            _PhoneLinuxRow(host: host),
+          if (ref.isPhoneLinux(host.id)) _PhoneLinuxRow(host: host),
           _ClipboardRow(host: host),
           _ShellRow(host: host),
           if (integrations.contains(IntegrationKind.vnc)) ...[
@@ -935,10 +934,7 @@ class _PhoneLinuxActionState extends ConsumerState<_PhoneLinuxAction> {
   @override
   Widget build(BuildContext context) {
     final linux = ref.watch(phoneLinuxHostProvider);
-    final id = ref.watch(phoneLinuxHostIdProvider);
-    if (linux == null || !id.hasValue || id.value != null) {
-      return const SizedBox.shrink();
-    }
+    if (linux == null) return const SizedBox.shrink();
     return PanelTextAction(
       label: _starting
           ? 'PREPARING'
@@ -950,7 +946,9 @@ class _PhoneLinuxActionState extends ConsumerState<_PhoneLinuxAction> {
   }
 
   Future<void> _install(PhoneLinuxHost linux) async {
-    final setup = await pickPhoneLinuxSetup(context);
+    final name = await linux.freeName();
+    if (!mounted) return;
+    final setup = await pickPhoneLinuxSetup(context, name: name);
     if (setup == null || !mounted) return;
     setState(() {
       _starting = true;
@@ -980,7 +978,7 @@ Future<void> showMachineSheet(BuildContext context, Host host) =>
               children: [
                 _MetaRow('ADDRESS', '${host.address}:${host.port}'),
                 _LinkRow(host: host, outcome: null),
-                if (ref.watch(phoneLinuxHostIdProvider).valueOrNull == host.id)
+                if (ref.isPhoneLinux(host.id))
                   _PhoneLinuxRow(host: host, system: false),
               ],
             ),
@@ -1006,9 +1004,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
 
   @override
   Widget build(BuildContext context) {
-    final state =
-        ref.watch(phoneLinuxStateProvider).valueOrNull ??
-        PhoneLinuxState.absent;
+    final state = ref.phoneLinuxState(widget.host.id);
     final linux = ref.watch(phoneLinuxHostProvider)!;
     final warning = context.tokens.warning;
     final busy = _busy;
@@ -1121,17 +1117,17 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
     try {
       switch (action) {
         case 'STOP':
-          await linux.stop();
+          await linux.stop(widget.host);
         case 'START' || 'RESTART':
-          if (action == 'RESTART') await linux.stop();
+          if (action == 'RESTART') await linux.stop(widget.host);
           await linux.ensure(widget.host);
           if (reason != null) store.redialHost(widget.host.id, reason);
         default:
           final setup =
               (action == 'RETRY' ? state.setup : null) ??
-              await pickPhoneLinuxSetup(context);
+              await pickPhoneLinuxSetup(context, name: widget.host.name);
           if (setup == null) return;
-          await linux.install(setup);
+          await linux.install(setup, into: widget.host);
       }
     } catch (error) {
       debugPrint('upgrade.linux $action: $error');
@@ -1156,7 +1152,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
       _busy = 'REMOVING';
     });
     try {
-      await linux.remove();
+      await linux.remove(widget.host);
     } catch (error) {
       debugPrint('upgrade.linux remove: $error');
       if (mounted) setState(() => _failure = 'remove failed');
@@ -1166,15 +1162,19 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
   }
 }
 
-Future<PhoneLinuxSetup?> pickPhoneLinuxSetup(BuildContext context) =>
-    showPanelSheet<PhoneLinuxSetup>(
-      context,
-      title: 'LINUX ON THIS PHONE',
-      builder: (context) => const _PhoneLinuxPicker(),
-    );
+Future<PhoneLinuxSetup?> pickPhoneLinuxSetup(
+  BuildContext context, {
+  required String name,
+}) => showPanelSheet<PhoneLinuxSetup>(
+  context,
+  title: 'LINUX ON THIS PHONE',
+  builder: (context) => _PhoneLinuxPicker(name: name),
+);
 
 class _PhoneLinuxPicker extends StatefulWidget {
-  const _PhoneLinuxPicker();
+  const _PhoneLinuxPicker({required this.name});
+
+  final String name;
 
   @override
   State<_PhoneLinuxPicker> createState() => _PhoneLinuxPickerState();
@@ -1183,7 +1183,7 @@ class _PhoneLinuxPicker extends StatefulWidget {
 class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
   var _distro = PhoneLinuxDistro.ubuntu;
   var _nix = false;
-  final _name = TextEditingController(text: PhoneLinuxHost.defaultName);
+  late final _name = TextEditingController(text: widget.name);
 
   @override
   void dispose() {
@@ -1234,7 +1234,7 @@ class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
           child: UpgradeField(
             key: const ValueKey('phone-linux-name'),
             controller: _name,
-            hint: PhoneLinuxHost.defaultName,
+            hint: widget.name,
           ),
         ),
         const SizedBox(height: Spacing.md),

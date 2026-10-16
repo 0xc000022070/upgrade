@@ -15,9 +15,11 @@ const _hostKey =
     'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBCAFF/cQozJtrK8guDNMNM1DMSOeR2PxJQKrpzNZmDL upgrade-host';
 
 class _Platform implements PhoneLinux {
-  final installs = <(String, PhoneLinuxSetup)>[];
-  final starts = <(String, int)>[];
-  int removes = 0;
+  final installs = <(String, String, PhoneLinuxSetup)>[];
+  final starts = <(String, String, int)>[];
+  final stops = <String>[];
+  final removes = <String>[];
+  final adopted = <String>[];
   String? hostKey = _hostKey;
 
   PhoneLinuxState get _ready => PhoneLinuxState(
@@ -28,35 +30,43 @@ class _Platform implements PhoneLinux {
   );
 
   @override
-  Stream<PhoneLinuxState> watch() => Stream.value(_ready);
+  Stream<Map<String, PhoneLinuxState>> watch() => Stream.value(const {});
 
   @override
-  Future<PhoneLinuxState> state() async => _ready;
+  Future<Map<String, PhoneLinuxState>> states() async => const {};
 
   @override
-  Future<PhoneLinuxState> install({
+  Future<void> adopt(String id) async => adopted.add(id);
+
+  @override
+  Future<PhoneLinuxState> install(
+    String id, {
     required String publicKey,
     required PhoneLinuxSetup setup,
   }) async {
-    installs.add((publicKey, setup));
+    installs.add((id, publicKey, setup));
     return _ready;
   }
 
   @override
-  Future<PhoneLinuxState> start({
+  Future<PhoneLinuxState> start(
+    String id, {
     required String publicKey,
     required int port,
   }) async {
-    starts.add((publicKey, port));
+    starts.add((id, publicKey, port));
     return _ready;
   }
 
   @override
-  Future<PhoneLinuxState> stop() async => _ready;
+  Future<PhoneLinuxState> stop(String id) async {
+    stops.add(id);
+    return _ready;
+  }
 
   @override
-  Future<PhoneLinuxState> remove() async {
-    removes++;
+  Future<PhoneLinuxState> remove(String id) async {
+    removes.add(id);
     return PhoneLinuxState.absent;
   }
 }
@@ -90,31 +100,62 @@ void main() {
 
   tearDown(() => db.close());
 
-  test('the install makes one host and one key, and reuses them', () async {
-    await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.arch));
-    await linux.install(
+  Future<Host> host(String id) async =>
+      (await hosts.all()).singleWhere((host) => host.id == id);
+
+  test('every install makes its own host and key', () async {
+    final arch = await linux.install(
+      const PhoneLinuxSetup(PhoneLinuxDistro.arch),
+    );
+    final alpine = await linux.install(
       const PhoneLinuxSetup(PhoneLinuxDistro.alpine, nix: true),
     );
 
-    final host = (await hosts.all()).single;
-    expect(host.name, 'PHONE');
-    expect(host.address, '127.0.0.1');
-    expect(host.user, 'root');
-    expect(host.port, inInclusiveRange(20000, 39999));
-    expect(host.system, HostSystem.alpine);
-    final key = (await keys.all()).single;
-    expect(host.keyId, key.id);
-    expect(await store.read(key.id), isNotNull);
+    final all = await hosts.all();
+    expect(all.map((host) => host.name), unorderedEquals(['PHONE', 'PHONE 2']));
+    for (final host in all) {
+      expect(host.address, '127.0.0.1');
+      expect(host.user, 'root');
+      expect(host.port, inInclusiveRange(20000, 39999));
+    }
+    expect(arch.port, isNot(alpine.port));
+    expect((await host(arch.id)).system, HostSystem.arch);
+    expect((await host(alpine.id)).system, HostSystem.alpine);
+    expect(arch.keyId, isNot(alpine.keyId));
+    expect(await keys.all(), hasLength(2));
     expect(
       platform.installs.map(
-        (install) => (install.$1, install.$2.distro, install.$2.nix),
+        (install) => (install.$1, install.$3.distro, install.$3.nix),
       ),
       [
-        (key.publicKey, PhoneLinuxDistro.arch, false),
-        (key.publicKey, PhoneLinuxDistro.alpine, true),
+        (arch.id, PhoneLinuxDistro.arch, false),
+        (alpine.id, PhoneLinuxDistro.alpine, true),
       ],
     );
-    expect((await linux.host())?.id, host.id);
+    expect(await linux.hostIds(), [arch.id, alpine.id]);
+  });
+
+  test('an install into a host keeps the host and its key', () async {
+    final first = await linux.install(
+      const PhoneLinuxSetup(PhoneLinuxDistro.alpine, name: ' PIXEL '),
+    );
+    expect(first.name, 'PIXEL');
+    expect((await keys.all()).single.name, 'PIXEL');
+
+    await linux.install(
+      const PhoneLinuxSetup(PhoneLinuxDistro.alpine),
+      into: first,
+    );
+    expect((await hosts.all()).single.name, 'PIXEL');
+
+    await linux.install(
+      const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu, name: 'P7'),
+      into: first,
+    );
+    final host = (await hosts.all()).single;
+    expect(host.name, 'P7');
+    expect(host.system, HostSystem.ubuntu);
+    expect(platform.installs.map((install) => install.$1).toSet(), {first.id});
   });
 
   test('another host is dialled as it is, with nothing started', () async {
@@ -132,28 +173,37 @@ void main() {
     expect(platform.starts, isEmpty);
   });
 
-  test('the phone is started on its port and its key is pinned', () async {
-    await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu));
-    final host = (await linux.host())!;
+  test('each system is started on its own port and its key pinned', () async {
+    final one = await linux.install(
+      const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu),
+    );
+    final two = await linux.install(
+      const PhoneLinuxSetup(PhoneLinuxDistro.arch),
+    );
 
-    final ready = await linux.ensure(host);
+    final ready = await linux.ensure(one);
+    await linux.ensure(two);
 
-    expect(platform.starts, [((await keys.all()).single.publicKey, host.port)]);
+    final key = (await keys.all()).singleWhere((key) => key.id == one.keyId);
+    expect(platform.starts.first, (one.id, key.publicKey, one.port));
+    expect(platform.starts.last.$1, two.id);
+    expect(platform.starts.last.$3, two.port);
     expect(ready.hostKey?.type, 'ssh-ed25519');
     expect(
       ready.hostKey?.fingerprint,
       'SHA256:hDVbIZXceJXxmv9IiBarvzZx3utci+tvV5gyo8ya0Wc',
     );
     expect(
-      (await linux.host())?.hostKey?.fingerprint,
+      (await host(one.id)).hostKey?.fingerprint,
       ready.hostKey?.fingerprint,
     );
   });
 
   test('a system with no host key yet leaves the host unpinned', () async {
-    await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu));
+    final host = await linux.install(
+      const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu),
+    );
     platform.hostKey = null;
-    final host = (await linux.host())!;
 
     final ready = await linux.ensure(host);
 
@@ -161,26 +211,36 @@ void main() {
     expect(platform.starts, hasLength(1));
   });
 
-  test('remove takes the host, its key and the mark with it', () async {
-    await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu));
-    final keyId = (await keys.all()).single.id;
+  test('stop and remove reach only their own system', () async {
+    final one = await linux.install(
+      const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu),
+    );
+    final two = await linux.install(
+      const PhoneLinuxSetup(PhoneLinuxDistro.alpine),
+    );
 
-    await linux.remove();
+    await linux.stop(two);
+    await linux.remove(one);
 
-    expect(platform.removes, 1);
+    expect(platform.stops, [two.id]);
+    expect(platform.removes, [one.id]);
+    expect((await hosts.all()).map((host) => host.id), [two.id]);
+    expect((await keys.all()).single.id, two.keyId);
+    expect(await store.read(one.keyId), isNull);
+    expect(await linux.hostIds(), [two.id]);
+
+    await linux.remove(two);
     expect(await hosts.all(), isEmpty);
-    expect(await keys.all(), isEmpty);
-    expect(await store.read(keyId), isNull);
-    expect(await linux.host(), isNull);
     expect(
-      await settings.text(SettingsRepository.phoneLinuxHost, orElse: ''),
+      await settings.text(SettingsRepository.phoneLinuxHosts, orElse: ''),
       isEmpty,
     );
   });
 
   test('remove keeps a key another host still signs in with', () async {
-    await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu));
-    final keyId = (await keys.all()).single.id;
+    final phone = await linux.install(
+      const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu),
+    );
     await hosts.save(
       Host(
         id: 'rose',
@@ -188,15 +248,26 @@ void main() {
         address: '100.64.94.121',
         port: 22,
         user: 'luis',
-        keyId: keyId,
+        keyId: phone.keyId,
       ),
     );
 
-    await linux.remove();
+    await linux.remove(phone);
 
     expect((await hosts.all()).map((host) => host.id), ['rose']);
-    expect((await keys.all()).single.id, keyId);
-    expect(await store.read(keyId), isNotNull);
+    expect((await keys.all()).single.id, phone.keyId);
+    expect(await store.read(phone.keyId), isNotNull);
+  });
+
+  test('the system a single-host phone held is adopted by its host', () async {
+    await settings.setText(SettingsRepository.phoneLinuxHosts, 'old');
+
+    expect(await linux.hostIds(), ['old']);
+    await linux.watchStates().first;
+    await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.alpine));
+
+    expect(platform.adopted, ['old']);
+    expect((await linux.hostIds()).first, 'old');
   });
 
   test('the system names its distro, and an unknown one is none', () {
@@ -207,27 +278,6 @@ void main() {
     expect(PhoneLinuxState.from({'distro': 'gentoo'}).distro, isNull);
     expect(PhoneLinuxState.from({'distro': 'gentoo'}).setup, isNull);
   });
-
-  test(
-    'the name typed at install names the host, and a retry keeps it',
-    () async {
-      await linux.install(
-        const PhoneLinuxSetup(PhoneLinuxDistro.alpine, name: ' PIXEL '),
-      );
-      expect((await hosts.all()).single.name, 'PIXEL');
-      expect((await keys.all()).single.name, 'PIXEL');
-
-      await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.alpine));
-      expect((await hosts.all()).single.name, 'PIXEL');
-
-      await linux.install(
-        const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu, name: 'P7'),
-      );
-      final host = (await hosts.all()).single;
-      expect(host.name, 'P7');
-      expect(host.system, HostSystem.ubuntu);
-    },
-  );
 
   test('the system carries its nix choice back for a retry', () {
     final setup = PhoneLinuxState.from({'distro': 'alpine', 'nix': true})

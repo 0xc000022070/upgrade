@@ -47,10 +47,7 @@ class HostMark extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ink = color ?? context.tokens.textSecondary;
     final glyph = UpgradeIcon(systemGlyph(system), size: size, color: ink);
-    final onPhone =
-        phone ||
-        hostId != null &&
-            ref.watch(phoneLinuxHostIdProvider).valueOrNull == hostId;
+    final onPhone = phone || hostId != null && ref.isPhoneLinux(hostId!);
     return Semantics(
       label: onPhone
           ? '${systemWord(system)} on this phone'
