@@ -93,12 +93,20 @@ class Installer(tool: String, json: JSONObject) {
 
 class ToolFile(val path: String, val text: String)
 
-class Tool(json: JSONObject) {
+class NixPackage(tool: String, json: JSONObject) {
+    val attribute: String = checked(json.getString("attribute"), ATTRIBUTE, "$tool nix attribute")
+    val unfree = json.optBoolean("unfree")
+    val program: String = checked(json.getString("program"), NAME, "$tool nix program")
+    val links = strings(json.optJSONArray("links")).map { checked(it, NAME, "$tool nix links") }
+}
+
+class Tool(json: JSONObject, private val nixpkgs: String) {
     val id: String = checked(json.getString("id"), ID, "tool id")
     val label: String = json.optString("label").ifEmpty { id }
     private val libc: String? = json.optString("libc").ifEmpty { null }
     private val packages = byDistro(json, "packages") { field, key, where -> checked(field.getString(key), PACKAGE, where) }
     private val installer = json.optJSONObject("installer")?.let { Installer(id, it) }
+    private val nix = json.optJSONObject("nix")?.let { NixPackage(id, it) }
     private val needs = byDistro(json, "needs") { field, key, where ->
         strings(field.getJSONArray(key)).map { checked(it, PACKAGE, where) }
     }
@@ -108,14 +116,20 @@ class Tool(json: JSONObject) {
 
     val distros get() = packages.keys + needs.keys + files.keys
 
-    fun fits(distro: Distro) =
+    private fun native(distro: Distro) =
         (libc == null || libc == distro.libc) && (distro.id in packages || installer != null)
+
+    fun fits(distro: Distro, nix: Boolean) = native(distro) || (nix && this.nix != null)
 
     fun files(distro: Distro) = files[distro.id].orEmpty()
 
-    fun installer(distro: Distro): Installer? = installer.takeIf { distro.id !in packages }
+    fun installer(distro: Distro): Installer? = installer.takeIf { native(distro) && distro.id !in packages }
 
-    fun script(distro: Distro): String {
+    fun script(distro: Distro, nix: Boolean): String {
+        if (!native(distro)) {
+            val built = this.nix.takeIf { nix } ?: throw IllegalStateException("$id has no way onto ${distro.id}")
+            return nixScript(built)
+        }
         packages[distro.id]?.let { return "set -eu\n" + distro.manager.ensure(listOf(it)) }
         val installer = installer ?: throw IllegalStateException("$id has no way onto ${distro.id}")
         val args = installer.args.joinToString("") { " " + quote(it) }
@@ -125,6 +139,18 @@ class Tool(json: JSONObject) {
             distro.manager.ensure(distro.installerNeeds + needs[distro.id].orEmpty()) + "\n" +
             "${installer.shell} /$INSTALLER$args\n" +
             "rm -f /$INSTALLER\n" +
+            links
+    }
+
+    private fun nixScript(built: NixPackage): String {
+        val root = "$NIX_ROOTS/$id"
+        val unfree = if (built.unfree) "NIXPKGS_ALLOW_UNFREE=1 " else ""
+        val impure = if (built.unfree) " --impure" else ""
+        val links = built.links.joinToString("") { "ln -sf ${quote("$root/bin/${built.program}")} ${quote("/usr/local/bin/$it")}\n" }
+        return ". /etc/profile.d/nix.sh\n" +
+            "set -eu\n" +
+            "mkdir -p $NIX_ROOTS\n" +
+            "${unfree}nix build$impure --out-link ${quote(root)} ${quote("github:NixOS/nixpkgs/$nixpkgs#${built.attribute}")}\n" +
             links
     }
 
@@ -143,7 +169,8 @@ class Catalog(json: JSONObject) {
     }
 
     val distros = objects(json.getJSONArray("distros")).map { Distro(it) }
-    val tools = objects(json.getJSONArray("tools")).map { Tool(it) }
+    val nixpkgs: String = checked(json.getJSONObject("nix").getString("nixpkgs"), REVISION, "nixpkgs")
+    val tools = objects(json.getJSONArray("tools")).map { Tool(it, nixpkgs) }
 
     init {
         val ids = distros.map { it.id }
@@ -184,6 +211,10 @@ private val URL_RULE = Regex("https://[A-Za-z0-9._~/%:+-]+")
 private val ARG = Regex("-{0,2}[A-Za-z0-9][A-Za-z0-9._=/-]*")
 private val PATH = Regex("(/[A-Za-z0-9._-]+)+")
 private val SHA256 = Regex("[0-9a-f]{64}")
+private val REVISION = Regex("[0-9a-f]{40}")
+private val ATTRIBUTE = Regex("[A-Za-z_][A-Za-z0-9_-]*(\\.[A-Za-z_][A-Za-z0-9_-]*)*")
+private val NAME = Regex("[A-Za-z0-9][A-Za-z0-9._-]*")
+private const val NIX_ROOTS = "/nix/var/nix/gcroots/upgrade"
 private val SHELLS = setOf("sh", "bash")
 private const val INSTALLER = "tmp/upgrade-install"
 
@@ -469,12 +500,12 @@ object PhoneLinux {
                 for (tool in catalog.tools.filter { it.id in tools }) {
                     val setup = system.setup ?: throw IllegalStateException("Linux is not installed")
                     val distro = catalog.distro(setup.distro) ?: throw IllegalStateException("${setup.distro} is not offered")
-                    if (tool.id in setup.tools || !tool.fits(distro)) continue
+                    if (tool.id in setup.tools || !tool.fits(distro, setup.nix)) continue
                     system.tool = tool.id
                     changed(context)
                     tool.installer(distro)?.let { fetch(system, tool, it) }
                     try {
-                        step(context, system, tool.id, tool.script(distro), 20)
+                        step(context, system, tool.id, tool.script(distro, setup.nix), 20)
                     } finally {
                         File(system.rootfs, INSTALLER).delete()
                     }

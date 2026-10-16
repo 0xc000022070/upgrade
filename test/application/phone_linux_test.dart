@@ -332,23 +332,24 @@ void main() {
     });
 
     test('fits every tool onto the distros it was built for', () {
-      expect(
-        {
-          for (final tool in catalog.tools)
-            tool.id: [
-              for (final distro in catalog.distros)
-                if (tool.fits(distro)) distro.id,
-            ],
-        },
-        {
-          'tmux': ['ubuntu', 'arch', 'alpine'],
-          'herdr': ['ubuntu', 'arch', 'alpine'],
-          'claude': ['ubuntu', 'arch', 'alpine'],
-          'codex': ['ubuntu', 'arch', 'alpine'],
-          'cursor': ['ubuntu', 'arch'],
-          'opencode': ['ubuntu', 'arch', 'alpine'],
-        },
-      );
+      Map<String, List<String>> matrix({required bool nix}) => {
+        for (final tool in catalog.tools)
+          tool.id: [
+            for (final distro in catalog.distros)
+              if (tool.fits(distro, nix: nix)) distro.id,
+          ],
+      };
+      const everywhere = ['ubuntu', 'arch', 'alpine'];
+      const bare = {
+        'tmux': everywhere,
+        'herdr': everywhere,
+        'claude': everywhere,
+        'codex': everywhere,
+        'cursor': ['ubuntu', 'arch'],
+        'opencode': everywhere,
+      };
+      expect(matrix(nix: false), bare);
+      expect(matrix(nix: true), {...bare, 'cursor': everywhere});
     });
 
     test('refuses a catalog of another version', () {
@@ -374,7 +375,11 @@ void main() {
 
     test('gives every tool a way onto every distro it fits', () {
       for (final tool in catalog.tools) {
-        expect(catalog.distros.where(tool.fits), isNotEmpty, reason: tool.id);
+        expect(
+          catalog.distros.where((distro) => tool.fits(distro, nix: false)),
+          isNotEmpty,
+          reason: tool.id,
+        );
       }
       expect(catalog.tools.map((tool) => tool.id), isNot(contains('nix')));
     });

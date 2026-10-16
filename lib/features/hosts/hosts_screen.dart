@@ -1118,7 +1118,9 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
     final missing =
         distro != null &&
         catalog!.tools.any(
-          (tool) => tool.fits(distro) && !state.tools.contains(tool.id),
+          (tool) =>
+              tool.fits(distro, nix: state.nix) &&
+              !state.tools.contains(tool.id),
         );
     String label(String id) => catalog?.toolLabel(id) ?? id.toUpperCase();
     final (String value, Color? color, String? action) = tool != null
@@ -1159,6 +1161,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
             context,
             catalog: catalog,
             distro: distro,
+            nix: state.nix,
             installed: state.tools,
           );
     if (tools == null || tools.isEmpty || !mounted) return;

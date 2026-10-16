@@ -10,6 +10,7 @@ class PhoneLinuxDistro {
   PhoneLinuxDistro.fromJson(Map<String, Object?> json)
     : id = json['id']! as String,
       label = json['label']! as String,
+      short = json['short']! as String,
       manager = json['manager']! as String,
       libc = json['libc']! as String,
       downloadMb = json['download_mb']! as int,
@@ -17,6 +18,7 @@ class PhoneLinuxDistro {
 
   final String id;
   final String label;
+  final String short;
   final String manager;
   final String libc;
   final int downloadMb;
@@ -33,28 +35,34 @@ class PhoneLinuxTool {
   PhoneLinuxTool.fromJson(Map<String, Object?> json)
     : id = json['id']! as String,
       label = json['label']! as String,
+      section = json['section']! as String,
       blurb = json['blurb']! as String,
       mb = json['mb']! as int,
       libc = json['libc'] as String?,
       _packaged = {...?(json['packages'] as Map<String, Object?>?)?.keys},
-      _installer = json['installer'] != null;
+      _installer = json['installer'] != null,
+      nix = json['nix'] != null;
 
   final String id;
   final String label;
+  final String section;
   final String blurb;
   final int mb;
 
   /// The C library the tool's binary is built against; none runs on any.
   final String? libc;
 
+  final bool nix;
+
   final Set<String> _packaged;
   final bool _installer;
 
   String get detail => '$blurb · about $mb MB';
 
-  bool fits(PhoneLinuxDistro distro) =>
-      (libc == null || libc == distro.libc) &&
-      (_installer || _packaged.contains(distro.id));
+  bool fits(PhoneLinuxDistro distro, {required bool nix}) =>
+      ((libc == null || libc == distro.libc) &&
+          (_installer || _packaged.contains(distro.id))) ||
+      (nix && this.nix);
 }
 
 class PhoneLinuxCatalog {

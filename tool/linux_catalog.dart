@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 
 const _path = 'assets/linux/catalog.json';
+const _nixpkgs = 'https://channels.nixos.org/nixos-unstable/git-revision';
 
 Future<void> main(List<String> args) async {
   if (args.length > 1 || (args.isNotEmpty && args.single != '--check')) {
@@ -37,6 +38,19 @@ Future<void> main(List<String> args) async {
         text = repin(text, url, served);
         stdout.writeln('$id installer: changed $pinned -> $served');
       }
+    }
+    final revision =
+        (catalog['nix'] as Map<String, Object?>)['nixpkgs'] as String;
+    final latest = await _text(client, _nixpkgs);
+    if (latest == null || !RegExp(r'^[0-9a-f]{40}$').hasMatch(latest)) {
+      broken++;
+      stdout.writeln('nixpkgs: no revision from $_nixpkgs');
+    } else if (latest == revision) {
+      stdout.writeln('nixpkgs: unchanged');
+    } else {
+      changed++;
+      text = repinNixpkgs(text, latest);
+      stdout.writeln('nixpkgs: changed $revision -> $latest');
     }
     for (final distro in _objects(catalog['distros'])) {
       final id = distro['id'] as String;
@@ -73,6 +87,13 @@ String repin(String text, String url, String digest) {
   return text.replaceFirstMapped(pin, (m) => '${m[1]}$digest${m[2]}');
 }
 
+String repinNixpkgs(String text, String revision) {
+  final pin = RegExp('("nixpkgs": ")[0-9a-f]{40}(")');
+  final found = pin.allMatches(text).length;
+  if (found != 1) throw StateError('nixpkgs is pinned $found times, not once');
+  return text.replaceFirstMapped(pin, (m) => '${m[1]}$revision${m[2]}');
+}
+
 Iterable<Map<String, Object?>> _objects(Object? list) =>
     (list as List<Object?>).cast<Map<String, Object?>>();
 
@@ -92,6 +113,21 @@ Future<String?> _digest(
     final target = File('${scratch.path}/$name');
     await response.pipe(target.openWrite());
     return (await sha256.bind(target.openRead()).single).toString();
+  } on Exception catch (failure) {
+    stderr.writeln('$url: $failure');
+    return null;
+  }
+}
+
+Future<String?> _text(HttpClient client, String url) async {
+  try {
+    final response = await (await client.getUrl(Uri.parse(url))).close();
+    if (response.statusCode != HttpStatus.ok) {
+      stderr.writeln('$url answered ${response.statusCode}');
+      await response.drain<void>();
+      return null;
+    }
+    return (await response.transform(utf8.decoder).join()).trim();
   } on Exception catch (failure) {
     stderr.writeln('$url: $failure');
     return null;

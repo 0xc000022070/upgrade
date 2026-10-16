@@ -27,18 +27,54 @@ class CatalogTest {
     @Test
     fun fitsEveryToolOntoTheDistrosItWasBuiltFor() {
         val catalog = Catalog(json())
-        val matrix = catalog.tools.associate { tool -> tool.id to catalog.distros.filter { tool.fits(it) }.map { it.id } }
-        assertEquals(
-            mapOf(
-                "tmux" to listOf("ubuntu", "arch", "alpine"),
-                "herdr" to listOf("ubuntu", "arch", "alpine"),
-                "claude" to listOf("ubuntu", "arch", "alpine"),
-                "codex" to listOf("ubuntu", "arch", "alpine"),
-                "cursor" to listOf("ubuntu", "arch"),
-                "opencode" to listOf("ubuntu", "arch", "alpine"),
-            ),
-            matrix,
+        fun matrix(nix: Boolean) =
+            catalog.tools.associate { tool -> tool.id to catalog.distros.filter { tool.fits(it, nix) }.map { it.id } }
+        val everywhere = listOf("ubuntu", "arch", "alpine")
+        val bare = mapOf(
+            "tmux" to everywhere,
+            "herdr" to everywhere,
+            "claude" to everywhere,
+            "codex" to everywhere,
+            "cursor" to listOf("ubuntu", "arch"),
+            "opencode" to everywhere,
         )
+        assertEquals(bare, matrix(false))
+        assertEquals(bare + ("cursor" to everywhere), matrix(true))
+    }
+
+    @Test
+    fun buildsWhatOnlyNixCarriesFromThePinnedNixpkgs() {
+        val catalog = Catalog(json())
+        val cursor = catalog.tool("cursor")!!
+        val alpine = catalog.distro("alpine")!!
+        assertNull(cursor.installer(alpine))
+        assertThrows(IllegalStateException::class.java) { cursor.script(alpine, false) }
+        val script = cursor.script(alpine, true)
+        assertTrue(script, script.startsWith(". /etc/profile.d/nix.sh\nset -eu\n"))
+        assertTrue(
+            script,
+            script.contains(
+                "NIXPKGS_ALLOW_UNFREE=1 nix build --impure --out-link '/nix/var/nix/gcroots/upgrade/cursor' " +
+                    "'github:NixOS/nixpkgs/${catalog.nixpkgs}#cursor-cli'\n",
+            ),
+        )
+        assertTrue(script, script.contains("ln -sf '/nix/var/nix/gcroots/upgrade/cursor/bin/cursor-agent' '/usr/local/bin/cursor-agent'"))
+        assertTrue(script, script.contains("ln -sf '/nix/var/nix/gcroots/upgrade/cursor/bin/cursor-agent' '/usr/local/bin/agent'"))
+        assertFalse(script, script.contains("apk"))
+        val ubuntu = catalog.distro("ubuntu")!!
+        assertEquals(cursor.script(ubuntu, false), cursor.script(ubuntu, true))
+    }
+
+    @Test
+    fun refusesANixpkgsThatIsNotARevision() {
+        val message = refused { it.getJSONObject("nix").put("nixpkgs", "nixos-unstable") }
+        assertTrue(message, message.contains("nixpkgs"))
+    }
+
+    @Test
+    fun refusesANixAttributeThatIsShell() {
+        val message = refused { it.tool("cursor").getJSONObject("nix").put("attribute", "cursor-cli' --option x") }
+        assertTrue(message, message.contains("cursor nix attribute"))
     }
 
     @Test
@@ -46,7 +82,7 @@ class CatalogTest {
         val catalog = Catalog(json())
         val alpine = catalog.distro("alpine")!!
         val claude = catalog.tool("claude")!!
-        val script = claude.script(alpine)
+        val script = claude.script(alpine, false)
         assertTrue(script, script.contains("apk -U add 'bash' 'curl' 'libgcc' 'libstdc++' 'ripgrep'"))
         assertTrue(script, script.contains("bash /tmp/upgrade-install\n"))
         assertTrue(script, script.contains("ln -sf '/root/.local/bin/claude' '/usr/local/bin/claude'"))
@@ -58,9 +94,9 @@ class CatalogTest {
     fun runsTheInstallerTheAppFetchedAndNeverItsUrl() {
         val catalog = Catalog(json())
         for (tool in catalog.tools) {
-            for (distro in catalog.distros.filter { tool.fits(it) }) {
+            for (distro in catalog.distros.filter { tool.fits(it, true) }) {
                 val installer = tool.installer(distro) ?: continue
-                val script = tool.script(distro)
+                val script = tool.script(distro, true)
                 assertFalse(script, script.contains(installer.url))
                 assertTrue(script, script.contains("rm -f /tmp/upgrade-install\n"))
             }

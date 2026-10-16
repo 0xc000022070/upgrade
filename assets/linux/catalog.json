@@ -4,6 +4,7 @@
     {
       "id": "ubuntu",
       "label": "UBUNTU 24.04",
+      "short": "Ubuntu",
       "manager": "apt",
       "libc": "glibc",
       "download_mb": 70,
@@ -18,6 +19,7 @@
     {
       "id": "arch",
       "label": "ARCH LINUX ARM",
+      "short": "Arch",
       "manager": "pacman",
       "libc": "glibc",
       "download_mb": 160,
@@ -33,6 +35,7 @@
     {
       "id": "alpine",
       "label": "ALPINE LINUX 3.24",
+      "short": "Alpine",
       "manager": "apk",
       "libc": "musl",
       "download_mb": 4,
@@ -46,11 +49,13 @@
     }
   ],
   "nix": {
-    "download_mb": 25
+    "download_mb": 25,
+    "nixpkgs": "55bfb4d7437bd4e09ab7cba58a43bd68eb310044"
   },
   "tools": [
     {
       "id": "tmux",
+      "section": "MULTIPLEXERS",
       "label": "TMUX",
       "blurb": "The terminal multiplexer",
       "mb": 1,
@@ -58,6 +63,7 @@
     },
     {
       "id": "herdr",
+      "section": "MULTIPLEXERS",
       "label": "HERDR",
       "blurb": "The agent multiplexer",
       "mb": 27,
@@ -70,6 +76,7 @@
     },
     {
       "id": "claude",
+      "section": "AGENTS",
       "label": "CLAUDE CODE",
       "blurb": "Anthropic's coding agent",
       "mb": 250,
@@ -91,6 +98,7 @@
     },
     {
       "id": "codex",
+      "section": "AGENTS",
       "label": "CODEX",
       "blurb": "OpenAI's coding agent",
       "mb": 370,
@@ -103,6 +111,7 @@
     },
     {
       "id": "cursor",
+      "section": "AGENTS",
       "label": "CURSOR AGENT",
       "blurb": "Cursor's coding agent",
       "mb": 550,
@@ -112,10 +121,17 @@
         "sha256": "9b70b142b7bbd56d5d75c2575279b63c884178f8f8e6862b4f41c09afcf6c8a2",
         "shell": "bash",
         "links": ["/root/.local/bin/cursor-agent", "/root/.local/bin/agent"]
+      },
+      "nix": {
+        "attribute": "cursor-cli",
+        "unfree": true,
+        "program": "cursor-agent",
+        "links": ["cursor-agent", "agent"]
       }
     },
     {
       "id": "opencode",
+      "section": "AGENTS",
       "label": "OPENCODE",
       "blurb": "The open coding agent",
       "mb": 190,
