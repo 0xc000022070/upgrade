@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/design/components/meta.dart';
 import 'package:upgrade/features/hosts/phone_linux_picker.dart';
 import 'package:upgrade/platform/phone_linux.dart';
 
@@ -45,7 +46,14 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    final alpine = catalog.distros.firstWhere((d) => d.id == 'alpine');
+    int toolMb(String id) => catalog.tools.firstWhere((t) => t.id == id).mb;
+    String total() => tester
+        .widget<Meta>(find.byKey(const ValueKey('phone-linux-total')))
+        .text;
+
     await tap('phone-linux-distro-alpine');
+    expect(total(), 'STEP 1 OF 3 · ABOUT ${alpine.downloadMb} MB IN ALL');
     await tap('phone-linux-next');
     expect(find.text('LINUX ON THIS PHONE · PACKAGES'), findsOneWidget);
     expect(find.text('[ PACKAGE MANAGERS ]'), findsOneWidget);
@@ -69,6 +77,21 @@ void main() {
 
     await tap('phone-linux-tool-tmux');
     await tap('phone-linux-tool-cursor');
+    final withNix = alpine.downloadMb + catalog.nixMb;
+    expect(
+      total(),
+      'STEP 3 OF 3 · ABOUT ${withNix + toolMb('tmux') + toolMb('cursor')} MB IN ALL',
+    );
+
+    await tap('phone-linux-back');
+    await tap('phone-linux-nix');
+    expect(
+      total(),
+      'STEP 2 OF 3 · ABOUT ${alpine.downloadMb + toolMb('tmux')} MB IN ALL',
+      reason: 'a tool that no longer fits is not counted',
+    );
+    await tap('phone-linux-nix');
+    await tap('phone-linux-next');
     await tap('phone-linux-install');
 
     expect(picked?.distro, 'alpine');

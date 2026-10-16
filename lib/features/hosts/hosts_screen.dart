@@ -15,10 +15,11 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/meta.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/components/panel_text_action.dart';
 import 'package:upgrade/design/components/segment_switch.dart';
+import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/section.dart';
 import 'package:upgrade/design/components/toolbar_icon_action.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/files/files_sheet.dart';
@@ -34,7 +35,6 @@ import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/features/devices/screens_action.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/settings/host_form_screen.dart';
-import 'package:upgrade/features/shell/active_sessions_panel.dart';
 import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/shell/shell_status.dart';
@@ -144,62 +144,67 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
         if (_segment == 1)
           const CodeList()
         else ...[
-          ActiveSessionsPanel(hosts: hosts.valueOrNull ?? const <Host>[]),
           AsyncSection<List<Host>>(
             value: hosts,
-            empty: 'Add a host to connect to your computer.',
-            builder: (items) => LayoutBuilder(
-              builder: (context, constraints) {
-                final wide = constraints.maxWidth >= 720;
-                final selected = items.firstWhere(
-                  (host) => host.id == _selectedHostId,
-                  orElse: () => items.first,
-                );
-                final list = PanelStack(
-                  children: [
-                    for (final host in items)
-                      _HostSummary(
-                        host: host,
-                        selected: wide && host.id == selected.id,
-                        onTap: () {
-                          if (wide) {
-                            setState(() => _selectedHostId = host.id);
-                          } else {
-                            Navigator.of(context, rootNavigator: true).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => _HostDetail(hostId: host.id),
+            empty: '',
+            isEmpty: (_) => false,
+            builder: (items) => items.isEmpty
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(bottom: Spacing.panelGap),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final wide = constraints.maxWidth >= 720;
+                        final selected = items.firstWhere(
+                          (host) => host.id == _selectedHostId,
+                          orElse: () => items.first,
+                        );
+                        final list = PanelStack(
+                          children: [
+                            for (final host in items)
+                              _HostSummary(
+                                host: host,
+                                selected: wide && host.id == selected.id,
+                                onTap: () {
+                                  if (wide) {
+                                    setState(() => _selectedHostId = host.id);
+                                  } else {
+                                    Navigator.of(
+                                      context,
+                                      rootNavigator: true,
+                                    ).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            _HostDetail(hostId: host.id),
+                                      ),
+                                    );
+                                  }
+                                },
                               ),
-                            );
-                          }
-                        },
-                      ),
-                  ],
-                );
-                if (!wide) return list;
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 2, child: list),
-                    const SizedBox(width: Spacing.lg),
-                    Expanded(
-                      flex: 3,
-                      child: _HostPanel(
-                        key: ValueKey(selected.id),
-                        host: selected,
-                        keyName: keyNames[selected.keyId],
-                        feed: feed,
-                      ),
+                          ],
+                        );
+                        if (!wide) return list;
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(flex: 2, child: list),
+                            const SizedBox(width: Spacing.lg),
+                            Expanded(
+                              flex: 3,
+                              child: _HostPanel(
+                                key: ValueKey(selected.id),
+                                host: selected,
+                                keyName: keyNames[selected.keyId],
+                                feed: feed,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ],
-                );
-              },
-            ),
+                  ),
           ),
-          PanelTextAction(
-            label: 'ADD HOST',
-            onTap: () => openHostForm(context),
-          ),
-          const _PhoneLinuxAction(),
+          _AddMachinePanel(empty: hosts.valueOrNull?.isEmpty ?? false),
         ],
       ],
     );
@@ -239,20 +244,30 @@ class _HostSummary extends ConsumerWidget {
                     child: Text(
                       host.name.toUpperCase(),
                       style: context.tokens.rowTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                  ),
+                  const SizedBox(width: Spacing.md),
+                  AnimatedBuilder(
+                    animation: probes,
+                    builder: (context, _) {
+                      final link = probes.forHost(host.id);
+                      return Text(
+                        linkWord(link),
+                        key: ValueKey('host-link-${host.id}'),
+                        style: context.tokens.label.copyWith(
+                          color: linkFailed(link)
+                              ? context.tokens.warning
+                              : null,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
               const SizedBox(height: Spacing.sm),
-              Text('${host.address}:${host.port}', style: context.tokens.value),
-              const SizedBox(height: Spacing.sm),
-              AnimatedBuilder(
-                animation: probes,
-                builder: (context, _) => Text(
-                  '${host.user} · ${linkWord(probes.forHost(host.id))}',
-                  style: context.tokens.label,
-                ),
-              ),
+              Text(_hostWhere(host), style: context.tokens.value),
               const SizedBox(height: Spacing.md),
               _HostActions(host: host),
             ],
@@ -917,28 +932,79 @@ class _HostActions extends ConsumerWidget {
   }
 }
 
-class _PhoneLinuxAction extends ConsumerStatefulWidget {
-  const _PhoneLinuxAction();
+String _hostWhere(Host host) => host.port == 22
+    ? '${host.user}@${host.address}'
+    : '${host.user}@${host.address}:${host.port}';
+
+class _AddMachinePanel extends ConsumerStatefulWidget {
+  const _AddMachinePanel({required this.empty});
+
+  final bool empty;
 
   @override
-  ConsumerState<_PhoneLinuxAction> createState() => _PhoneLinuxActionState();
+  ConsumerState<_AddMachinePanel> createState() => _AddMachinePanelState();
 }
 
-class _PhoneLinuxActionState extends ConsumerState<_PhoneLinuxAction> {
+class _AddMachinePanelState extends ConsumerState<_AddMachinePanel> {
   bool _starting = false;
   bool _failed = false;
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final linux = ref.watch(phoneLinuxHostProvider);
-    if (linux == null) return const SizedBox.shrink();
-    return PanelTextAction(
-      label: _starting
-          ? 'PREPARING'
-          : _failed
-          ? 'LINUX ON THIS PHONE · FAILED'
-          : 'LINUX ON THIS PHONE',
-      onTap: _starting ? null : () => unawaited(_install(linux)),
+    Widget glyph(UpgradeIcons icon) =>
+        UpgradeIcon(icon, size: IconSizes.glyph, color: tokens.textSecondary);
+    final arrow = UpgradeIcon(
+      UpgradeIcons.arrowRight,
+      size: IconSizes.affordance,
+      color: tokens.textMuted,
+    );
+    return Panel(
+      title: 'ADD A MACHINE',
+      bodyPadding: panelRowsPadding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.empty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: Spacing.md),
+              child: Text(
+                'No machines yet. Add one you reach over ssh, '
+                'or run Linux on this phone.',
+                style: tokens.prose,
+              ),
+            ),
+          ListRowGroup(
+            children: [
+              ListRow(
+                key: const ValueKey('add-host'),
+                leading: glyph(UpgradeIcons.hosts),
+                title: 'ADD HOST',
+                subtitle: 'A machine you reach over ssh',
+                trailing: arrow,
+                onTap: () => openHostForm(context),
+              ),
+              if (linux != null)
+                ListRow(
+                  key: const ValueKey('add-phone-linux'),
+                  leading: glyph(UpgradeIcons.phone),
+                  title: 'LINUX ON THIS PHONE',
+                  subtitle: 'Its own Linux, run as an app without root',
+                  subtitleMaxLines: 2,
+                  value: _starting
+                      ? 'PREPARING'
+                      : _failed
+                      ? 'FAILED'
+                      : null,
+                  valueColor: _failed ? tokens.warning : null,
+                  trailing: _starting ? null : arrow,
+                  onTap: _starting ? null : () => unawaited(_install(linux)),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

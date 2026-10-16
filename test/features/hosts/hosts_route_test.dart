@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/data/database.dart';
+import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/data/enums.dart';
@@ -205,8 +206,8 @@ void main() {
 
     expect(find.text('NYX'), findsOneWidget);
     expect(find.text('ROSE'), findsOneWidget);
-    expect(find.text('100.64.0.1:22'), findsOneWidget);
-    expect(find.text('100.64.0.2:357'), findsOneWidget);
+    expect(find.text('luis@100.64.0.1'), findsOneWidget);
+    expect(find.text('luis@100.64.0.2:357'), findsOneWidget);
     expect(find.text('DETAILS'), findsNWidgets(2));
     expect(find.text('INTEGRATIONS'), findsNothing);
     expect(find.byType(ScreenPreviewTile), findsNothing);
@@ -324,7 +325,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the sessions sit over the hosts and on their cards', (
+  testWidgets('the sessions are counted on their card, with no shelf', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(400, 2400);
@@ -336,8 +337,7 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
-    expect(find.text('ACTIVE SESSIONS'), findsOneWidget);
-    expect(find.byKey(const ValueKey('shell-card-h1-1')), findsOneWidget);
+    expect(find.text('ACTIVE SESSIONS'), findsNothing);
     expect(find.text('SHELL · 1 OPEN'), findsOneWidget);
     await details(tester, 'ROSE');
     expect(find.text('SHELL · 1 OPEN'), findsOneWidget);
@@ -369,8 +369,15 @@ void main() {
     );
     await ready(tester);
 
-    expect(find.text('luis · OPENSSH_9.9 · 120 MS'), findsOneWidget);
-    expect(find.text('luis · REFUSED'), findsOneWidget);
+    expect(find.text('OPENSSH_9.9 · 120 MS'), findsOneWidget);
+    expect(find.text('REFUSED'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('host-link-h2')))
+          .style
+          ?.color,
+      UpgradeColors.warning,
+    );
     expect(probed, ['100.64.0.1:22', '100.64.0.2:357']);
     await details(tester, 'NYX');
 

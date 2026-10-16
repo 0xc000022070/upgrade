@@ -13,6 +13,8 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/features/settings/host_form_screen.dart';
 import 'package:upgrade/features/settings/key_form_screen.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
@@ -35,6 +37,16 @@ ManagedKey _key(String id, String name) => ManagedKey(
   fingerprint: 'SHA256:$id',
   createdAt: DateTime(2026),
 );
+
+bool keyChosen(WidgetTester tester, String id) => find
+    .descendant(
+      of: find.byKey(ValueKey('host-key-$id')),
+      matching: find.byWidgetPredicate(
+        (widget) => widget is UpgradeIcon && widget.icon == UpgradeIcons.check,
+      ),
+    )
+    .evaluate()
+    .isNotEmpty;
 
 void main() {
   late AppDatabase db;
@@ -151,12 +163,7 @@ void main() {
     await keys.save(_key('key-1', 'faraday'));
     await open(tester, const HostFormScreen());
 
-    expect(
-      tester
-          .widget<DropdownButton<String>>(find.byType(DropdownButton<String>))
-          .value,
-      'key-1',
-    );
+    expect(keyChosen(tester, 'key-1'), isTrue);
     expect(label(tester), 'CREATE HOST');
     expect(find.text('NAME MISSING'), findsOneWidget);
     expect(fill(tester), UpgradeColors.textDisabled);
@@ -289,10 +296,15 @@ void main() {
     await tester.tap(find.text('EDIT'));
     await _ready(tester);
     expect(
-      tester
-          .widgetList<SwitchListTile>(find.byType(SwitchListTile))
-          .where((row) => (row.title as Text).data == 'VNC' && row.value),
-      hasLength(1),
+      find.descendant(
+        of: find.byKey(const ValueKey('integration-vnc')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is UpgradeIcon &&
+              widget.icon == UpgradeIcons.checkboxChecked,
+        ),
+      ),
+      findsOneWidget,
     );
 
     await unmount(tester);
@@ -305,7 +317,8 @@ void main() {
     await keys.save(_key('key-2', 'rose'));
     await open(tester, const HostFormScreen());
 
-    expect(find.text('// '), findsNothing);
+    expect(keyChosen(tester, 'key-1'), isFalse);
+    expect(keyChosen(tester, 'key-2'), isFalse);
     await fillFields(tester);
 
     expect(label(tester), 'CREATE HOST');
@@ -314,10 +327,9 @@ void main() {
     await _ready(tester);
     expect(await hosts.all(), isEmpty);
 
-    await tester.tap(find.byType(DropdownButton<String>));
-    await _sheet(tester);
-    await tester.tap(find.text('rose').last);
+    await tester.tap(find.byKey(const ValueKey('host-key-key-2')));
     await tester.pump();
+    expect(keyChosen(tester, 'key-2'), isTrue);
     expect(label(tester), 'CREATE HOST');
 
     await unmount(tester);
@@ -329,7 +341,7 @@ void main() {
     await open(tester, const HostFormScreen());
     await fillFields(tester);
 
-    expect(find.text('CREATE AN SSH KEY BELOW TO CONNECT.'), findsOneWidget);
+    expect(find.text('NO KEYS YET'), findsOneWidget);
     expect(find.text('CREATE SSH KEY'), findsOneWidget);
     expect(label(tester), 'CREATE HOST');
     expect(find.text('KEY MISSING'), findsOneWidget);
@@ -469,7 +481,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the address row carries the port on every host', (tester) async {
+  testWidgets('a card names the port only when it is not 22', (tester) async {
     await keys.save(_key('key-1', 'faraday'));
     await hosts.save(
       const Host(
@@ -493,8 +505,8 @@ void main() {
     );
     await open(tester, const HostsScreen());
 
-    expect(find.text('100.64.0.1:22'), findsOneWidget);
-    expect(find.text('100.64.0.2:357'), findsOneWidget);
+    expect(find.text('luis@100.64.0.1'), findsOneWidget);
+    expect(find.text('luis@100.64.0.2:357'), findsOneWidget);
 
     await unmount(tester);
   });

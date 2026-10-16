@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/meta.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/design/components/upgrade_field.dart';
@@ -65,6 +66,11 @@ class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
     ),
   );
 
+  int get _totalMb =>
+      _distro.downloadMb +
+      (_nix ? widget.catalog.nixMb : 0) +
+      _chosenMb(widget.catalog.tools, _tools, _distro, nix: _nix);
+
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
@@ -76,6 +82,11 @@ class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
         _ => 'LINUX ON THIS PHONE · TOOLS',
       },
       footer: [
+        Meta(
+          'STEP ${_step + 1} OF 3 · ABOUT $_totalMb MB IN ALL',
+          key: const ValueKey('phone-linux-total'),
+        ),
+        const SizedBox(height: Spacing.sm),
         Row(
           children: [
             Expanded(
@@ -233,6 +244,15 @@ class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
   }
 }
 
+int _chosenMb(
+  Iterable<PhoneLinuxTool> tools,
+  Set<String> chosen,
+  PhoneLinuxDistro distro, {
+  required bool nix,
+}) => tools
+    .where((tool) => chosen.contains(tool.id) && tool.fits(distro, nix: nix))
+    .fold(0, (sum, tool) => sum + tool.mb);
+
 Widget _checkbox(BuildContext context, bool checked) => UpgradeIcon(
   checked ? UpgradeIcons.checkboxChecked : UpgradeIcons.checkboxEmpty,
   size: IconSizes.check,
@@ -350,9 +370,15 @@ class _PhoneLinuxToolPickerState extends State<_PhoneLinuxToolPicker> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final mb = _chosenMb(widget.tools, _chosen, widget.distro, nix: widget.nix);
     return PanelSheetBody(
       title: 'TOOLS',
       footer: [
+        Meta(
+          _chosen.isEmpty ? 'NOTHING CHOSEN' : 'ABOUT $mb MB IN ALL',
+          key: const ValueKey('phone-linux-tools-total'),
+        ),
+        const SizedBox(height: Spacing.sm),
         Row(
           children: [
             Expanded(

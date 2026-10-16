@@ -14,13 +14,16 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
 import 'package:upgrade/design/components/upgrade_field.dart';
-import 'package:upgrade/design/components/meta.dart';
 import 'package:upgrade/design/components/meta_row.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/design/components/section.dart';
 import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/features/hosts/host_key_sheet.dart';
@@ -354,9 +357,9 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                     ),
                   Row(
                     children: [
-                      TextButton(
-                        onPressed: _submitting ? null : _handleBack,
-                        child: const Text('CANCEL'),
+                      ActionBlock(
+                        label: 'CANCEL',
+                        onTap: _submitting ? null : _handleBack,
                       ),
                       const SizedBox(width: Spacing.md),
                       Expanded(
@@ -388,7 +391,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
               PanelStack(
                 children: [
                   Panel(
-                    title: 'CONNECTION',
+                    title: '[ CONNECTION ]',
                     child: Column(
                       children: [
                         _HostField(
@@ -423,101 +426,96 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                   Panel(
                     title: '[ KEY ]',
                     bodyPadding: panelRowsPadding,
-                    child: AsyncSection<List<ManagedKey>>(
-                      value: keys,
-                      empty: 'Create an SSH key below to connect.',
-                      builder: (items) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          DropdownButton<String>(
-                            isExpanded: true,
-                            value: items.any((key) => key.id == _keyId)
-                                ? _keyId
-                                : null,
-                            hint: const Text('Choose SSH key'),
-                            style: context.tokens.value,
-                            dropdownColor: context.tokens.surfacePrimary,
-                            items: [
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AsyncSection<List<ManagedKey>>(
+                          value: keys,
+                          empty: 'No keys yet',
+                          builder: (items) => ListRowGroup(
+                            children: [
                               for (final key in items)
-                                DropdownMenuItem(
-                                  value: key.id,
-                                  child: Text(key.name),
+                                ListRow(
+                                  key: ValueKey('host-key-${key.id}'),
+                                  leading: UpgradeIcon(
+                                    UpgradeIcons.sshKey,
+                                    size: IconSizes.glyph,
+                                    color: context.tokens.textSecondary,
+                                  ),
+                                  title: key.name,
+                                  literalTitle: true,
+                                  subtitle: key.fingerprint,
+                                  trailing: key.id == _keyId
+                                      ? UpgradeIcon(
+                                          UpgradeIcons.check,
+                                          size: IconSizes.check,
+                                          color: context.tokens.accent,
+                                        )
+                                      : null,
+                                  onTap: _submitting
+                                      ? null
+                                      : () => setState(() => _keyId = key.id),
                                 ),
                             ],
-                            onChanged: _submitting
-                                ? null
-                                : (id) => setState(() => _keyId = id),
                           ),
-                          for (final key in items.where(
-                            (key) => key.id == _keyId,
-                          ))
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: Spacing.md,
-                              ),
-                              child: Meta(key.fingerprint, maxLines: 2),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      onPressed: _submitting ? null : () => openNewKey(context),
-                      child: const Text('CREATE SSH KEY'),
+                        ),
+                        PanelTextAction(
+                          label: 'CREATE SSH KEY',
+                          onTap: _submitting ? null : () => openNewKey(context),
+                        ),
+                      ],
                     ),
                   ),
                   Panel(
                     title: '[ INTEGRATIONS ]',
                     bodyPadding: panelRowsPadding,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (final kind in IntegrationKind.values)
-                            SwitchListTile.adaptive(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                kind.label,
-                                style: context.tokens.rowTitle,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ListRowGroup(
+                          children: [
+                            for (final kind in IntegrationKind.values)
+                              ListRow(
+                                key: ValueKey('integration-${kind.wire}'),
+                                leading: _check(
+                                  context,
+                                  integrations.contains(kind),
+                                ),
+                                title: kind.label,
+                                subtitle: _integrationLine(kind),
+                                subtitleMaxLines: 2,
+                                onTap: loaded && !_submitting
+                                    ? () => setState(() {
+                                        if (!integrations.remove(kind)) {
+                                          integrations.add(kind);
+                                        }
+                                      })
+                                    : null,
                               ),
-                              activeThumbColor: context.tokens.accent,
-                              value: integrations.contains(kind),
-                              onChanged: loaded && !_submitting
-                                  ? (enabled) => setState(() {
-                                      if (enabled) {
-                                        integrations.add(kind);
-                                      } else {
-                                        integrations.remove(kind);
-                                      }
-                                    })
-                                  : null,
-                            ),
+                          ],
+                        ),
+                        if (integrations.contains(IntegrationKind.vnc)) ...[
+                          _HostField(
+                            label: 'VNC USER',
+                            id: 'host.vnc_user',
+                            controller: _vncUsername,
+                            enabled: !_submitting,
+                            hint: 'macOS account · blank for classic VNC',
+                            keyboardType: TextInputType.text,
+                          ),
+                          _HostField(
+                            label: 'VNC PASSWORD',
+                            id: 'host.vnc_password',
+                            controller: _password,
+                            enabled: !_submitting,
+                            hint: 'blank when the server offers none',
+                            obscureText: true,
+                            keyboardType: TextInputType.visiblePassword,
+                          ),
                         ],
-                      ),
+                      ],
                     ),
                   ),
-                  if (integrations.contains(IntegrationKind.vnc))
-                    _HostField(
-                      label: 'VNC USER',
-                      id: 'host.vnc_user',
-                      controller: _vncUsername,
-                      enabled: !_submitting,
-                      hint: 'macOS account · blank for classic VNC',
-                      keyboardType: TextInputType.text,
-                    ),
-                  if (integrations.contains(IntegrationKind.vnc))
-                    _HostField(
-                      label: 'VNC PASSWORD',
-                      id: 'host.vnc_password',
-                      controller: _password,
-                      enabled: !_submitting,
-                      hint: 'blank when the server offers none',
-                      obscureText: true,
-                      keyboardType: TextInputType.visiblePassword,
-                    ),
                   if (_hostKey != null) _hostKeyPanel(_hostKey!),
                 ],
               ),
@@ -525,14 +523,10 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                 const SizedBox(height: Spacing.md),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    onPressed: _submitting ? null : _delete,
-                    child: Text(
-                      'DELETE HOST',
-                      style: context.tokens.label.copyWith(
-                        color: context.tokens.warning,
-                      ),
-                    ),
+                  child: ActionBlock(
+                    label: 'DELETE HOST',
+                    tone: context.tokens.warning,
+                    onTap: _submitting ? null : _delete,
                   ),
                 ),
               ],
@@ -582,6 +576,19 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     if (mounted) setState(() => _hostKey = null);
   }
 }
+
+String _integrationLine(IntegrationKind kind) => switch (kind) {
+  IntegrationKind.herdr => 'Agents in its herdr panes',
+  IntegrationKind.agents => 'Agents heard from their own hooks',
+  IntegrationKind.vnc => 'Its desktop, tunnelled through ssh',
+  IntegrationKind.devices => 'Its emulators and simulators',
+};
+
+Widget _check(BuildContext context, bool on) => UpgradeIcon(
+  on ? UpgradeIcons.checkboxChecked : UpgradeIcons.checkboxEmpty,
+  size: IconSizes.check,
+  color: on ? context.tokens.accent : context.tokens.textMuted,
+);
 
 class _HostField extends StatelessWidget {
   const _HostField({

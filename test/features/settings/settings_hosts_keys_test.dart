@@ -11,6 +11,8 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/features/settings/host_form_screen.dart';
 import 'package:upgrade/features/settings/key_detail_screen.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
@@ -25,6 +27,16 @@ final managedKey = ManagedKey(
   fingerprint: 'SHA256:test',
   createdAt: DateTime(2026),
 );
+
+bool keyChosen(WidgetTester tester, String id) => find
+    .descendant(
+      of: find.byKey(ValueKey('host-key-$id')),
+      matching: find.byWidgetPredicate(
+        (widget) => widget is UpgradeIcon && widget.icon == UpgradeIcons.check,
+      ),
+    )
+    .evaluate()
+    .isNotEmpty;
 
 void main() {
   late AppDatabase db;
@@ -135,12 +147,7 @@ void main() {
 
     await keys.save(managedKey);
     await _ready(tester);
-    expect(
-      tester
-          .widget<DropdownButton<String>>(find.byType(DropdownButton<String>))
-          .value,
-      managedKey.id,
-    );
+    expect(keyChosen(tester, managedKey.id), isTrue);
     expect(
       tester.widget<SolidActionBar>(find.byType(SolidActionBar)).enabled,
       isTrue,

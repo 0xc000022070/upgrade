@@ -15,7 +15,6 @@ import 'package:upgrade/data/repositories/shell_tab_repository.dart';
 import 'package:upgrade/data/shell_snapshot_store.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/features/shell/host_shell_screen.dart';
-import 'package:upgrade/features/shell/shell_card.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/host_system.dart';
@@ -3457,43 +3456,6 @@ void main() {
       await tester.pump();
 
       expect(session.changed, returnsNormally);
-    });
-
-    testWidgets('a card follows its own tab and the store stays out of it', (
-      tester,
-    ) async {
-      final transport = FakeShellTransport();
-      final sessions = fakeShellSessions(transport);
-      final first = sessions.open(intent: testIntent(), _rose)!;
-      final second = sessions.open(intent: testIntent(), _rose)!;
-      await _pumpDial(tester);
-      var storeSaid = 0;
-      sessions.addListener(() => storeSaid++);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: testTheme,
-          home: Row(
-            children: [
-              ShellCard(host: _rose, session: first),
-              ShellCard(host: _rose, session: second),
-            ],
-          ),
-        ),
-      );
-
-      transport.opened.first.emit('\x1b]0;htop\x07');
-      await tester.pump();
-      await tester.pump();
-
-      expect(find.text('htop'), findsOneWidget);
-      expect(storeSaid, 0);
-
-      await tester.pumpWidget(const SizedBox.shrink());
-      await sessions.close(intent: testIntent(), _rose.id, first);
-      await sessions.close(intent: testIntent(), _rose.id, second);
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
     });
   });
   group('the shade is told', () {

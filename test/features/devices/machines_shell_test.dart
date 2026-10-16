@@ -9,7 +9,6 @@ import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
-import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
@@ -115,152 +114,27 @@ void main() {
 
     expect(find.text('ROSE'), findsOneWidget);
     expect(find.text('NYX'), findsOneWidget);
-    expect(find.text('100.64.0.1:22'), findsOneWidget);
-    expect(find.text('100.64.0.2:357'), findsOneWidget);
+    expect(find.text('luis@100.64.0.1'), findsOneWidget);
+    expect(find.text('luis@100.64.0.2:357'), findsOneWidget);
 
     await unmount(tester);
   });
 
-  testWidgets('no session means no panel of sessions', (tester) async {
+  testWidgets('open shells are counted on their host, with no shelf', (
+    tester,
+  ) async {
     sized(tester);
     await seed();
+    shells.stall = false;
+    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _nyx);
+    sessions.open(intent: testIntent(), _nyx);
     await tester.pumpWidget(app());
     await ready(tester);
 
     expect(find.text('ACTIVE SESSIONS'), findsNothing);
-    expect(find.text('HOSTS'), findsOneWidget);
-
-    await unmount(tester);
-  });
-
-  testWidgets('every open session is a card, in the order of the hosts', (
-    tester,
-  ) async {
-    sized(tester);
-    await seed();
-    shells.stall = false;
-    sessions.open(intent: testIntent(), _rose);
-    sessions.open(intent: testIntent(), _nyx);
-    sessions.open(intent: testIntent(), _nyx);
-    await tester.pumpWidget(app());
-    await ready(tester);
-
-    expect(find.text('ACTIVE SESSIONS'), findsOneWidget);
-    expect(find.byKey(const ValueKey('shell-card-h1-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('shell-card-h2-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('shell-card-h2-2')), findsOneWidget);
-    expect(find.text('rose · shell 1'), findsOneWidget);
-    expect(find.text('nyx · shell 2'), findsOneWidget);
     expect(find.text('SHELL · 1 OPEN'), findsOneWidget);
     expect(find.text('SHELL · 2 OPEN'), findsOneWidget);
-
-    await unmount(tester);
-  });
-
-  testWidgets('the card carries the state of the session under it', (
-    tester,
-  ) async {
-    sized(tester);
-    await seed();
-    shells.stall = false;
-    sessions.open(intent: testIntent(), _rose);
-    await tester.pumpWidget(app());
-    await ready(tester);
-
-    Color dot() =>
-        (tester
-                    .widget<Container>(
-                      find.descendant(
-                        of: find.byKey(const ValueKey('shell-dot-h1-1')),
-                        matching: find.byType(Container),
-                      ),
-                    )
-                    .decoration
-                as BoxDecoration)
-            .color!;
-
-    expect(dot(), UpgradeColors.accent);
-
-    shells.opened.single.exit(1);
-    await ready(tester);
-    expect(dot(), UpgradeColors.textMuted);
-
-    await unmount(tester);
-  });
-
-  testWidgets(
-    'session cards prefer task titles and fall back to their directory',
-    (tester) async {
-      sized(tester);
-      await seed();
-      shells.stall = false;
-      final first = sessions.open(intent: testIntent(), _rose)!;
-      first.title = 'Fix reconnect';
-      final second = sessions.open(intent: testIntent(), _nyx)!;
-      second.cwd = '/home/dev/Projects/upgrade';
-      await tester.pumpWidget(app());
-      await ready(tester);
-      expect(find.text('Fix reconnect'), findsOneWidget);
-      expect(find.text('upgrade'), findsOneWidget);
-      expect(find.text('rose · shell 1'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-      await unmount(tester);
-    },
-  );
-
-  testWidgets('the card keeps its first line clear of the dot', (tester) async {
-    sized(tester);
-    await seed();
-    shells.stall = false;
-    sessions.open(intent: testIntent(), _rose);
-    await tester.pumpWidget(app());
-    await ready(tester);
-
-    final card = tester.getRect(find.byKey(const ValueKey('shell-card-h1-1')));
-    final dot = tester.getRect(find.byKey(const ValueKey('shell-dot-h1-1')));
-
-    expect(card.right - dot.right, lessThan(dot.left - card.left));
-
-    await unmount(tester);
-  });
-
-  testWidgets('session captions use their natural height at large text sizes', (
-    tester,
-  ) async {
-    sized(tester);
-    await seed();
-    shells.stall = false;
-    sessions.open(intent: testIntent(), _rose)!.title =
-        'A long terminal task title';
-    await tester.pumpWidget(app(textScale: 2));
-    await ready(tester);
-    expect(find.text('A long terminal task title'), findsOneWidget);
-    expect(find.text('rose · shell 1'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-    await unmount(tester);
-  });
-
-  testWidgets('a card opens its own host on its own tab', (tester) async {
-    sized(tester);
-    await seed();
-    shells.stall = false;
-    sessions.open(intent: testIntent(), _nyx);
-    final second = sessions.open(intent: testIntent(), _nyx)!;
-    sessions.activate(_nyx.id, sessions.forHost(_nyx.id).first);
-    await tester.pumpWidget(app());
-    await ready(tester);
-
-    await tester.tap(find.byKey(const ValueKey('shell-card-h2-2')));
-    await ready(tester);
-
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('shell-header')),
-        matching: find.text('NYX'),
-      ),
-      findsOneWidget,
-    );
-    expect(sessions.activeFor(_nyx.id), same(second));
 
     await unmount(tester);
   });
@@ -348,10 +222,15 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
+    expect(find.text('ADD A MACHINE'), findsOneWidget);
     expect(
-      find.text('ADD A HOST TO CONNECT TO YOUR COMPUTER.'),
+      find.text(
+        'No machines yet. Add one you reach over ssh, '
+        'or run Linux on this phone.',
+      ),
       findsOneWidget,
     );
+    expect(find.byKey(const ValueKey('add-host')), findsOneWidget);
 
     await unmount(tester);
   });

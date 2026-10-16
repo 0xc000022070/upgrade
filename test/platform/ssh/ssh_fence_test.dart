@@ -1023,7 +1023,6 @@ void main() {
           _shellScreen: 5,
           'lib/features/shell/sheets/launch_picker_sheet.dart': 5,
           'lib/features/shell/parked_shell_bar.dart': 2,
-          'lib/features/shell/shell_card.dart': 1,
         },
         'onGestureWith': {
           _shellScreen: 2,
