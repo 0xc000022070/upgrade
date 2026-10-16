@@ -170,6 +170,31 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('with more than one host the bar asks which one', (tester) async {
+    await DriftKeyRepository(db).save(_key);
+    await DriftHostRepository(db).save(_rose);
+    await DriftHostRepository(db).save(_nyx);
+    await tester.pumpWidget(app(extra: [registered()]));
+    await ready(tester);
+    expect(freshHost(_nyx), findsOneWidget);
+
+    await tester.tap(fresh);
+    await ready(tester);
+    expect(find.text('NEW SHELL ON'), findsOneWidget);
+    expect(find.text('CURRENT'), findsOneWidget);
+
+    await tester.tap(find.byKey(ValueKey('parked-shell-new-pick-${_rose.id}')));
+    await ready(tester);
+    expect(find.text('NEW SHELL ON ROSE'), findsWidgets);
+
+    await tester.tap(find.byKey(const ValueKey('launch-shell')));
+    await ready(tester);
+    expect(sessions.forHost(_rose.id), hasLength(1));
+    expect(sessions.forHost(_nyx.id), isEmpty);
+
+    await unmount(tester);
+  });
+
   testWidgets('the last tab closing offers a new shell on its host', (
     tester,
   ) async {

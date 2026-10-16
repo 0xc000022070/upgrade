@@ -1025,7 +1025,10 @@ void main() {
           'lib/features/shell/parked_shell_bar.dart': 2,
           'lib/features/shell/shell_card.dart': 1,
         },
-        'onGestureWith': {_shellScreen: 2},
+        'onGestureWith': {
+          _shellScreen: 2,
+          'lib/features/shell/parked_shell_bar.dart': 1,
+        },
         'onNotificationTap': {'lib/app/alerts_boot.dart': 1},
         'onLaunch': {'lib/main.dart': 1},
         'onLifecycle': {'lib/features/shell/session/shell_wake.dart': 2},

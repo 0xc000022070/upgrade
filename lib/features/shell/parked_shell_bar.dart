@@ -151,7 +151,7 @@ class _ParkedState extends State<_Parked> {
       (h) => h.id == _view.lastHostId,
       orElse: () => hosts.first,
     );
-    return _NewShellBar(store: widget.store, host: host);
+    return _NewShellBar(store: widget.store, host: host, hosts: hosts);
   }
 }
 
@@ -205,21 +205,44 @@ class _Frame extends StatelessWidget {
 }
 
 class _NewShellBar extends StatelessWidget {
-  const _NewShellBar({required this.store, required this.host});
+  const _NewShellBar({
+    required this.store,
+    required this.host,
+    required this.hosts,
+  });
 
   final ShellSessions store;
   final Host host;
+  final List<Host> hosts;
 
   @override
   Widget build(BuildContext context) {
+    if (hosts.length == 1) return _bar(context, null);
+    return HostMenu(
+      title: 'NEW SHELL ON',
+      hosts: hosts,
+      current: host.id,
+      itemKey: (host) => 'parked-shell-new-pick-${host.id}',
+      onPick: UserIntent.onGestureWith(
+        (intent, Host picked) => pickHostShell(context, store, picked, intent),
+      ),
+      builder: (context, controller, _) => _bar(context, controller),
+    );
+  }
+
+  Widget _bar(BuildContext context, MenuController? menu) {
     final style = context.tokens.panelHeader;
     final ink = context.tokens.textPrimary;
     return _Frame(
       barKey: const ValueKey('parked-shell-new'),
       semantics: 'new shell on ${host.name}',
-      onTap: UserIntent.onGesture(
-        (intent) => pickHostShell(context, store, host, intent),
-      ),
+      onTap: menu == null
+          ? UserIntent.onGesture(
+              (intent) => pickHostShell(context, store, host, intent),
+            )
+          : menu.isOpen
+          ? menu.close
+          : menu.open,
       child: Row(
         children: [
           HostMark(host.system, size: IconSizes.glyph, color: ink),
