@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/phone_linux.dart';
 import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
@@ -14,7 +15,7 @@ const _hostKey =
     'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBCAFF/cQozJtrK8guDNMNM1DMSOeR2PxJQKrpzNZmDL upgrade-host';
 
 class _Platform implements PhoneLinux {
-  final installs = <String>[];
+  final installs = <(String, PhoneLinuxDistro)>[];
   final starts = <(String, int)>[];
   int removes = 0;
   String? hostKey = _hostKey;
@@ -33,8 +34,11 @@ class _Platform implements PhoneLinux {
   Future<PhoneLinuxState> state() async => _ready;
 
   @override
-  Future<PhoneLinuxState> install({required String publicKey}) async {
-    installs.add(publicKey);
+  Future<PhoneLinuxState> install({
+    required String publicKey,
+    required PhoneLinuxDistro distro,
+  }) async {
+    installs.add((publicKey, distro));
     return _ready;
   }
 
@@ -87,23 +91,27 @@ void main() {
   tearDown(() => db.close());
 
   test('the install makes one host and one key, and reuses them', () async {
-    await linux.install();
-    await linux.install();
+    await linux.install(PhoneLinuxDistro.arch);
+    await linux.install(PhoneLinuxDistro.alpine);
 
     final host = (await hosts.all()).single;
     expect(host.name, 'THIS PHONE');
     expect(host.address, '127.0.0.1');
     expect(host.user, 'root');
     expect(host.port, inInclusiveRange(20000, 39999));
+    expect(host.system, HostSystem.alpine);
     final key = (await keys.all()).single;
     expect(host.keyId, key.id);
     expect(await store.read(key.id), isNotNull);
-    expect(platform.installs, [key.publicKey, key.publicKey]);
+    expect(platform.installs, [
+      (key.publicKey, PhoneLinuxDistro.arch),
+      (key.publicKey, PhoneLinuxDistro.alpine),
+    ]);
     expect((await linux.host())?.id, host.id);
   });
 
   test('another host is dialled as it is, with nothing started', () async {
-    await linux.install();
+    await linux.install(PhoneLinuxDistro.ubuntu);
     final other = Host(
       id: 'rose',
       name: 'rose',
@@ -118,7 +126,7 @@ void main() {
   });
 
   test('the phone is started on its port and its key is pinned', () async {
-    await linux.install();
+    await linux.install(PhoneLinuxDistro.ubuntu);
     final host = (await linux.host())!;
 
     final ready = await linux.ensure(host);
@@ -136,7 +144,7 @@ void main() {
   });
 
   test('a system with no host key yet leaves the host unpinned', () async {
-    await linux.install();
+    await linux.install(PhoneLinuxDistro.ubuntu);
     platform.hostKey = null;
     final host = (await linux.host())!;
 
@@ -147,7 +155,7 @@ void main() {
   });
 
   test('remove takes the host, its key and the mark with it', () async {
-    await linux.install();
+    await linux.install(PhoneLinuxDistro.ubuntu);
     final keyId = (await keys.all()).single.id;
 
     await linux.remove();
@@ -164,7 +172,7 @@ void main() {
   });
 
   test('remove keeps a key another host still signs in with', () async {
-    await linux.install();
+    await linux.install(PhoneLinuxDistro.ubuntu);
     final keyId = (await keys.all()).single.id;
     await hosts.save(
       Host(
@@ -182,6 +190,14 @@ void main() {
     expect((await hosts.all()).map((host) => host.id), ['rose']);
     expect((await keys.all()).single.id, keyId);
     expect(await store.read(keyId), isNotNull);
+  });
+
+  test('the system names its distro, and an unknown one is none', () {
+    expect(
+      PhoneLinuxState.from({'installed': true, 'distro': 'arch'}).distro,
+      PhoneLinuxDistro.arch,
+    );
+    expect(PhoneLinuxState.from({'distro': 'gentoo'}).distro, isNull);
   });
 
   test('a line that is not a key is refused', () {

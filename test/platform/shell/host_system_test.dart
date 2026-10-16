@@ -32,6 +32,23 @@ void main() {
       );
     });
 
+    test(
+      'Ubuntu, Arch and Alpine, ARM builds included, are read by their id',
+      () {
+        expect(parseSystemProbe('Linux\nID=ubuntu\n'), HostSystem.ubuntu);
+        expect(parseSystemProbe('Linux\nID=alpine\n'), HostSystem.alpine);
+        expect(parseSystemProbe('Linux\nID=arch\n'), HostSystem.arch);
+        expect(
+          parseSystemProbe('Linux\nID=archarm\nID_LIKE=arch\n'),
+          HostSystem.arch,
+        );
+        expect(
+          parseSystemProbe('Linux\nID=manjaro\nID_LIKE=arch\n'),
+          HostSystem.linux,
+        );
+      },
+    );
+
     test('Linux with no os-release is plain linux', () {
       expect(parseSystemProbe('Linux\n'), HostSystem.linux);
     });
@@ -48,9 +65,12 @@ void main() {
     expect(HostSystem.fromWire('darwin'), HostSystem.darwin);
   });
 
-  test('only nixos and darwin draw a vendor mark', () {
+  test('a known system draws its vendor mark and the rest a rack unit', () {
     expect(systemGlyph(HostSystem.nixos), UpgradeIcons.systemNixos);
     expect(systemGlyph(HostSystem.darwin), UpgradeIcons.systemDarwin);
+    expect(systemGlyph(HostSystem.ubuntu), UpgradeIcons.systemUbuntu);
+    expect(systemGlyph(HostSystem.arch), UpgradeIcons.systemArch);
+    expect(systemGlyph(HostSystem.alpine), UpgradeIcons.systemAlpine);
     expect(systemGlyph(HostSystem.linux), UpgradeIcons.systemServer);
     expect(systemGlyph(HostSystem.other), UpgradeIcons.systemServer);
     expect(systemGlyph(null), UpgradeIcons.systemServer);

@@ -1,6 +1,31 @@
 import 'package:flutter/services.dart';
 
+import 'package:upgrade/data/enums.dart';
+
 enum PhoneLinuxPhase { idle, download, unpack, setup, ready, failed }
+
+enum PhoneLinuxDistro {
+  ubuntu(HostSystem.ubuntu, 'UBUNTU 24.04', 'apt · about 70 MB to download'),
+  arch(
+    HostSystem.arch,
+    'ARCH LINUX ARM',
+    'pacman · about 160 MB to download, 840 MB unpacked',
+  ),
+  alpine(
+    HostSystem.alpine,
+    'ALPINE LINUX 3.24',
+    'apk · about 4 MB to download',
+  );
+
+  const PhoneLinuxDistro(this.system, this.label, this.detail);
+
+  final HostSystem system;
+  final String label;
+  final String detail;
+
+  static PhoneLinuxDistro? of(Object? id) =>
+      values.where((distro) => distro.name == id).firstOrNull;
+}
 
 class PhoneLinuxState {
   const PhoneLinuxState({
@@ -10,6 +35,7 @@ class PhoneLinuxState {
     this.percent,
     this.error,
     this.hostKey,
+    this.distro,
   });
 
   static const absent = PhoneLinuxState(
@@ -28,6 +54,8 @@ class PhoneLinuxState {
 
   final String? hostKey;
 
+  final PhoneLinuxDistro? distro;
+
   bool get installing =>
       phase == PhoneLinuxPhase.download ||
       phase == PhoneLinuxPhase.unpack ||
@@ -45,6 +73,7 @@ class PhoneLinuxState {
       percent: percent < 0 ? null : percent,
       error: raw['error'] as String?,
       hostKey: raw['hostKey'] as String?,
+      distro: PhoneLinuxDistro.of(raw['distro']),
     );
   }
 }
@@ -61,8 +90,10 @@ class PhoneLinux {
 
   Future<PhoneLinuxState> state() => _call('state');
 
-  Future<PhoneLinuxState> install({required String publicKey}) =>
-      _call('install', {'publicKey': publicKey});
+  Future<PhoneLinuxState> install({
+    required String publicKey,
+    required PhoneLinuxDistro distro,
+  }) => _call('install', {'publicKey': publicKey, 'distro': distro.name});
 
   Future<PhoneLinuxState> start({
     required String publicKey,

@@ -51,9 +51,10 @@ class PhoneLinuxHost {
     return (await hosts.all()).where((host) => host.id == id).firstOrNull;
   }
 
-  Future<void> install() async {
+  Future<void> install(PhoneLinuxDistro distro) async {
     final host = await this.host() ?? await _create();
-    await platform.install(publicKey: await _publicKey(host));
+    await hosts.recordSystem(host.id, distro.system);
+    await platform.install(publicKey: await _publicKey(host), distro: distro);
   }
 
   Future<Host> ensure(Host host) async {

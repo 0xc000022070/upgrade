@@ -9,12 +9,18 @@ import 'package:upgrade/design/tokens.dart';
 UpgradeIcons systemGlyph(HostSystem? system) => switch (system) {
   HostSystem.nixos => UpgradeIcons.systemNixos,
   HostSystem.darwin => UpgradeIcons.systemDarwin,
+  HostSystem.ubuntu => UpgradeIcons.systemUbuntu,
+  HostSystem.arch => UpgradeIcons.systemArch,
+  HostSystem.alpine => UpgradeIcons.systemAlpine,
   HostSystem.linux || HostSystem.other || null => UpgradeIcons.systemServer,
 };
 
 String systemWord(HostSystem? system) => switch (system) {
   HostSystem.nixos => 'NixOS',
   HostSystem.darwin => 'macOS',
+  HostSystem.ubuntu => 'Ubuntu',
+  HostSystem.arch => 'Arch Linux',
+  HostSystem.alpine => 'Alpine Linux',
   HostSystem.linux => 'Linux',
   HostSystem.other || null => 'host',
 };

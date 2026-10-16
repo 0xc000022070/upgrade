@@ -12,7 +12,16 @@ HostSystem parseSystemProbe(String output) {
   for (final line in lines.skip(1)) {
     if (!line.startsWith('ID=')) continue;
     final id = line.substring(3).replaceAll('"', '').replaceAll("'", '');
-    if (id == 'nixos') return HostSystem.nixos;
+    switch (id) {
+      case 'nixos':
+        return HostSystem.nixos;
+      case 'ubuntu':
+        return HostSystem.ubuntu;
+      case 'arch' || 'archarm':
+        return HostSystem.arch;
+      case 'alpine':
+        return HostSystem.alpine;
+    }
   }
   return HostSystem.linux;
 }

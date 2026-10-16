@@ -12,6 +12,8 @@ import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/meta.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
@@ -19,6 +21,7 @@ import 'package:upgrade/design/components/panel_text_action.dart';
 import 'package:upgrade/design/components/segment_switch.dart';
 import 'package:upgrade/design/components/section.dart';
 import 'package:upgrade/design/components/toolbar_icon_action.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/files/files_sheet.dart';
@@ -946,21 +949,14 @@ class _PhoneLinuxActionState extends ConsumerState<_PhoneLinuxAction> {
   }
 
   Future<void> _install(PhoneLinuxHost linux) async {
-    final go = await confirmSheet(
-      context,
-      title: 'LINUX ON THIS PHONE',
-      confirmLabel: 'INSTALL',
-      message:
-          'Downloads Ubuntu 24.04 and its ssh server, about 70 MB, and adds '
-          '${PhoneLinuxHost.name} to your hosts. It runs as an app, without root.',
-    );
-    if (!go || !mounted) return;
+    final distro = await pickPhoneLinuxDistro(context);
+    if (distro == null || !mounted) return;
     setState(() {
       _starting = true;
       _failed = false;
     });
     try {
-      await linux.install();
+      await linux.install(distro);
     } catch (error) {
       debugPrint('upgrade.linux install: $error');
       if (mounted) setState(() => _failed = true);
@@ -1029,13 +1025,13 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
               : PanelAffordance(
                   busy ?? action,
                   showIcon: false,
-                  onTap: busy == null ? () => _act(linux, action) : null,
+                  onTap: busy == null ? () => _act(linux, state, action) : null,
                 ),
         ),
         if (state.installed && !state.installing)
           _MetaRow(
             'SYSTEM',
-            'UBUNTU 24.04',
+            state.distro?.label ?? 'LINUX',
             trailing: PanelAffordance(
               busy == 'REMOVING' ? busy! : 'REMOVE',
               showIcon: false,
@@ -1047,7 +1043,11 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
     );
   }
 
-  Future<void> _act(PhoneLinuxHost linux, String action) async {
+  Future<void> _act(
+    PhoneLinuxHost linux,
+    PhoneLinuxState state,
+    String action,
+  ) async {
     setState(() {
       _failure = null;
       _busy = switch (action) {
@@ -1063,7 +1063,11 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
         case 'START':
           await linux.ensure(widget.host);
         default:
-          await linux.install();
+          final distro =
+              (action == 'RETRY' ? state.distro : null) ??
+              await pickPhoneLinuxDistro(context);
+          if (distro == null) return;
+          await linux.install(distro);
       }
     } catch (error) {
       debugPrint('upgrade.linux $action: $error');
@@ -1095,5 +1099,79 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
     } finally {
       if (mounted) setState(() => _busy = null);
     }
+  }
+}
+
+Future<PhoneLinuxDistro?> pickPhoneLinuxDistro(BuildContext context) =>
+    showPanelSheet<PhoneLinuxDistro>(
+      context,
+      title: 'LINUX ON THIS PHONE',
+      builder: (context) => const _PhoneLinuxPicker(),
+    );
+
+class _PhoneLinuxPicker extends StatefulWidget {
+  const _PhoneLinuxPicker();
+
+  @override
+  State<_PhoneLinuxPicker> createState() => _PhoneLinuxPickerState();
+}
+
+class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
+  var _distro = PhoneLinuxDistro.ubuntu;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return PanelSheetBody(
+      title: 'LINUX ON THIS PHONE',
+      footer: [
+        Row(
+          children: [
+            Expanded(
+              child: ActionBlock(
+                label: 'CANCEL',
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            ),
+            const SizedBox(width: Spacing.md),
+            Expanded(
+              child: ActionBlock(
+                label: 'INSTALL',
+                tone: tokens.accent,
+                filled: true,
+                onTap: () => Navigator.of(context).pop(_distro),
+              ),
+            ),
+          ],
+        ),
+      ],
+      children: [
+        Text(
+          'Adds ${PhoneLinuxHost.name} to your hosts. '
+          'It runs as an app, without root.',
+          style: tokens.prose,
+        ),
+        const SizedBox(height: Spacing.md),
+        ListRowGroup(
+          children: [
+            for (final distro in PhoneLinuxDistro.values)
+              ListRow(
+                leading: HostMark(distro.system, size: IconSizes.glyph),
+                title: distro.label,
+                subtitle: distro.detail,
+                subtitleMaxLines: 2,
+                trailing: distro == _distro
+                    ? UpgradeIcon(
+                        UpgradeIcons.check,
+                        size: IconSizes.check,
+                        color: tokens.accent,
+                      )
+                    : null,
+                onTap: () => setState(() => _distro = distro),
+              ),
+          ],
+        ),
+      ],
+    );
   }
 }

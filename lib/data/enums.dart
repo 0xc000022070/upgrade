@@ -95,6 +95,12 @@ enum HostSystem {
 
   darwin('darwin'),
 
+  ubuntu('ubuntu'),
+
+  arch('arch'),
+
+  alpine('alpine'),
+
   linux('linux'),
 
   other('other');

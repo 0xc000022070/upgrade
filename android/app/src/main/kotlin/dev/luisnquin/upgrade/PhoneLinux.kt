@@ -32,15 +32,65 @@ import java.util.TimeZone
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
+import org.tukaani.xz.XZInputStream
+
+enum class Distro(
+    val url: String,
+    val sha256: String,
+    val archive: String,
+    val strip: Int,
+    val setup: String,
+) {
+    UBUNTU(
+        "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz",
+        "04207713ece899c3740823d33690441ad3a7f0ded1101aca744e2b0f37ac7ff2",
+        "rootfs.tar.gz",
+        0,
+        """
+            set -eu
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get -o APT::Sandbox::User=root update
+            apt-get -o APT::Sandbox::User=root install -y --no-install-recommends openssh-server
+        """.trimIndent(),
+    ),
+    ARCH(
+        "https://github.com/termux/proot-distro/releases/download/v4.34.2/archlinux-aarch64-pd-v4.34.2.tar.xz",
+        "dabc2382ddcb725969cf7b9e2f3b102ec862ea6e0294198a30c71e9a4b837f81",
+        "rootfs.tar.xz",
+        1,
+        """
+            set -eu
+            pacman -Q openssh >/dev/null || pacman -Sy --noconfirm openssh
+        """.trimIndent(),
+    ),
+    ALPINE(
+        "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/aarch64/alpine-minirootfs-3.24.2-aarch64.tar.gz",
+        "9bf70a7f18ea44094cbb5f70c58f9af129c8214745743db0e68e5502cc2ce773",
+        "rootfs.tar.gz",
+        0,
+        """
+            set -eu
+            apk update
+            apk add openssh tzdata
+        """.trimIndent(),
+    );
+
+    val id get() = name.lowercase()
+
+    fun open(input: InputStream): InputStream =
+        if (archive.endsWith(".xz")) XZInputStream(input) else GZIPInputStream(input)
+
+    companion object {
+        fun of(id: String?) = entries.firstOrNull { it.id == id }
+    }
+}
 
 object PhoneLinux {
     private const val TAG = "PhoneLinux"
-    private const val ROOTFS_URL =
-        "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz"
-    private const val ROOTFS_SHA256 = "04207713ece899c3740823d33690441ad3a7f0ded1101aca744e2b0f37ac7ff2"
     private const val READY_MARK = ".upgrade-ready"
     private const val SSHD_CONFIG = "/etc/ssh/upgrade_sshd_config"
     private const val AUTHORIZED = "/etc/ssh/upgrade_authorized_keys"
+    private val BUSY = setOf("download", "unpack", "setup")
 
     private val SSHD = """
         for gid in ${'$'}(id -G); do
@@ -61,6 +111,7 @@ object PhoneLinux {
         private set
     @Volatile var hostKey: String? = null
         private set
+    @Volatile private var installing: Distro? = null
     @Volatile private var sshd: Process? = null
     @Volatile private var sshdPort = 0
 
@@ -78,6 +129,12 @@ object PhoneLinux {
 
     fun installed(context: Context) = File(rootfs(context), READY_MARK).exists()
 
+    private fun distro(context: Context): Distro? {
+        val mark = File(rootfs(context), READY_MARK)
+        if (!mark.exists()) return installing
+        return Distro.of(mark.readText().trim()) ?: Distro.UBUNTU
+    }
+
     fun running() = sshd?.isAlive == true
 
     fun handle(context: Context, method: String, args: Map<*, *>?, result: MethodChannel.Result) {
@@ -86,8 +143,10 @@ object PhoneLinux {
             "state" -> result.success(state(app))
             "install" -> {
                 val key = args?.get("publicKey") as? String
-                if (key == null) return result.error("args", "publicKey missing", null)
-                if (phase == "download" || phase == "unpack" || phase == "setup") return result.success(state(app))
+                val distro = Distro.of(args?.get("distro") as? String)
+                if (key == null || distro == null) return result.error("args", "publicKey and distro required", null)
+                if (phase in BUSY) return result.success(state(app))
+                installing = distro
                 phase = "download"
                 percent = 0
                 error = null
@@ -95,7 +154,7 @@ object PhoneLinux {
                 LinuxService.foreground(app)
                 jobs.execute {
                     try {
-                        install(app, key)
+                        install(app, key, distro)
                         phase = "ready"
                     } catch (failure: Exception) {
                         Log.e(TAG, "install", failure)
@@ -138,6 +197,7 @@ object PhoneLinux {
                 val outcome = runCatching { deleteTree(base(app)) }
                 phase = "idle"
                 hostKey = null
+                installing = null
                 changed(app)
                 main.post {
                     outcome.fold({ result.success(state(app)) }, { result.error("remove", it.message, null) })
@@ -154,6 +214,7 @@ object PhoneLinux {
         "percent" to percent,
         "error" to error,
         "hostKey" to (hostKey ?: readHostKey(context)),
+        "distro" to distro(context)?.id,
     )
 
     private fun readHostKey(context: Context): String? {
@@ -161,11 +222,12 @@ object PhoneLinux {
         return if (pub.exists()) pub.readText().trim() else null
     }
 
-    private fun install(context: Context, publicKey: String) {
+    private fun install(context: Context, publicKey: String, distro: Distro) {
         if (installed(context)) return
         val base = base(context).apply { mkdirs() }
-        val archive = File(base, "rootfs.tar.gz")
-        if (!archive.exists() || sha256(archive) != ROOTFS_SHA256) download(context, archive)
+        for (other in Distro.entries) if (other.archive != distro.archive) File(base, other.archive).delete()
+        val archive = File(base, distro.archive)
+        if (!archive.exists() || sha256(archive) != distro.sha256) download(context, distro.url, distro.sha256, archive)
         phase = "unpack"
         percent = -1
         changed(context)
@@ -174,10 +236,12 @@ object PhoneLinux {
         val root = rootfs(context)
         deleteTree(root)
         root.mkdirs()
-        archive.inputStream().use { TarUnpacker(root).unpack(GZIPInputStream(BufferedInputStream(it, 1 shl 16))) }
+        archive.inputStream().use { TarUnpacker(root, distro.strip).unpack(distro.open(BufferedInputStream(it, 1 shl 16))) }
         File(root, "etc/resolv.conf").apply { delete() }.writeText("nameserver 1.1.1.1\nnameserver 8.8.8.8\n")
         File(root, "etc/hosts").writeText("127.0.0.1 localhost\n::1 localhost\n")
-        File(root, "usr/sbin/policy-rc.d").apply { writeText("#!/bin/sh\nexit 101\n") }.setExecutable(true, false)
+        if (distro == Distro.UBUNTU) {
+            File(root, "usr/sbin/policy-rc.d").apply { writeText("#!/bin/sh\nexit 101\n") }.setExecutable(true, false)
+        }
         val zone = TimeZone.getDefault().id
         File(root, "etc/localtime").delete()
         Os.symlink("/usr/share/zoneinfo/$zone", File(root, "etc/localtime").path)
@@ -186,26 +250,22 @@ object PhoneLinux {
         File(root, "tmp").mkdirs()
         phase = "setup"
         changed(context)
-        val setup = """
-            set -eu
-            export DEBIAN_FRONTEND=noninteractive
-            apt-get -o APT::Sandbox::User=root update
-            apt-get -o APT::Sandbox::User=root install -y --no-install-recommends openssh-server
+        val script = distro.setup + "\n" + """
             mkdir -p /run/sshd
             passwd -d root
             test -f /etc/ssh/ssh_host_ed25519_key || ssh-keygen -q -t ed25519 -N '' -f /etc/ssh/ssh_host_ed25519_key
         """.trimIndent()
-        val exit = run(context, root, setup, TimeUnit.MINUTES.toSeconds(20))
+        val exit = run(context, root, script, TimeUnit.MINUTES.toSeconds(20))
         if (exit != 0) throw IllegalStateException("setup exited $exit")
         writeSshd(root, publicKey)
-        File(root, READY_MARK).writeText("ubuntu-base-24.04.4-arm64\n")
+        File(root, READY_MARK).writeText("${distro.id}\n")
         archive.delete()
         hostKey = readHostKey(context)
     }
 
-    private fun download(context: Context, target: File) {
+    private fun download(context: Context, url: String, sha256: String, target: File) {
         val part = File(target.path + ".part")
-        val connection = URL(ROOTFS_URL).openConnection() as HttpURLConnection
+        val connection = URL(url).openConnection() as HttpURLConnection
         connection.connectTimeout = 15_000
         connection.readTimeout = 30_000
         try {
@@ -231,7 +291,7 @@ object PhoneLinux {
                 }
             }
             val sum = digest.digest().joinToString("") { "%02x".format(it) }
-            if (sum != ROOTFS_SHA256) {
+            if (sum != sha256) {
                 part.delete()
                 throw IllegalStateException("download did not match its checksum")
             }
@@ -427,7 +487,7 @@ private fun deleteTree(file: File) {
     if (!file.delete()) throw IllegalStateException("could not delete ${file.path}")
 }
 
-private class TarUnpacker(private val root: File) {
+private class TarUnpacker(private val root: File, private val strip: Int) {
     private val canonicalRoot = root.canonicalPath
     private val directories = mutableListOf<Pair<File, Int>>()
 
@@ -455,7 +515,7 @@ private class TarUnpacker(private val root: File) {
             longLink = null
             pax = emptyMap()
             val mode = number(header, 100, 8).toInt() and 0x1ff
-            val target = inside(name)
+            val target = inside(stripped(name) ?: "")
             if (target == null) {
                 skip(input, length)
                 continue
@@ -471,7 +531,7 @@ private class TarUnpacker(private val root: File) {
                     Os.symlink(link, target.path)
                 }
                 '1' -> {
-                    val source = inside(link) ?: throw IllegalStateException("hard link outside the system: $link")
+                    val source = inside(stripped(link) ?: "") ?: throw IllegalStateException("hard link outside the system: $link")
                     target.parentFile?.mkdirs()
                     target.delete()
                     source.copyTo(target)
@@ -490,6 +550,11 @@ private class TarUnpacker(private val root: File) {
             skip(input, length)
         }
         for ((directory, mode) in directories.asReversed()) Os.chmod(directory.path, mode or 0x1c0)
+    }
+
+    private fun stripped(name: String): String? {
+        val parts = name.trimStart('/').removePrefix("./").split('/')
+        return if (parts.size > strip) parts.drop(strip).joinToString("/") else null
     }
 
     private fun inside(name: String): File? {
