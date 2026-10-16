@@ -58,7 +58,17 @@ class PhoneLinuxTool {
 }
 
 class PhoneLinuxCatalog {
-  PhoneLinuxCatalog.fromJson(Map<String, Object?> json)
+  factory PhoneLinuxCatalog.fromJson(Map<String, Object?> json) {
+    final version = json['version'];
+    if (version != PhoneLinuxCatalog.version) {
+      throw FormatException(
+        'catalog version $version is not ${PhoneLinuxCatalog.version}',
+      );
+    }
+    return PhoneLinuxCatalog._(json);
+  }
+
+  PhoneLinuxCatalog._(Map<String, Object?> json)
     : distros = [
         for (final raw in json['distros']! as List<Object?>)
           PhoneLinuxDistro.fromJson(raw! as Map<String, Object?>),
@@ -70,6 +80,7 @@ class PhoneLinuxCatalog {
       ];
 
   static const asset = 'assets/linux/catalog.json';
+  static const version = 1;
 
   static Future<PhoneLinuxCatalog> load(AssetBundle bundle) async =>
       PhoneLinuxCatalog.fromJson(

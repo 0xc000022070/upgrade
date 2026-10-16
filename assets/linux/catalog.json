@@ -1,4 +1,5 @@
 {
+  "version": 1,
   "distros": [
     {
       "id": "ubuntu",
@@ -77,8 +78,13 @@
         "links": ["/root/.local/bin/claude"]
       },
       "needs": { "alpine": ["ripgrep"] },
-      "after": {
-        "alpine": "test -e /root/.claude/settings.json || { mkdir -p /root/.claude; printf '{\"env\": {\"USE_BUILTIN_RIPGREP\": \"0\"}}\\n' > /root/.claude/settings.json; }"
+      "files": {
+        "alpine": [
+          {
+            "path": "/root/.claude/settings.json",
+            "text": "{\"env\": {\"USE_BUILTIN_RIPGREP\": \"0\"}}\n"
+          }
+        ]
       }
     },
     {

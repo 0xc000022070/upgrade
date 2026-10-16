@@ -320,7 +320,6 @@ void main() {
           as Map<String, Object?>,
     );
     PhoneLinuxDistro distro(String id) => catalog.distro(id)!;
-    PhoneLinuxTool tool(String id) => catalog.tool(id)!;
 
     test('offers each distro the host marks know', () {
       expect(catalog.distros.map((distro) => distro.system), [
@@ -332,10 +331,40 @@ void main() {
       expect(distro('ubuntu').detail, isNot(contains('unpacked')));
     });
 
-    test('keeps a glibc tool off alpine', () {
-      expect(tool('cursor').fits(distro('alpine')), isFalse);
-      expect(tool('cursor').fits(distro('ubuntu')), isTrue);
-      expect(tool('claude').fits(distro('alpine')), isTrue);
+    test('fits every tool onto the distros it was built for', () {
+      expect(
+        {
+          for (final tool in catalog.tools)
+            tool.id: [
+              for (final distro in catalog.distros)
+                if (tool.fits(distro)) distro.id,
+            ],
+        },
+        {
+          'tmux': ['ubuntu', 'arch', 'alpine'],
+          'herdr': ['ubuntu', 'arch', 'alpine'],
+          'claude': ['ubuntu', 'arch', 'alpine'],
+          'codex': ['ubuntu', 'arch', 'alpine'],
+          'cursor': ['ubuntu', 'arch'],
+          'opencode': ['ubuntu', 'arch', 'alpine'],
+        },
+      );
+    });
+
+    test('refuses a catalog of another version', () {
+      final json = jsonDecode(
+        File(PhoneLinuxCatalog.asset).readAsStringSync(),
+      ) as Map<String, Object?>;
+      expect(
+        () => PhoneLinuxCatalog.fromJson({...json, 'version': 2}),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('2'),
+          ),
+        ),
+      );
     });
 
     test('names a tool it no longer offers by its id', () {

@@ -44,7 +44,7 @@ enum class Manager {
 
     fun ensure(packages: List<String>): String {
         if (packages.isEmpty()) return ""
-        val names = packages.joinToString(" ")
+        val names = packages.joinToString(" ") { quote(it) }
         return when (this) {
             APT -> "export DEBIAN_FRONTEND=noninteractive\n" +
                 "dpkg -s $names >/dev/null 2>&1 || { apt-get -o APT::Sandbox::User=root update && " +
@@ -56,15 +56,15 @@ enum class Manager {
 }
 
 class Distro(json: JSONObject) {
-    val id: String = json.getString("id")
+    val id: String = checked(json.getString("id"), ID, "distro id")
     val manager = Manager.valueOf(json.getString("manager").uppercase())
     val libc: String = json.getString("libc")
     private val rootfs = json.getJSONObject("rootfs")
-    val url: String = rootfs.getString("url")
+    val url: String = checked(rootfs.getString("url"), URL_RULE, "$id rootfs url")
     val sha256: String = rootfs.getString("sha256")
     val strip = rootfs.getInt("strip")
-    private val base = strings(json.optJSONArray("base"))
-    val installerNeeds = strings(json.optJSONArray("installer_needs"))
+    private val base = strings(json.optJSONArray("base")).map { checked(it, PACKAGE, "$id base") }
+    val installerNeeds = strings(json.optJSONArray("installer_needs")).map { checked(it, PACKAGE, "$id installer_needs") }
 
     val archive get() = archiveOf(url)
 
@@ -80,44 +80,88 @@ class Distro(json: JSONObject) {
     }
 }
 
+class Installer(tool: String, json: JSONObject) {
+    val url: String = checked(json.getString("url"), URL_RULE, "$tool installer url")
+    val shell: String = json.getString("shell").also {
+        if (it !in SHELLS) throw IllegalStateException("$tool installer shell is not allowed: $it")
+    }
+    val args = strings(json.optJSONArray("args")).map { checked(it, ARG, "$tool installer args") }
+    val links = strings(json.optJSONArray("links")).map { checkedPath(it, "$tool installer links") }
+}
+
+class ToolFile(val path: String, val text: String)
+
 class Tool(json: JSONObject) {
-    val id: String = json.getString("id")
+    val id: String = checked(json.getString("id"), ID, "tool id")
     private val libc: String? = json.optString("libc").ifEmpty { null }
-    private val packages = json.optJSONObject("packages")
-    private val installer = json.optJSONObject("installer")
-    private val needs = json.optJSONObject("needs")
-    private val after = json.optJSONObject("after")
+    private val packages = byDistro(json, "packages") { field, key, where -> checked(field.getString(key), PACKAGE, where) }
+    private val installer = json.optJSONObject("installer")?.let { Installer(id, it) }
+    private val needs = byDistro(json, "needs") { field, key, where ->
+        strings(field.getJSONArray(key)).map { checked(it, PACKAGE, where) }
+    }
+    private val files = byDistro(json, "files") { field, key, where ->
+        objects(field.getJSONArray(key)).map { ToolFile(checkedPath(it.getString("path"), "$where path"), it.getString("text")) }
+    }
+
+    val distros get() = packages.keys + needs.keys + files.keys
 
     fun fits(distro: Distro) =
-        (libc == null || libc == distro.libc) && (packages?.has(distro.id) == true || installer != null)
+        (libc == null || libc == distro.libc) && (distro.id in packages || installer != null)
+
+    fun files(distro: Distro) = files[distro.id].orEmpty()
 
     fun script(distro: Distro): String {
-        packages?.optString(distro.id)?.takeIf { it.isNotEmpty() }?.let {
-            return "set -eu\n" + distro.manager.ensure(listOf(it))
-        }
+        packages[distro.id]?.let { return "set -eu\n" + distro.manager.ensure(listOf(it)) }
         val installer = installer ?: throw IllegalStateException("$id has no way onto ${distro.id}")
-        val shell = installer.getString("shell")
-        val args = strings(installer.optJSONArray("args")).joinToString(" ")
-        val links = strings(installer.optJSONArray("links"))
-            .joinToString("") { "ln -sf $it /usr/local/bin/${it.substringAfterLast('/')}\n" }
-        val extra = after?.optString(distro.id).orEmpty()
+        val args = installer.args.joinToString("") { " " + quote(it) }
+        val links = installer.links
+            .joinToString("") { "ln -sf ${quote(it)} ${quote("/usr/local/bin/" + it.substringAfterLast('/'))}\n" }
         return "set -eu\n" +
-            distro.manager.ensure(distro.installerNeeds + strings(needs?.optJSONArray(distro.id))) + "\n" +
-            "curl -fsSL ${installer.getString("url")} -o /tmp/upgrade-install\n" +
-            "$shell /tmp/upgrade-install $args\n" +
+            distro.manager.ensure(distro.installerNeeds + needs[distro.id].orEmpty()) + "\n" +
+            "curl -fsSL ${quote(installer.url)} -o /tmp/upgrade-install\n" +
+            "${installer.shell} /tmp/upgrade-install$args\n" +
             "rm -f /tmp/upgrade-install\n" +
-            links + extra
+            links
+    }
+
+    private fun <T> byDistro(json: JSONObject, name: String, read: (JSONObject, String, String) -> T): Map<String, T> {
+        val field = json.optJSONObject(name) ?: return emptyMap()
+        return field.keys().asSequence().associate { key ->
+            checked(key, ID, "$id $name key") to read(field, key, "$id $name for $key")
+        }
     }
 }
 
 class Catalog(json: JSONObject) {
+    init {
+        val version = json.opt("version")
+        if (version != VERSION) throw IllegalStateException("catalog version $version is not $VERSION")
+    }
+
     val distros = objects(json.getJSONArray("distros")).map { Distro(it) }
     val tools = objects(json.getJSONArray("tools")).map { Tool(it) }
+
+    init {
+        val ids = distros.map { it.id }
+        ids.groupBy { it }.filterValues { it.size > 1 }.keys.firstOrNull()?.let {
+            throw IllegalStateException("distro $it is offered twice")
+        }
+        tools.groupBy { it.id }.filterValues { it.size > 1 }.keys.firstOrNull()?.let {
+            throw IllegalStateException("tool $it is offered twice")
+        }
+        for (tool in tools) {
+            if (tool.id == "nix") throw IllegalStateException("tool nix is not allowed")
+            tool.distros.firstOrNull { it !in ids }?.let {
+                throw IllegalStateException("${tool.id} names distro $it, which is not offered")
+            }
+        }
+    }
 
     fun distro(id: String?) = distros.firstOrNull { it.id == id }
     fun tool(id: String?) = tools.firstOrNull { it.id == id }
 
     companion object {
+        const val VERSION = 1
         private const val ASSET = "assets/linux/catalog.json"
         @Volatile private var loaded: Catalog? = null
 
@@ -130,7 +174,27 @@ class Catalog(json: JSONObject) {
     }
 }
 
-private fun strings(array: JSONArray?) = (0 until (array?.length() ?: 0)).map { array!!.getString(it) }
+private val ID = Regex("[a-z0-9][a-z0-9-]*")
+private val PACKAGE = Regex("[a-z0-9][a-z0-9+._-]*")
+private val URL_RULE = Regex("https://[A-Za-z0-9._~/%:+-]+")
+private val ARG = Regex("-{0,2}[A-Za-z0-9][A-Za-z0-9._=/-]*")
+private val PATH = Regex("(/[A-Za-z0-9._-]+)+")
+private val SHELLS = setOf("sh", "bash")
+
+private fun checked(value: String, rule: Regex, where: String): String {
+    if (!rule.matches(value)) throw IllegalStateException("$where is not allowed: $value")
+    return value
+}
+
+private fun checkedPath(value: String, where: String): String {
+    checked(value, PATH, where)
+    if (value.split('/').any { it == "." || it == ".." }) throw IllegalStateException("$where is not allowed: $value")
+    return value
+}
+
+fun quote(value: String) = "'" + value.replace("'", "'\\''") + "'"
+
+private fun strings(array: JSONArray?) = array?.let { (0 until it.length()).map(it::getString) }.orEmpty()
 
 private fun objects(array: JSONArray) = (0 until array.length()).map { array.getJSONObject(it) }
 
@@ -403,6 +467,7 @@ object PhoneLinux {
                     system.tool = tool.id
                     changed(context)
                     step(context, system, tool.id, tool.script(distro), 20)
+                    for (file in tool.files(distro)) place(system.rootfs, file)
                     File(system.rootfs, READY_MARK).writeText(setup.copy(tools = setup.tools + tool.id).mark)
                 }
                 system.pending = emptyList()
@@ -416,6 +481,22 @@ object PhoneLinux {
                 changed(context)
             }
         }
+    }
+
+    private fun place(rootfs: File, file: ToolFile) {
+        var at = rootfs
+        for (name in file.path.drop(1).split('/')) {
+            at = File(at, name)
+            val mode = try {
+                Os.lstat(at.path).st_mode
+            } catch (_: android.system.ErrnoException) {
+                continue
+            }
+            if (OsConstants.S_ISLNK(mode)) throw IllegalStateException("${file.path} passes a link")
+        }
+        if (at.exists()) return
+        at.parentFile?.mkdirs()
+        at.writeText(file.text)
     }
 
     private fun readHostKey(system: LinuxSystem): String? {
