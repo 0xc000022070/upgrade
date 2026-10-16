@@ -22,6 +22,7 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.BufferedInputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.HttpURLConnection
@@ -61,7 +62,7 @@ class Distro(json: JSONObject) {
     val libc: String = json.getString("libc")
     private val rootfs = json.getJSONObject("rootfs")
     val url: String = checked(rootfs.getString("url"), URL_RULE, "$id rootfs url")
-    val sha256: String = rootfs.getString("sha256")
+    val sha256: String = checked(rootfs.getString("sha256"), SHA256, "$id rootfs sha256")
     val strip = rootfs.getInt("strip")
     private val base = strings(json.optJSONArray("base")).map { checked(it, PACKAGE, "$id base") }
     val installerNeeds = strings(json.optJSONArray("installer_needs")).map { checked(it, PACKAGE, "$id installer_needs") }
@@ -82,6 +83,7 @@ class Distro(json: JSONObject) {
 
 class Installer(tool: String, json: JSONObject) {
     val url: String = checked(json.getString("url"), URL_RULE, "$tool installer url")
+    val sha256: String = checked(json.getString("sha256"), SHA256, "$tool installer sha256")
     val shell: String = json.getString("shell").also {
         if (it !in SHELLS) throw IllegalStateException("$tool installer shell is not allowed: $it")
     }
@@ -93,6 +95,7 @@ class ToolFile(val path: String, val text: String)
 
 class Tool(json: JSONObject) {
     val id: String = checked(json.getString("id"), ID, "tool id")
+    val label: String = json.optString("label").ifEmpty { id }
     private val libc: String? = json.optString("libc").ifEmpty { null }
     private val packages = byDistro(json, "packages") { field, key, where -> checked(field.getString(key), PACKAGE, where) }
     private val installer = json.optJSONObject("installer")?.let { Installer(id, it) }
@@ -110,6 +113,8 @@ class Tool(json: JSONObject) {
 
     fun files(distro: Distro) = files[distro.id].orEmpty()
 
+    fun installer(distro: Distro): Installer? = installer.takeIf { distro.id !in packages }
+
     fun script(distro: Distro): String {
         packages[distro.id]?.let { return "set -eu\n" + distro.manager.ensure(listOf(it)) }
         val installer = installer ?: throw IllegalStateException("$id has no way onto ${distro.id}")
@@ -118,9 +123,8 @@ class Tool(json: JSONObject) {
             .joinToString("") { "ln -sf ${quote(it)} ${quote("/usr/local/bin/" + it.substringAfterLast('/'))}\n" }
         return "set -eu\n" +
             distro.manager.ensure(distro.installerNeeds + needs[distro.id].orEmpty()) + "\n" +
-            "curl -fsSL ${quote(installer.url)} -o /tmp/upgrade-install\n" +
-            "${installer.shell} /tmp/upgrade-install$args\n" +
-            "rm -f /tmp/upgrade-install\n" +
+            "${installer.shell} /$INSTALLER$args\n" +
+            "rm -f /$INSTALLER\n" +
             links
     }
 
@@ -179,7 +183,9 @@ private val PACKAGE = Regex("[a-z0-9][a-z0-9+._-]*")
 private val URL_RULE = Regex("https://[A-Za-z0-9._~/%:+-]+")
 private val ARG = Regex("-{0,2}[A-Za-z0-9][A-Za-z0-9._=/-]*")
 private val PATH = Regex("(/[A-Za-z0-9._-]+)+")
+private val SHA256 = Regex("[0-9a-f]{64}")
 private val SHELLS = setOf("sh", "bash")
+private const val INSTALLER = "tmp/upgrade-install"
 
 private fun checked(value: String, rule: Regex, where: String): String {
     if (!rule.matches(value)) throw IllegalStateException("$where is not allowed: $value")
@@ -466,7 +472,12 @@ object PhoneLinux {
                     if (tool.id in setup.tools || !tool.fits(distro)) continue
                     system.tool = tool.id
                     changed(context)
-                    step(context, system, tool.id, tool.script(distro), 20)
+                    tool.installer(distro)?.let { fetch(system, tool, it) }
+                    try {
+                        step(context, system, tool.id, tool.script(distro), 20)
+                    } finally {
+                        File(system.rootfs, INSTALLER).delete()
+                    }
                     for (file in tool.files(distro)) place(system.rootfs, file)
                     File(system.rootfs, READY_MARK).writeText(setup.copy(tools = setup.tools + tool.id).mark)
                 }
@@ -564,6 +575,43 @@ object PhoneLinux {
         val part = File(target.path + ".part")
         system.percent = 0
         changed(context)
+        val sum = part.outputStream().use { output ->
+            transfer(url, output) { read, total ->
+                val now = if (total > 0) (read * 100 / total).toInt() else -1
+                if (now != system.percent) {
+                    system.percent = now
+                    changed(context)
+                }
+            }
+        }
+        if (sum != sha256) {
+            part.delete()
+            throw IllegalStateException("download did not match its checksum")
+        }
+        if (!part.renameTo(target)) throw IllegalStateException("could not keep the download")
+    }
+
+    private fun fetch(system: LinuxSystem, tool: Tool, installer: Installer) {
+        val target = File(system.rootfs, INSTALLER)
+        val dir = target.parentFile ?: throw IllegalStateException("${tool.label}'s installer has no place")
+        if (!OsConstants.S_ISDIR(Os.lstat(dir.path).st_mode)) throw IllegalStateException("${dir.path} is not a directory")
+        val part = File(dir, target.name + ".part")
+        part.delete()
+        val fd = Os.open(part.path, OsConstants.O_WRONLY or OsConstants.O_CREAT or OsConstants.O_EXCL or OsConstants.O_NOFOLLOW, 0x180)
+        val sum = try {
+            FileOutputStream(fd).use { transfer(installer.url, it) }
+        } catch (failure: Exception) {
+            part.delete()
+            throw failure
+        }
+        if (sum != installer.sha256) {
+            part.delete()
+            throw IllegalStateException("${tool.label}'s installer changed since this release; update Upgrade")
+        }
+        if (!part.renameTo(target)) throw IllegalStateException("could not keep ${tool.label}'s installer")
+    }
+
+    private fun transfer(url: String, output: OutputStream, progress: (Long, Long) -> Unit = { _, _ -> }): String {
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.connectTimeout = 15_000
         connection.readTimeout = 30_000
@@ -573,28 +621,17 @@ object PhoneLinux {
             val digest = MessageDigest.getInstance("SHA-256")
             var read = 0L
             connection.inputStream.use { input ->
-                part.outputStream().use { output ->
-                    val buffer = ByteArray(1 shl 16)
-                    while (true) {
-                        val n = input.read(buffer)
-                        if (n < 0) break
-                        output.write(buffer, 0, n)
-                        digest.update(buffer, 0, n)
-                        read += n
-                        val now = if (total > 0) (read * 100 / total).toInt() else -1
-                        if (now != system.percent) {
-                            system.percent = now
-                            changed(context)
-                        }
-                    }
+                val buffer = ByteArray(1 shl 16)
+                while (true) {
+                    val n = input.read(buffer)
+                    if (n < 0) break
+                    output.write(buffer, 0, n)
+                    digest.update(buffer, 0, n)
+                    read += n
+                    progress(read, total)
                 }
             }
-            val sum = digest.digest().joinToString("") { "%02x".format(it) }
-            if (sum != sha256) {
-                part.delete()
-                throw IllegalStateException("download did not match its checksum")
-            }
-            if (!part.renameTo(target)) throw IllegalStateException("could not keep the download")
+            return digest.digest().joinToString("") { "%02x".format(it) }
         } finally {
             connection.disconnect()
         }

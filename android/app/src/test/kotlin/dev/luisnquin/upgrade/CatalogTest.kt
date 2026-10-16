@@ -2,8 +2,11 @@ package dev.luisnquin.upgrade
 
 import java.io.File
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -45,10 +48,46 @@ class CatalogTest {
         val claude = catalog.tool("claude")!!
         val script = claude.script(alpine)
         assertTrue(script, script.contains("apk -U add 'bash' 'curl' 'libgcc' 'libstdc++' 'ripgrep'"))
-        assertTrue(script, script.contains("curl -fsSL 'https://claude.ai/install.sh' -o"))
+        assertTrue(script, script.contains("bash /tmp/upgrade-install\n"))
         assertTrue(script, script.contains("ln -sf '/root/.local/bin/claude' '/usr/local/bin/claude'"))
         assertEquals("/root/.claude/settings.json", claude.files(alpine).single().path)
         assertEquals("'a'\\''b'", quote("a'b"))
+    }
+
+    @Test
+    fun runsTheInstallerTheAppFetchedAndNeverItsUrl() {
+        val catalog = Catalog(json())
+        for (tool in catalog.tools) {
+            for (distro in catalog.distros.filter { tool.fits(it) }) {
+                val installer = tool.installer(distro) ?: continue
+                val script = tool.script(distro)
+                assertFalse(script, script.contains(installer.url))
+                assertTrue(script, script.contains("rm -f /tmp/upgrade-install\n"))
+            }
+        }
+        val arch = catalog.distro("arch")!!
+        assertNull(catalog.tool("opencode")!!.installer(arch))
+    }
+
+    @Test
+    fun refusesAnInstallerDigestThatIsNotSha256() {
+        val message = refused { it.tool("herdr").getJSONObject("installer").put("sha256", "ABC") }
+        assertTrue(message, message.contains("herdr installer sha256"))
+    }
+
+    @Test
+    fun refusesAnInstallerWithoutADigest() {
+        assertThrows(JSONException::class.java) {
+            Catalog(json().also { it.tool("herdr").getJSONObject("installer").remove("sha256") })
+        }
+    }
+
+    @Test
+    fun refusesARootfsDigestThatIsNotSha256() {
+        val message = refused {
+            it.getJSONArray("distros").getJSONObject(2).getJSONObject("rootfs").put("sha256", "0".repeat(63))
+        }
+        assertTrue(message, message.contains("alpine rootfs sha256"))
     }
 
     @Test

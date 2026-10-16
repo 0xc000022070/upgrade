@@ -224,3 +224,7 @@ engine-gate:
 # because CARGO_TARGET_DIR may put the binary anywhere.
 engine-probe:
     echo '{"service":"lifecycle","op":"probe"}' | cargo run --quiet --release --manifest-path engine/Cargo.toml
+
+# Re-pin the linux catalog's installer digests; `--check` writes nothing and fails on a move.
+linux-catalog *args:
+    dart tool/linux_catalog.dart {{args}}

@@ -63,6 +63,7 @@
       "mb": 27,
       "installer": {
         "url": "https://herdr.dev/install.sh",
+        "sha256": "bf83668c944cff30b3365eee5a4fe15ff61a4b749ab0c73b98e7a203f70893dd",
         "shell": "sh",
         "links": ["/root/.local/bin/herdr"]
       }
@@ -74,6 +75,7 @@
       "mb": 250,
       "installer": {
         "url": "https://claude.ai/install.sh",
+        "sha256": "3a68d3406cf674e17bed1733a4dcf37805e2e47d87417700007d7e1aa766a944",
         "shell": "bash",
         "links": ["/root/.local/bin/claude"]
       },
@@ -94,6 +96,7 @@
       "mb": 370,
       "installer": {
         "url": "https://chatgpt.com/codex/install.sh",
+        "sha256": "150e3cf675682efeaac115aa3747add3f27887896d04ce6d0b56478d8b428bf6",
         "shell": "sh",
         "links": ["/root/.local/bin/codex"]
       }
@@ -106,6 +109,7 @@
       "libc": "glibc",
       "installer": {
         "url": "https://cursor.com/install",
+        "sha256": "9b70b142b7bbd56d5d75c2575279b63c884178f8f8e6862b4f41c09afcf6c8a2",
         "shell": "bash",
         "links": ["/root/.local/bin/cursor-agent", "/root/.local/bin/agent"]
       }
@@ -118,6 +122,7 @@
       "packages": { "arch": "opencode" },
       "installer": {
         "url": "https://opencode.ai/install",
+        "sha256": "a2dd59522b9a091b6cdb2e4870c0f2135f7da09807cd5a7e04222d4316925b72",
         "shell": "bash",
         "args": ["--no-modify-path"],
         "links": ["/root/.opencode/bin/opencode"]
