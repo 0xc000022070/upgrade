@@ -15,7 +15,7 @@ const _hostKey =
     'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBCAFF/cQozJtrK8guDNMNM1DMSOeR2PxJQKrpzNZmDL upgrade-host';
 
 class _Platform implements PhoneLinux {
-  final installs = <(String, PhoneLinuxDistro)>[];
+  final installs = <(String, PhoneLinuxSetup)>[];
   final starts = <(String, int)>[];
   int removes = 0;
   String? hostKey = _hostKey;
@@ -36,9 +36,9 @@ class _Platform implements PhoneLinux {
   @override
   Future<PhoneLinuxState> install({
     required String publicKey,
-    required PhoneLinuxDistro distro,
+    required PhoneLinuxSetup setup,
   }) async {
-    installs.add((publicKey, distro));
+    installs.add((publicKey, setup));
     return _ready;
   }
 
@@ -91,8 +91,10 @@ void main() {
   tearDown(() => db.close());
 
   test('the install makes one host and one key, and reuses them', () async {
-    await linux.install(PhoneLinuxDistro.arch);
-    await linux.install(PhoneLinuxDistro.alpine);
+    await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.arch));
+    await linux.install(
+      const PhoneLinuxSetup(PhoneLinuxDistro.alpine, homeManager: true),
+    );
 
     final host = (await hosts.all()).single;
     expect(host.name, 'THIS PHONE');
@@ -103,15 +105,25 @@ void main() {
     final key = (await keys.all()).single;
     expect(host.keyId, key.id);
     expect(await store.read(key.id), isNotNull);
-    expect(platform.installs, [
-      (key.publicKey, PhoneLinuxDistro.arch),
-      (key.publicKey, PhoneLinuxDistro.alpine),
-    ]);
+    expect(
+      platform.installs.map(
+        (install) => (
+          install.$1,
+          install.$2.distro,
+          install.$2.nix,
+          install.$2.homeManager,
+        ),
+      ),
+      [
+        (key.publicKey, PhoneLinuxDistro.arch, false, false),
+        (key.publicKey, PhoneLinuxDistro.alpine, true, true),
+      ],
+    );
     expect((await linux.host())?.id, host.id);
   });
 
   test('another host is dialled as it is, with nothing started', () async {
-    await linux.install(PhoneLinuxDistro.ubuntu);
+    await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu));
     final other = Host(
       id: 'rose',
       name: 'rose',
@@ -126,7 +138,7 @@ void main() {
   });
 
   test('the phone is started on its port and its key is pinned', () async {
-    await linux.install(PhoneLinuxDistro.ubuntu);
+    await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu));
     final host = (await linux.host())!;
 
     final ready = await linux.ensure(host);
@@ -144,7 +156,7 @@ void main() {
   });
 
   test('a system with no host key yet leaves the host unpinned', () async {
-    await linux.install(PhoneLinuxDistro.ubuntu);
+    await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu));
     platform.hostKey = null;
     final host = (await linux.host())!;
 
@@ -155,7 +167,7 @@ void main() {
   });
 
   test('remove takes the host, its key and the mark with it', () async {
-    await linux.install(PhoneLinuxDistro.ubuntu);
+    await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu));
     final keyId = (await keys.all()).single.id;
 
     await linux.remove();
@@ -172,7 +184,7 @@ void main() {
   });
 
   test('remove keeps a key another host still signs in with', () async {
-    await linux.install(PhoneLinuxDistro.ubuntu);
+    await linux.install(const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu));
     final keyId = (await keys.all()).single.id;
     await hosts.save(
       Host(
@@ -198,6 +210,26 @@ void main() {
       PhoneLinuxDistro.arch,
     );
     expect(PhoneLinuxState.from({'distro': 'gentoo'}).distro, isNull);
+    expect(PhoneLinuxState.from({'distro': 'gentoo'}).setup, isNull);
+  });
+
+  test('the system carries its nix choice back for a retry', () {
+    final setup = PhoneLinuxState.from({
+      'distro': 'alpine',
+      'nix': true,
+      'homeManager': true,
+    }).setup!;
+
+    expect(setup.distro, PhoneLinuxDistro.alpine);
+    expect(setup.nix, isTrue);
+    expect(setup.homeManager, isTrue);
+  });
+
+  test('home manager brings nix with it', () {
+    expect(
+      const PhoneLinuxSetup(PhoneLinuxDistro.ubuntu, homeManager: true).nix,
+      isTrue,
+    );
   });
 
   test('a line that is not a key is refused', () {

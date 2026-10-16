@@ -85,12 +85,56 @@ enum class Distro(
     }
 }
 
+data class Setup(val distro: Distro, val nix: Boolean, val homeManager: Boolean) {
+    val mark get() = listOfNotNull(distro.id, "nix".takeIf { nix }, "home-manager".takeIf { homeManager })
+        .joinToString("") { "$it\n" }
+
+    companion object {
+        fun read(mark: List<String>): Setup {
+            val words = mark.map { it.trim() }
+            return Setup(Distro.of(words.firstOrNull()) ?: Distro.UBUNTU, "nix" in words, "home-manager" in words)
+        }
+    }
+}
+
+private object Nix {
+    const val URL = "https://releases.nixos.org/nix/nix-2.35.3/nix-2.35.3-aarch64-linux.tar.xz"
+    const val SHA256 = "4a770896faa4d308806d0b4516575e0581443dc817d634b951a219a280554c09"
+    const val ARCHIVE = "nix.tar.xz"
+    const val UNPACKED = "nix/.installer"
+
+    val INSTALL = """
+        set -eu
+        nix=/nix/store/n2js98b146g5ddfnfyygsddvvg43ficr-nix-2.35.3
+        cacert=/nix/store/07xdbx75iszxrf8p2fshxld6xgmmp3wp-nss-cacert-3.123
+        mkdir -p /nix/store /nix/var/nix /etc/nix /etc/profile.d
+        printf 'build-users-group =\nsandbox = false\nfilter-syscalls = false\nexperimental-features = nix-command flakes\n' > /etc/nix/nix.conf
+        for path in /$UNPACKED/store/*; do mv "${'$'}path" /nix/store/; done
+        "${'$'}nix/bin/nix-store" --load-db < /$UNPACKED/.reginfo
+        "${'$'}nix/bin/nix-env" --quiet -i "${'$'}nix" "${'$'}cacert"
+        rm -rf /$UNPACKED
+        printf 'if [ -e /root/.nix-profile/etc/profile.d/nix.sh ]; then . /root/.nix-profile/etc/profile.d/nix.sh; fi\n' > /etc/profile.d/nix.sh
+        # libgit2 renames by hard link, which PRoot turns into absolute symlinks; Nix builds
+        # this repository in a temporary directory and renames it, leaving them dangling.
+        cache=/root/.cache/nix/tarball-cache-v2
+        mkdir -p ${'$'}cache/objects/info ${'$'}cache/objects/pack ${'$'}cache/refs/heads ${'$'}cache/refs/tags
+        printf 'ref: refs/heads/master\n' > ${'$'}cache/HEAD
+        printf '[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = true\n' > ${'$'}cache/config
+    """.trimIndent()
+
+    val HOME_MANAGER = """
+        set -eu
+        . /root/.nix-profile/etc/profile.d/nix.sh
+        nix run home-manager/master -- init --switch
+    """.trimIndent()
+}
+
 object PhoneLinux {
     private const val TAG = "PhoneLinux"
     private const val READY_MARK = ".upgrade-ready"
     private const val SSHD_CONFIG = "/etc/ssh/upgrade_sshd_config"
     private const val AUTHORIZED = "/etc/ssh/upgrade_authorized_keys"
-    private val BUSY = setOf("download", "unpack", "setup")
+    private val BUSY = setOf("download", "unpack", "setup", "nix", "homeManager")
 
     private val SSHD = """
         for gid in ${'$'}(id -G); do
@@ -111,7 +155,7 @@ object PhoneLinux {
         private set
     @Volatile var hostKey: String? = null
         private set
-    @Volatile private var installing: Distro? = null
+    @Volatile private var installing: Setup? = null
     @Volatile private var sshd: Process? = null
     @Volatile private var sshdPort = 0
 
@@ -129,10 +173,10 @@ object PhoneLinux {
 
     fun installed(context: Context) = File(rootfs(context), READY_MARK).exists()
 
-    private fun distro(context: Context): Distro? {
+    private fun setup(context: Context): Setup? {
         val mark = File(rootfs(context), READY_MARK)
         if (!mark.exists()) return installing
-        return Distro.of(mark.readText().trim()) ?: Distro.UBUNTU
+        return Setup.read(mark.readLines())
     }
 
     fun running() = sshd?.isAlive == true
@@ -146,7 +190,9 @@ object PhoneLinux {
                 val distro = Distro.of(args?.get("distro") as? String)
                 if (key == null || distro == null) return result.error("args", "publicKey and distro required", null)
                 if (phase in BUSY) return result.success(state(app))
-                installing = distro
+                val homeManager = args?.get("homeManager") == true
+                val setup = Setup(distro, homeManager || args?.get("nix") == true, homeManager)
+                installing = setup
                 phase = "download"
                 percent = 0
                 error = null
@@ -154,7 +200,7 @@ object PhoneLinux {
                 LinuxService.foreground(app)
                 jobs.execute {
                     try {
-                        install(app, key, distro)
+                        install(app, key, setup)
                         phase = "ready"
                     } catch (failure: Exception) {
                         Log.e(TAG, "install", failure)
@@ -214,7 +260,9 @@ object PhoneLinux {
         "percent" to percent,
         "error" to error,
         "hostKey" to (hostKey ?: readHostKey(context)),
-        "distro" to distro(context)?.id,
+        "distro" to setup(context)?.distro?.id,
+        "nix" to (setup(context)?.nix == true),
+        "homeManager" to (setup(context)?.homeManager == true),
     )
 
     private fun readHostKey(context: Context): String? {
@@ -222,12 +270,16 @@ object PhoneLinux {
         return if (pub.exists()) pub.readText().trim() else null
     }
 
-    private fun install(context: Context, publicKey: String, distro: Distro) {
+    private fun install(context: Context, publicKey: String, setup: Setup) {
         if (installed(context)) return
+        val distro = setup.distro
         val base = base(context).apply { mkdirs() }
         for (other in Distro.entries) if (other.archive != distro.archive) File(base, other.archive).delete()
         val archive = File(base, distro.archive)
         if (!archive.exists() || sha256(archive) != distro.sha256) download(context, distro.url, distro.sha256, archive)
+        val nix = File(base, Nix.ARCHIVE)
+        if (!setup.nix) nix.delete()
+        else if (!nix.exists() || sha256(nix) != Nix.SHA256) download(context, Nix.URL, Nix.SHA256, nix)
         phase = "unpack"
         percent = -1
         changed(context)
@@ -255,16 +307,34 @@ object PhoneLinux {
             passwd -d root
             test -f /etc/ssh/ssh_host_ed25519_key || ssh-keygen -q -t ed25519 -N '' -f /etc/ssh/ssh_host_ed25519_key
         """.trimIndent()
-        val exit = run(context, root, script, TimeUnit.MINUTES.toSeconds(20))
-        if (exit != 0) throw IllegalStateException("setup exited $exit")
+        step(context, root, "setup", script, 20)
+        if (setup.nix) {
+            phase = "nix"
+            changed(context)
+            nix.inputStream().use { TarUnpacker(File(root, Nix.UNPACKED), 1).unpack(XZInputStream(BufferedInputStream(it, 1 shl 16))) }
+            step(context, root, "nix", Nix.INSTALL, 20)
+        }
+        if (setup.homeManager) {
+            phase = "homeManager"
+            changed(context)
+            step(context, root, "home manager", Nix.HOME_MANAGER, 60)
+        }
         writeSshd(root, publicKey)
-        File(root, READY_MARK).writeText("${distro.id}\n")
+        File(root, READY_MARK).writeText(setup.mark)
         archive.delete()
+        nix.delete()
         hostKey = readHostKey(context)
+    }
+
+    private fun step(context: Context, root: File, name: String, script: String, minutes: Long) {
+        val exit = run(context, root, name, script, TimeUnit.MINUTES.toSeconds(minutes))
+        if (exit != 0) throw IllegalStateException("$name exited $exit")
     }
 
     private fun download(context: Context, url: String, sha256: String, target: File) {
         val part = File(target.path + ".part")
+        percent = 0
+        changed(context)
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.connectTimeout = 15_000
         connection.readTimeout = 30_000
@@ -408,13 +478,13 @@ object PhoneLinux {
             pid.takeIf { runCatching { Os.readlink("/proc/$pid/exe") }.getOrNull() == loader }
         }
 
-    private fun run(context: Context, root: File, script: String, timeoutSeconds: Long): Int {
+    private fun run(context: Context, root: File, name: String, script: String, timeoutSeconds: Long): Int {
         val process = builder(context, root, script).redirectErrorStream(true).start()
         val reader = Thread { runCatching { process.inputStream.bufferedReader().forEachLine { Log.i(TAG, it) } } }
         reader.start()
         if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
             process.destroyForcibly()
-            throw IllegalStateException("setup timed out")
+            throw IllegalStateException("$name timed out")
         }
         reader.join(2000)
         return process.exitValue()

@@ -949,14 +949,14 @@ class _PhoneLinuxActionState extends ConsumerState<_PhoneLinuxAction> {
   }
 
   Future<void> _install(PhoneLinuxHost linux) async {
-    final distro = await pickPhoneLinuxDistro(context);
-    if (distro == null || !mounted) return;
+    final setup = await pickPhoneLinuxSetup(context);
+    if (setup == null || !mounted) return;
     setState(() {
       _starting = true;
       _failed = false;
     });
     try {
-      await linux.install(distro);
+      await linux.install(setup);
     } catch (error) {
       debugPrint('upgrade.linux install: $error');
       if (mounted) setState(() => _failed = true);
@@ -1003,6 +1003,16 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
         null,
         null,
       ),
+      PhoneLinuxState(phase: PhoneLinuxPhase.nix) => (
+        'INSTALLING NIX',
+        null,
+        null,
+      ),
+      PhoneLinuxState(phase: PhoneLinuxPhase.homeManager) => (
+        'INSTALLING HOME MANAGER',
+        null,
+        null,
+      ),
       PhoneLinuxState(installed: false, phase: PhoneLinuxPhase.failed) => (
         state.error ?? 'failed',
         warning,
@@ -1039,6 +1049,11 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
               onTap: busy == null ? () => _remove(linux) : null,
             ),
           ),
+        if (state.installed && !state.installing && state.nix)
+          _MetaRow(
+            'NIX',
+            state.homeManager ? 'WITH HOME MANAGER' : 'INSTALLED',
+          ),
       ],
     );
   }
@@ -1063,11 +1078,11 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
         case 'START':
           await linux.ensure(widget.host);
         default:
-          final distro =
-              (action == 'RETRY' ? state.distro : null) ??
-              await pickPhoneLinuxDistro(context);
-          if (distro == null) return;
-          await linux.install(distro);
+          final setup =
+              (action == 'RETRY' ? state.setup : null) ??
+              await pickPhoneLinuxSetup(context);
+          if (setup == null) return;
+          await linux.install(setup);
       }
     } catch (error) {
       debugPrint('upgrade.linux $action: $error');
@@ -1102,8 +1117,8 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
   }
 }
 
-Future<PhoneLinuxDistro?> pickPhoneLinuxDistro(BuildContext context) =>
-    showPanelSheet<PhoneLinuxDistro>(
+Future<PhoneLinuxSetup?> pickPhoneLinuxSetup(BuildContext context) =>
+    showPanelSheet<PhoneLinuxSetup>(
       context,
       title: 'LINUX ON THIS PHONE',
       builder: (context) => const _PhoneLinuxPicker(),
@@ -1118,10 +1133,17 @@ class _PhoneLinuxPicker extends StatefulWidget {
 
 class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
   var _distro = PhoneLinuxDistro.ubuntu;
+  var _nix = false;
+  var _homeManager = false;
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    Widget box(bool checked) => UpgradeIcon(
+      checked ? UpgradeIcons.checkboxChecked : UpgradeIcons.checkboxEmpty,
+      size: IconSizes.check,
+      color: checked ? tokens.accent : tokens.textMuted,
+    );
     return PanelSheetBody(
       title: 'LINUX ON THIS PHONE',
       footer: [
@@ -1139,7 +1161,13 @@ class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
                 label: 'INSTALL',
                 tone: tokens.accent,
                 filled: true,
-                onTap: () => Navigator.of(context).pop(_distro),
+                onTap: () => Navigator.of(context).pop(
+                  PhoneLinuxSetup(
+                    _distro,
+                    nix: _nix,
+                    homeManager: _nix && _homeManager,
+                  ),
+                ),
               ),
             ),
           ],
@@ -1168,6 +1196,32 @@ class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
                       )
                     : null,
                 onTap: () => setState(() => _distro = distro),
+              ),
+          ],
+        ),
+        const SizedBox(height: Spacing.lg),
+        ListRowGroup(
+          children: [
+            ListRow(
+              leading: box(_nix),
+              title: 'NIX',
+              subtitle:
+                  'The package manager, for root · about 25 MB to download',
+              subtitleMaxLines: 2,
+              onTap: () => setState(() => _nix = !_nix),
+            ),
+            if (_nix)
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: IconSizes.glyph + Spacing.md,
+                ),
+                child: ListRow(
+                  leading: box(_homeManager),
+                  title: 'HOME MANAGER',
+                  subtitle: 'Your home as a flake · about 2.4 GB in the store',
+                  subtitleMaxLines: 2,
+                  onTap: () => setState(() => _homeManager = !_homeManager),
+                ),
               ),
           ],
         ),
