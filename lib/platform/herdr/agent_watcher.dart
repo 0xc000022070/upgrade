@@ -650,6 +650,7 @@ class AgentWatcherHandler extends TaskHandler {
       if (existing != null &&
           existing.sameHost(host) &&
           existing.watchesPins == watchesPins) {
+        existing.host = host;
         continue;
       }
       await existing?.stop();
@@ -743,7 +744,7 @@ class _HostLoop {
     required this.onReport,
   });
 
-  final Host host;
+  Host host;
   final AgentSource source;
   final Ed25519Keys keys;
   final HerdrClient client;

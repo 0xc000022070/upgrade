@@ -6,7 +6,8 @@ import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:upgrade/application/agents/agents.dart' show hostsProvider;
+import 'package:upgrade/application/agents/agents.dart'
+    show hostsProvider, registeredHostProvider;
 import 'package:upgrade/application/files/host_file_link.dart';
 import 'package:upgrade/application/files/phone_inbox.dart';
 import 'package:upgrade/application/formatting.dart';
@@ -262,6 +263,9 @@ class FilesSheet extends ConsumerStatefulWidget {
 }
 
 class _FilesSheetState extends ConsumerState<FilesSheet> {
+  Host get _host =>
+      ref.read(registeredHostProvider(widget.host.id)) ?? widget.host;
+
   HostFiles? _files;
   String? _error;
   String? _home;
@@ -305,7 +309,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
 
   Future<void> _connect() async {
     try {
-      final files = await ref.read(hostFilesOpenerProvider)(widget.host);
+      final files = await ref.read(hostFilesOpenerProvider)(_host);
       if (!mounted) {
         files.close();
         return;
@@ -407,7 +411,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
   }) {
     final job = _transfers.begin(
       verb: verb,
-      host: widget.host.name,
+      host: _host.name,
       hostId: widget.host.id,
       files: queue,
       replacing: replacing,
@@ -444,7 +448,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     await uploadFiles(
       transfers: ref.read(transfersProvider),
       open: ref.read(hostFilesOpenerProvider),
-      host: widget.host,
+      host: _host,
       files: picked,
       into: directory,
       ended: (_, _, _) {
@@ -703,6 +707,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(registeredHostProvider(widget.host.id));
     final tokens = context.tokens;
     final home = _home;
     final rows = <Widget>[];
@@ -782,7 +787,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
       ],
       children: [
         Text(
-          widget.host.name,
+          _host.name,
           style: tokens.label.copyWith(color: tokens.textSecondary),
         ),
         const SizedBox(height: Spacing.sm),

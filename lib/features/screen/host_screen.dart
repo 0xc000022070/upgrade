@@ -121,9 +121,12 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
     unawaited(_openPreviews());
   }
 
+  Host get _host =>
+      ref.read(registeredHostProvider(widget.host.id)) ?? widget.host;
+
   Future<bool> _askHostKey(HostKeyOffer offer, PinnedHostKey? pinned) async {
     if (!mounted) return false;
-    return askHostKey(context, host: widget.host, offer: offer, pinned: pinned);
+    return askHostKey(context, host: _host, offer: offer, pinned: pinned);
   }
 
   /// A store that will not open costs the host its tile and nothing else.
@@ -185,7 +188,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
         case CropTarget.hold:
           final clip = await ref
               .read(clipStoreProvider)
-              .add(png, source: ClipSource.screen, hostName: widget.host.name);
+              .add(png, source: ClipSource.screen, hostName: _host.name);
           _say(heldNotice(clip));
         case CropTarget.save:
           await widget.save(png, 'upgrade-${DateTime.now().toIso8601String()}');
@@ -208,7 +211,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
   void _editHost() {
     final navigator = Navigator.of(context, rootNavigator: true);
     final form = MaterialPageRoute<void>(
-      builder: (_) => HostFormScreen(host: widget.host),
+      builder: (_) => HostFormScreen(host: _host),
     );
     if (widget.controller == null) {
       navigator.pushReplacement(form);
@@ -221,6 +224,8 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
 
   @override
   Widget build(BuildContext context) {
+    final host =
+        ref.watch(registeredHostProvider(widget.host.id)) ?? widget.host;
     return Scaffold(
       backgroundColor: context.tokens.mediaBackdrop,
       resizeToAvoidBottomInset: true,
@@ -230,7 +235,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
           builder: (context, _) => Column(
             children: [
               _Crumb(
-                host: widget.host,
+                host: host,
                 controller: _controller,
                 notice: _notice,
                 onBack: () => Navigator.of(context).pop(),

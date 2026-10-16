@@ -43,6 +43,9 @@ class AgentChatScreen extends ConsumerStatefulWidget {
 }
 
 class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
+  Host get _host =>
+      ref.read(registeredHostProvider(widget.host.id)) ?? widget.host;
+
   static const _pageLimit = 200;
   static const _pagesPerTick = 20;
   static const _kept = 400;
@@ -116,7 +119,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     if (_asking || _gone) return;
     _asking = true;
     try {
-      final engine = await (_engine ??= _open(widget.host));
+      final engine = await (_engine ??= _open(_host));
       if (_gone) return;
       final watched = await engine.watch();
       final session = watched.agents
@@ -136,12 +139,12 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
         _failure = read.failure;
       });
     } catch (error) {
-      debugPrint('upgrade.engine ${widget.host.name} chat: $error');
+      debugPrint('upgrade.engine ${_host.name} chat: $error');
       _drop();
       if (_gone || !mounted) return;
       setState(
         () => _failure = switch (error) {
-          HerdrFailure() => error.line.on(widget.host.name),
+          HerdrFailure() => error.line.on(_host.name),
           EngineRefused() => _refusal(error),
           _ => 'failed',
         },
@@ -190,7 +193,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
       _answerLine = null;
     });
     try {
-      final engine = await (_engine ??= _open(widget.host));
+      final engine = await (_engine ??= _open(_host));
       await engine.answer(approval.id, allow: allow);
       if (mounted) setState(() => _answerLine = allow ? 'ALLOWED' : 'DENIED');
     } on EngineRefused catch (error) {
@@ -200,7 +203,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
         );
       }
     } catch (error) {
-      debugPrint('upgrade.engine ${widget.host.name} answer: $error');
+      debugPrint('upgrade.engine ${_host.name} answer: $error');
       if (mounted) setState(() => _answerLine = 'FAILED');
     } finally {
       if (mounted) setState(() => _answering = null);
@@ -223,6 +226,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(registeredHostProvider(widget.host.id));
     final session = _session;
     final link = _link(ref.watch(agentsFeedProvider).valueOrNull);
     final bar = _bar(context, session, link);
@@ -250,7 +254,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                             : agentStateColor(context, session.state),
                       ),
                       _Row('DIRECTORY', widget.agent.cwd),
-                      _Row('HOST', widget.host.name),
+                      _Row('HOST', _host.name),
                       if (_failure != null)
                         _Row('LINK', _failure!, color: context.tokens.warning),
                     ],
@@ -351,8 +355,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                 label: 'OPEN PANE',
                 icon: UpgradeIcons.forward,
                 onTap: UserIntent.onGesture(
-                  (intent) =>
-                      openAgentPane(context, ref, widget.host, link, intent),
+                  (intent) => openAgentPane(context, ref, _host, link, intent),
                 ),
               ),
           ],

@@ -168,6 +168,45 @@ void main() {
     ]);
   });
 
+  test('an edited host reaches the tabs already open on it', () async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final first = sessions.open(intent: testIntent(), _rose)!;
+    final second = sessions.open(intent: testIntent(), _rose)!;
+    sessions.open(intent: testIntent(), _nyx);
+    await _settle();
+    var told = 0;
+    sessions.addListener(() => told++);
+    var tabTold = 0;
+    first.addListener(() => tabTold++);
+
+    sessions.syncHosts(const [_rose, _nyx]);
+    expect(told, 0);
+    expect(tabTold, 0);
+
+    const renamed = Host(
+      id: 'h1',
+      name: 'MARK',
+      address: '100.64.0.1',
+      port: 22,
+      user: 'luis',
+      keyId: 'key-1',
+    );
+    sessions.syncHosts(const [renamed, _nyx]);
+
+    expect(first.host.name, 'MARK');
+    expect(second.host.name, 'MARK');
+    expect(
+      [for (final (host, _) in sessions.openHosts) host.name],
+      ['MARK', 'nyx'],
+    );
+    expect(told, 1);
+    expect(tabTold, 1);
+
+    final third = sessions.open(intent: testIntent(), _rose)!;
+    expect(third.host.name, 'MARK');
+  });
+
   test("a directory is the tab's command, not a typed line", () async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);

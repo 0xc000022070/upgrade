@@ -19,7 +19,7 @@ const floatDecodeWidth = 360;
 class DeviceSession {
   DeviceSession({required this.host, required this.controller});
 
-  final Host host;
+  Host host;
   DeviceScreenController controller;
 
   DeviceLink get link => controller.link;
@@ -29,7 +29,7 @@ class DeviceSession {
 class DesktopSession {
   DesktopSession({required this.host, required this.controller});
 
-  final Host host;
+  Host host;
   final HostScreenController controller;
 }
 
@@ -140,6 +140,30 @@ class DeviceDock extends ChangeNotifier {
     for (final group in fresh) {
       unawaited(group.refresh());
     }
+  }
+
+  void rename(Iterable<Host> hosts) {
+    final byId = {for (final host in hosts) host.id: host};
+    var moved = false;
+    for (final group in _groups) {
+      final host = byId[group.host.id];
+      if (host == null || identical(host, group.host)) continue;
+      group.host = host;
+      moved = true;
+    }
+    final session = _session;
+    final sessionHost = byId[session?.host.id];
+    if (session != null && sessionHost != null) {
+      moved |= !identical(session.host, sessionHost);
+      session.host = sessionHost;
+    }
+    final desktop = _desktop;
+    final desktopHost = byId[desktop?.host.id];
+    if (desktop != null && desktopHost != null) {
+      moved |= !identical(desktop.host, desktopHost);
+      desktop.host = desktopHost;
+    }
+    if (moved) notifyListeners();
   }
 
   DevicesController _attach(Host host) {

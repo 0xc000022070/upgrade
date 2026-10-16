@@ -304,6 +304,44 @@ DeviceFrame _frame({int width = 1080, int height = 2400}) {
 }
 
 void main() {
+  test('a renamed host is renamed on the groups the dock holds', () async {
+    final dock = DeviceDock(
+      group: (host, dock) => DevicesController(
+        host: host,
+        dock: dock,
+        readPrivateKey: (_) async => null,
+        open: ({
+          required address,
+          required port,
+          required user,
+          required privateKey,
+          required verifier,
+        }) => Completer<DeviceLink>().future,
+      ),
+      desktopOf: (_) => throw UnimplementedError(),
+    );
+    addTearDown(dock.dispose);
+    dock.attach(const [_rose, _nyx]);
+    await Future<void>.delayed(Duration.zero);
+    var told = 0;
+    dock.addListener(() => told++);
+
+    dock.rename(const [
+      Host(
+        id: 'h1',
+        name: 'mark',
+        address: '10.0.2.2',
+        port: 22,
+        user: 'luisnquin',
+        keyId: 'k1',
+      ),
+      _nyx,
+    ]);
+
+    expect([for (final group in dock.groups) group.host.name], ['mark', 'nyx']);
+    expect(told, 1);
+  });
+
   test('frames survive being cut anywhere and keepalives vanish', () async {
     final body = List<int>.generate(10, (index) => index);
     final wire = [

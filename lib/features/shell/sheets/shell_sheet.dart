@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:upgrade/application/agents/agents.dart'
+    show registeredHostProvider;
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/application/alerts/toasts.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -162,7 +164,7 @@ class ShellSheetRoute extends DragSheetRoute<void> with KeepsScreensEdge {
 /// The shell is keyed by host id, so switching drops the state of the host being left and
 /// builds the one arrived at from its `initState` — the same path a fresh open takes,
 /// which is what makes the arriving host activate the tab it was asked for.
-class _SheetContents extends StatefulWidget {
+class _SheetContents extends ConsumerStatefulWidget {
   const _SheetContents({
     required this.host,
     required this.intent,
@@ -186,10 +188,10 @@ class _SheetContents extends StatefulWidget {
   final bool openNew;
 
   @override
-  State<_SheetContents> createState() => _SheetContentsState();
+  ConsumerState<_SheetContents> createState() => _SheetContentsState();
 }
 
-class _SheetContentsState extends State<_SheetContents> {
+class _SheetContentsState extends ConsumerState<_SheetContents> {
   late Host _host = widget.host;
 
   late UserIntent? _intent = widget.intent;
@@ -229,7 +231,7 @@ class _SheetContentsState extends State<_SheetContents> {
   Widget build(BuildContext context) {
     return HostShellRoute(
       key: ValueKey(_host.id),
-      host: _host,
+      host: ref.watch(registeredHostProvider(_host.id)) ?? _host,
       intent: _intent,
       session: _session,
       openNew: _openNew,

@@ -231,8 +231,8 @@ class ShellSession extends ChangeNotifier {
   }) : mark = mark ?? _newMark(),
        _terminal = ValueNotifier(terminal);
 
-  /// Mutable because the store is handed a fresh [Host] on every open and retry, and a
-  /// reconnect fired by a timer has nobody to hand it one.
+  /// Mutable because an edit to the host lands on tabs already open, and a reconnect
+  /// fired by a timer dials whatever this says.
   Host host;
 
   /// Numbers are handed out in open order and never reused, so closing tab 2 leaves `1 3`
@@ -706,6 +706,10 @@ class ShellSessions extends ChangeNotifier {
 
   bool _restored = false;
 
+  /// The hosts as last registered: a route holds the copy it was pushed with, and a tab
+  /// opened from it after a rename would start under the old name.
+  var _known = const <String, Host>{};
+
   /// How many sheets are up. Nothing is woken while this is above zero.
   int _held = 0;
 
@@ -743,6 +747,31 @@ class ShellSessions extends ChangeNotifier {
 
   int get openCount =>
       _byHost.values.fold(0, (total, sessions) => total + sessions.length);
+
+  void syncHosts(List<Host> hosts) {
+    _known = {for (final host in hosts) host.id: host};
+    var moved = false;
+    for (final host in hosts) {
+      for (final session in _byHost[host.id] ?? const <ShellSession>[]) {
+        if (_sameHost(session.host, host)) continue;
+        session.host = host;
+        session.changed();
+        moved = true;
+      }
+    }
+    if (moved) notifyListeners();
+  }
+
+  static bool _sameHost(Host a, Host b) =>
+      a.name == b.name &&
+      a.address == b.address &&
+      a.port == b.port &&
+      a.user == b.user &&
+      a.keyId == b.keyId &&
+      a.system == b.system &&
+      a.vncUsername == b.vncUsername &&
+      a.vncPassword == b.vncPassword &&
+      a.hostKey?.fingerprint == b.hostKey?.fingerprint;
 
   void activate(String hostId, ShellSession session) {
     _active[hostId] = session.number;
@@ -986,6 +1015,7 @@ class ShellSessions extends ChangeNotifier {
     Future<void>? beforeConnect,
     Uint8List? snapshot,
   }) {
+    host = _known[host.id] ?? host;
     final session =
         ShellSession(
             number: number,
@@ -2373,7 +2403,7 @@ final shellSnapshotStoreProvider = Provider<ShellSnapshotStore?>((ref) => null);
 /// of the screen.
 final shellSessionsProvider = Provider<ShellSessions>((ref) {
   ref.keepAlive();
-  return ShellSessions(
+  final sessions = ShellSessions(
     readPrivateKey: ref.watch(ed25519KeysProvider).privateKey,
     pinHostKey: ref.watch(hostRepositoryProvider).pinHostKey,
     recordSystem: ref.watch(hostRepositoryProvider).recordSystem,
@@ -2383,4 +2413,9 @@ final shellSessionsProvider = Provider<ShellSessions>((ref) {
     notifier: const PinNotifications(),
     links: ref.read(hostLinksProvider),
   );
+  ref.listen(hostsProvider, fireImmediately: true, (_, next) {
+    final hosts = next.valueOrNull;
+    if (hosts != null) sessions.syncHosts(hosts);
+  });
+  return sessions;
 });

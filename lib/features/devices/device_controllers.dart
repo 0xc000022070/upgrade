@@ -75,7 +75,7 @@ class DevicesController extends ChangeNotifier {
 
   static const defaultBootLimit = Duration(minutes: 3);
 
-  final Host host;
+  Host host;
   final DeviceDock dock;
   final Future<String?> Function(String keyId) _readPrivateKey;
   final Future<void> Function(String hostId, PinnedHostKey key)? pinHostKey;

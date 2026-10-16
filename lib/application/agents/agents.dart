@@ -233,6 +233,14 @@ final hostsProvider = StreamProvider<List<Host>>(
   (ref) => ref.watch(hostRepositoryProvider).watchAll(),
 );
 
+final registeredHostProvider = Provider.family<Host?, String>(
+  (ref, id) => ref
+      .watch(hostsProvider)
+      .valueOrNull
+      ?.where((host) => host.id == id)
+      .firstOrNull,
+);
+
 final herdrHostsProvider = StreamProvider<List<Host>>(
   (ref) => ref
       .watch(hostRepositoryProvider)

@@ -126,6 +126,10 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     ref.listenManual<List<ScreenHost>?>(screenHostsProvider, (_, hosts) {
       if (_menu && _dock.floating) _attach(hosts);
     });
+    ref.listenManual<AsyncValue<List<Host>>>(hostsProvider, (_, hosts) {
+      final value = hosts.valueOrNull;
+      if (value != null) _dock.rename(value);
+    });
   }
 
   @override

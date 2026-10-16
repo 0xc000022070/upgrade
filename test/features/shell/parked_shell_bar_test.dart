@@ -419,6 +419,40 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a renamed host is renamed on the bar', (tester) async {
+    await tester.pumpWidget(app());
+    await ready(tester);
+
+    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _nyx);
+    await ready(tester);
+    expect(
+      find.descendant(of: cell(_rose), matching: find.text('ROSE')),
+      findsOneWidget,
+    );
+
+    sessions.syncHosts(const [
+      Host(
+        id: 'h1',
+        name: 'mark',
+        address: '100.64.0.1',
+        port: 22,
+        user: 'luis',
+        keyId: 'key-1',
+      ),
+      _nyx,
+    ]);
+    await ready(tester);
+
+    expect(
+      find.descendant(of: cell(_rose), matching: find.text('MARK')),
+      findsOneWidget,
+    );
+    expect(find.text('ROSE'), findsNothing);
+
+    await unmount(tester);
+  });
+
   testWidgets('the last session closing takes the bar with it', (tester) async {
     await tester.pumpWidget(app());
     await ready(tester);
