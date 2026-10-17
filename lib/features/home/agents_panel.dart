@@ -16,6 +16,7 @@ import 'package:striked/platform/shell/shell_connection.dart';
 import 'package:striked/features/agents/agent_shell.dart';
 import 'package:striked/features/agents/agents_screen.dart';
 import 'package:striked/features/agents/pip_action.dart';
+import 'package:striked/features/agents/sent_screen.dart';
 import 'package:striked/features/hosts/hosts_screen.dart';
 import 'package:striked/features/home/agent_mark.dart';
 import 'package:striked/features/tasks/item_sheet.dart';
@@ -265,7 +266,9 @@ class _SendRow extends ConsumerWidget {
     final itemId = send.itemId;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: itemId == null ? null : () => openItemSheet(context, itemId),
+      onTap: itemId == null
+          ? () => openRun(context, send.id)
+          : () => openItemSheet(context, itemId),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
         child: Padding(

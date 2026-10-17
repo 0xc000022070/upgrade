@@ -10,6 +10,7 @@ import 'package:striked/application/agents/agents.dart';
 import 'package:striked/application/alerts/alerts.dart';
 import 'package:striked/application/alerts/pin_alerts.dart';
 import 'package:striked/application/alerts/watcher_backoff.dart';
+import 'package:striked/application/launcher/launcher_feed.dart';
 import 'package:striked/data/repositories/host_repository.dart';
 import 'package:striked/platform/notifications/alert_notifications.dart';
 import 'package:striked/platform/herdr/engine_agents.dart';
@@ -526,8 +527,10 @@ class AgentWatcherHandler extends TaskHandler {
   final Map<String, WatcherReport> _reports = {};
 
   String? _persistent;
-  String? _tally;
+  LauncherTally? _tally;
   bool _tallied = false;
+  Map<String, LauncherLive>? _live;
+  Future<void> _living = Future.value();
   List<AgentChannel> _channels = const [];
 
   int _shells = 0;
@@ -692,6 +695,7 @@ class AgentWatcherHandler extends TaskHandler {
         unawaited(FlutterForegroundTask.stopService());
         return;
       }
+      _feedLauncher(const []);
       return _post(shellsNotificationText(_shells));
     }
     final outcomes = <HostOutcome>[];
@@ -710,11 +714,11 @@ class AgentWatcherHandler extends TaskHandler {
               HostOutcome(host: host, kind: AgentOutcomeKind.snapshot),
           ])
         : watcherNotificationText(linkAgents(outcomes), retries: retries);
+    _feedLauncher(outcomes);
     _post(text);
   }
 
   void _post(String text) {
-    _tallyLauncher(text);
     // Most of what a host reports does not move the line, and posting it again is a binder
     // call and a redraw of a row in the shade that already reads that way.
     if (text == _persistent) return;
@@ -725,12 +729,28 @@ class AgentWatcherHandler extends TaskHandler {
     );
   }
 
-  void _tallyLauncher(String text) {
-    final tally = _channels.isEmpty || _book.kinds.isEmpty ? null : text;
-    if (_tallied && tally == _tally) return;
-    _tallied = true;
-    _tally = tally;
-    unawaited(LauncherWidget.setTally(tally));
+  void _feedLauncher(List<HostOutcome> outcomes) {
+    final watched = _channels.isEmpty || _book.kinds.isEmpty
+        ? const <HostOutcome>[]
+        : outcomes;
+    final tally = launcherTally(watched);
+    if (!_tallied || tally != _tally) {
+      _tallied = true;
+      _tally = tally;
+      unawaited(LauncherWidget.setTally(tally));
+    }
+    _living = _living.then((_) => _writeLive(watched));
+  }
+
+  Future<void> _writeLive(List<HostOutcome> outcomes) async {
+    final sends = outcomes.isEmpty
+        ? const <OpenSend>[]
+        : await LauncherWidget.openSends();
+    final previous = _live;
+    final live = launcherLive(sends, outcomes, previous ?? const {});
+    if (previous != null && mapEquals(previous, live)) return;
+    _live = live;
+    await LauncherWidget.setLive(live);
   }
 }
 

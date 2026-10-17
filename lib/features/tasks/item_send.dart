@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:striked/application/providers.dart';
 import 'package:striked/application/agents/send.dart';
 import 'package:striked/application/agents/send_queue.dart';
+import 'package:striked/application/launcher/launcher_sends.dart';
 import 'package:striked/data/database.dart';
 import 'package:striked/data/enums.dart';
 import 'package:striked/design/tokens.dart';
@@ -68,16 +69,19 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           title: task.title,
           target: target,
           kind: kind,
-          run: () => sender(
-            target: target,
-            kind: kind,
-            model: model,
-            itemId: widget.taskId,
-            title: task.title,
-            prompt: task.prompt,
-            message: message,
-            links: links,
-            imagePaths: imagePaths,
+          run: launcherRun(
+            (id) => sender(
+              sendId: id,
+              target: target,
+              kind: kind,
+              model: model,
+              itemId: widget.taskId,
+              title: task.title,
+              prompt: task.prompt,
+              message: message,
+              links: links,
+              imagePaths: imagePaths,
+            ),
           ),
         );
     FocusScope.of(context).unfocus();

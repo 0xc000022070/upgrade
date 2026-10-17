@@ -354,7 +354,7 @@ class TaskRepository {
         return true;
       });
 
-  /// Notes and links go with the task. A bundled item is deleted alone.
+  /// Notes, links and sends go with the task. A bundled item is deleted alone.
   Future<void> delete(
     String id, {
     DateTime? at,
@@ -366,6 +366,7 @@ class TaskRepository {
     // Older rows migrated into `attachments` but were left behind in `links`.
     await (_db.delete(_db.links)..where((l) => l.taskId.equals(id))).go();
     await (_db.delete(_db.notes)..where((n) => n.taskId.equals(id))).go();
+    await (_db.delete(_db.dispatches)..where((d) => d.itemId.equals(id))).go();
     await (_db.delete(_db.tasks)..where((t) => t.id.equals(id))).go();
     return null;
   });

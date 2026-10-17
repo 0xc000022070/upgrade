@@ -101,6 +101,39 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/launcher_widget_info"/>
         </receiver>
+        <receiver
+            android:name=".SendWidget"
+            android:label="@string/send_widget_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/send_widget_info"/>
+        </receiver>
+        <service
+            android:name=".SendRowsService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false"/>
+        <activity
+            android:name=".ComposeDoor"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity="dev.luisnquin.striked.compose"
+            android:theme="@android:style/Theme.NoDisplay"/>
+        <activity
+            android:name=".ComposeActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:launchMode="singleTop"
+            android:taskAffinity="dev.luisnquin.striked.compose"
+            android:theme="@style/ComposeTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize"/>
         <!-- flutter_local_notifications routes every action tap through this receiver
              and declares it nowhere itself: without the line the buttons answer nothing. -->
         <receiver

@@ -39,7 +39,7 @@ void main() {
         title: 'a drop',
         target: _target,
         kind: AgentKind.all.first,
-        run: run,
+        run: (_) => run(),
       );
 
   test('a send that lands leaves the queue and says so once', () async {
@@ -119,7 +119,7 @@ void main() {
           title: 'fix the gate',
           target: _target,
           kind: AgentKind.all.first,
-          run: () async {
+          run: (_) async {
             attempts++;
             return const SendFailed('no session');
           },

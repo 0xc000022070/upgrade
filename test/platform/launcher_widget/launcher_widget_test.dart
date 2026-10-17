@@ -39,9 +39,14 @@ class _Bridge {
         final arguments = call.arguments as Map?;
         switch (call.method) {
           case 'tally':
-            tallies.add(arguments!['line'] as String?);
+            tallies.add(arguments!['blocked'] as int?);
           case 'bar':
             bars.add(arguments!['label'] as String?);
+          case 'live':
+            lives.add(arguments!['states'] as Map);
+          case 'sends':
+            asked++;
+            return const <Object?>[];
           case 'take':
             return waiting;
         }
@@ -51,9 +56,11 @@ class _Bridge {
   }
 
   final shade = <String>[];
-  final tallies = <String?>[];
+  final tallies = <int?>[];
   final bars = <String?>[];
-  String? waiting;
+  final lives = <Map>[];
+  var asked = 0;
+  Map<String, Object?>? waiting;
 }
 
 Future<void> _settle() => Future<void>.delayed(Duration.zero);
@@ -67,7 +74,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('the tally', () {
-    test('is the shade\'s line, written once per line', () async {
+    test('is not drawn before any host has reported', () async {
       final bridge = _Bridge();
       final handler = _handler();
       addTearDown(() => handler.onDestroy(DateTime.now(), false));
@@ -77,12 +84,12 @@ void main() {
       handler.setShells(1);
       await _settle();
 
-      expect(bridge.tallies, isNotEmpty);
-      expect(bridge.tallies.first, bridge.shade.first);
-      expect(bridge.tallies, hasLength(bridge.shade.length));
+      expect(bridge.shade, isNotEmpty);
+      expect(bridge.tallies, [null]);
+      expect(bridge.lives, [isEmpty]);
     });
 
-    test('reads not watching for a service held by a tab alone', () async {
+    test('is not drawn for a service held by a tab alone', () async {
       final bridge = _Bridge();
       final handler = _handler();
 
@@ -93,24 +100,10 @@ void main() {
 
       expect(bridge.shade, ['HOLDING 2 SSH TABS', 'HOLDING 1 SSH TAB']);
       expect(bridge.tallies, [null]);
+      expect(bridge.asked, 0);
     });
 
-    test('reads not watching once the hosts are taken away', () async {
-      final bridge = _Bridge();
-      final handler = _handler();
-      await handler.setKinds({AlertKind.blocked});
-      await handler.setHosts(const [_rose]);
-      handler.setShells(1);
-      await _settle();
-
-      await handler.setHosts(const []);
-      await _settle();
-
-      expect(bridge.tallies.first, isNotNull);
-      expect(bridge.tallies.last, isNull);
-    });
-
-    test('reads not watching with no alert row on', () async {
+    test('is not drawn with no alert row on', () async {
       final bridge = _Bridge();
       final handler = _handler();
       addTearDown(() => handler.onDestroy(DateTime.now(), false));
@@ -120,6 +113,16 @@ void main() {
 
       expect(bridge.shade, isNotEmpty);
       expect(bridge.tallies, [null]);
+      expect(bridge.asked, 0);
+    });
+
+    test('a tally is written as its two counts', () async {
+      final bridge = _Bridge();
+
+      await LauncherWidget.setTally((blocked: 1, working: 2));
+      await LauncherWidget.setTally(null);
+
+      expect(bridge.tallies, [1, null]);
     });
   });
 
@@ -145,19 +148,36 @@ void main() {
   });
 
   group('a tap', () {
-    test('names where it goes', () async {
-      final bridge = _Bridge()..waiting = 'inputBar';
+    test('names where it goes and the send it came from', () async {
+      final bridge = _Bridge()..waiting = {'target': 'inputBar'};
 
-      expect(await LauncherWidget.take(), LauncherOpen.inputBar);
+      expect(await LauncherWidget.take(), (
+        open: LauncherOpen.inputBar,
+        send: null,
+      ));
+      bridge.waiting = {'target': 'run', 'send': 's1'};
+      expect(await LauncherWidget.take(), (open: LauncherOpen.run, send: 's1'));
       bridge.waiting = null;
       expect(await LauncherWidget.take(), isNull);
     });
 
     test('an unknown target opens nothing', () {
       expect(parseLauncherOpen('agents'), LauncherOpen.agents);
-      expect(parseLauncherOpen('plugins'), LauncherOpen.plugins);
-      expect(parseLauncherOpen('settings'), isNull);
+      expect(parseLauncherOpen('sent'), LauncherOpen.sent);
+      expect(parseLauncherOpen('home'), isNull);
       expect(parseLauncherOpen(null), isNull);
+      expect(parseLauncherTap({'target': 'home'}), isNull);
     });
+  });
+
+  test('only a row with a host and a pane is an open send', () {
+    expect(
+      parseOpenSends([
+        {'id': 's1', 'host': 'h1', 'pane': 'wQ:p1'},
+        {'id': 's2', 'host': 'h1'},
+        'stray',
+      ]),
+      [(id: 's1', host: 'h1', session: null, pane: 'wQ:p1')],
+    );
   });
 }

@@ -273,11 +273,13 @@ void main() {
             required prompt,
             images = const <RemoteFile>[],
             model,
+            onPane,
             required verifier,
           }) async {
             outgoing = prompt;
             return const SpawnRefused(SpawnRefusal.noSession);
           })(
+            sendId: 'send-1',
             target: _target(),
             itemId: await onlyTaskId(),
             kind: const ClaudeKind(),
@@ -321,12 +323,14 @@ void main() {
             required prompt,
             images = const <RemoteFile>[],
             model,
+            onPane,
             required verifier,
           }) async {
             calls.add(_Call(kind.name, directory, prompt));
             verifiers.add(verifier);
-            return const SpawnSent('wQ:p7');
+            return const SpawnSent('wQ:p7', 'main');
           })(
+            sendId: 'send-1',
             target: _target(),
             kind: const ClaudeKind(),
             itemId: itemId,
@@ -354,6 +358,10 @@ void main() {
       expect(rows.single.label, 'striked');
       expect(rows.single.agent, 'claude');
       expect(rows.single.paneId, 'wQ:p7');
+      expect(rows.single.herdrSession, 'main');
+      expect(rows.single.id, 'send-1');
+      expect(rows.single.status, DispatchStatus.sent);
+      expect(rows.single.text, 'read the gate log\n\nhttps://a.example');
 
       final entries = await activity.watchRecent().first;
       final sent = entries.firstWhere(
@@ -364,7 +372,7 @@ void main() {
       expect(sent.detail, 'wQ:p7');
     });
 
-    test('a send for no item goes out as typed and leaves no row', () async {
+    test('a send for no item goes out as typed and is recorded', () async {
       final prompts = <String>[];
       final state =
           await sender(({
@@ -377,11 +385,13 @@ void main() {
             required prompt,
             images = const <RemoteFile>[],
             model,
+            onPane,
             required verifier,
           }) async {
             prompts.add(prompt);
-            return const SpawnSent('wQ:p8');
+            return const SpawnSent('wQ:p8', 'main');
           })(
+            sendId: 'send-8',
             target: _target(),
             kind: const ClaudeKind(),
             title: 'fix the gate',
@@ -391,7 +401,17 @@ void main() {
 
       expect(state, isA<SendSent>());
       expect(prompts.single, 'fix the gate\nthen rerun it');
-      expect(await db.select(db.dispatches).get(), isEmpty);
+      final row = (await db.select(db.dispatches).get()).single;
+      expect(
+        (row.id, row.itemId, row.body, row.status, row.paneId),
+        (
+          'send-8',
+          null,
+          'fix the gate\nthen rerun it',
+          DispatchStatus.sent,
+          'wQ:p8',
+        ),
+      );
     });
 
     test('a drop s images go up as files and the prompt names them', () async {
@@ -411,16 +431,18 @@ void main() {
               required prompt,
               images = const <RemoteFile>[],
               model,
+              onPane,
               required verifier,
             }) async {
               calls.add(_Call(kind.name, directory, prompt, images));
-              return const SpawnSent('wQ:p7');
+              return const SpawnSent('wQ:p7', 'main');
             },
             readImage: (path) async {
               read.add(path);
               return Uint8List.fromList([path.length]);
             },
           )(
+            sendId: 'send-1',
             target: _target(),
             kind: const ClaudeKind(),
             itemId: itemId,
@@ -466,13 +488,15 @@ void main() {
               required prompt,
               images = const <RemoteFile>[],
               model,
+              onPane,
               required verifier,
             }) async {
               dialled = true;
-              return const SpawnSent('wQ:p7');
+              return const SpawnSent('wQ:p7', 'main');
             },
             readImage: (path) async => throw const FileSystemException('gone'),
           )(
+            sendId: 'send-1',
             target: _target(),
             kind: const ClaudeKind(),
             itemId: itemId,
@@ -484,9 +508,14 @@ void main() {
       expect(dialled, isFalse);
       expect((state as SendFailed).reason, 'image unreadable');
       expect(await dispatches.watchForItem(itemId).first, isEmpty);
+      final kept = (await db.select(db.dispatches).get()).single;
+      expect(
+        (kept.status, kept.failure),
+        (DispatchStatus.failed, 'image unreadable'),
+      );
     });
 
-    test('no refused transaction leaves a row behind', () async {
+    test('a refused send is kept as failed and the item lists none', () async {
       final itemId = await onlyTaskId();
       for (final refusal in SpawnRefusal.values) {
         final state =
@@ -501,9 +530,11 @@ void main() {
                 required prompt,
                 images = const <RemoteFile>[],
                 model,
+                onPane,
                 required verifier,
               }) async => SpawnRefused(refusal),
             )(
+              sendId: 'send-1',
               target: _target(),
               kind: const ClaudeKind(),
               itemId: itemId,
@@ -515,6 +546,9 @@ void main() {
       }
       expect(await dispatches.watchForItem(itemId).first, isEmpty);
       expect(await dispatches.watchSentItems().first, isEmpty);
+      final kept = (await db.select(db.dispatches).get()).single;
+      expect(kept.status, DispatchStatus.failed);
+      expect(kept.failure, spawnRefusalReason(SpawnRefusal.values.last));
     });
 
     test(
@@ -536,9 +570,11 @@ void main() {
                   required prompt,
                   images = const <RemoteFile>[],
                   model,
+                  onPane,
                   required verifier,
                 }) async => throw failure,
               )(
+                sendId: 'send-1',
                 target: _target(),
                 kind: const ClaudeKind(),
                 itemId: itemId,
@@ -571,11 +607,13 @@ void main() {
             required prompt,
             images = const <RemoteFile>[],
             model,
+            onPane,
             required verifier,
           }) async {
             dialled = true;
-            return const SpawnSent('wQ:p7');
+            return const SpawnSent('wQ:p7', 'main');
           })(
+            sendId: 'send-1',
             target: _target(),
             kind: const ClaudeKind(),
             itemId: itemId,
@@ -585,6 +623,45 @@ void main() {
       expect(dialled, isFalse);
       expect((state as SendFailed).reason, 'key rejected');
     });
+
+    test(
+      'the record opens as sending and takes the pane once it exists',
+      () async {
+        final itemId = await onlyTaskId();
+        DispatchStatus? during;
+        await sender(({
+          required address,
+          required port,
+          required user,
+          required privateKey,
+          required kind,
+          required directory,
+          required prompt,
+          images = const <RemoteFile>[],
+          model,
+          onPane,
+          required verifier,
+        }) async {
+          during = (await db.select(db.dispatches).get()).single.status;
+          onPane?.call((session: 'work', pane: 'wQ:p9'));
+          return const SpawnSent('wQ:p9', 'main');
+        })(
+          sendId: 'send-1',
+          target: _target(),
+          kind: const ClaudeKind(),
+          itemId: itemId,
+          title: 'read the gate log',
+          links: const [],
+          model: 'opus',
+        );
+        expect(during, DispatchStatus.sending);
+        final row = (await db.select(db.dispatches).get()).single;
+        expect(
+          (row.status, row.herdrSession, row.paneId, row.model),
+          (DispatchStatus.sent, 'work', 'wQ:p9', 'opus'),
+        );
+      },
+    );
   });
 
   group('the quick view', () {
@@ -828,12 +905,13 @@ void main() {
                 required prompt,
                 images = const <RemoteFile>[],
                 model,
+                onPane,
                 required verifier,
               }) async {
                 seen = prompt;
                 seenKind = kind.name;
                 seenModel = model;
-                return const SpawnSent('wQ:p7');
+                return const SpawnSent('wQ:p7', 'main');
               },
         ),
       );
@@ -909,12 +987,13 @@ void main() {
                 required prompt,
                 images = const <RemoteFile>[],
                 model,
+                onPane,
                 required verifier,
               }) async {
                 attempts++;
                 return attempts == 1
                     ? const SpawnRefused(SpawnRefusal.noDirectory)
-                    : const SpawnSent('wQ:p9');
+                    : const SpawnSent('wQ:p9', 'main');
               },
         ),
       );
@@ -961,6 +1040,7 @@ void main() {
             required prompt,
             images = const <RemoteFile>[],
             model,
+            onPane,
             required verifier,
           }) => answer.future,
         ),
@@ -978,7 +1058,7 @@ void main() {
       expect(find.byType(SendingTag), findsOneWidget);
       expect(find.text('RETRY'), findsNothing);
 
-      answer.complete(const SpawnSent('wQ:p4'));
+      answer.complete(const SpawnSent('wQ:p4', 'main'));
       await _drain(tester);
       expect(find.text('[ SENDING ]'), findsNothing);
       expect(find.byType(SentTag), findsOneWidget);
@@ -993,13 +1073,16 @@ void main() {
       final activity = ActivityRepository(db);
       final id = await TaskRepository(db, activity).create(title: 'a drop');
       await addPath();
-      await DriftDispatchRepository(db, activity).record(
+      final sends = DriftDispatchRepository(db, activity);
+      await sends.start(
+        id: 'send-1',
         itemId: id,
         pathId: 'path-striked',
-        paneId: 'wQ:p7',
-        title: 'a drop',
+        text: 'a drop',
         agent: 'claude',
       );
+      await sends.pane('send-1', session: 'main', paneId: 'wQ:p7');
+      await sends.sent('send-1', title: 'a drop');
 
       await tester.pumpWidget(app(id));
       await _drain(tester);
@@ -1023,13 +1106,16 @@ void main() {
       final id = await tasks.create(title: 'a drop');
       await tasks.setPrompt(id, 'read lib/auth first');
       await addPath();
-      await DriftDispatchRepository(db, activity).record(
+      final sends = DriftDispatchRepository(db, activity);
+      await sends.start(
+        id: 'send-1',
         itemId: id,
         pathId: 'path-striked',
-        paneId: 'wQ:p7',
-        title: 'a drop',
+        text: 'a drop',
         agent: 'claude',
       );
+      await sends.pane('send-1', session: 'main', paneId: 'wQ:p7');
+      await sends.sent('send-1', title: 'a drop');
 
       await tester.pumpWidget(app(id));
       await _drain(tester);
@@ -1143,10 +1229,11 @@ void main() {
                 required prompt,
                 images = const <RemoteFile>[],
                 model,
+                onPane,
                 required verifier,
               }) async {
                 seen = prompt;
-                return const SpawnSent('wQ:p7');
+                return const SpawnSent('wQ:p7', 'main');
               },
         ),
       );

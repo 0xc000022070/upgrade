@@ -4,7 +4,13 @@
     <color name="launcher_border">#FF2E343C</color>
     <color name="launcher_ink">#FFE8E8E3</color>
     <color name="launcher_dim">#FF9299A2</color>
+    <color name="launcher_disabled">#FF50555C</color>
     <color name="launcher_accent">#FFB7FF2A</color>
-    <string name="launcher_widget_label">STRIKED</string>
-    <string name="launcher_widget_description">The agents\' tally and a door to the input bar.</string>
+    <color name="launcher_warning">#FFD6A34B</color>
+    <color name="launcher_danger">#FFB84A4A</color>
+    <dimen name="launcher_radius">0dp</dimen>
+    <string name="launcher_widget_label">STRIKED · BAR</string>
+    <string name="launcher_widget_description">A door to the input bar.</string>
+    <string name="send_widget_label">STRIKED · SEND</string>
+    <string name="send_widget_description">Hands an agent a sentence and shows what the last sends are doing.</string>
 </resources>

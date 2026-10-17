@@ -191,16 +191,26 @@ class Paths extends Table {
 @DataClassName('DispatchRow')
 class Dispatches extends Table {
   TextColumn get id => text()();
-  TextColumn get itemId => text().references(Tasks, #id)();
+  TextColumn get itemId => text().nullable().references(Tasks, #id)();
   TextColumn get pathId => text().references(Paths, #id)();
+  TextColumn get body => text().named('text').withDefault(const Constant(''))();
 
   /// The default is what the migration that moved this column off `paths` leaves a row it
   /// cannot resolve, and what a row from before the column reads as.
   TextColumn get agent => text().withDefault(const Constant('claude'))();
 
   TextColumn get model => text().nullable()();
-  TextColumn get paneId => text()();
+  TextColumn get paneId => text().nullable()();
+  TextColumn get herdrSession => text().nullable()();
   DateTimeColumn get sentAt => dateTime()();
+
+  TextColumn get status => text()
+      .map(const DispatchStatusConverter())
+      .withDefault(const Constant('sent'))();
+  TextColumn get failure => text().nullable()();
+  TextColumn get engineSession => text().nullable()();
+
+  TextColumn get states => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

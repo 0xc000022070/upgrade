@@ -10,7 +10,7 @@ import 'package:striked/data/repositories/path_repository.dart';
 class PendingSend {
   const PendingSend({
     required this.id,
-    required this.itemId,
+    this.itemId,
     required this.title,
     required this.target,
     required this.kind,
@@ -24,7 +24,7 @@ class PendingSend {
   final String title;
   final PathTarget target;
   final AgentKind kind;
-  final Future<SendState> Function() run;
+  final Future<SendState> Function(String id) run;
 
   final void Function()? onDismissed;
 
@@ -48,16 +48,22 @@ class SendQueue extends Notifier<List<PendingSend>> {
   @override
   List<PendingSend> build() => const [];
 
-  void start({
+  String start({
+    String? id,
     String? itemId,
     required String title,
     required PathTarget target,
     required AgentKind kind,
-    required Future<SendState> Function() run,
+    required Future<SendState> Function(String id) run,
     void Function()? onDismissed,
   }) {
+    final existing = id == null ? null : _find(id);
+    if (existing != null) {
+      retry(existing.id);
+      return existing.id;
+    }
     final send = PendingSend(
-      id: _uuid.v7(),
+      id: id ?? _uuid.v7(),
       itemId: itemId,
       title: title,
       target: target,
@@ -67,6 +73,7 @@ class SendQueue extends Notifier<List<PendingSend>> {
     );
     state = [...state, send];
     _run(send);
+    return send.id;
   }
 
   void retry(String id) {
@@ -97,7 +104,7 @@ class SendQueue extends Notifier<List<PendingSend>> {
         );
     SendState result;
     try {
-      result = await send.run();
+      result = await send.run(send.id);
     } catch (error) {
       debugPrint('striked.spawn ${send.target.host.name}: $error');
       result = const SendFailed('send failed');

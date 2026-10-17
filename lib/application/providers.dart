@@ -184,6 +184,16 @@ final itemDispatchesProvider = StreamProvider.family<List<Dispatch>, String>(
   dependencies: [dispatchRepositoryProvider],
 );
 
+final sendsProvider = StreamProvider<List<Dispatch>>(
+  (ref) => ref.watch(dispatchRepositoryProvider).watchAll(),
+  dependencies: [dispatchRepositoryProvider],
+);
+
+final sendProvider = StreamProvider.family<Dispatch?, String>(
+  (ref, id) => ref.watch(dispatchRepositoryProvider).watchOne(id),
+  dependencies: [dispatchRepositoryProvider],
+);
+
 final recentActivityProvider = StreamProvider<List<ActivityEntry>>(
   (ref) => ref.watch(activityRepositoryProvider).watchRecent(),
 );

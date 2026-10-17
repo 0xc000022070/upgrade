@@ -128,3 +128,26 @@ class IntegrationKindConverter extends TypeConverter<IntegrationKind, String> {
   @override
   String toSql(IntegrationKind value) => value.wire;
 }
+
+enum DispatchStatus {
+  sending('sending'),
+  sent('sent'),
+  failed('failed');
+
+  const DispatchStatus(this.wire);
+
+  final String wire;
+
+  static DispatchStatus fromWire(String value) =>
+      values.firstWhere((status) => status.wire == value);
+}
+
+class DispatchStatusConverter extends TypeConverter<DispatchStatus, String> {
+  const DispatchStatusConverter();
+
+  @override
+  DispatchStatus fromSql(String fromDb) => DispatchStatus.fromWire(fromDb);
+
+  @override
+  String toSql(DispatchStatus value) => value.wire;
+}

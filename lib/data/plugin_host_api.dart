@@ -75,22 +75,52 @@ class PluginDispatchApi implements DispatchRepository {
   Stream<Set<String>> watchSentItems() =>
       _gate.watch('host.dispatch', _base.watchSentItems);
   @override
-  Future<void> record({
-    required String itemId,
+  Stream<List<Dispatch>> watchAll() =>
+      _gate.watch('host.dispatch', _base.watchAll);
+  @override
+  Stream<Dispatch?> watchOne(String id) =>
+      _gate.watch('host.dispatch', () => _base.watchOne(id));
+  @override
+  Future<void> start({
+    required String id,
+    String? itemId,
     required String pathId,
-    required String paneId,
-    required String title,
+    required String text,
     required String agent,
     String? model,
   }) => _gate.call(
     'host.dispatch',
-    () => _base.record(
+    () => _base.start(
+      id: id,
       itemId: itemId,
       pathId: pathId,
-      paneId: paneId,
-      title: title,
+      text: text,
       agent: agent,
       model: model,
     ),
   );
+  @override
+  Future<void> pane(
+    String id, {
+    required String session,
+    required String paneId,
+  }) => _gate.call(
+    'host.dispatch',
+    () => _base.pane(id, session: session, paneId: paneId),
+  );
+  @override
+  Future<void> sent(String id, {required String title}) =>
+      _gate.call('host.dispatch', () => _base.sent(id, title: title));
+  @override
+  Future<void> failed(String id, String reason) =>
+      _gate.call('host.dispatch', () => _base.failed(id, reason));
+  @override
+  Future<void> seen(String id, String state) =>
+      _gate.call('host.dispatch', () => _base.seen(id, state));
+  @override
+  Future<void> linkSession(String id, String engineSession) =>
+      _gate.call('host.dispatch', () => _base.linkSession(id, engineSession));
+  @override
+  Future<void> delete(String id) =>
+      _gate.call('host.dispatch', () => _base.delete(id));
 }

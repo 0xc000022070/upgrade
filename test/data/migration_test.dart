@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:striked/data/database.dart';
+import 'package:striked/data/enums.dart';
 
 Future<int> _userVersion(AppDatabase db) => db
     .customSelect('PRAGMA user_version')
@@ -88,7 +89,7 @@ void main() {
       const ShellTabsCompanion(launch: Value('tmux:0')),
     );
     expect((await db.select(db.shellTabs).getSingle()).launch, 'tmux:0');
-    expect(await _userVersion(db), 23);
+    expect(await _userVersion(db), db.schemaVersion);
   });
 
   test(
@@ -110,7 +111,7 @@ void main() {
       expect(row.number, 3);
       expect(row.remoteSession, 'm0123456789abcdef');
       expect(row.launch, 'tmux:0');
-      expect(await _userVersion(db), 23);
+      expect(await _userVersion(db), db.schemaVersion);
     },
   );
 
@@ -136,7 +137,7 @@ void main() {
       const ShellTabsCompanion(position: Value(0)),
     );
     expect((await db.select(db.shellTabs).getSingle()).position, 0);
-    expect(await _userVersion(db), 23);
+    expect(await _userVersion(db), db.schemaVersion);
   });
 
   test('a v21 host keeps its row and gains a null system', () async {
@@ -160,7 +161,7 @@ void main() {
       const HostsCompanion(system: Value('nixos')),
     );
     expect((await db.select(db.hosts).getSingle()).system, 'nixos');
-    expect(await _userVersion(db), 23);
+    expect(await _userVersion(db), db.schemaVersion);
   });
 
   test('a v22 shell tab keeps its row and rides the shared link', () async {
@@ -188,6 +189,76 @@ void main() {
       const ShellTabsCompanion(ownConnection: Value(true)),
     );
     expect((await db.select(db.shellTabs).getSingle()).ownConnection, isTrue);
-    expect(await _userVersion(db), 23);
+    expect(await _userVersion(db), db.schemaVersion);
   });
+
+  test('a v23 dispatch keeps its row as a send that reached its pane, titled by its item', () async {
+    final first = AppDatabase(NativeDatabase(file));
+    await first.customStatement('DROP TABLE dispatches');
+    await first.customStatement(
+      'CREATE TABLE dispatches (id TEXT NOT NULL, '
+      'item_id TEXT NOT NULL REFERENCES tasks (id), '
+      'path_id TEXT NOT NULL REFERENCES paths (id), '
+      "agent TEXT NOT NULL DEFAULT 'claude', model TEXT NULL, "
+      'pane_id TEXT NOT NULL, sent_at TEXT NOT NULL, PRIMARY KEY (id))',
+    );
+    await first.customStatement(
+      "INSERT INTO dispatches (id, item_id, path_id, agent, pane_id, sent_at) "
+      "VALUES ('d1', 't1', 'p1', 'codex', 'wQ:p7', '2026-09-21T00:00:00.000Z')",
+    );
+    await first.customStatement(
+      "INSERT INTO tasks (id, title, created_at, updated_at) VALUES ('t1', "
+      "'fix the parser', '2026-09-21T00:00:00.000Z', '2026-09-21T00:00:00.000Z')",
+    );
+    await first.customStatement('PRAGMA user_version = 23');
+    await first.close();
+
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(db.close);
+
+    final row = await db.select(db.dispatches).getSingle();
+    expect((row.itemId, row.agent, row.paneId), ('t1', 'codex', 'wQ:p7'));
+    expect(
+      (row.status, row.body, row.states),
+      (DispatchStatus.sent, 'fix the parser', null),
+    );
+    await db
+        .into(db.dispatches)
+        .insert(
+          DispatchesCompanion.insert(
+            id: 'd2',
+            pathId: 'p1',
+            sentAt: DateTime.utc(2026, 10),
+          ),
+        );
+    final unlisted = await (db.select(
+      db.dispatches,
+    )..where((d) => d.id.equals('d2'))).getSingle();
+    expect((unlisted.itemId, unlisted.paneId), (null, null));
+    expect(await _userVersion(db), db.schemaVersion);
+  });
+
+  test(
+    'a send still open when the file opens is failed as interrupted',
+    () async {
+      final first = AppDatabase(NativeDatabase(file));
+      await first
+          .into(first.dispatches)
+          .insert(
+            DispatchesCompanion.insert(
+              id: 'd1',
+              pathId: 'p1',
+              sentAt: DateTime.utc(2026, 10),
+              status: const Value(DispatchStatus.sending),
+            ),
+          );
+      await first.close();
+
+      final db = AppDatabase(NativeDatabase(file));
+      addTearDown(db.close);
+
+      final row = await db.select(db.dispatches).getSingle();
+      expect((row.status, row.failure), (DispatchStatus.failed, 'interrupted'));
+    },
+  );
 }

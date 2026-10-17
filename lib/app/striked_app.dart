@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:striked/application/agents/send_states.dart';
 import 'package:striked/application/drops/drop_selection.dart';
 import 'package:striked/application/drops/fresh_drops.dart';
 import 'package:striked/application/navigation.dart';
@@ -128,6 +129,7 @@ class _StrikedShellState extends ConsumerState<StrikedShell> {
   @override
   Widget build(BuildContext context) {
     ref.listen<int>(navIndexProvider, (_, next) => _onIndexChanged(next));
+    ref.listen<void>(sendStatesProvider, (_, _) {});
     final selectedIndex = ref.watch(navIndexProvider);
     final catalog = ref.watch(pluginContributionCatalogProvider);
     final placementState = ref.watch(pluginPlacementsProvider);

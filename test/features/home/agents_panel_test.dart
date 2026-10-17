@@ -105,7 +105,7 @@ void main() {
             host: hostA,
           ),
           kind: AgentKind.all.last,
-          run: () => answer.future,
+          run: (_) => answer.future,
         );
     final state = snapshotOf([
       agent(

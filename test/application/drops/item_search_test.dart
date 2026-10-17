@@ -4,6 +4,7 @@ import 'package:striked/data/repositories/activity_repository.dart';
 import 'package:striked/data/repositories/attachment_repository.dart';
 import 'package:striked/data/repositories/project_repository.dart';
 import 'package:striked/data/repositories/task_repository.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -63,9 +64,9 @@ void main() {
           .insert(
             DispatchesCompanion.insert(
               id: 'd1',
-              itemId: shot,
+              itemId: Value(shot),
               pathId: 'p1',
-              paneId: 'pane',
+              paneId: const Value('pane'),
               sentAt: at,
             ),
           );

@@ -40,9 +40,9 @@ void main() {
       .insert(
         DispatchesCompanion.insert(
           id: 'dispatch-1',
-          itemId: 'drop-1',
+          itemId: const Value('drop-1'),
           pathId: pathId,
-          paneId: 'wQ:pH',
+          paneId: const Value('wQ:pH'),
           sentAt: DateTime(2026, 9, 3),
         ),
       );

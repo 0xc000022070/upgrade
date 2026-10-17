@@ -4,20 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:striked/application/agents/send.dart';
-import 'package:striked/application/agents/send_queue.dart';
 import 'package:striked/application/home/composer_focus.dart';
 import 'package:striked/application/prompt/prompt_target.dart';
-import 'package:striked/application/providers.dart';
 import 'package:striked/design/tokens.dart';
 import 'package:striked/design/components/keyboard_toolbar.dart';
-import 'package:striked/design/components/panel_sheet.dart';
 import 'package:striked/design/components/solid_action_bar.dart';
 import 'package:striked/design/components/striked_field.dart';
 import 'package:striked/design/icons/striked_icon.dart';
 import 'package:striked/design/icons/striked_icons.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/features/home/composer_panel.dart';
-import 'package:striked/features/tasks/send_steps.dart';
+import 'package:striked/features/home/prompt_send.dart';
 
 const _title = 'PROMPT / AGENT';
 
@@ -26,8 +23,6 @@ final promptDraftProvider = Provider<TextEditingController>((ref) {
   ref.onDispose(controller.dispose);
   return controller;
 });
-
-String promptTitle(String text) => text.trim().split('\n').first.trim();
 
 class PromptBar extends ConsumerStatefulWidget {
   const PromptBar({super.key, this.hidable = false});
@@ -75,49 +70,21 @@ class _PromptBarState extends ConsumerState<PromptBar> {
 
   void _send(String text, SendChoice choice) {
     final draft = _controller;
-    final title = promptTitle(text);
-    final sender = ref.read(senderProvider);
-    final SendChoice(:target, :kind, :model) = choice;
     draft.clear();
     _focus.unfocus();
-    unawaited(savePromptTarget(ref.read(settingsRepositoryProvider), choice));
-    ref
-        .read(sendQueueProvider.notifier)
-        .start(
-          title: title,
-          target: target,
-          kind: kind,
-          run: () => sender(
-            target: target,
-            kind: kind,
-            model: model,
-            title: title,
-            links: const [],
-            message: text,
-          ),
-          onDismissed: () {
-            if (draft.text.trim().isEmpty) draft.text = text;
-          },
-        );
+    startPromptSend(
+      ref,
+      text,
+      choice,
+      onDismissed: () {
+        if (draft.text.trim().isEmpty) draft.text = text;
+      },
+    );
   }
 
-  Future<SendChoice?> _chooseTarget({required String action}) async {
+  Future<SendChoice?> _chooseTarget({required String action}) {
     _focus.unfocus();
-    final initial = ref.read(promptChoiceProvider);
-    final settings = ref.read(settingsRepositoryProvider);
-    final picked = await showPanelSheet<SendChoice>(
-      context,
-      title: 'SEND TO',
-      builder: (context) => SendSteps(
-        initial: initial,
-        multiplexerOnly: true,
-        action: action,
-        onChosen: (choice) => Navigator.of(context).pop(choice),
-        onExit: () => Navigator.of(context).pop(),
-      ),
-    );
-    if (picked != null) await savePromptTarget(settings, picked);
-    return picked;
+    return choosePromptTarget(context, ref, action: action);
   }
 
   Future<void> _pickTarget() async {

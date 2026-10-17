@@ -25,20 +25,17 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val power by lazy { applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager }
-    private val connectivity by lazy {
-        applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    }
-
     // One document picker at a time.
     private var pendingDocument: MethodChannel.Result? = null
     private var pendingBytes: ByteArray? = null
 
     private var warm = false
+    private var evicted = false
 
     private var dictation: Dictation? = null
 
@@ -63,9 +60,25 @@ class MainActivity : FlutterActivity() {
         if (!warm) return
         StrikedEngine.orientation?.let { super.setRequestedOrientation(it) }
         super.setFrameworkHandlesBack(StrikedEngine.handlesBack)
-        if (savedInstanceState == null && notificationTap(intent)) {
+        val replay = savedInstanceState?.getBoolean(REPLAY_TAP) ?: true
+        if (replay && notificationTap(intent)) {
             flutterEngine?.activityControlSurface?.onNewIntent(intent)
         }
+    }
+
+    override fun detachFromFlutterEngine() {
+        super.detachFromFlutterEngine()
+        evicted = true
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (evicted) recreate()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(REPLAY_TAP, evicted)
     }
 
     override fun onResume() {
@@ -84,6 +97,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        if (evicted) setIntent(intent)
         if (intent.action == TransferService.OPEN) TransferService.deliver("openTransfers")
         LauncherWidget.opened(intent)
     }
@@ -169,6 +183,7 @@ class MainActivity : FlutterActivity() {
                     LauncherWidget.handle(applicationContext, call, result)
                 }
             }
+            channel.invokeMethod("app", null)
         }
 
         MethodChannel(messenger, "dev.luisnquin.striked/pip")
@@ -192,39 +207,7 @@ class MainActivity : FlutterActivity() {
         dictation = Dictation(this, speech).also { speech.setMethodCallHandler(it::handle) }
 
         StrikedEngine.pip(isInPictureInPictureMode)
-        if (warm) return
-
-        EventChannel(messenger, "dev.luisnquin.striked/pip/mode")
-            .setStreamHandler(object : EventChannel.StreamHandler {
-                override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
-                    StrikedEngine.pipEvents = sink
-                    // Replayed: a subscriber that arrives after the window did
-                    // would otherwise draw the whole app into a corner tile.
-                    sink.success(StrikedEngine.inPip)
-                }
-
-                override fun onCancel(arguments: Any?) {
-                    StrikedEngine.pipEvents = null
-                }
-            })
-
-        EventChannel(messenger, "dev.luisnquin.striked/device/throttle")
-            .setStreamHandler(ThrottleStreamHandler(applicationContext, power))
-
-        EventChannel(messenger, "dev.luisnquin.striked/linux/state")
-            .setStreamHandler(object : EventChannel.StreamHandler {
-                override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
-                    PhoneLinux.sink = sink
-                    PhoneLinux.changed(applicationContext)
-                }
-
-                override fun onCancel(arguments: Any?) {
-                    PhoneLinux.sink = null
-                }
-            })
-
-        EventChannel(messenger, "dev.luisnquin.striked/device/network")
-            .setStreamHandler(NetworkStreamHandler(connectivity))
+        StrikedEngine.stream(applicationContext, messenger)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
@@ -378,8 +361,9 @@ class MainActivity : FlutterActivity() {
 
 // Swiping the task away used to take the engine with it, and on faraday's PowerVR driver that
 // Vulkan teardown can hang for good while the watcher service keeps the process alive.
-private object StrikedEngine {
+internal object StrikedEngine {
     private var engine: FlutterEngine? = null
+    private var streamed = false
 
     var pipEvents: EventChannel.EventSink? = null
     var inPip = false
@@ -397,12 +381,56 @@ private object StrikedEngine {
         inPip = mode
         pipEvents?.success(mode)
     }
+
+    fun stream(context: Context, messenger: BinaryMessenger) {
+        if (streamed) return
+        streamed = true
+
+        EventChannel(messenger, "dev.luisnquin.striked/pip/mode")
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
+                    pipEvents = sink
+                    // Replayed: a subscriber that arrives after the window did
+                    // would otherwise draw the whole app into a corner tile.
+                    sink.success(inPip)
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    pipEvents = null
+                }
+            })
+
+        EventChannel(messenger, "dev.luisnquin.striked/device/throttle")
+            .setStreamHandler(
+                ThrottleStreamHandler(context, context.getSystemService(Context.POWER_SERVICE) as PowerManager),
+            )
+
+        EventChannel(messenger, "dev.luisnquin.striked/linux/state")
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
+                    PhoneLinux.sink = sink
+                    PhoneLinux.changed(context)
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    PhoneLinux.sink = null
+                }
+            })
+
+        EventChannel(messenger, "dev.luisnquin.striked/device/network")
+            .setStreamHandler(
+                NetworkStreamHandler(
+                    context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager,
+                ),
+            )
+    }
 }
 
 private const val FRAME_RATE = 60f
 
 private const val SAVE_DOCUMENT = 3901
 private const val OPEN_DOCUMENT = 3902
+private const val REPLAY_TAP = "striked.replayTap"
 
 // Battery saver and thermal pressure are merged here rather than in Dart, so the
 // UI subscribes to the decision and not to the two inputs.

@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/home/compose_window.dart';
 import 'package:striked/application/navigation.dart';
 import 'package:striked/application/pip.dart';
 import 'package:striked/data/repositories/host_repository.dart';
@@ -68,27 +69,34 @@ class _DeviceFloatState extends ConsumerState<DeviceFloat> {
       screenPipProvider,
       (_, surface) => _dock.pipFor(surface),
     );
+    ref.listenManual<bool>(composeWindowProvider, (_, _) => _away());
   }
 
   void _setHidden(bool hidden) {
     _hidden = hidden;
-    _dock.setAway(_hidden || _inPip);
+    _away();
   }
+
+  void _away() =>
+      _dock.setAway(_hidden || _inPip || ref.read(composeWindowProvider));
 
   @override
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<bool>>(pipModeProvider, (_, next) {
       _inPip = next.valueOrNull ?? false;
       if (!_inPip) ref.read(screenPipProvider.notifier).state = null;
-      _dock.setAway(_hidden || _inPip);
+      _away();
     });
     // Above the navigator there is no overlay for the bar's menu to open in.
     return Stack(
       fit: StackFit.expand,
       children: [
         widget.child,
-        Overlay(
-          initialEntries: [OverlayEntry(builder: (_) => const _FloatLayer())],
+        Offstage(
+          offstage: ref.watch(composeWindowProvider),
+          child: Overlay(
+            initialEntries: [OverlayEntry(builder: (_) => const _FloatLayer())],
+          ),
         ),
       ],
     );

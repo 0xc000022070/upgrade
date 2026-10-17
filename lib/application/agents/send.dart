@@ -24,6 +24,7 @@ typedef HerdrSend = Future<SpawnResult> Function({
   required String prompt,
   List<RemoteFile> images,
   String? model,
+  void Function(PaneRef pane)? onPane,
   required HostKeyVerifier verifier,
 });
 
@@ -45,11 +46,12 @@ Future<SpawnResult> _fakeSend({
   required String prompt,
   List<RemoteFile> images = const [],
   String? model,
+  void Function(PaneRef pane)? onPane,
   required HostKeyVerifier verifier,
 }) async {
   // Long enough that SENDING is a state the eye reads rather than a flicker.
   await Future<void>.delayed(const Duration(milliseconds: 900));
-  return const SpawnSent('wQ:pH');
+  return const SpawnSent('wQ:pH', 'main');
 }
 
 final herdrSendProvider = Provider<HerdrSend>((ref) {
@@ -93,9 +95,10 @@ final class SendSending extends SendState {
 }
 
 final class SendSent extends SendState {
-  const SendSent(this.paneId);
+  const SendSent(this.paneId, [this.session]);
 
   final String paneId;
+  final String? session;
 }
 
 final class SendFailed extends SendState {
@@ -130,6 +133,7 @@ class Sender {
   final void Function()? checkActive;
 
   Future<SendState> call({
+    required String sendId,
     required PathTarget target,
     String? itemId,
     required String title,
@@ -141,6 +145,58 @@ class Sender {
     String? model,
   }) async {
     checkActive?.call();
+    final named = [
+      for (final path in imagePaths) RemoteFile.fromPath(path, Uint8List(0)),
+    ];
+    final text = message == null
+        ? sendPrompt(title: title, links: links, prompt: prompt, images: named)
+        : [
+            message,
+            if (named.isNotEmpty)
+              named.map((image) => image.remotePath).join('\n'),
+          ].join('\n\n');
+    await dispatches.start(
+      id: sendId,
+      itemId: itemId,
+      pathId: target.path.id,
+      text: text,
+      agent: kind.name,
+      model: model,
+    );
+    final SendState state;
+    try {
+      state = await _attempt(
+        sendId: sendId,
+        target: target,
+        kind: kind,
+        text: text,
+        imagePaths: imagePaths,
+        model: model,
+      );
+    } catch (_) {
+      // ignored: the original send error is rethrown below, it matters more
+      await dispatches.failed(sendId, 'send failed').catchError((_) {});
+      rethrow;
+    }
+    switch (state) {
+      case SendSent():
+        await dispatches.sent(sendId, title: title);
+      case SendFailed(:final reason):
+        await dispatches.failed(sendId, reason);
+      case SendSending():
+        break;
+    }
+    return state;
+  }
+
+  Future<SendState> _attempt({
+    required String sendId,
+    required PathTarget target,
+    required AgentKind kind,
+    required String text,
+    required List<String> imagePaths,
+    String? model,
+  }) async {
     final host = target.host;
     void log(Object error) => debugPrint('striked.spawn ${host.name}: $error');
 
@@ -161,6 +217,7 @@ class Sender {
         return const SendFailed('image unreadable');
       }
     }
+    final panes = <Future<void>>[];
     final SpawnResult result;
     try {
       checkActive?.call();
@@ -173,43 +230,46 @@ class Sender {
         model: model,
         directory: target.path.directory,
         images: images,
-        prompt: message == null
-            ? sendPrompt(
-                title: title,
-                links: links,
-                prompt: prompt,
-                images: images,
-              )
-            : [
-                message,
-                if (images.isNotEmpty)
-                  images.map((image) => image.remotePath).join('\n'),
-              ].join('\n\n'),
+        prompt: text,
+        onPane: (pane) => panes.add(
+          dispatches
+              .pane(sendId, session: pane.session, paneId: pane.pane)
+              .catchError((Object error) => log(error)),
+        ),
         verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
       );
     } on HerdrFailure catch (error) {
       log(error.detail ?? error);
       return SendFailed(error.reason(host.name));
+    } finally {
+      await Future.wait(panes);
     }
     checkActive?.call();
     switch (result) {
-      case SpawnSent(:final paneId):
-        if (itemId != null) {
-          await dispatches.record(
-            itemId: itemId,
-            pathId: target.path.id,
-            paneId: paneId,
-            title: title,
-            agent: kind.name,
-            model: model,
-          );
+      case SpawnSent(:final paneId, :final session):
+        if (panes.isEmpty) {
+          await dispatches.pane(sendId, session: session, paneId: paneId);
         }
-        return SendSent(paneId);
+        return SendSent(paneId, session);
       case SpawnRefused(:final refusal, :final detail):
         log(detail ?? refusal);
         return SendFailed(spawnRefusalReason(refusal));
     }
   }
+}
+
+bool sentImage(String text, String path) => text
+    .split('\n')
+    .contains(RemoteFile.fromPath(path, Uint8List(0)).remotePath);
+
+String sentMessage(String text) {
+  final cut = text.lastIndexOf('\n\n');
+  if (cut < 0) return text;
+  final lines = text.substring(cut + 2).split('\n');
+  final named = lines.every(
+    (line) => line.startsWith('$remoteUploadDirectory/'),
+  );
+  return named ? text.substring(0, cut) : text;
 }
 
 final senderProvider = Provider(

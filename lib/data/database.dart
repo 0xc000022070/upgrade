@@ -33,7 +33,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'striked'));
 
   @override
-  int get schemaVersion => 23;
+  int get schemaVersion => 24;
 
   /// Every installed build is at 19, so an older file is rebuilt empty rather than walked
   /// up steps no install runs any more. The next bump adds its step after this one.
@@ -60,7 +60,33 @@ class AppDatabase extends _$AppDatabase {
       if (from < 23 && !await _hasColumn(shellTabs, shellTabs.ownConnection)) {
         await m.addColumn(shellTabs, shellTabs.ownConnection);
       }
+      if (from < 24) {
+        await m.alterTable(
+          TableMigration(
+            dispatches,
+            newColumns: [
+              for (final column in [
+                dispatches.body,
+                dispatches.herdrSession,
+                dispatches.status,
+                dispatches.failure,
+                dispatches.engineSession,
+                dispatches.states,
+              ])
+                if (!await _hasColumn(dispatches, column)) column,
+            ],
+          ),
+        );
+        await customStatement(
+          "UPDATE dispatches SET text = coalesce((SELECT title FROM tasks "
+          "WHERE tasks.id = dispatches.item_id), '') WHERE text = ''",
+        );
+      }
     },
+    beforeOpen: (_) => customStatement(
+      "UPDATE dispatches SET status = 'failed', failure = 'interrupted' "
+      "WHERE status = 'sending'",
+    ),
   );
 
   /// Drift runs onUpgrade on a downgrade too and only restamps the version, so a file
@@ -381,7 +407,8 @@ SELECT t.*,
          WHERE a.item_id = t.id AND a.kind = 'image') AS search_images,
        (SELECT group_concat(a.value, char(10)) FROM attachments a
          WHERE a.item_id = t.id AND a.kind = 'url') AS search_links,
-       EXISTS (SELECT 1 FROM dispatches d WHERE d.item_id = t.id) AS search_sent
+       EXISTS (SELECT 1 FROM dispatches d WHERE d.item_id = t.id
+         AND d.status = 'sent') AS search_sent
 FROM tasks t
 LEFT JOIN projects p ON p.id = t.project_id
 LEFT JOIN goals g ON g.id = t.goal_id

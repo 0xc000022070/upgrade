@@ -447,9 +447,10 @@ sealed class SpawnResult {
 }
 
 final class SpawnSent extends SpawnResult {
-  const SpawnSent(this.paneId);
+  const SpawnSent(this.paneId, this.session);
 
   final String paneId;
+  final String session;
 }
 
 final class SpawnRefused extends SpawnResult {
@@ -637,6 +638,7 @@ class HerdrSession {
     required String prompt,
     List<RemoteFile> images = const [],
     String? model,
+    void Function(PaneRef pane)? onPane,
     Duration deadline = spawnDeadline,
   }) async {
     final upload = await _upload(images);
@@ -697,6 +699,7 @@ class HerdrSession {
         );
         final made = pane.pane.split(':').first;
         workspace = made;
+        onPane?.call(pane);
         if (expired) {
           await _closeWorkspace(made, name);
           return const SpawnRefused(SpawnRefusal.timedOut);
@@ -735,7 +738,7 @@ class HerdrSession {
           await _closeWorkspace(made, name);
           return SpawnRefused(SpawnRefusal.spawnFailed, _said(sent));
         }
-        return SpawnSent(pane.pane);
+        return SpawnSent(pane.pane, name);
       })().timeout(deadline);
     } on TimeoutException {
       expired = true;
@@ -1876,6 +1879,7 @@ class HerdrClient {
     required String prompt,
     List<RemoteFile> images = const [],
     String? model,
+    void Function(PaneRef pane)? onPane,
     required HostKeyVerifier verifier,
   }) async {
     final session = await connect(
@@ -1892,6 +1896,7 @@ class HerdrClient {
         prompt: prompt,
         images: images,
         model: model,
+        onPane: onPane,
       );
     } finally {
       session.close();

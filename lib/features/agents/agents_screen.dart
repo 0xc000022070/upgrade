@@ -19,6 +19,7 @@ import 'package:striked/features/home/agent_mark.dart';
 import 'package:striked/design/components/screen_scaffold.dart';
 import 'package:striked/features/agents/agent_shell.dart';
 import 'package:striked/features/agents/pip_action.dart';
+import 'package:striked/features/agents/sent_screen.dart';
 
 void openAgents(BuildContext context) {
   Navigator.of(
@@ -40,7 +41,14 @@ class AgentsScreen extends ConsumerWidget {
         child: ScreenScaffold(
           title: 'AGENTS',
           breadcrumb: '/ STRIKED / AGENTS',
-          titleTrailing: const PipAffordance(),
+          titleTrailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PanelAffordance('SENT', onTap: () => openSent(context)),
+              const SizedBox(width: Spacing.md),
+              const PipAffordance(),
+            ],
+          ),
           onBack: () => Navigator.of(context).pop(),
           children: [
             state.when(
