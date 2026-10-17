@@ -97,7 +97,7 @@ class HostOutcome {
     AgentOutcomeKind.unresolved => '$_word host name did not resolve',
     AgentOutcomeKind.keyRejected => 'check SSH key in MACHINES',
     AgentOutcomeKind.protocolMismatch => '$_word protocol is not supported',
-    AgentOutcomeKind.noEngine => 'install upgraded on the host',
+    AgentOutcomeKind.noEngine => 'install strikedddd on the host',
     AgentOutcomeKind.noHerdr => 'install herdr on the host',
     AgentOutcomeKind.hostKeyUnverified => 'verify host key in MACHINES',
     AgentOutcomeKind.hostKeyChanged => 'host key changed; verify in MACHINES',

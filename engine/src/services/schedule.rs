@@ -729,7 +729,7 @@ pub(crate) fn agent_plist(
     <string>{scope}</string>
   </array>
   <key>EnvironmentVariables</key>
-  <dict>{path_entry}<key>UPGRADED_STATE</key><string>{state}</string></dict>
+  <dict>{path_entry}<key>STRIKEDDDD_STATE</key><string>{state}</string></dict>
   <key>StartInterval</key><integer>60</integer>
   <key>RunAtLoad</key><false/>
 </dict>
@@ -751,7 +751,7 @@ pub(crate) fn dispatch_unit(engine: &str, scope: &str, state: &str, path: Option
         "[Unit]\nDescription=Upgrade agent schedule dispatch\n\
          [Service]\nType=oneshot\nKillMode=process\n\
          ExecStart=\"{}\" __tick \"{scope}\"\n\
-         Environment=\"UPGRADED_STATE={}\"\n{path_line}\
+         Environment=\"STRIKEDDDD_STATE={}\"\n{path_line}\
          TimeoutStartSec=30\n",
         unit_escape(engine),
         unit_escape(state)

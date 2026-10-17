@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-const BINARY: &str = env!("CARGO_BIN_EXE_upgraded");
+const BINARY: &str = env!("CARGO_BIN_EXE_strikedddd");
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
 struct Sandbox {
@@ -29,7 +29,7 @@ impl Sandbox {
     fn build(name: &str, only_stubs: bool) -> Self {
         let unique = COUNTER.fetch_add(1, Ordering::SeqCst);
         let root = std::env::temp_dir().join(format!(
-            "upgraded-test-{}-{name}-{unique}",
+            "strikedddd-test-{}-{name}-{unique}",
             std::process::id()
         ));
         let _ = fs::remove_dir_all(&root);
@@ -112,10 +112,10 @@ impl Sandbox {
             .stderr(Stdio::piped());
         match config {
             Some(path) => {
-                command.env("UPGRADED_CONFIG", path);
+                command.env("STRIKEDDDD_CONFIG", path);
             }
             None => {
-                command.env_remove("UPGRADED_CONFIG");
+                command.env_remove("STRIKEDDDD_CONFIG");
             }
         }
         let mut child = command.spawn().unwrap();
@@ -138,7 +138,7 @@ impl Sandbox {
     fn command(&self, path: &str) -> Command {
         let mut command = Command::new(BINARY);
         command
-            .env("UPGRADED_STATE", self.state())
+            .env("STRIKEDDDD_STATE", self.state())
             .env("HOME", self.home())
             .env("XDG_CONFIG_HOME", self.home().join("config"))
             .env("PATH", path);
@@ -663,7 +663,7 @@ fn a_job(sandbox: &Sandbox, revision: u64) -> Value {
 fn tick_queue(sandbox: &Sandbox) {
     assert!(Command::new(BINARY)
         .args(["__tick", SCOPE])
-        .env("UPGRADED_STATE", sandbox.state())
+        .env("STRIKEDDDD_STATE", sandbox.state())
         .env(
             "PATH",
             format!(
@@ -1225,7 +1225,7 @@ fn the_timer_ticks_against_the_same_state_the_service_wrote() {
     let ticked = Command::new(BINARY)
         .arg("__tick")
         .arg(SCOPE)
-        .env("UPGRADED_STATE", sandbox.state())
+        .env("STRIKEDDDD_STATE", sandbox.state())
         .env(
             "PATH",
             format!(
@@ -1605,7 +1605,7 @@ fn install_adds_the_hooks_beside_the_user_own_and_teardown_takes_only_them() {
     assert_eq!(written["hooks"]["Stop"].as_array().unwrap().len(), 2);
     assert_eq!(
         written["hooks"]["PermissionRequest"][0]["hooks"][0]["command"],
-        json!("upgraded hook claude")
+        json!("strikedddd hook claude")
     );
 
     sandbox.agents(&owner, "install", json!({ "agent": "claude" }));
@@ -1638,7 +1638,7 @@ fn a_config_a_declaration_owns_is_shown_rather_than_written() {
     assert_eq!(codex["writable"], json!(false));
     assert_eq!(
         codex["entries"]["hooks"]["PermissionRequest"][0]["hooks"][0]["command"],
-        json!("upgraded hook codex")
+        json!("strikedddd hook codex")
     );
 
     let refused = sandbox.agents(&owner, "install", json!({ "agent": "codex" }));

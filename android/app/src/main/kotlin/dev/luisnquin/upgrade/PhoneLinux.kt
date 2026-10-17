@@ -848,7 +848,7 @@ object PhoneLinux {
             "-b", "/sys",
             *procFakes(system),
             "-b", "${temp.path}:/dev/shm",
-            "-b", "${File(native, "libupgraded.so").path}:/usr/local/bin/upgraded",
+            "-b", "${File(native, "libstrikedddd.so").path}:/usr/local/bin/strikedddd",
             "-w", "/root",
             "/usr/bin/env", "-i",
             "HOME=/root",

@@ -362,7 +362,7 @@ fn env_text(key: &str) -> Option<String> {
 
 pub fn hook(agent: &str) -> i32 {
     if let Err(err) = run_hook(agent) {
-        eprintln!("upgraded hook: {err}");
+        eprintln!("strikedddd hook: {err}");
     }
     0
 }

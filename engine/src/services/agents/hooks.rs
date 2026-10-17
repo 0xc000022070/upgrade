@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 
 use super::KINDS;
 
-const MARK: &str = "upgraded hook";
-const PLUGIN_MARK: &str = "// upgraded agents plugin";
+const MARK: &str = "strikedddd hook";
+const PLUGIN_MARK: &str = "// strikedddd agents plugin";
 const EVENT_TIMEOUT_S: u64 = 10;
 const APPROVAL_TIMEOUT_S: u64 = 90;
 

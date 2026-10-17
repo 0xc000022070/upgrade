@@ -14,7 +14,7 @@
         default = config.upgradeHost.mosh.from + 15;
       };
     };
-    engine = lib.mkEnableOption "upgraded";
+    engine = lib.mkEnableOption "strikedddd";
     herdr = lib.mkEnableOption "herdr";
     codex = lib.mkEnableOption "codex against a local mock of the OpenAI backend";
     declaredHooks = lib.mkEnableOption "agent configs linked into the store";

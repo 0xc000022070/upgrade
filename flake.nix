@@ -25,7 +25,7 @@
         { pkgs, lib, ... }:
         {
           imports = [ path ];
-          services.upgraded.package =
+          services.strikedddd.package =
             lib.mkDefault
               self.packages.${pkgs.stdenv.hostPlatform.system}.engine;
         };
@@ -42,7 +42,7 @@
           system = guestSystems.${hostSystem};
           modules = [
             ./nix/host-vm/configuration.nix
-            self.nixosModules.upgraded
+            self.nixosModules.strikedddd
             {
               upgradeHost = scenario // {
                 inherit name;
@@ -103,18 +103,18 @@
       # The engine is declared by the owner of a machine, never installed by the
       # app, so the modules are the only supported way onto a host.
       nixosModules = rec {
-        upgraded = engineModule ./nix/engine/nixos.nix;
-        default = upgraded;
+        strikedddd = engineModule ./nix/engine/nixos.nix;
+        default = strikedddd;
       };
 
       darwinModules = rec {
-        upgraded = engineModule ./nix/engine/darwin.nix;
-        default = upgraded;
+        strikedddd = engineModule ./nix/engine/darwin.nix;
+        default = strikedddd;
       };
 
       homeModules = rec {
-        upgraded = engineModule ./nix/engine/home.nix;
-        default = upgraded;
+        strikedddd = engineModule ./nix/engine/home.nix;
+        default = strikedddd;
       };
 
       devShells.${system}.default = import ./nix/dev-shell.nix {
