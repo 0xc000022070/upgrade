@@ -2,101 +2,106 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/launcher_widget_box"
-    android:orientation="vertical">
-
-    <TextView
-        android:id="@+id/send_tally"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="8dp"
-        android:fontFamily="monospace"
-        android:textSize="13sp"
-        android:textColor="@color/launcher_ink"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:visibility="gone"/>
+    android:gravity="center_vertical"
+    android:orientation="vertical"
+    android:background="@android:color/transparent"
+    android:padding="8dp">
 
     <LinearLayout
         android:id="@+id/send_input"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:layout_height="48dp"
+        android:background="@drawable/launcher_field"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="monospace"
-                android:textSize="13sp"
-                android:textColor="@color/launcher_accent"
-                android:text="&gt; "/>
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:fontFamily="monospace"
-                android:textSize="13sp"
-                android:textColor="@color/launcher_dim"
-                android:maxLines="1"
-                android:ellipsize="end"
-                android:text="PROMPT AN AGENT"/>
-
-            <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:src="@drawable/send_submit"/>
-        </LinearLayout>
+        android:paddingEnd="12dp">
 
         <TextView
-            android:id="@+id/send_target"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
-            android:textSize="11sp"
-            android:textColor="@color/launcher_dim"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:text="NO TARGET"/>
-    </LinearLayout>
-
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="1px"
-        android:background="@color/launcher_border"/>
-
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
-
-        <ListView
-            android:id="@+id/send_rows"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:divider="@null"
-            android:dividerHeight="0dp"/>
+            android:textSize="13sp"
+            android:textColor="@color/launcher_accent"
+            android:text="&gt; "/>
 
         <TextView
-            android:id="@+id/send_empty"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:fontFamily="monospace"
             android:textSize="13sp"
             android:textColor="@color/launcher_dim"
-            android:text="NO SENDS"/>
-    </FrameLayout>
+            android:maxLines="1"
+            android:text="PROMPT AN AGENT"/>
+
+        <TextView
+            android:id="@+id/send_target"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="10dp"
+            android:gravity="end"
+            android:fontFamily="monospace"
+            android:textSize="11sp"
+            android:textColor="@color/launcher_disabled"
+            android:maxLines="1"
+            android:ellipsize="start"
+            android:text="NO TARGET"/>
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:src="@drawable/send_submit"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/send_more"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/launcher_field"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/send_tally"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="8dp"
+            android:fontFamily="monospace"
+            android:textSize="13sp"
+            android:textColor="@color/launcher_ink"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:visibility="gone"/>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <ListView
+                android:id="@+id/send_rows"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:divider="@null"
+                android:dividerHeight="0dp"/>
+
+            <TextView
+                android:id="@+id/send_empty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="8dp"
+                android:fontFamily="monospace"
+                android:textSize="12sp"
+                android:textColor="@color/launcher_dim"
+                android:text="NO SENDS"/>
+        </FrameLayout>
+    </LinearLayout>
 </LinearLayout>

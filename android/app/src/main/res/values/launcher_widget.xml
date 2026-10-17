@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="launcher_ground">#FF08090B</color>
+    <color name="launcher_field">#FF111317</color>
     <color name="launcher_border">#FF2E343C</color>
     <color name="launcher_ink">#FFE8E8E3</color>
     <color name="launcher_dim">#FF9299A2</color>
@@ -8,7 +9,6 @@
     <color name="launcher_accent">#FFB7FF2A</color>
     <color name="launcher_warning">#FFD6A34B</color>
     <color name="launcher_danger">#FFB84A4A</color>
-    <dimen name="launcher_radius">0dp</dimen>
     <string name="launcher_widget_label">STRIKED · BAR</string>
     <string name="launcher_widget_description">A door to the input bar.</string>
     <string name="send_widget_label">STRIKED · SEND</string>

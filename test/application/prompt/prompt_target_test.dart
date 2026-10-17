@@ -7,6 +7,7 @@ import 'package:striked/application/agents/send.dart';
 import 'package:striked/application/prompt/prompt_target.dart';
 import 'package:striked/application/providers.dart';
 import 'package:striked/data/database.dart';
+import 'package:striked/data/repositories/dispatch_repository.dart';
 import 'package:striked/data/repositories/host_repository.dart';
 import 'package:striked/data/repositories/path_repository.dart';
 import 'package:striked/data/repositories/settings_repository.dart';
@@ -112,10 +113,14 @@ void main() {
 
     tearDown(() => db.close());
 
-    ProviderContainer scope(List<Host> multiplexed) {
+    ProviderContainer scope(
+      List<Host> multiplexed, {
+      List<Dispatch> sends = const [],
+    }) {
       final container = ProviderContainer(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(settings),
+          sendsProvider.overrideWith((ref) => Stream.value(sends)),
           pathTargetsProvider.overrideWith(
             (ref) => Stream.value([_striked, _dotfiles]),
           ),
@@ -154,5 +159,38 @@ void main() {
       expect(container.read(promptChoiceProvider), isNull);
       expect(container.read(promptSummaryProvider), isNull);
     });
+
+    test('falls back to the newest send still offered', () async {
+      final container = scope(
+        [_rose],
+        sends: [_sent('striked', 'path-1'), _sent('dotfiles', 'path-2')],
+      );
+      await pumpEventQueue();
+      expect(container.read(promptSummaryProvider), 'rose · dotfiles · claude');
+    });
+
+    test('a saved target outranks the sends', () async {
+      await savePromptTarget(
+        settings,
+        SendChoice(target: _striked, kind: const CodexKind()),
+      );
+      final container = scope(
+        [_nyx, _rose],
+        sends: [_sent('dotfiles', 'path-2')],
+      );
+      await pumpEventQueue();
+      expect(container.read(promptSummaryProvider), 'nyx · striked · codex');
+    });
   });
 }
+
+Dispatch _sent(String id, String pathId) => Dispatch(
+  id: id,
+  pathId: pathId,
+  hostId: '',
+  hostName: '',
+  label: '',
+  directory: '',
+  agent: 'claude',
+  sentAt: DateTime(2026),
+);

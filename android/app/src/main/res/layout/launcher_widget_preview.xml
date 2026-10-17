@@ -1,29 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/launcher_widget_box"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:paddingStart="12dp"
-    android:paddingEnd="12dp">
+    android:background="@android:color/transparent"
+    android:padding="8dp">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:fontFamily="monospace"
-        android:textSize="13sp"
-        android:textColor="@color/launcher_accent"
-        android:text="&gt; "/>
+    <LinearLayout
+        android:id="@+id/launcher_bar"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_gravity="center_vertical"
+        android:background="@drawable/launcher_field"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
 
-    <TextView
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:fontFamily="monospace"
-        android:textSize="13sp"
-        android:textColor="@color/launcher_dim"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:text="PROMPT · nyx · owner/repo · claude"/>
-</LinearLayout>
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginEnd="10dp"
+            android:src="@drawable/launcher_inbox"/>
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="monospace"
+            android:textSize="13sp"
+            android:textColor="@color/launcher_dim"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:text="CAPTURE"/>
+    </LinearLayout>
+</FrameLayout>

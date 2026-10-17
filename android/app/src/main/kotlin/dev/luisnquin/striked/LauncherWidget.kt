@@ -15,6 +15,7 @@ import android.provider.Settings
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
@@ -89,6 +90,9 @@ class LauncherWidget : AppWidgetProvider() {
         private const val KEY_LIVE_BOOT = "live_boot"
 
         private const val KEPT_SENDS = 10
+        private const val SEND_MIN_WIDTH = 250f
+        private const val SEND_MIN_HEIGHT = 40f
+        private const val SEND_LIST_HEIGHT = 140
 
         private var waiting: Map<String, String?>? = null
 
@@ -263,14 +267,32 @@ class LauncherWidget : AppWidgetProvider() {
         }
 
         fun sendViews(context: Context, widgetId: Int): RemoteViews {
-            val tally = tallyText(context, tally(context))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                return RemoteViews(
+                    mapOf(
+                        SizeF(SEND_MIN_WIDTH, SEND_MIN_HEIGHT) to sendViews(context, widgetId, false),
+                        SizeF(SEND_MIN_WIDTH, SEND_LIST_HEIGHT.toFloat()) to sendViews(context, widgetId, true),
+                    ),
+                )
+            }
+            val height = AppWidgetManager.getInstance(context).getAppWidgetOptions(widgetId)
+                .getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+            return sendViews(context, widgetId, height >= SEND_LIST_HEIGHT)
+        }
+
+        private fun sendViews(context: Context, widgetId: Int, list: Boolean): RemoteViews {
             val target = prefs(context).getString(KEY_TARGET, null)
-            return RemoteViews(context.packageName, R.layout.send_widget).apply {
+            val views = RemoteViews(context.packageName, R.layout.send_widget).apply {
+                setTextViewText(R.id.send_target, target ?: "NO TARGET")
+                setOnClickPendingIntent(R.id.send_input, composeDoor(context))
+            }
+            if (!list) return views
+            val tally = tallyText(context, tally(context))
+            return views.apply {
+                setViewVisibility(R.id.send_more, View.VISIBLE)
                 setViewVisibility(R.id.send_tally, if (tally == null) View.GONE else View.VISIBLE)
                 setTextViewText(R.id.send_tally, tally ?: "")
                 setOnClickPendingIntent(R.id.send_tally, open(context, AGENTS))
-                setTextViewText(R.id.send_target, target ?: "NO TARGET")
-                setOnClickPendingIntent(R.id.send_input, composeDoor(context))
                 setPendingIntentTemplate(R.id.send_rows, rowTemplate(context))
                 setEmptyView(R.id.send_rows, R.id.send_empty)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -394,6 +416,10 @@ class LauncherWidget : AppWidgetProvider() {
 class SendWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         for (id in ids) manager.updateAppWidget(id, LauncherWidget.sendViews(context, id))
+    }
+
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) {
+        manager.updateAppWidget(id, LauncherWidget.sendViews(context, id))
     }
 }
 

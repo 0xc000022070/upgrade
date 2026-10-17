@@ -82,16 +82,24 @@ final promptTargetProvider = StreamProvider<PromptTarget?>(
       .map(PromptTarget.decode),
 );
 
+/// The saved target, else the newest send's whose host, directory and agent are still offered.
 final promptChoiceProvider = Provider<SendChoice?>((ref) {
-  final saved = ref.watch(promptTargetProvider).valueOrNull;
-  if (saved == null) return null;
-  return saved.resolve(
-    promptOffered(
-      ref.watch(pathTargetsProvider).valueOrNull ?? const [],
-      ref.watch(herdrHostsProvider).valueOrNull ?? const [],
-    ),
+  final offered = promptOffered(
+    ref.watch(pathTargetsProvider).valueOrNull ?? const [],
+    ref.watch(herdrHostsProvider).valueOrNull ?? const [],
   );
-}, dependencies: [pathTargetsProvider]);
+  final saved = ref.watch(promptTargetProvider).valueOrNull?.resolve(offered);
+  if (saved != null) return saved;
+  for (final send in ref.watch(sendsProvider).valueOrNull ?? const []) {
+    final choice = PromptTarget(
+      pathId: send.pathId,
+      agent: send.agent,
+      model: send.model,
+    ).resolve(offered);
+    if (choice != null) return choice;
+  }
+  return null;
+}, dependencies: [pathTargetsProvider, sendsProvider]);
 
 final promptSummaryProvider = Provider<String?>((ref) {
   final choice = ref.watch(promptChoiceProvider);
