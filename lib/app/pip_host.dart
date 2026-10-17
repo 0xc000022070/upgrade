@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/pip.dart';
-import 'package:upgrade/features/agents/pip_panel.dart';
-import 'package:upgrade/features/devices/device_dock.dart';
-import 'package:upgrade/features/devices/device_float.dart';
+import 'package:striked/application/pip.dart';
+import 'package:striked/features/agents/pip_panel.dart';
+import 'package:striked/features/devices/device_dock.dart';
+import 'package:striked/features/devices/device_float.dart';
 
 /// The tree under it is kept, not replaced: `Offstage` stops the user's routes being laid
 /// out at a size they were never written for and hands them back as they were.

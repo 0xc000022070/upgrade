@@ -2,17 +2,17 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/application/formatting.dart';
-import 'package:upgrade/design/components/progress_bar.dart';
-import 'package:upgrade/design/components/status_tag.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/shell/input/clip_paste.dart'
+import 'package:striked/application/formatting.dart';
+import 'package:striked/design/components/progress_bar.dart';
+import 'package:striked/design/components/status_tag.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/features/shell/input/clip_paste.dart'
     show AttachItem, AttachStage;
-import 'package:upgrade/platform/ssh/host_files.dart'
+import 'package:striked/platform/ssh/host_files.dart'
     show TransferStop, atMost, smallestFirst, stoppedFailure, uploadWidth;
 
-export 'package:upgrade/features/shell/input/clip_paste.dart'
+export 'package:striked/features/shell/input/clip_paste.dart'
     show AttachItem, AttachStage;
 
 typedef QueueTask = Future<String?> Function(

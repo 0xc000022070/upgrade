@@ -3,11 +3,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/design/components/action_block.dart';
-import 'package:upgrade/features/shell/host_shell_screen.dart';
-import 'package:upgrade/features/shell/shell_bar.dart';
-import 'package:upgrade/platform/shell/remote_shell.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:striked/design/components/action_block.dart';
+import 'package:striked/features/shell/host_shell_screen.dart';
+import 'package:striked/features/shell/shell_bar.dart';
+import 'package:striked/platform/shell/remote_shell.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
 import 'package:flterm/flterm.dart';
 
 import '../../support/fake_shell.dart';

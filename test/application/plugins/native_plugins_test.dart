@@ -2,29 +2,29 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:io' as io show Link;
 
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/plugin_api.dart';
-import 'package:upgrade/data/plugin_inventory.dart';
-import 'package:upgrade/data/repositories/settings_repository.dart';
-import 'package:upgrade/data/repositories/note_repository.dart';
-import 'package:upgrade/data/repositories/activity_repository.dart';
-import 'package:upgrade/data/repositories/attachment_repository.dart';
-import 'package:upgrade/data/repositories/project_repository.dart';
-import 'package:upgrade/data/repositories/task_repository.dart';
-import 'package:upgrade/platform/plugins/access.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
-import 'package:upgrade/platform/plugins/usage.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/plugin_api.dart';
+import 'package:striked/data/plugin_inventory.dart';
+import 'package:striked/data/repositories/settings_repository.dart';
+import 'package:striked/data/repositories/note_repository.dart';
+import 'package:striked/data/repositories/activity_repository.dart';
+import 'package:striked/data/repositories/attachment_repository.dart';
+import 'package:striked/data/repositories/project_repository.dart';
+import 'package:striked/data/repositories/task_repository.dart';
+import 'package:striked/platform/plugins/access.dart';
+import 'package:striked/platform/plugins/manifest.dart';
+import 'package:striked/platform/plugins/store.dart';
+import 'package:striked/platform/plugins/usage.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 PluginPackage builtinFixture(String name) => PluginPackage(
   manifest: PluginManifest.parse(
-    File('lib/builtin_plugins/$name/upgrade.plugin.toml').readAsStringSync(),
+    File('lib/builtin_plugins/$name/striked.plugin.toml').readAsStringSync(),
     allowNative: true,
   ),
   source: File('lib/builtin_plugins/$name/main.dart').readAsStringSync(),
-  origin: 'bundled:upgrade.$name',
+  origin: 'bundled:striked.$name',
   revision: '1.0.0',
 );
 
@@ -41,7 +41,7 @@ void main() {
     'fresh defaults survive closing and reopening before catalog creation',
     () async {
       final root = await Directory.systemTemp.createTemp(
-        'upgrade-fresh-marker-',
+        'striked-fresh-marker-',
       );
       addTearDown(() => root.delete(recursive: true));
       final file = File('${root.path}/app.sqlite');
@@ -71,24 +71,24 @@ void main() {
   );
 
   test('native counters persist without resurrecting subscriptions', () async {
-    final root = await Directory.systemTemp.createTemp('upgrade-native-usage-');
+    final root = await Directory.systemTemp.createTemp('striked-native-usage-');
     addTearDown(() => root.delete(recursive: true));
     final file = NativeUsageFile(File('${root.path}/usage.json'));
     final authority = PluginAuthority(persistUsage: file.write);
     authority.update(enabledBuiltins());
-    final lease = authority.acquire('upgrade.projects', 'items');
+    final lease = authority.acquire('striked.projects', 'items');
     await lease.call(() async => 1);
     expect(lease.read(() => 2), 2);
     expect(
-      () => authority.acquire('upgrade.drops', 'projects'),
+      () => authority.acquire('striked.drops', 'projects'),
       throwsA(isA<PluginException>()),
     );
     await authority.close();
     final restored = PluginAuthority(usage: await file.read());
     addTearDown(restored.close);
-    expect(restored.usage('upgrade.projects')['items']!.calls, 2);
-    expect(restored.usage('upgrade.projects')['items']!.activeSubscriptions, 0);
-    expect(restored.usage('upgrade.drops')['projects']!.rejected, 1);
+    expect(restored.usage('striked.projects')['items']!.calls, 2);
+    expect(restored.usage('striked.projects')['items']!.activeSubscriptions, 0);
+    expect(restored.usage('striked.drops')['projects']!.rejected, 1);
     await file.file.writeAsString('{"version": 99}');
     await expectLater(file.read(), throwsA(isA<PluginException>()));
     expect(await file.file.readAsString(), '{"version": 99}');
@@ -98,7 +98,7 @@ void main() {
     'dataset inventory partitions notes and measures retained image bytes',
     () async {
       final root = await Directory.systemTemp.createTemp(
-        'upgrade-native-inventory-',
+        'striked-native-inventory-',
       );
       addTearDown(() => root.delete(recursive: true));
       await Directory('${root.path}/attachments').create();
@@ -142,7 +142,7 @@ void main() {
     'inventory resolves the support root without counting escaped files',
     () async {
       final root = await Directory.systemTemp.createTemp(
-        'upgrade-inventory-link-',
+        'striked-inventory-link-',
       );
       addTearDown(() => root.delete(recursive: true));
       final support = await Directory('${root.path}/support').create();
@@ -182,8 +182,8 @@ void main() {
     );
     expect(plugins.every((p) => p.manifest.hostDatasets.length == 3), isTrue);
     expect(resolvePlugins({for (final p in plugins) p.id: p.manifest}), [
-      'upgrade.drops',
-      'upgrade.projects',
+      'striked.drops',
+      'striked.projects',
     ]);
     expect(
       () => PluginManifest.parse(plugins.first.manifest.source),
@@ -195,7 +195,7 @@ void main() {
     'fresh installs stay disabled; adoption and later choices persist',
     () async {
       final root = await Directory.systemTemp.createTemp(
-        'upgrade-native-catalog-',
+        'striked-native-catalog-',
       );
       addTearDown(() => root.delete(recursive: true));
       final packages = [builtinFixture('drops'), builtinFixture('projects')];
@@ -223,15 +223,15 @@ void main() {
         isTrue,
       );
       await expectLater(
-        existing.setEnabled('upgrade.drops', false),
+        existing.setEnabled('striked.drops', false),
         throwsA(isA<PluginException>()),
       );
       await expectLater(
-        existing.remove('upgrade.projects'),
+        existing.remove('striked.projects'),
         throwsA(isA<PluginException>()),
       );
-      await existing.setEnabled('upgrade.projects', false);
-      await existing.setEnabled('upgrade.drops', false);
+      await existing.setEnabled('striked.projects', false);
+      await existing.setEnabled('striked.drops', false);
       expect(
         (await PluginStore(existing.directory).synchronizeBuiltins(
           packages,
@@ -248,10 +248,10 @@ void main() {
     final entries = enabledBuiltins();
     authority.update(entries);
     expect(
-      () => authority.acquire('upgrade.drops', 'projects'),
+      () => authority.acquire('striked.drops', 'projects'),
       throwsA(isA<PluginException>()),
     );
-    final lease = authority.acquire('upgrade.projects', 'items');
+    final lease = authority.acquire('striked.projects', 'items');
     expect(await lease.call(() async => 7), 7);
     authority.update([entries.first, entries.last.withEnabled(false)]);
     await expectLater(
@@ -264,7 +264,7 @@ void main() {
       throwsA(isA<PluginException>()),
     );
     expect(
-      await authority.acquire('upgrade.projects', 'items').call(() async => 10),
+      await authority.acquire('striked.projects', 'items').call(() async => 10),
       10,
     );
   });
@@ -276,7 +276,7 @@ void main() {
     authority.update(entries);
     final source = StreamController<int>();
     addTearDown(source.close);
-    final lease = authority.acquire('upgrade.projects', 'items');
+    final lease = authority.acquire('striked.projects', 'items');
     final done = Completer<void>();
     final values = <int>[];
     final errors = <Object>[];
@@ -314,7 +314,7 @@ void main() {
       authority.update(entries);
       final api = PluginTaskApi(
         backend,
-        PluginDataGate(db, authority, 'upgrade.projects'),
+        PluginDataGate(db, authority, 'striked.projects'),
       );
       expect((await api.watchById(id).first)!.title, 'Existing drop');
       authority.update(entries.map((p) => p.withEnabled(false)));
@@ -332,7 +332,7 @@ void main() {
       expect(() => api.watchById(id), throwsA(isA<PluginException>()));
       final restored = PluginTaskApi(
         backend,
-        PluginDataGate(db, authority, 'upgrade.drops'),
+        PluginDataGate(db, authority, 'striked.drops'),
       );
       await restored.edit(id, title: 'Edited through API');
       expect((await restored.watchById(id).first)!.title, 'Edited through API');
@@ -349,7 +349,7 @@ void main() {
       addTearDown(authority.close);
       final entries = enabledBuiltins();
       authority.update(entries);
-      final gate = PluginDataGate(db, authority, 'upgrade.drops');
+      final gate = PluginDataGate(db, authority, 'striked.drops');
       await expectLater(
         gate.call('items', () async {
           await backend.capture('Must roll back');

@@ -6,16 +6,16 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/bundle/bundle.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/key_repository.dart';
-import 'package:upgrade/design/components/action_block.dart';
-import 'package:upgrade/features/settings/settings_screen.dart';
-import 'package:upgrade/platform/bundle_cipher.dart';
-import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/bundle/bundle.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/key_repository.dart';
+import 'package:striked/design/components/action_block.dart';
+import 'package:striked/features/settings/settings_screen.dart';
+import 'package:striked/platform/bundle_cipher.dart';
+import 'package:striked/platform/ssh/keys.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -162,7 +162,7 @@ void main() {
     );
 
     final (name, bytes) = saved.single;
-    expect(name, startsWith('upgrade-'));
+    expect(name, startsWith('striked-'));
     expect(name, endsWith('.bundle'));
     final bundle = Bundle.decode(await cipher.open(bytes, 'correct horse'));
     expect(bundle.hosts.single.host.name, 'rose');

@@ -3,10 +3,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/features/screen/screen_transform.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/features/screen/screen_transform.dart';
 
 enum CropTarget { save, hold }
 

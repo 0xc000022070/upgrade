@@ -1,14 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/host_links.dart';
-import 'package:upgrade/platform/ssh/keys.dart';
-import 'package:upgrade/platform/shell/shell_launch.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/host_links.dart';
+import 'package:striked/platform/ssh/keys.dart';
+import 'package:striked/platform/shell/shell_launch.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/agents/reason_lines.dart';
 
 typedef LaunchFetch = Future<LaunchTargets> Function({
   required String address,
@@ -48,7 +48,7 @@ class LaunchScanner {
     final privateKey = await keys.privateKey(host.keyId).catchError((
       Object error,
     ) {
-      debugPrint('upgrade.launch ${host.name}: $error');
+      debugPrint('striked.launch ${host.name}: $error');
       return null;
     });
     if (privateKey == null) {
@@ -65,10 +65,10 @@ class LaunchScanner {
         ),
       );
     } on HerdrFailure catch (error) {
-      debugPrint('upgrade.launch ${host.name}: ${error.detail ?? error}');
+      debugPrint('striked.launch ${host.name}: ${error.detail ?? error}');
       return LaunchScanFailed(error.reason(host.name));
     } catch (error) {
-      debugPrint('upgrade.launch ${host.name}: $error');
+      debugPrint('striked.launch ${host.name}: $error');
       return LaunchScanFailed(ReasonLine.protocolMismatch.words);
     }
   }

@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/note_repository.dart';
-import 'package:upgrade/data/repositories/project_repository.dart';
-import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/note_repository.dart';
+import 'package:striked/data/repositories/project_repository.dart';
+import 'package:striked/data/repositories/task_repository.dart';
 
 Future<void> seedDevData(
   AppDatabase db, {
@@ -12,7 +12,7 @@ Future<void> seedDevData(
   required TaskRepository tasks,
   required NoteRepository notes,
 }) async {
-  const fixturesEnabled = bool.fromEnvironment('UPGRADE_SEED_FIXTURES');
+  const fixturesEnabled = bool.fromEnvironment('STRIKED_SEED_FIXTURES');
   if (!kDebugMode || !fixturesEnabled) return;
   final existing = await db.select(db.projects).get();
   if (existing.isNotEmpty) return;

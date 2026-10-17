@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/files/host_file_link.dart';
-import 'package:upgrade/application/files/phone_inbox.dart';
-import 'package:upgrade/platform/workspace/workspace_commands.dart';
-import 'package:upgrade/platform/workspace/workspace_model.dart';
+import 'package:striked/application/files/host_file_link.dart';
+import 'package:striked/application/files/phone_inbox.dart';
+import 'package:striked/platform/workspace/workspace_commands.dart';
+import 'package:striked/platform/workspace/workspace_model.dart';
 
 SharedFile _file(String name, String mime) =>
     SharedFile(path: '/c/$name', name: name, size: 1, mime: mime);

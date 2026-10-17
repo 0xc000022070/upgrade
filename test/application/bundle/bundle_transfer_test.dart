@@ -1,18 +1,18 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/bundle/bundle.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/raw_tables.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/key_repository.dart';
-import 'package:upgrade/data/repositories/path_repository.dart';
-import 'package:upgrade/data/repositories/settings_repository.dart';
-import 'package:upgrade/platform/files/attachment_store.dart';
-import 'package:upgrade/platform/bundle_cipher.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:striked/application/bundle/bundle.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/raw_tables.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/key_repository.dart';
+import 'package:striked/data/repositories/path_repository.dart';
+import 'package:striked/data/repositories/settings_repository.dart';
+import 'package:striked/platform/files/attachment_store.dart';
+import 'package:striked/platform/bundle_cipher.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/keys.dart';
 
 ManagedKey _key(String id) => ManagedKey(
   id: id,
@@ -96,8 +96,8 @@ class _Phone {
           PathsCompanion.insert(
             id: 'p1',
             hostId: 'h1',
-            directory: '~/src/upgrade',
-            label: 'upgrade',
+            directory: '~/src/striked',
+            label: 'striked',
             createdAt: DateTime.utc(2026, 9, 3),
             projectId: const Value('proj-1'),
           ),
@@ -108,7 +108,7 @@ class _Phone {
         .insert(
           ProjectsCompanion.insert(
             id: 'proj-1',
-            name: 'upgrade',
+            name: 'striked',
             description: 'the phone, on the phone',
             objective: 'survive a rename',
             status: ProjectStatus.active,
@@ -174,7 +174,7 @@ void main() {
     expect(host.host.vncPassword, 'hunter2');
     expect(host.integrations, {IntegrationKind.herdr});
     expect(bundle.paths.map((p) => p.directory), [
-      '~/src/upgrade',
+      '~/src/striked',
       '~/src/dots',
     ]);
     expect(bundle.count.words, startsWith('1 HOST · 2 KEYS · 2 PATHS · '));
@@ -236,7 +236,7 @@ void main() {
 
     expect(bundle.rows.keys, isNot(contains('hosts')));
     expect(bundle.rows['tasks']!.single['title'], 'carry the phone');
-    expect(bundle.rows['projects']!.single['name'], 'upgrade');
+    expect(bundle.rows['projects']!.single['name'], 'striked');
     expect(bundle.files.keys, ['attachments/a1.jpg']);
     expect(bundle.files['attachments/a1.jpg'], [1, 2, 3]);
   });
@@ -308,7 +308,7 @@ void main() {
       IntegrationKind.herdr,
     });
     final paths = await b.paths.listForHost('h1');
-    expect(paths.map((p) => p.label), ['upgrade', 'dots']);
+    expect(paths.map((p) => p.label), ['striked', 'dots']);
     expect(paths.map((p) => p.projectId), ['proj-1', null]);
   });
 
@@ -332,7 +332,7 @@ void main() {
     final paths = await b.paths.listForHost('h1');
     final kept = paths.singleWhere((p) => p.id == 'p1');
     expect(kept.projectId, 'proj-1');
-    expect(kept.label, 'upgrade');
+    expect(kept.label, 'striked');
   });
 
   test('a host row is replaced by the bundle under the same id', () async {
@@ -399,7 +399,7 @@ void main() {
   test('the file is named for the day', () {
     expect(
       bundleFileName(DateTime(2026, 9, 8, 15)),
-      'upgrade-2026-09-08.bundle',
+      'striked-2026-09-08.bundle',
     );
   });
 }

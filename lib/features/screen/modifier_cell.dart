@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/design/components/key_bar.dart';
-import 'package:upgrade/design/components/key_cell.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/platform/vnc/arming.dart';
-import 'package:upgrade/platform/vnc/keysyms.dart';
+import 'package:striked/design/components/key_bar.dart';
+import 'package:striked/design/components/key_cell.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/platform/vnc/arming.dart';
+import 'package:striked/platform/vnc/keysyms.dart';
 
 class ModifierCell extends StatelessWidget {
   const ModifierCell({
@@ -23,7 +23,7 @@ class ModifierCell extends StatelessWidget {
     final armed = arming.armed(modifier);
     return KeyCell(
       label: modifier.label,
-      icon: modifier == StickyModifier.superKey ? UpgradeIcons.superKey : null,
+      icon: modifier == StickyModifier.superKey ? StrikedIcons.superKey : null,
       armed: armed,
       repeat: armed ? arming.repeat : 1,
       locked: armed && arming.locked,

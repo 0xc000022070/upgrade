@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/design/colors.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
+import 'package:striked/design/colors.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
 
 import '../../support/themed_app.dart';
 
@@ -49,10 +49,10 @@ void main() {
           theme: testTheme,
           home: Scaffold(
             body: ListRow(
-              leading: UpgradeIcon(
-                UpgradeIcons.progressMarker,
+              leading: StrikedIcon(
+                StrikedIcons.progressMarker,
                 size: IconSizes.glyph,
-                color: UpgradeColors.textDisabled,
+                color: StrikedColors.textDisabled,
               ),
               title: 'lib/main.dart',
               subtitle: 'modified',
@@ -60,7 +60,7 @@ void main() {
           ),
         ),
       );
-      final glyph = tester.getRect(find.byType(UpgradeIcon));
+      final glyph = tester.getRect(find.byType(StrikedIcon));
       final title = tester.getRect(find.text('lib/main.dart'));
       return glyph.center.dy - title.center.dy;
     }

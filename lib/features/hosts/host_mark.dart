@@ -1,20 +1,20 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/phone_linux.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
+import 'package:striked/application/phone_linux.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
 
-UpgradeIcons systemGlyph(HostSystem? system) => switch (system) {
-  HostSystem.nixos => UpgradeIcons.systemNixos,
-  HostSystem.darwin => UpgradeIcons.systemDarwin,
-  HostSystem.ubuntu => UpgradeIcons.systemUbuntu,
-  HostSystem.arch => UpgradeIcons.systemArch,
-  HostSystem.alpine => UpgradeIcons.systemAlpine,
-  HostSystem.linux || HostSystem.other || null => UpgradeIcons.systemServer,
+StrikedIcons systemGlyph(HostSystem? system) => switch (system) {
+  HostSystem.nixos => StrikedIcons.systemNixos,
+  HostSystem.darwin => StrikedIcons.systemDarwin,
+  HostSystem.ubuntu => StrikedIcons.systemUbuntu,
+  HostSystem.arch => StrikedIcons.systemArch,
+  HostSystem.alpine => StrikedIcons.systemAlpine,
+  HostSystem.linux || HostSystem.other || null => StrikedIcons.systemServer,
 };
 
 String systemWord(HostSystem? system) => switch (system) {
@@ -63,11 +63,11 @@ class HostMark extends ConsumerWidget {
               dimension: size,
               child: Stack(
                 children: [
-                  UpgradeIcon(UpgradeIcons.phoneFrame, size: size, color: ink),
+                  StrikedIcon(StrikedIcons.phoneFrame, size: size, color: ink),
                   Positioned(
                     left: size * glyphAt.dx / _phoneViewBox,
                     top: size * glyphAt.dy / _phoneViewBox,
-                    child: UpgradeIcon(
+                    child: StrikedIcon(
                       systemGlyph(system),
                       size: size * _glyphScale,
                       color: ink,
@@ -76,7 +76,7 @@ class HostMark extends ConsumerWidget {
                 ],
               ),
             )
-          : UpgradeIcon(systemGlyph(system), size: size, color: ink),
+          : StrikedIcon(systemGlyph(system), size: size, color: ink),
     );
   }
 }

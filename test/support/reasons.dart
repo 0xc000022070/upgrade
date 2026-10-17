@@ -1,4 +1,4 @@
-import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
 
 UserIntent testIntent() {
   late final UserIntent minted;

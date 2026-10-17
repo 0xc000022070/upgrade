@@ -4,46 +4,46 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/shell/bar_layout.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/drops/clips.dart';
-import 'package:upgrade/application/alerts/pin_alerts.dart';
-import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/application/phone_linux.dart';
-import 'package:upgrade/application/shell/shell_font.dart';
-import 'package:upgrade/application/whisper.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/path_repository.dart';
-import 'package:upgrade/data/repositories/settings_repository.dart';
-import 'package:upgrade/design/effects/glitch.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/action_block.dart';
-import 'package:upgrade/design/components/drag_sheet.dart';
-import 'package:upgrade/design/components/field_panel.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/meta_row.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/platform/shell/shell_launch.dart';
-import 'package:upgrade/platform/vnc/keysyms.dart';
-import 'package:upgrade/features/code/diff_sheet.dart';
-import 'package:upgrade/features/files/files_sheet.dart';
-import 'package:upgrade/features/files/transfer_bar.dart';
-import 'package:upgrade/features/hosts/host_key_sheet.dart';
-import 'package:upgrade/features/hosts/hosts_screen.dart' show showMachineSheet;
-import 'package:upgrade/features/shell/sheets/attach_sheet.dart';
-import 'package:upgrade/features/shell/shell_bar.dart';
-import 'package:upgrade/features/shell/shell_header.dart';
-import 'package:upgrade/features/shell/sheets/launch_picker_sheet.dart';
-import 'package:upgrade/features/shell/input/shell_search.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/features/shell/shell_terminal.dart';
-import 'package:upgrade/features/shell/input/shell_voice.dart';
-import 'package:upgrade/features/shell/session/shell_watcher.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/shell/bar_layout.dart';
+import 'package:striked/application/agents/agent_kind.dart';
+import 'package:striked/application/drops/clips.dart';
+import 'package:striked/application/alerts/pin_alerts.dart';
+import 'package:striked/application/providers.dart';
+import 'package:striked/application/phone_linux.dart';
+import 'package:striked/application/shell/shell_font.dart';
+import 'package:striked/application/whisper.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/path_repository.dart';
+import 'package:striked/data/repositories/settings_repository.dart';
+import 'package:striked/design/effects/glitch.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/action_block.dart';
+import 'package:striked/design/components/drag_sheet.dart';
+import 'package:striked/design/components/field_panel.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/meta_row.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/platform/shell/shell_launch.dart';
+import 'package:striked/platform/vnc/keysyms.dart';
+import 'package:striked/features/code/diff_sheet.dart';
+import 'package:striked/features/files/files_sheet.dart';
+import 'package:striked/features/files/transfer_bar.dart';
+import 'package:striked/features/hosts/host_key_sheet.dart';
+import 'package:striked/features/hosts/hosts_screen.dart' show showMachineSheet;
+import 'package:striked/features/shell/sheets/attach_sheet.dart';
+import 'package:striked/features/shell/shell_bar.dart';
+import 'package:striked/features/shell/shell_header.dart';
+import 'package:striked/features/shell/sheets/launch_picker_sheet.dart';
+import 'package:striked/features/shell/input/shell_search.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:striked/features/shell/shell_terminal.dart';
+import 'package:striked/features/shell/input/shell_voice.dart';
+import 'package:striked/features/shell/session/shell_watcher.dart';
 
 class HostShellRoute extends ConsumerStatefulWidget {
   const HostShellRoute({
@@ -798,7 +798,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                 Error.throwWithStackTrace(error, stack);
               }
               debugPrint(
-                'upgrade.shell ${widget.host.name}: repository: $error',
+                'striked.shell ${widget.host.name}: repository: $error',
               );
             },
           ),
@@ -848,7 +848,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       await _store.repositoryFromHost(active);
     } catch (error) {
       if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-      debugPrint('upgrade.shell ${widget.host.name}: diff repository: $error');
+      debugPrint('striked.shell ${widget.host.name}: diff repository: $error');
     }
     return active.repository ??
         (targets.length == 1 ? targets.first.directory : null);

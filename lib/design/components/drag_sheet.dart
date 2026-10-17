@@ -1,8 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/design/motion.dart';
-import 'package:upgrade/design/tokens.dart';
+import 'package:striked/design/motion.dart';
+import 'package:striked/design/tokens.dart';
 
 abstract interface class SheetDrag {
   void dragStart();

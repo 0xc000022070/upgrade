@@ -1,15 +1,15 @@
 import 'dart:async';
 
-import 'package:upgrade_shade/upgrade_shade.dart';
+import 'package:striked_shade/striked_shade.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/alerts/alerts.dart';
-import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/platform/herdr/agent_watcher.dart';
-import 'package:upgrade/platform/notifications/pin_notifications.dart';
+import 'package:striked/application/alerts/alerts.dart';
+import 'package:striked/application/providers.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/platform/herdr/agent_watcher.dart';
+import 'package:striked/platform/notifications/pin_notifications.dart';
 
 class AlertsSettingsBlock extends ConsumerWidget {
   const AlertsSettingsBlock({super.key, this.requestPermission});
@@ -111,7 +111,7 @@ class _DndRowState extends State<_DndRow> with WidgetsBindingObserver {
   }
 
   Future<void> _refresh() async {
-    final granted = await _ask(UpgradeShade.dndAccess) ?? false;
+    final granted = await _ask(StrikedShade.dndAccess) ?? false;
     if (granted && !_granted) await PinNotifications.createChannel();
     if (mounted && granted != _granted) setState(() => _granted = granted);
   }
@@ -120,7 +120,7 @@ class _DndRowState extends State<_DndRow> with WidgetsBindingObserver {
     try {
       return await call();
     } on Object catch (error) {
-      debugPrint('upgrade.dnd: $error');
+      debugPrint('striked.dnd: $error');
       return null;
     }
   }
@@ -142,7 +142,7 @@ class _DndRowState extends State<_DndRow> with WidgetsBindingObserver {
                 style: context.tokens.rowSubtitle,
               ),
         value: _granted,
-        onChanged: (_) => unawaited(_ask(UpgradeShade.askDndAccess)),
+        onChanged: (_) => unawaited(_ask(StrikedShade.askDndAccess)),
       ),
     );
   }

@@ -48,10 +48,10 @@ in
 
     package = lib.mkOption {
       type = lib.types.package;
-      defaultText = lib.literalMD "the `engine` package of the Upgrade flake";
+      defaultText = lib.literalMD "the `engine` package of the Striked flake";
       description = ''
         The engine build to install. Defaults to the engine package of the
-        Upgrade flake this module came from, which is built against that flake's
+        Striked flake this module came from, which is built against that flake's
         nixpkgs rather than this machine's.
       '';
     };

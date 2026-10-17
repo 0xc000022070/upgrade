@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:upgrade/design/components/action_block.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:striked/design/components/action_block.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/platform/herdr/engine_agents.dart';
 
 Future<bool> showHookSheet(BuildContext context, HookStatus status) async {
   final title = '${status.agent.toUpperCase()} HOOKS';

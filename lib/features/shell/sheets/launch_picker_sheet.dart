@@ -2,24 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'package:upgrade/application/phone_linux.dart';
-import 'package:upgrade/application/shell/launch_scan.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/components/action_block.dart';
-import 'package:upgrade/design/components/connection_glyph.dart';
-import 'package:upgrade/design/components/dot_spinner.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/platform/shell/shell_launch.dart';
-import 'package:upgrade/features/hosts/host_key_sheet.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:striked/application/phone_linux.dart';
+import 'package:striked/application/shell/launch_scan.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/components/action_block.dart';
+import 'package:striked/design/components/connection_glyph.dart';
+import 'package:striked/design/components/dot_spinner.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/platform/shell/shell_launch.dart';
+import 'package:striked/features/hosts/host_key_sheet.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
 
 typedef LaunchPicked = void Function(
   UserIntent intent,
@@ -96,7 +96,7 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
           await ref.read(phoneLinuxHostProvider)?.ensure(widget.host) ??
           widget.host;
     } catch (error) {
-      debugPrint('upgrade.launch ${widget.host.name}: $error');
+      debugPrint('striked.launch ${widget.host.name}: $error');
       if (mounted) {
         setState(() => _scan = const LaunchScanFailed('linux did not start'));
       }
@@ -150,8 +150,8 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
           title: label,
           subtitle: detail,
           trailing: _dedicated == dedicated
-              ? UpgradeIcon(
-                  UpgradeIcons.check,
+              ? StrikedIcon(
+                  StrikedIcons.check,
                   size: IconSizes.check,
                   color: tokens.accent,
                 )
@@ -163,7 +163,7 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
       affordance: PanelAffordance(
         'BACK',
         key: const ValueKey('launch-advanced-back'),
-        icon: UpgradeIcons.back,
+        icon: StrikedIcons.back,
         onTap: () => setState(() => _advanced = false),
       ),
       children: [
@@ -201,8 +201,8 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
           key: const ValueKey('launch-advanced'),
           title: 'ADVANCED OPTIONS',
           value: _dedicated ? 'DEDICATED' : 'SHARED',
-          trailing: UpgradeIcon(
-            UpgradeIcons.forward,
+          trailing: StrikedIcon(
+            StrikedIcons.forward,
             size: IconSizes.affordance,
             color: context.tokens.textMuted,
           ),
@@ -214,8 +214,8 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
           children: [
             ListRow(
               key: const ValueKey('launch-shell'),
-              leading: UpgradeIcon(
-                UpgradeIcons.shell,
+              leading: StrikedIcon(
+                StrikedIcons.shell,
                 size: _logo,
                 color: context.tokens.textSecondary,
               ),
@@ -351,8 +351,8 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
             ),
           ListRow(
             key: const ValueKey('launch-tmux-new'),
-            leading: UpgradeIcon(
-              UpgradeIcons.add,
+            leading: StrikedIcon(
+              StrikedIcons.add,
               size: _logo,
               color: context.tokens.textSecondary,
             ),

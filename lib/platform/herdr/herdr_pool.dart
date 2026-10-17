@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/host_links.dart';
 
 class HerdrSessionPool {
   HerdrSessionPool(

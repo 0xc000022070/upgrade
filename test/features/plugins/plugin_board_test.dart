@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:upgrade/data/plugin_emblems.dart';
-import 'package:upgrade/features/plugins/plugin_board.dart';
-import 'package:upgrade/platform/plugins/store.dart';
+import 'package:striked/data/plugin_emblems.dart';
+import 'package:striked/features/plugins/plugin_board.dart';
+import 'package:striked/platform/plugins/store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/native_plugins.dart';
@@ -22,7 +22,7 @@ void main() {
       _plugin('projects', enabled: false),
       _plugin('drops', enabled: false),
     ]);
-    expect(rows.map((r) => r.id), ['upgrade.drops', 'upgrade.projects']);
+    expect(rows.map((r) => r.id), ['striked.drops', 'striked.projects']);
     expect(rows.map((r) => r.depth), [0, 1]);
     expect(rows.first.hasChildren, isTrue);
     expect(rows.any((r) => r.elbowLit || r.childLit || r.topLit), isFalse);
@@ -49,12 +49,12 @@ void main() {
     () {
       final projects = _plugin('projects', enabled: false);
       final rows = boardRows([projects]);
-      expect(rows.map((r) => r.id), ['upgrade.drops', 'upgrade.projects']);
+      expect(rows.map((r) => r.id), ['striked.drops', 'striked.projects']);
       expect(rows.first.plugin, isNull);
       expect(rows.last.depth, 1);
       expect(
         blockedReason(projects, {projects.id: projects}),
-        'NEEDS upgrade.drops · NOT INSTALLED',
+        'NEEDS striked.drops · NOT INSTALLED',
       );
     },
   );
@@ -73,26 +73,26 @@ void main() {
       _plugin('drops', enabled: false),
       _plugin('projects', enabled: false),
     ];
-    expect(switchPlan(off, 'upgrade.projects', true), [
-      'upgrade.drops',
-      'upgrade.projects',
+    expect(switchPlan(off, 'striked.projects', true), [
+      'striked.drops',
+      'striked.projects',
     ]);
-    expect(switchPlan(off, 'upgrade.drops', true), ['upgrade.drops']);
+    expect(switchPlan(off, 'striked.drops', true), ['striked.drops']);
 
     final on = [
       _plugin('drops', enabled: true),
       _plugin('projects', enabled: true),
     ];
-    expect(switchPlan(on, 'upgrade.drops', false), [
-      'upgrade.projects',
-      'upgrade.drops',
+    expect(switchPlan(on, 'striked.drops', false), [
+      'striked.projects',
+      'striked.drops',
     ]);
-    expect(switchPlan(on, 'upgrade.projects', false), ['upgrade.projects']);
+    expect(switchPlan(on, 'striked.projects', false), ['striked.projects']);
   });
 
   test('a plugin wears its declared emblem, else one fixed by its id', () {
     expect(_plugin('drops', enabled: false).manifest.emblem, 'crate');
-    expect(PluginEmblem.of('upgrade.drops', 'crate'), PluginEmblem.crate);
+    expect(PluginEmblem.of('striked.drops', 'crate'), PluginEmblem.crate);
     expect(
       PluginEmblem.of('acme.notes', 'unknown'),
       PluginEmblem.of('acme.notes', null),

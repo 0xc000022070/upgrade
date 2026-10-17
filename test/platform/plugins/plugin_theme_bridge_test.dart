@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/plugins/plugin_page.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/features/plugins/plugin_page.dart';
+import 'package:striked/platform/plugins/manifest.dart';
+import 'package:striked/platform/plugins/ui.dart';
 
 import '../../support/themed_app.dart';
 
-final _themedTokens = UpgradeTokens.house.copyWith(
+final _themedTokens = StrikedTokens.house.copyWith(
   brightness: Brightness.light,
   backgroundPrimary: const Color(0xFF111111),
   backgroundSecondary: const Color(0xFF222222),
@@ -31,7 +31,7 @@ id = "test.theme"
 name = "Theme test"
 purpose = "Verify the UI API accepts theme-aware manifests."
 version = "1.0.0"
-upgrade_api = "^2.1.0"
+striked_api = "^2.1.0"
 ui_api = 1
 [runtime]
 kind = "luau"
@@ -60,12 +60,12 @@ void main() {
       expect(pluginColor(_themedTokens, 'border'), _themedTokens.borderNormal);
       expect(pluginColor(_themedTokens, 'danger'), _themedTokens.danger);
       expect(
-        pluginColor(UpgradeTokens.house, 'danger'),
-        UpgradeTokens.house.danger,
+        pluginColor(StrikedTokens.house, 'danger'),
+        StrikedTokens.house.danger,
       );
       expect(
         pluginColor(_themedTokens, 'danger'),
-        isNot(UpgradeTokens.house.danger),
+        isNot(StrikedTokens.house.danger),
       );
     });
 
@@ -110,7 +110,7 @@ void main() {
     });
 
     test('the house palette reports dark brightness', () {
-      expect(pluginThemeTable(UpgradeTokens.house)['brightness'], 'dark');
+      expect(pluginThemeTable(StrikedTokens.house)['brightness'], 'dark');
     });
   });
 

@@ -4,19 +4,19 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/raw_tables.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/settings_repository.dart';
-import 'package:upgrade/data/repositories/key_repository.dart';
-import 'package:upgrade/data/repositories/path_repository.dart';
-import 'package:upgrade/platform/files/attachment_store.dart';
-import 'package:upgrade/platform/bundle_cipher.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/keys.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/raw_tables.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/settings_repository.dart';
+import 'package:striked/data/repositories/key_repository.dart';
+import 'package:striked/data/repositories/path_repository.dart';
+import 'package:striked/platform/files/attachment_store.dart';
+import 'package:striked/platform/bundle_cipher.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/keys.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/providers.dart';
+import 'package:striked/application/agents/reason_lines.dart';
 
 class Bundle {
   const Bundle({
@@ -425,7 +425,7 @@ class BundleTransfer {
 
 String bundleFileName(DateTime now) {
   final day = now.toIso8601String().substring(0, 10);
-  return 'upgrade-$day.bundle';
+  return 'striked-$day.bundle';
 }
 
 ReasonLine bundleLine(BundleFault fault) => switch (fault) {

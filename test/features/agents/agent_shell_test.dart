@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
-import 'package:upgrade/application/navigation.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/colors.dart';
-import 'package:upgrade/design/components/action_block.dart';
-import 'package:upgrade/features/agents/agent_shell.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/features/hosts/hosts_screen.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:striked/application/agents/agent_state.dart';
+import 'package:striked/application/navigation.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/colors.dart';
+import 'package:striked/design/components/action_block.dart';
+import 'package:striked/features/agents/agent_shell.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:striked/features/hosts/hosts_screen.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/shell/remote_shell.dart';
 
 import '../../support/fake_shell.dart';
 import '../../support/platform_channels.dart';
@@ -33,7 +33,7 @@ const _agent = AgentSnapshot(
   state: WorkingState(),
   terminalTitleStripped: 'refactor',
   workspaceId: 'w22',
-  cwd: '/home/luis/upgrade',
+  cwd: '/home/luis/striked',
   stateChangeSeq: 4,
 );
 
@@ -114,7 +114,7 @@ void main() {
     final commit = tester.widget<ActionBlock>(
       find.widgetWithText(ActionBlock, 'OPEN HERE'),
     );
-    expect(commit.tone, UpgradeColors.accent);
+    expect(commit.tone, StrikedColors.accent);
     expect(commit.filled, isTrue);
     expect(find.widgetWithText(ActionBlock, 'CANCEL'), findsOneWidget);
     await tester.tap(find.text('OPEN HERE'));

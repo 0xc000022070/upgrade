@@ -2,23 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 
-import 'package:upgrade/app/static_surface.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/meta.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_text_action.dart';
-import 'package:upgrade/design/components/section.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/features/home/agent_mark.dart';
-import 'package:upgrade/design/components/screen_scaffold.dart';
-import 'package:upgrade/features/agents/agent_shell.dart';
-import 'package:upgrade/features/agents/pip_action.dart';
+import 'package:striked/app/static_surface.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/meta.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/panel_text_action.dart';
+import 'package:striked/design/components/section.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/features/home/agent_mark.dart';
+import 'package:striked/design/components/screen_scaffold.dart';
+import 'package:striked/features/agents/agent_shell.dart';
+import 'package:striked/features/agents/pip_action.dart';
 
 void openAgents(BuildContext context) {
   Navigator.of(
@@ -39,7 +39,7 @@ class AgentsScreen extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'AGENTS',
-          breadcrumb: '/ UPGRADE / AGENTS',
+          breadcrumb: '/ STRIKED / AGENTS',
           titleTrailing: const PipAffordance(),
           onBack: () => Navigator.of(context).pop(),
           children: [
@@ -301,7 +301,7 @@ class _FailureLineState extends ConsumerState<_FailureLine> {
             PanelTextAction(
               label: _retrying ? 'RETRYING' : 'RETRY',
               onTap: _retrying ? null : _retry,
-              icon: UpgradeIcons.sync,
+              icon: StrikedIcons.sync,
             ),
         ],
       ),

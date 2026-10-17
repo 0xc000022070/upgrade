@@ -575,11 +575,11 @@ fn teardown_takes_the_timer_off_the_manager_that_holds_it() {
     let units = sandbox.unit_dir();
     fs::create_dir_all(&units).unwrap();
     let planted: Vec<String> = if cfg!(target_os = "macos") {
-        vec![format!("upgrade-schedule-{SCOPE}.plist")]
+        vec![format!("striked-schedule-{SCOPE}.plist")]
     } else {
         vec![
-            format!("upgrade-schedule-{SCOPE}.timer"),
-            format!("upgrade-schedule-{SCOPE}.service"),
+            format!("striked-schedule-{SCOPE}.timer"),
+            format!("striked-schedule-{SCOPE}.service"),
         ]
     };
     // A file the engine did not write is not the engine's to remove, whoever else on
@@ -615,7 +615,7 @@ fn teardown_takes_the_timer_off_the_manager_that_holds_it() {
             "systemctl was told {told:?}"
         );
         // A unit that failed is held by name after its file is gone, and an account left
-        // with upgrade entries under `--failed` has nothing on the machine to explain them.
+        // with striked entries under `--failed` has nothing on the machine to explain them.
         assert!(told.contains("reset-failed"), "systemctl was told {told:?}");
     }
 }

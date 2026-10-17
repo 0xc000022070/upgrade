@@ -2,21 +2,21 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/project_tree.dart';
-import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/application/plugins/native_plugins.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/field_panel.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/components/picker_row.dart';
-import 'package:upgrade/design/components/solid_action_bar.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/components/screen_scaffold.dart';
-import 'package:upgrade/app/static_surface.dart';
-import 'package:upgrade/features/projects/project_icon_picker.dart';
+import 'package:striked/application/project_tree.dart';
+import 'package:striked/application/providers.dart';
+import 'package:striked/application/plugins/native_plugins.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/field_panel.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/components/picker_row.dart';
+import 'package:striked/design/components/solid_action_bar.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/components/screen_scaffold.dart';
+import 'package:striked/app/static_surface.dart';
+import 'package:striked/features/projects/project_icon_picker.dart';
 
 void openProjectForm(
   BuildContext context, {

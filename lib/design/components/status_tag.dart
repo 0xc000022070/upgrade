@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/spacing.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/spacing.dart';
 
 class StatusTag extends StatelessWidget {
   const StatusTag(this.label, {super.key, required Color this.color})
@@ -17,7 +17,7 @@ class StatusTag extends StatelessWidget {
   final Color? color;
   final ProjectStatus? projectStatus;
 
-  static Color _projectColor(UpgradeTokens tokens, ProjectStatus status) =>
+  static Color _projectColor(StrikedTokens tokens, ProjectStatus status) =>
       switch (status) {
         ProjectStatus.active => tokens.accent,
         ProjectStatus.paused => tokens.textSecondary,

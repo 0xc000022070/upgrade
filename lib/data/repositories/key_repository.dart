@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 
-import 'package:upgrade/data/database.dart';
+import 'package:striked/data/database.dart';
 
 class ManagedKey {
   const ManagedKey({

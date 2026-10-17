@@ -9,9 +9,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import 'package:upgrade/platform/vnc/framebuffer.dart';
-import 'package:upgrade/platform/vnc/rfb_messages.dart';
-import 'package:upgrade/features/screen/screen_transform.dart';
+import 'package:striked/platform/vnc/framebuffer.dart';
+import 'package:striked/platform/vnc/rfb_messages.dart';
+import 'package:striked/features/screen/screen_transform.dart';
 
 /// Small enough that a blur of sigma 2 over it destroys the text and leaves the layout,
 /// and that one file per host stays a few tens of kilobytes.

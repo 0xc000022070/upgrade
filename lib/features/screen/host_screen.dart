@@ -4,25 +4,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/drops/clips.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/files/gallery.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
-import 'package:upgrade/features/devices/device_dock.dart';
-import 'package:upgrade/features/hosts/host_key_sheet.dart';
-import 'package:upgrade/features/settings/host_form_screen.dart';
-import 'package:upgrade/features/screen/crop_notice.dart';
-import 'package:upgrade/features/screen/framebuffer_view.dart';
-import 'package:upgrade/features/screen/keys_strip.dart';
-import 'package:upgrade/features/screen/screen_controller.dart';
-import 'package:upgrade/features/screen/screen_preview.dart';
-import 'package:upgrade/features/screen/screen_rail.dart';
-import 'package:upgrade/features/screen/screen_transform.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/drops/clips.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/platform/files/gallery.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/vnc/vnc_tunnel.dart';
+import 'package:striked/features/devices/device_dock.dart';
+import 'package:striked/features/hosts/host_key_sheet.dart';
+import 'package:striked/features/settings/host_form_screen.dart';
+import 'package:striked/features/screen/crop_notice.dart';
+import 'package:striked/features/screen/framebuffer_view.dart';
+import 'package:striked/features/screen/keys_strip.dart';
+import 'package:striked/features/screen/screen_controller.dart';
+import 'package:striked/features/screen/screen_preview.dart';
+import 'package:striked/features/screen/screen_rail.dart';
+import 'package:striked/features/screen/screen_transform.dart';
 
 void openHostScreen(BuildContext context, Host host) {
   final dock = ProviderScope.containerOf(context).read(deviceDockProvider);
@@ -137,7 +137,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
       _previews = previews;
       _previewEvery();
     } catch (error) {
-      debugPrint('upgrade.vnc ${widget.host.name}: no preview store: $error');
+      debugPrint('striked.vnc ${widget.host.name}: no preview store: $error');
     }
   }
 
@@ -191,7 +191,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
               .add(png, source: ClipSource.screen, hostName: _host.name);
           _say(heldNotice(clip));
         case CropTarget.save:
-          await widget.save(png, 'upgrade-${DateTime.now().toIso8601String()}');
+          await widget.save(png, 'striked-${DateTime.now().toIso8601String()}');
           _say(savedNotice(rect.width, rect.height));
       }
     } catch (error) {

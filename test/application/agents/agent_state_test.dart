@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:striked/application/agents/agent_state.dart';
 
 void main() {
   group('the door from a word', () {

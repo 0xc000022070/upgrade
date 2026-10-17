@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/signal_text.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/signal_text.dart';
 
 class Meta extends StatelessWidget {
   const Meta(

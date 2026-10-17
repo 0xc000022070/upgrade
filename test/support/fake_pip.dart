@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show Size;
 
-import 'package:upgrade/application/pip.dart';
+import 'package:striked/application/pip.dart';
 
 class FakePip implements PipSurface {
   FakePip({this.here = true});

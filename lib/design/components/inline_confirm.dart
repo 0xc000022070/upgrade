@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/action_block.dart';
-import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/action_block.dart';
+import 'package:striked/design/components/solid_action_bar.dart';
 
 class InlineConfirmBlock extends StatefulWidget {
   const InlineConfirmBlock({

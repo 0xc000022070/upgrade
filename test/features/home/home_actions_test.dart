@@ -1,8 +1,8 @@
 import 'dart:ui' show SemanticsAction;
 
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/features/home/home_actions.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/features/home/home_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -37,9 +37,9 @@ void main() {
       }
       expect(
         tester
-            .widgetList<UpgradeIcon>(find.byType(UpgradeIcon))
+            .widgetList<StrikedIcon>(find.byType(StrikedIcon))
             .map((icon) => icon.icon),
-        [UpgradeIcons.plugins, UpgradeIcons.settings],
+        [StrikedIcons.plugins, StrikedIcons.settings],
       );
       expect(tester.takeException(), isNull);
     } finally {

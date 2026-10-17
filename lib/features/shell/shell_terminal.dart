@@ -4,13 +4,13 @@ import 'package:flutter/widgets.dart';
 import 'package:material_ui/material_ui.dart'
     show TextSelectionTheme, TextSelectionThemeData;
 
-import 'package:upgrade/design/components/dot_spinner.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/typography.dart';
-import 'package:upgrade/features/shell/input/shell_selection.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/features/shell/session/shell_tail.dart';
+import 'package:striked/design/components/dot_spinner.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/typography.dart';
+import 'package:striked/features/shell/input/shell_selection.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:striked/features/shell/session/shell_tail.dart';
 
 const shellTerminalPadding = EdgeInsets.all(Spacing.md);
 
@@ -21,7 +21,7 @@ const shellGestures = TerminalGestureSettings(
 final _themes =
     <(TerminalPalette, Color, Color, Color, double), TerminalTheme>{};
 
-TerminalTheme shellTheme(UpgradeTokens tokens, double fontSize) {
+TerminalTheme shellTheme(StrikedTokens tokens, double fontSize) {
   final palette = tokens.terminal;
   final key = (
     palette,

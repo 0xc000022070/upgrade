@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:upgrade/application/drops/clips.dart';
-import 'package:upgrade/platform/shell/host_clipboard.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/platform/ssh/host_files.dart'
+import 'package:striked/application/drops/clips.dart';
+import 'package:striked/platform/shell/host_clipboard.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/platform/ssh/host_files.dart'
     show FileBody, atMost, uploadWidth, uploadsSharing;
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
 
 /// Two of the three are fine: a host with no clipboard gets the path, which is what a
 /// headless box is meant to get.

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:upgrade/design/colors.dart';
-import 'package:upgrade/design/typography.dart';
+import 'package:striked/design/colors.dart';
+import 'package:striked/design/typography.dart';
 
 @immutable
 class TerminalPalette {
@@ -59,8 +59,8 @@ class SyntaxPalette {
 /// Geometry is not here: it does not change with the theme, so it stays the plain
 /// constants in `spacing.dart`.
 @immutable
-class UpgradeTokens extends ThemeExtension<UpgradeTokens> {
-  const UpgradeTokens({
+class StrikedTokens extends ThemeExtension<StrikedTokens> {
+  const StrikedTokens({
     required this.brightness,
     required this.backgroundPrimary,
     required this.backgroundSecondary,
@@ -173,23 +173,23 @@ class UpgradeTokens extends ThemeExtension<UpgradeTokens> {
   final TextStyle pipState;
   final TextStyle pipMeta;
 
-  static const house = UpgradeTokens(
+  static const house = StrikedTokens(
     brightness: Brightness.dark,
-    backgroundPrimary: UpgradeColors.backgroundPrimary,
-    backgroundSecondary: UpgradeColors.backgroundSecondary,
-    surfacePrimary: UpgradeColors.surfacePrimary,
-    surfaceSecondary: UpgradeColors.surfaceSecondary,
-    borderSubtle: UpgradeColors.borderSubtle,
-    borderNormal: UpgradeColors.borderNormal,
-    textPrimary: UpgradeColors.textPrimary,
-    textSecondary: UpgradeColors.textSecondary,
-    textMuted: UpgradeColors.textMuted,
-    textDisabled: UpgradeColors.textDisabled,
-    accent: UpgradeColors.accent,
-    accentMuted: UpgradeColors.accentMuted,
-    warning: UpgradeColors.warning,
-    warningMuted: UpgradeColors.warningMuted,
-    danger: UpgradeColors.danger,
+    backgroundPrimary: StrikedColors.backgroundPrimary,
+    backgroundSecondary: StrikedColors.backgroundSecondary,
+    surfacePrimary: StrikedColors.surfacePrimary,
+    surfaceSecondary: StrikedColors.surfaceSecondary,
+    borderSubtle: StrikedColors.borderSubtle,
+    borderNormal: StrikedColors.borderNormal,
+    textPrimary: StrikedColors.textPrimary,
+    textSecondary: StrikedColors.textSecondary,
+    textMuted: StrikedColors.textMuted,
+    textDisabled: StrikedColors.textDisabled,
+    accent: StrikedColors.accent,
+    accentMuted: StrikedColors.accentMuted,
+    warning: StrikedColors.warning,
+    warningMuted: StrikedColors.warningMuted,
+    danger: StrikedColors.danger,
     syntax: SyntaxPalette.house,
     scrim: Color(0x99000000),
     mediaBackdrop: Color(0xFF000000),
@@ -203,45 +203,45 @@ class UpgradeTokens extends ThemeExtension<UpgradeTokens> {
     diffAddedRun: Color(0x40B7FF2A),
     diffRemovedRun: Color(0x4DB84A4A),
     terminal: _houseTerminal,
-    screenTitle: UpgradeText.screenTitle,
-    breadcrumb: UpgradeText.breadcrumb,
-    panelHeader: UpgradeText.panelHeader,
-    rowKicker: UpgradeText.rowKicker,
-    rowTitle: UpgradeText.rowTitle,
-    rowTitleLead: UpgradeText.rowTitleLead,
-    rowSubtitle: UpgradeText.rowSubtitle,
-    value: UpgradeText.value,
-    valueStrong: UpgradeText.valueStrong,
-    label: UpgradeText.label,
-    heroName: UpgradeText.heroName,
-    heroPercent: UpgradeText.heroPercent,
-    noteBody: UpgradeText.noteBody,
-    buildStamp: UpgradeText.buildStamp,
-    capture: UpgradeText.capture,
-    prose: UpgradeText.prose,
-    navLabel: UpgradeText.navLabel,
-    pipHeadline: UpgradeText.pipHeadline,
-    pipAgent: UpgradeText.pipAgent,
-    pipState: UpgradeText.pipState,
-    pipMeta: UpgradeText.pipMeta,
+    screenTitle: StrikedText.screenTitle,
+    breadcrumb: StrikedText.breadcrumb,
+    panelHeader: StrikedText.panelHeader,
+    rowKicker: StrikedText.rowKicker,
+    rowTitle: StrikedText.rowTitle,
+    rowTitleLead: StrikedText.rowTitleLead,
+    rowSubtitle: StrikedText.rowSubtitle,
+    value: StrikedText.value,
+    valueStrong: StrikedText.valueStrong,
+    label: StrikedText.label,
+    heroName: StrikedText.heroName,
+    heroPercent: StrikedText.heroPercent,
+    noteBody: StrikedText.noteBody,
+    buildStamp: StrikedText.buildStamp,
+    capture: StrikedText.capture,
+    prose: StrikedText.prose,
+    navLabel: StrikedText.navLabel,
+    pipHeadline: StrikedText.pipHeadline,
+    pipAgent: StrikedText.pipAgent,
+    pipState: StrikedText.pipState,
+    pipMeta: StrikedText.pipMeta,
   );
 
   static const _houseTerminal = TerminalPalette(
-    foreground: UpgradeColors.textPrimary,
+    foreground: StrikedColors.textPrimary,
     background: Color(0xFF000000),
-    cursor: UpgradeColors.accent,
+    cursor: StrikedColors.accent,
     ansi: [
-      UpgradeColors.backgroundPrimary,
+      StrikedColors.backgroundPrimary,
       Color(0xFFCD3131),
-      UpgradeColors.accent,
+      StrikedColors.accent,
       Color(0xFFE5E510),
       Color(0xFF2472C8),
       Color(0xFFBC3FBC),
       Color(0xFF11A8CD),
-      UpgradeColors.textPrimary,
-      UpgradeColors.textDisabled,
+      StrikedColors.textPrimary,
+      StrikedColors.textDisabled,
       Color(0xFFF14C4C),
-      UpgradeColors.accentMuted,
+      StrikedColors.accentMuted,
       Color(0xFFF5F543),
       Color(0xFF3B8EEA),
       Color(0xFFD670D6),
@@ -251,7 +251,7 @@ class UpgradeTokens extends ThemeExtension<UpgradeTokens> {
   );
 
   @override
-  UpgradeTokens copyWith({
+  StrikedTokens copyWith({
     Brightness? brightness,
     Color? backgroundPrimary,
     Color? backgroundSecondary,
@@ -303,7 +303,7 @@ class UpgradeTokens extends ThemeExtension<UpgradeTokens> {
     TextStyle? pipState,
     TextStyle? pipMeta,
   }) {
-    return UpgradeTokens(
+    return StrikedTokens(
       brightness: brightness ?? this.brightness,
       backgroundPrimary: backgroundPrimary ?? this.backgroundPrimary,
       backgroundSecondary: backgroundSecondary ?? this.backgroundSecondary,
@@ -359,11 +359,11 @@ class UpgradeTokens extends ThemeExtension<UpgradeTokens> {
   }
 
   @override
-  UpgradeTokens lerp(ThemeExtension<UpgradeTokens>? other, double t) {
-    if (other is! UpgradeTokens) return this;
+  StrikedTokens lerp(ThemeExtension<StrikedTokens>? other, double t) {
+    if (other is! StrikedTokens) return this;
     Color c(Color a, Color b) => Color.lerp(a, b, t)!;
     TextStyle s(TextStyle a, TextStyle b) => TextStyle.lerp(a, b, t)!;
-    return UpgradeTokens(
+    return StrikedTokens(
       // A brightness does not blend: the crossfade in the colours is the transition, and the
       // platform brightness flips once it is done.
       brightness: t < 0.5 ? brightness : other.brightness,
@@ -425,6 +425,6 @@ class UpgradeTokens extends ThemeExtension<UpgradeTokens> {
   }
 }
 
-extension UpgradeTokensContext on BuildContext {
-  UpgradeTokens get tokens => Theme.of(this).extension<UpgradeTokens>()!;
+extension StrikedTokensContext on BuildContext {
+  StrikedTokens get tokens => Theme.of(this).extension<StrikedTokens>()!;
 }

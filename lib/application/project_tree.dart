@@ -1,4 +1,4 @@
-import 'package:upgrade/data/database.dart';
+import 'package:striked/data/database.dart';
 
 Map<String, String> parentPaths(List<Project> projects) {
   final byId = {for (final project in projects) project.id: project};

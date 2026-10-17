@@ -4,48 +4,48 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/navigation.dart';
-import 'package:upgrade/application/phone_linux.dart';
-import 'package:upgrade/app/static_surface.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/key_repository.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/meta.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/components/segment_switch.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/section.dart';
-import 'package:upgrade/design/components/toolbar_icon_action.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/features/files/files_sheet.dart';
-import 'package:upgrade/platform/herdr/engine_agents.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_key_dial.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/links/link_probe.dart';
-import 'package:upgrade/platform/phone_linux.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/features/code/code_list.dart';
-import 'package:upgrade/features/devices/device_dock.dart';
-import 'package:upgrade/features/devices/screens_action.dart';
-import 'package:upgrade/design/components/screen_scaffold.dart';
-import 'package:upgrade/features/settings/host_form_screen.dart';
-import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/features/shell/shell_status.dart';
-import 'package:upgrade/features/shell/session/shell_watcher.dart';
-import 'package:upgrade/features/hosts/hook_sheet.dart';
-import 'package:upgrade/features/hosts/host_key_sheet.dart';
-import 'package:upgrade/features/hosts/keys_screen.dart';
-import 'package:upgrade/features/hosts/host_mark.dart';
-import 'package:upgrade/features/hosts/link_probes.dart';
-import 'package:upgrade/features/hosts/phone_linux_picker.dart';
-import 'package:upgrade/features/hosts/preview_tile.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/navigation.dart';
+import 'package:striked/application/phone_linux.dart';
+import 'package:striked/app/static_surface.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/key_repository.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/meta.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/components/segment_switch.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/section.dart';
+import 'package:striked/design/components/toolbar_icon_action.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/features/files/files_sheet.dart';
+import 'package:striked/platform/herdr/engine_agents.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_key_dial.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/links/link_probe.dart';
+import 'package:striked/platform/phone_linux.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/features/code/code_list.dart';
+import 'package:striked/features/devices/device_dock.dart';
+import 'package:striked/features/devices/screens_action.dart';
+import 'package:striked/design/components/screen_scaffold.dart';
+import 'package:striked/features/settings/host_form_screen.dart';
+import 'package:striked/features/shell/sheets/shell_sheet.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:striked/features/shell/shell_status.dart';
+import 'package:striked/features/shell/session/shell_watcher.dart';
+import 'package:striked/features/hosts/hook_sheet.dart';
+import 'package:striked/features/hosts/host_key_sheet.dart';
+import 'package:striked/features/hosts/keys_screen.dart';
+import 'package:striked/features/hosts/host_mark.dart';
+import 'package:striked/features/hosts/link_probes.dart';
+import 'package:striked/features/hosts/phone_linux_picker.dart';
+import 'package:striked/features/hosts/preview_tile.dart';
 
 class HostsScreen extends ConsumerStatefulWidget {
   const HostsScreen({super.key});
@@ -130,7 +130,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
           const ScreensAction(),
           ToolbarIconAction(
             label: 'MANAGE SSH KEYS',
-            icon: UpgradeIcons.sshKey,
+            icon: StrikedIcons.sshKey,
             onTap: () => openKeys(context),
           ),
         ],
@@ -296,7 +296,7 @@ class _HostDetail extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: host?.name.toUpperCase() ?? 'HOST',
-          breadcrumb: '/ UPGRADE / MACHINES',
+          breadcrumb: '/ STRIKED / MACHINES',
           onBack: () => Navigator.of(context).pop(),
           children: [
             if (host != null)
@@ -360,7 +360,7 @@ class _HostPanel extends ConsumerWidget {
           const SizedBox(width: Spacing.lg),
           PanelAffordance(
             'EDIT',
-            icon: UpgradeIcons.edit,
+            icon: StrikedIcons.edit,
             onTap: () => openHostForm(context, host: host),
           ),
         ],
@@ -523,7 +523,7 @@ class _HookRowsState extends ConsumerState<_HookRows> {
         });
       }
     } catch (error) {
-      debugPrint('upgrade.engine ${widget.host.name} hooks: $error');
+      debugPrint('striked.engine ${widget.host.name} hooks: $error');
       if (mounted) setState(() => _failure = _failureLine(error));
     }
   }
@@ -535,7 +535,7 @@ class _HookRowsState extends ConsumerState<_HookRows> {
       await _withEngine((engine) => engine.install(status.agent));
       await _load();
     } catch (error) {
-      debugPrint('upgrade.engine ${widget.host.name} install: $error');
+      debugPrint('striked.engine ${widget.host.name} install: $error');
       if (mounted) setState(() => _failure = _failureLine(error));
     } finally {
       if (mounted) setState(() => _installing = null);
@@ -842,7 +842,7 @@ class _LinkRowState extends ConsumerState<_LinkRow> {
         verified = verifier.refusal == null;
       }
     } catch (error) {
-      debugPrint('upgrade.verify ${host.name}: $error');
+      debugPrint('striked.verify ${host.name}: $error');
       failure = _failureWord(error);
     }
     if (!mounted) return;
@@ -900,7 +900,7 @@ class _HostActions extends ConsumerWidget {
                       ? 'SHELL'
                       : 'SHELL · ${sessions.length} OPEN',
                   key: ValueKey('ssh-host-${host.id}'),
-                  icon: UpgradeIcons.shell,
+                  icon: StrikedIcons.shell,
                   color: accent,
                   onTap: UserIntent.onGesture(
                     (intent) => pickHostShell(context, store, host, intent),
@@ -914,7 +914,7 @@ class _HostActions extends ConsumerWidget {
           PanelAffordance(
             'DESKTOP',
             key: ValueKey('desktop-host-${host.id}'),
-            icon: UpgradeIcons.screens,
+            icon: StrikedIcons.screens,
             color: accent,
             onTap: () => dock.watchDesktop(host),
           ),
@@ -922,7 +922,7 @@ class _HostActions extends ConsumerWidget {
           PanelAffordance(
             'DEVICES',
             key: ValueKey('devices-host-${host.id}'),
-            icon: UpgradeIcons.screens,
+            icon: StrikedIcons.screens,
             color: accent,
             onTap: dock.ask,
           ),
@@ -953,10 +953,10 @@ class _AddMachinePanelState extends ConsumerState<_AddMachinePanel> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final linux = ref.watch(phoneLinuxHostProvider);
-    Widget glyph(UpgradeIcons icon) =>
-        UpgradeIcon(icon, size: IconSizes.glyph, color: tokens.textSecondary);
-    final arrow = UpgradeIcon(
-      UpgradeIcons.arrowRight,
+    Widget glyph(StrikedIcons icon) =>
+        StrikedIcon(icon, size: IconSizes.glyph, color: tokens.textSecondary);
+    final arrow = StrikedIcon(
+      StrikedIcons.arrowRight,
       size: IconSizes.affordance,
       color: tokens.textMuted,
     );
@@ -979,7 +979,7 @@ class _AddMachinePanelState extends ConsumerState<_AddMachinePanel> {
             children: [
               ListRow(
                 key: const ValueKey('add-host'),
-                leading: glyph(UpgradeIcons.hosts),
+                leading: glyph(StrikedIcons.hosts),
                 title: 'ADD HOST',
                 subtitle: 'A machine you reach over ssh',
                 trailing: arrow,
@@ -988,7 +988,7 @@ class _AddMachinePanelState extends ConsumerState<_AddMachinePanel> {
               if (linux != null)
                 ListRow(
                   key: const ValueKey('add-phone-linux'),
-                  leading: glyph(UpgradeIcons.phone),
+                  leading: glyph(StrikedIcons.phone),
                   title: 'LINUX ON THIS PHONE',
                   subtitle: 'Its own Linux, run as an app without root',
                   subtitleMaxLines: 2,
@@ -1025,7 +1025,7 @@ class _AddMachinePanelState extends ConsumerState<_AddMachinePanel> {
     try {
       await linux.install(setup);
     } catch (error) {
-      debugPrint('upgrade.linux install: $error');
+      debugPrint('striked.linux install: $error');
       if (mounted) setState(() => _failed = true);
     } finally {
       if (mounted) setState(() => _starting = false);
@@ -1235,7 +1235,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
     try {
       await linux.addTools(widget.host, tools);
     } catch (error) {
-      debugPrint('upgrade.linux tools: $error');
+      debugPrint('striked.linux tools: $error');
       if (mounted) setState(() => _toolsFailure = 'install failed');
     }
   }
@@ -1278,7 +1278,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
           await linux.install(setup, into: widget.host);
       }
     } catch (error) {
-      debugPrint('upgrade.linux $action: $error');
+      debugPrint('striked.linux $action: $error');
       if (mounted) setState(() => _failure = '${action.toLowerCase()} failed');
     } finally {
       if (mounted) setState(() => _busy = null);
@@ -1302,7 +1302,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
     try {
       await linux.remove(widget.host);
     } catch (error) {
-      debugPrint('upgrade.linux remove: $error');
+      debugPrint('striked.linux remove: $error');
       if (mounted) setState(() => _failure = 'remove failed');
     } finally {
       if (mounted) setState(() => _busy = null);

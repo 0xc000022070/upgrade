@@ -228,7 +228,7 @@ mod tests {
     }
 
     fn read_file(name: &str, body: &[u8], after: Option<u64>) -> Value {
-        let file = format!("upgrade-transcript-unit-{}-{name}.jsonl", std::process::id());
+        let file = format!("striked-transcript-unit-{}-{name}.jsonl", std::process::id());
         let path = std::env::temp_dir().join(file);
         fs::write(&path, body).unwrap();
         let sessions = [("claude:s".to_owned(), "claude".to_owned(), Some(path.display().to_string()))];

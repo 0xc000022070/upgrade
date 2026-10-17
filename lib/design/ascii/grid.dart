@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:upgrade/design/ascii/braille.dart';
+import 'package:striked/design/ascii/braille.dart';
 
 class AsciiFrame {
   const AsciiFrame({

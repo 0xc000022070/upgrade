@@ -3,18 +3,18 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/alerts/alerts.dart';
-import 'package:upgrade/application/alerts/pin_alerts.dart';
-import 'package:upgrade/application/alerts/watcher_backoff.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/herdr/agent_watcher.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_links.dart';
-import 'package:upgrade/platform/herdr/herdr_socket.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:striked/application/agents/agent_state.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/alerts/alerts.dart';
+import 'package:striked/application/alerts/pin_alerts.dart';
+import 'package:striked/application/alerts/watcher_backoff.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/platform/herdr/agent_watcher.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_links.dart';
+import 'package:striked/platform/herdr/herdr_socket.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/keys.dart';
 
 import '../../support/herdr_link.dart';
 
@@ -675,7 +675,7 @@ void main() {
     ).subscribe(HerdrRequests.paneStatus((session: 'default', pane: 'wQ:p1')));
     final woken = events.first;
     watching.say(const {
-      'id': 'upgrade:0',
+      'id': 'striked:0',
       'result': {'type': 'subscription_started'},
     });
     watching.say(const {

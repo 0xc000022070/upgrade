@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/striked_field.dart';
 
 class FieldPanel extends StatelessWidget {
   const FieldPanel({
@@ -50,7 +50,7 @@ class FieldPanel extends StatelessWidget {
         Spacing.panelPadding,
         Spacing.sm,
       ),
-      child: UpgradeField(
+      child: StrikedField(
         enabled: enabled,
         maxLength: maxLength,
         semanticLabel: label,

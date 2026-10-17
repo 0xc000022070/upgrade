@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/data/views.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/item_line.dart';
+import 'package:striked/data/views.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/item_line.dart';
 
 class ActivityRow extends StatelessWidget {
   const ActivityRow({super.key, required this.entry, required this.timeLabel});

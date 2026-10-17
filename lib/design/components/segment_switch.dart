@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/spacing.dart';
 
 class SegmentSwitch extends StatelessWidget {
   const SegmentSwitch({

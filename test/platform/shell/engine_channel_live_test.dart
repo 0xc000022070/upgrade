@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dart_mosh/dart_mosh.dart';
-import 'package:upgrade/platform/shell/engine_channel.dart';
-import 'package:upgrade/platform/shell/udp_path.dart';
+import 'package:striked/platform/shell/engine_channel.dart';
+import 'package:striked/platform/shell/udp_path.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final _binary = Platform.environment['STRIKEDDDD_BIN'];

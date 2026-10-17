@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/features/code/intraline.dart';
-import 'package:upgrade/platform/workspace/workspace_model.dart';
+import 'package:striked/features/code/intraline.dart';
+import 'package:striked/platform/workspace/workspace_model.dart';
 
 DiffLine removed(String text) => DiffLine(DiffLineKind.removed, text);
 DiffLine added(String text) => DiffLine(DiffLineKind.added, text);

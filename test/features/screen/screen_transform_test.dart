@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/features/screen/screen_transform.dart';
+import 'package:striked/features/screen/screen_transform.dart';
 
 /// 1920 by 1080 fitted to 400 logical pixels of width.
 const _framebuffer = Size(1920, 1080);

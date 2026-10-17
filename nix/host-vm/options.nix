@@ -1,7 +1,7 @@
 { config, lib, ... }:
 
 {
-  options.upgradeHost = {
+  options.strikedHost = {
     name = lib.mkOption {
       type = lib.types.str;
       default = "full";
@@ -11,7 +11,7 @@
       from = lib.mkOption { type = lib.types.port; };
       to = lib.mkOption {
         type = lib.types.port;
-        default = config.upgradeHost.mosh.from + 15;
+        default = config.strikedHost.mosh.from + 15;
       };
     };
     engine = lib.mkEnableOption "strikedddd";

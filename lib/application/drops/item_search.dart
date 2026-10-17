@@ -1,4 +1,4 @@
-import 'package:upgrade/data/views.dart';
+import 'package:striked/data/views.dart';
 
 enum SearchMark {
   attachment('ATTACHMENT'),

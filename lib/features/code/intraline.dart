@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:upgrade/platform/workspace/workspace_model.dart';
+import 'package:striked/platform/workspace/workspace_model.dart';
 
 /// The stretch of one line that its partner on the other side does not have, as offsets
 /// into that line's own text.

@@ -4,23 +4,23 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/design/components/cell_divider.dart';
-import 'package:upgrade/design/components/close_target.dart';
-import 'package:upgrade/design/components/dot_spinner.dart';
-import 'package:upgrade/design/components/key_cell.dart';
-import 'package:upgrade/design/components/upgrade_field.dart';
-import 'package:upgrade/design/effects/glitch.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/motion.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/voice/speech.dart';
-import 'package:upgrade/platform/voice/whisper.dart';
-import 'package:upgrade/features/home/agent_mark.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:striked/application/agents/agent_kind.dart';
+import 'package:striked/design/components/cell_divider.dart';
+import 'package:striked/design/components/close_target.dart';
+import 'package:striked/design/components/dot_spinner.dart';
+import 'package:striked/design/components/key_cell.dart';
+import 'package:striked/design/components/striked_field.dart';
+import 'package:striked/design/effects/glitch.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/motion.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/voice/speech.dart';
+import 'package:striked/platform/voice/whisper.dart';
+import 'package:striked/features/home/agent_mark.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
 
 const voiceHold = Duration(milliseconds: 400);
 
@@ -561,8 +561,8 @@ class _VoiceCellState extends State<VoiceCell> {
                     painter: _Meter(levels, context.tokens.accent),
                   ),
                 ),
-              _ => UpgradeIcon(
-                UpgradeIcons.voice,
+              _ => StrikedIcon(
+                StrikedIcons.voice,
                 size: IconSizes.toolbar,
                 color: hearing
                     ? context.tokens.accent
@@ -640,8 +640,8 @@ class _FinishingState extends State<_Finishing> {
           dimension: IconSizes.toolbar,
           child: Center(child: DotSpinner()),
         )
-      : UpgradeIcon(
-          UpgradeIcons.voice,
+      : StrikedIcon(
+          StrikedIcons.voice,
           size: IconSizes.toolbar,
           color: context.tokens.accent,
         );
@@ -842,8 +842,8 @@ class _VoicePanel extends StatelessWidget {
                               painter: _Meter(levels, tokens.accent),
                             ),
                           )
-                        : UpgradeIcon(
-                            UpgradeIcons.voice,
+                        : StrikedIcon(
+                            StrikedIcons.voice,
                             size: IconSizes.toolbar,
                             color: failure != null
                                 ? tokens.warning
@@ -928,8 +928,8 @@ class _VoicePanel extends StatelessWidget {
                         key: const ValueKey('shell-voice-pause'),
                         label: dictation.paused ? 'RESUME' : 'PAUSE',
                         icon: dictation.paused
-                            ? UpgradeIcons.resume
-                            : UpgradeIcons.pause,
+                            ? StrikedIcons.resume
+                            : StrikedIcons.pause,
                         inert: !dictation.paused && !dictation.listening,
                         padding: RowMetrics.padding,
                         onTap: dictation.paused
@@ -942,7 +942,7 @@ class _VoicePanel extends StatelessWidget {
                       child: KeyCell(
                         key: const ValueKey('shell-voice-done'),
                         label: 'DONE',
-                        icon: UpgradeIcons.check,
+                        icon: StrikedIcons.check,
                         armed: true,
                         padding: RowMetrics.padding,
                         onTap: dictation.done,
@@ -1043,13 +1043,13 @@ class _VoiceComposerState extends State<VoiceComposer> {
               RowMetrics.padding,
               Spacing.sm,
             ),
-            child: UpgradeField(
+            child: StrikedField(
               key: const ValueKey('shell-voice-draft'),
               controller: _text,
               style: context.tokens.value.copyWith(
                 color: context.tokens.textPrimary,
               ),
-              maxLines: UpgradeField.bodyLines,
+              maxLines: StrikedField.bodyLines,
               onChanged: widget.onEdit,
               onSubmitted: (_) => widget.onSend(),
             ),

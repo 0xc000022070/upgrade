@@ -1,9 +1,9 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/activity_repository.dart';
 
 class NoteRepository {
   NoteRepository(this._db, this._activity);

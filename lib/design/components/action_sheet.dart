@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/motion.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/components/solid_action_bar.dart';
-import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/motion.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/components/solid_action_bar.dart';
+import 'package:striked/design/components/striked_field.dart';
 
 class SheetAction {
   const SheetAction(
@@ -123,7 +123,7 @@ class _PromptState extends State<_Prompt> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-            child: UpgradeField(
+            child: StrikedField(
               controller: _controller,
               autofocus: true,
               hint: widget.hint,

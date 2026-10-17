@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/shell/host_shell_screen.dart';
-import 'package:upgrade/features/shell/input/shell_search.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/features/shell/host_shell_screen.dart';
+import 'package:striked/features/shell/input/shell_search.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
 import 'package:flterm/flterm.dart';
 
 import '../../../support/fake_shell.dart';
@@ -46,7 +46,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: ThemeData(extensions: const [UpgradeTokens.house]),
+            theme: ThemeData(extensions: const [StrikedTokens.house]),
             home: Scaffold(
               body: ShellSearchRow(session: session, onClose: () {}),
             ),
@@ -144,7 +144,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: ThemeData(extensions: const [UpgradeTokens.house]),
+            theme: ThemeData(extensions: const [StrikedTokens.house]),
             home: Scaffold(
               body: ShellSearchRow(
                 session: session,
@@ -176,7 +176,7 @@ void main() {
         noWorkspaces,
       ],
       child: MaterialApp(
-        theme: ThemeData(extensions: const [UpgradeTokens.house]),
+        theme: ThemeData(extensions: const [StrikedTokens.house]),
         home: HostShellRoute(host: _rose, intent: testIntent()),
       ),
     );

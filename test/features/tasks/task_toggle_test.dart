@@ -4,20 +4,20 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/repositories/activity_repository.dart';
-import 'package:upgrade/data/repositories/goal_repository.dart';
-import 'package:upgrade/data/repositories/project_repository.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/task_repository.dart';
-import 'package:upgrade/design/colors.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/effects/glitch.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/features/projects/project_detail_screen.dart';
-import 'package:upgrade/features/tasks/item_sheet.dart';
-import 'package:upgrade/features/tasks/task_row.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/repositories/activity_repository.dart';
+import 'package:striked/data/repositories/goal_repository.dart';
+import 'package:striked/data/repositories/project_repository.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/task_repository.dart';
+import 'package:striked/design/colors.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/effects/glitch.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/features/projects/project_detail_screen.dart';
+import 'package:striked/features/tasks/item_sheet.dart';
+import 'package:striked/features/tasks/task_row.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -215,23 +215,23 @@ void main() {
         tester.widget<Text>(inGoal(title)).style!.color!;
 
     Color boxInk(String title) => tester
-        .widget<UpgradeIcon>(
+        .widget<StrikedIcon>(
           find
-              .descendant(of: rowOf(title), matching: find.byType(UpgradeIcon))
+              .descendant(of: rowOf(title), matching: find.byType(StrikedIcon))
               .first,
         )
         .color;
 
-    expect(titleInk('Backups viejos'), UpgradeColors.textMuted);
-    expect(boxInk('Backups viejos'), UpgradeColors.textMuted);
+    expect(titleInk('Backups viejos'), StrikedColors.textMuted);
+    expect(boxInk('Backups viejos'), StrikedColors.textMuted);
 
-    expect(titleInk('Object storage'), UpgradeColors.textPrimary);
-    expect(boxInk('Object storage'), UpgradeColors.accent);
+    expect(titleInk('Object storage'), StrikedColors.textPrimary);
+    expect(boxInk('Object storage'), StrikedColors.accent);
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'DONE'));
     await _ready(tester);
-    expect(titleInk('Redis propio'), UpgradeColors.textDisabled);
-    expect(boxInk('Redis propio'), UpgradeColors.textDisabled);
+    expect(titleInk('Redis propio'), StrikedColors.textDisabled);
+    expect(boxInk('Redis propio'), StrikedColors.textDisabled);
 
     await unmount(tester);
   });

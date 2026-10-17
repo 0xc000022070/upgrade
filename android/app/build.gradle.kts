@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.luisnquin.upgrade"
+    namespace = "dev.luisnquin.striked"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -18,7 +18,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "dev.luisnquin.upgrade"
+        applicationId = "dev.luisnquin.striked"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

@@ -5,26 +5,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/navigation.dart';
-import 'package:upgrade/application/pip.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/components/close_target.dart';
-import 'package:upgrade/design/components/inline_confirm.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/effects/glitch.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/platform/devices/device_link.dart';
-import 'package:upgrade/features/hosts/host_mark.dart';
-import 'package:upgrade/features/screen/host_screen.dart';
-import 'package:upgrade/features/screen/screen_controller.dart';
-import 'package:upgrade/features/devices/device_controllers.dart';
-import 'package:upgrade/features/devices/device_dock.dart';
-import 'package:upgrade/features/devices/device_screen.dart';
-import 'package:upgrade/features/devices/device_sheet.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/navigation.dart';
+import 'package:striked/application/pip.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/components/close_target.dart';
+import 'package:striked/design/components/inline_confirm.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/effects/glitch.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/platform/devices/device_link.dart';
+import 'package:striked/features/hosts/host_mark.dart';
+import 'package:striked/features/screen/host_screen.dart';
+import 'package:striked/features/screen/screen_controller.dart';
+import 'package:striked/features/devices/device_controllers.dart';
+import 'package:striked/features/devices/device_dock.dart';
+import 'package:striked/features/devices/device_screen.dart';
+import 'package:striked/features/devices/device_sheet.dart';
 
 const deviceFloatWidth = 120.0;
 const deviceFloatMinWidth = 100.0;
@@ -936,7 +936,7 @@ class _DeviceListState extends State<_DeviceList> {
             return [
               _ListRow(
                 key: ValueKey('device-tab-$key'),
-                icon: UpgradeIcons.phone,
+                icon: StrikedIcons.phone,
                 tag: held
                     ? _heldTag(
                         away: widget.dock.collapsed,
@@ -974,7 +974,7 @@ class _DeviceListState extends State<_DeviceList> {
             BootRunning(:final device) => [
               _ListRow(
                 key: ValueKey('device-booting-$hostId-${device.id}'),
-                icon: UpgradeIcons.phone,
+                icon: StrikedIcons.phone,
                 tag: 'BOOTING',
                 label: '${device.name}  …',
               ),
@@ -1036,7 +1036,7 @@ class _DeviceListState extends State<_DeviceList> {
                   ),
                   _Glyph(
                     key: const ValueKey('device-list-minimize'),
-                    icon: UpgradeIcons.minimize,
+                    icon: StrikedIcons.minimize,
                     label: 'MINIMIZE',
                     onTap: onFold,
                   ),
@@ -1069,7 +1069,7 @@ class _DeviceListState extends State<_DeviceList> {
                           const _Caption(label: 'DESKTOP'),
                           _ListRow(
                             key: ValueKey('desktop-tab-${host.id}'),
-                            icon: UpgradeIcons.monitor,
+                            icon: StrikedIcons.monitor,
                             tag: desktop?.host.id == host.id
                                 ? _heldTag(
                                     away: dock.desktopCollapsed,
@@ -1092,7 +1092,7 @@ class _DeviceListState extends State<_DeviceList> {
                                     key: ValueKey(
                                       'device-group-plus-${host.id}',
                                     ),
-                                    icon: UpgradeIcons.add,
+                                    icon: StrikedIcons.add,
                                     label: '${host.name.toUpperCase()} DEVICES',
                                     onTap: () => widget.onSheet(group),
                                   ),
@@ -1306,7 +1306,7 @@ class _ListRow extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final Color? color;
-  final UpgradeIcons? icon;
+  final StrikedIcons? icon;
   final String? tag;
 
   @override
@@ -1349,7 +1349,7 @@ class _ListRow extends StatelessWidget {
               ? text
               : Row(
                   children: [
-                    UpgradeIcon(icon!, size: IconSizes.sm, color: tint),
+                    StrikedIcon(icon!, size: IconSizes.sm, color: tint),
                     const SizedBox(width: Spacing.sm),
                     Expanded(child: text),
                     if (tag case final tag?) ...[
@@ -1426,8 +1426,8 @@ class _ScreensMarkState extends State<_ScreensMark>
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      child: UpgradeIcon(
-        UpgradeIcons.screens,
+      child: StrikedIcon(
+        StrikedIcons.screens,
         size: widget.size,
         color: widget.color ?? context.tokens.textPrimary,
         glitch: _glitch,
@@ -1486,7 +1486,7 @@ class _Tile extends StatelessWidget {
                         children: [
                           _Glyph(
                             key: ValueKey('$id-expand'),
-                            icon: UpgradeIcons.expand,
+                            icon: StrikedIcons.expand,
                             label: 'FULL SCREEN',
                             onTap: onExpand,
                           ),
@@ -1494,13 +1494,13 @@ class _Tile extends StatelessWidget {
                           if (onPip != null)
                             _Glyph(
                               key: ValueKey('$id-pip'),
-                              icon: UpgradeIcons.pip,
+                              icon: StrikedIcons.pip,
                               label: 'PIP',
                               onTap: onPip!,
                             ),
                           _Glyph(
                             key: ValueKey('$id-collapse'),
-                            icon: UpgradeIcons.minimize,
+                            icon: StrikedIcons.minimize,
                             label: 'MINIMIZE',
                             onTap: onCollapse,
                           ),
@@ -1616,8 +1616,8 @@ class _OnMedia extends StatelessWidget {
     return Theme(
       data: theme.copyWith(
         extensions: [
-          ...theme.extensions.values.where((e) => e is! UpgradeTokens),
-          UpgradeTokens.house,
+          ...theme.extensions.values.where((e) => e is! StrikedTokens),
+          StrikedTokens.house,
         ],
       ),
       child: child,
@@ -1634,8 +1634,8 @@ class _FailedMark extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       label: reason,
-      child: UpgradeIcon(
-        UpgradeIcons.failed,
+      child: StrikedIcon(
+        StrikedIcons.failed,
         size: IconSizes.glyph,
         color: context.tokens.warning,
       ),
@@ -1668,7 +1668,7 @@ class _Glyph extends StatelessWidget {
     required this.onTap,
   });
 
-  final UpgradeIcons icon;
+  final StrikedIcons icon;
   final String label;
   final VoidCallback onTap;
 
@@ -1684,7 +1684,7 @@ class _Glyph extends StatelessWidget {
         child: SizedBox.square(
           dimension: TapTargets.minHeight,
           child: Center(
-            child: UpgradeIcon(
+            child: StrikedIcon(
               icon,
               size: IconSizes.sm,
               color: context.tokens.textPrimary,

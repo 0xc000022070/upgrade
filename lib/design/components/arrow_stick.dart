@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
 
 const _hysteresis = 1.4;
 
@@ -98,10 +98,10 @@ class _ArrowStickState extends State<ArrowStick> {
 
   @override
   Widget build(BuildContext context) {
-    Widget arm(AxisDirection direction, UpgradeIcons icon, Alignment at) =>
+    Widget arm(AxisDirection direction, StrikedIcons icon, Alignment at) =>
         Align(
           alignment: at,
-          child: UpgradeIcon(
+          child: StrikedIcon(
             icon,
             size: _glyph,
             color: _held == direction
@@ -137,22 +137,22 @@ class _ArrowStickState extends State<ArrowStick> {
                 children: [
                   arm(
                     AxisDirection.up,
-                    UpgradeIcons.arrowUp,
+                    StrikedIcons.arrowUp,
                     Alignment.topCenter,
                   ),
                   arm(
                     AxisDirection.down,
-                    UpgradeIcons.arrowDown,
+                    StrikedIcons.arrowDown,
                     Alignment.bottomCenter,
                   ),
                   arm(
                     AxisDirection.left,
-                    UpgradeIcons.arrowLeft,
+                    StrikedIcons.arrowLeft,
                     Alignment.centerLeft,
                   ),
                   arm(
                     AxisDirection.right,
-                    UpgradeIcons.arrowRight,
+                    StrikedIcons.arrowRight,
                     Alignment.centerRight,
                   ),
                 ],

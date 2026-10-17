@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/pip.dart';
-import 'package:upgrade/app/pip_host.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/colors.dart';
-import 'package:upgrade/features/agents/pip_panel.dart';
-import 'package:upgrade/features/home/agent_mark.dart';
-import 'package:upgrade/features/home/agents_panel.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:striked/application/agents/agent_state.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/pip.dart';
+import 'package:striked/app/pip_host.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/colors.dart';
+import 'package:striked/features/agents/pip_panel.dart';
+import 'package:striked/features/home/agent_mark.dart';
+import 'package:striked/features/home/agents_panel.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
 
 import '../support/fake_pip.dart';
 import '../support/themed_app.dart';
@@ -40,7 +40,7 @@ AgentSnapshot agent(String name, String status) => AgentSnapshot(
   state: AgentState.of(status),
   terminalTitleStripped: 'work',
   workspaceId: 'wQ',
-  cwd: '/workspace/upgrade',
+  cwd: '/workspace/striked',
   stateChangeSeq: 1,
 );
 
@@ -82,7 +82,7 @@ Future<void> clear(WidgetTester tester) =>
 
 bool dimmed(WidgetTester tester) {
   final text = tester.widget<Text>(find.text('PIP'));
-  return text.style?.color == UpgradeColors.textDisabled;
+  return text.style?.color == StrikedColors.textDisabled;
 }
 
 List<String> drawnRows(WidgetTester tester) => tester

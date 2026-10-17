@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/app/boot.dart';
-import 'package:upgrade/design/motion.dart';
+import 'package:striked/app/boot.dart';
+import 'package:striked/design/motion.dart';
 
 import '../support/themed_app.dart';
 

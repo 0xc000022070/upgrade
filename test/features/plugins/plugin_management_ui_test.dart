@@ -1,20 +1,20 @@
 import 'dart:io';
 
-import 'package:upgrade/app/builtin_plugins.dart';
-import 'package:upgrade/application/plugins/native_plugins.dart';
-import 'package:upgrade/application/plugins/plugin_placements.dart';
-import 'package:upgrade/application/plugins/plugins.dart';
-import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
-import 'package:upgrade/design/colors.dart';
-import 'package:upgrade/design/components/action_block.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/features/plugins/plugin_management_screen.dart';
-import 'package:upgrade/features/plugins/plugin_page.dart';
-import 'package:upgrade/platform/plugins/index.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
+import 'package:striked/app/builtin_plugins.dart';
+import 'package:striked/application/plugins/native_plugins.dart';
+import 'package:striked/application/plugins/plugin_placements.dart';
+import 'package:striked/application/plugins/plugins.dart';
+import 'package:striked/application/providers.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/repositories/plugin_placement_repository.dart';
+import 'package:striked/design/colors.dart';
+import 'package:striked/design/components/action_block.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/features/plugins/plugin_management_screen.dart';
+import 'package:striked/features/plugins/plugin_page.dart';
+import 'package:striked/platform/plugins/index.dart';
+import 'package:striked/platform/plugins/manifest.dart';
+import 'package:striked/platform/plugins/store.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,21 +34,21 @@ Future<void> _drain(WidgetTester tester) async {
 
 PluginPackage _schedules() => PluginPackage(
   manifest: PluginManifest.parse(
-    File('plugins/agent-schedules/upgrade.plugin.toml').readAsStringSync(),
+    File('plugins/agent-schedules/striked.plugin.toml').readAsStringSync(),
   ),
   source: File('plugins/agent-schedules/main.luau').readAsStringSync(),
-  origin: 'bundled:upgrade.agent-schedules',
+  origin: 'bundled:striked.agent-schedules',
   revision: '1.0.0',
 );
 
 PluginPackage _projectsPageTitled(String title) {
-  final toml = File('lib/builtin_plugins/projects/upgrade.plugin.toml')
+  final toml = File('lib/builtin_plugins/projects/striked.plugin.toml')
       .readAsStringSync()
       .replaceFirst('title = "Projects"', 'title = "$title"');
   return PluginPackage(
     manifest: PluginManifest.parse(toml, allowNative: true),
     source: File('lib/builtin_plugins/projects/main.dart').readAsStringSync(),
-    origin: 'bundled:upgrade.projects',
+    origin: 'bundled:striked.projects',
     revision: '1.0.0',
   );
 }
@@ -79,7 +79,7 @@ class _RefusingPlugins extends _FixturePlugins {
   _RefusingPlugins(super.catalog);
   @override
   Future<void> setEnabled(String id, bool enabled) async =>
-      throw const PluginException('Projects needs upgrade.drops ^1.0.0');
+      throw const PluginException('Projects needs striked.drops ^1.0.0');
 }
 
 List<Override> _catalogOverrides(
@@ -152,12 +152,12 @@ void main() {
     await _drain(tester);
 
     expect(find.text('[ BOARD ]'), findsOneWidget);
-    expect(find.byKey(const ValueKey('key-upgrade.drops')), findsOneWidget);
-    expect(find.byKey(const ValueKey('key-upgrade.projects')), findsOneWidget);
+    expect(find.byKey(const ValueKey('key-striked.drops')), findsOneWidget);
+    expect(find.byKey(const ValueKey('key-striked.projects')), findsOneWidget);
     expect(find.text('DROPS CARD · CAPTURE BAR'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await openPluginDetails(tester, 'upgrade.drops', _drain);
+    await openPluginDetails(tester, 'striked.drops', _drain);
 
     expect(find.text('[ ADDS ]'), findsOneWidget);
     expect(find.text('NOTHING · RUNS ON ITS OWN'), findsOneWidget);
@@ -167,7 +167,7 @@ void main() {
     expect(tester.takeException(), isNull);
 
     final captureLayout = find.byKey(
-      const ValueKey('layout-upgrade.drops:widget:capture'),
+      const ValueKey('layout-striked.drops:widget:capture'),
     );
     final remove = find.descendant(
       of: captureLayout,
@@ -236,7 +236,7 @@ void main() {
     );
     await _drain(tester);
 
-    await openPluginDetails(tester, 'upgrade.projects', _drain);
+    await openPluginDetails(tester, 'striked.projects', _drain);
 
     final enable = find.widgetWithText(ActionBlock, 'ENABLE');
     await tester.ensureVisible(enable);
@@ -244,9 +244,9 @@ void main() {
     await tester.tap(enable);
     await _drain(tester);
 
-    final failure = find.text('Projects needs upgrade.drops ^1.0.0');
+    final failure = find.text('Projects needs striked.drops ^1.0.0');
     expect(failure, findsOneWidget);
-    expect(tester.widget<Text>(failure).style?.color, UpgradeColors.danger);
+    expect(tester.widget<Text>(failure).style?.color, StrikedColors.danger);
     expect(
       tester.getTopLeft(failure).dy,
       greaterThanOrEqualTo(tester.getBottomLeft(enable).dy),
@@ -281,11 +281,11 @@ void main() {
     await _drain(tester);
     expect(find.text('0 ON · 2 OFF'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('key-upgrade.projects')));
+    await tester.tap(find.byKey(const ValueKey('key-striked.projects')));
     await _drain(tester);
     expect(plugins.switched, isEmpty);
     final projectsSwitch = find.byKey(
-      const ValueKey('switch-upgrade.projects'),
+      const ValueKey('switch-striked.projects'),
     );
     expect(
       find.descendant(of: projectsSwitch, matching: find.text('POWER UP')),
@@ -306,18 +306,18 @@ void main() {
     await _drain(tester);
     await tester.tap(projectsSwitch);
     await _drain(tester);
-    expect(plugins.switched, ['upgrade.drops', 'upgrade.projects']);
+    expect(plugins.switched, ['striked.drops', 'striked.projects']);
     expect(find.text('2 ON · 0 OFF'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('key-upgrade.drops')));
+    await tester.tap(find.byKey(const ValueKey('key-striked.drops')));
     await _drain(tester);
-    final dropsSwitch = find.byKey(const ValueKey('switch-upgrade.drops'));
+    final dropsSwitch = find.byKey(const ValueKey('switch-striked.drops'));
     await tester.tap(dropsSwitch);
     await _drain(tester);
     expect(find.text('GOES OFF'), findsNWidgets(2));
     await tester.tap(dropsSwitch);
     await _drain(tester);
-    expect(plugins.switched.skip(2), ['upgrade.projects', 'upgrade.drops']);
+    expect(plugins.switched.skip(2), ['striked.projects', 'striked.drops']);
     expect(find.text('0 ON · 2 OFF'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
@@ -340,7 +340,7 @@ void main() {
     );
     await _drain(tester);
 
-    await openPluginDetails(tester, 'upgrade.drops', _drain);
+    await openPluginDetails(tester, 'striked.drops', _drain);
     expect(find.text('ALSO TURNS OFF PROJECTS'), findsNWidgets(2));
 
     final disable = find.widgetWithText(ActionBlock, 'DISABLE');
@@ -354,7 +354,7 @@ void main() {
 
     await tester.tap(again);
     await _drain(tester);
-    expect(plugins.switched, ['upgrade.projects', 'upgrade.drops']);
+    expect(plugins.switched, ['striked.projects', 'striked.drops']);
     expect(find.text('0 ON · 2 OFF'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
@@ -383,14 +383,14 @@ void main() {
     );
     await _drain(tester);
     expect(find.text('MISSING'), findsOneWidget);
-    expect(find.text('NEEDS upgrade.drops · NOT INSTALLED'), findsOneWidget);
+    expect(find.text('NEEDS striked.drops · NOT INSTALLED'), findsOneWidget);
     expect(find.text('0 ON · 0 OFF · 1 BLOCKED'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('key-upgrade.projects')));
+    await tester.tap(find.byKey(const ValueKey('key-striked.projects')));
     await _drain(tester);
     expect(plugins.switched, isEmpty);
 
-    await tester.tap(find.byKey(const ValueKey('key-upgrade.drops')));
+    await tester.tap(find.byKey(const ValueKey('key-striked.drops')));
     await _drain(tester);
     expect(
       find.text('No plugins to browse. Add a source to load its catalog.'),

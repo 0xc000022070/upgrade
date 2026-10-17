@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/plugins/plugin_hosts.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/plugins/plugin_hosts.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/platform/plugins/manifest.dart';
+import 'package:striked/platform/plugins/store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -29,7 +29,7 @@ void main() {
     active = true;
     configured = false;
     blocked = null;
-    root = await Directory.systemTemp.createTemp('upgrade-plugin-hosts-');
+    root = await Directory.systemTemp.createTemp('striked-plugin-hosts-');
     bindings = SchedulerBindings(
       () async => File('${root.path}/bindings.json'),
     );

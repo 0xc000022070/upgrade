@@ -4,19 +4,19 @@ import 'package:flutter/services.dart' show TextInputAction, TextInputType;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/bundle/bundle.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/action_block.dart';
-import 'package:upgrade/design/components/field_panel.dart';
-import 'package:upgrade/design/components/meta.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/components/panel_text_action.dart';
-import 'package:upgrade/design/components/solid_action_bar.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/bundle_cipher.dart';
-import 'package:upgrade/platform/files/documents.dart';
+import 'package:striked/application/bundle/bundle.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/action_block.dart';
+import 'package:striked/design/components/field_panel.dart';
+import 'package:striked/design/components/meta.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/components/panel_text_action.dart';
+import 'package:striked/design/components/solid_action_bar.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/platform/bundle_cipher.dart';
+import 'package:striked/platform/files/documents.dart';
 
 class BundlePanel extends ConsumerStatefulWidget {
   const BundlePanel({super.key});
@@ -59,12 +59,12 @@ class _BundlePanelState extends ConsumerState<BundlePanel> {
             ),
           PanelTextAction(
             label: 'EXPORT',
-            icon: UpgradeIcons.arrowUp,
+            icon: StrikedIcons.arrowUp,
             onTap: _busy ? null : _export,
           ),
           PanelTextAction(
             label: 'IMPORT',
-            icon: UpgradeIcons.arrowDown,
+            icon: StrikedIcons.arrowDown,
             onTap: _busy ? null : _import,
           ),
         ],

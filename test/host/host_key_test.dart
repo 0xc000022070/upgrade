@@ -2,10 +2,10 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/host_links.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/platform/shell/shell_tunnel.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/host_links.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/platform/shell/shell_tunnel.dart';
 
 import '../support/reasons.dart';
 import 'fixture.dart';

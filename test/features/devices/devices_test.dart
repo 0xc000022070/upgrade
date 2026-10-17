@@ -6,27 +6,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/navigation.dart';
-import 'package:upgrade/application/pip.dart';
-import 'package:upgrade/app/pip_host.dart';
-import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/dynamic_tokens.dart';
-import 'package:upgrade/design/effects/glitch.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/theme.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/devices/device_controllers.dart';
-import 'package:upgrade/features/devices/device_dock.dart';
-import 'package:upgrade/features/devices/device_float.dart';
-import 'package:upgrade/features/devices/screens_action.dart';
-import 'package:upgrade/features/screen/screen_preview.dart';
-import 'package:upgrade/platform/devices/device_link.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/keys.dart';
-import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/navigation.dart';
+import 'package:striked/application/pip.dart';
+import 'package:striked/app/pip_host.dart';
+import 'package:striked/application/providers.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/dynamic_tokens.dart';
+import 'package:striked/design/effects/glitch.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/theme.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/features/devices/device_controllers.dart';
+import 'package:striked/features/devices/device_dock.dart';
+import 'package:striked/features/devices/device_float.dart';
+import 'package:striked/features/devices/screens_action.dart';
+import 'package:striked/features/screen/screen_preview.dart';
+import 'package:striked/platform/devices/device_link.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/keys.dart';
+import 'package:striked/platform/vnc/vnc_tunnel.dart';
 
 import '../../support/fake_pip.dart';
 import '../../support/platform_channels.dart';
@@ -1191,14 +1191,14 @@ void main() {
   });
 
   group('under a light theme the float keeps the house ink', () {
-    const house = UpgradeTokens.house;
-    final light = upgradeTokensFromScheme(
+    const house = StrikedTokens.house;
+    final light = strikedTokensFromScheme(
       ColorScheme.fromSeed(
         seedColor: Colors.indigo,
         brightness: Brightness.light,
       ),
     );
-    final theme = UpgradeTheme.build(light);
+    final theme = StrikedTheme.build(light);
     final inks = {
       house.textPrimary,
       house.textMuted,
@@ -1207,8 +1207,8 @@ void main() {
     };
 
     Color icon(WidgetTester tester, Finder under) => tester
-        .widget<UpgradeIcon>(
-          find.descendant(of: under, matching: find.byType(UpgradeIcon)),
+        .widget<StrikedIcon>(
+          find.descendant(of: under, matching: find.byType(StrikedIcon)),
         )
         .color;
 
@@ -1252,7 +1252,7 @@ void main() {
       final overlay = find.byKey(_overlayKey);
       final glyphs = find.descendant(
         of: overlay,
-        matching: find.byType(UpgradeIcon),
+        matching: find.byType(StrikedIcon),
       );
       final words = find.descendant(
         of: overlay,
@@ -1260,7 +1260,7 @@ void main() {
       );
       expect(glyphs, findsNWidgets(2));
       expect(words, findsAtLeastNWidgets(2));
-      for (final glyph in tester.widgetList<UpgradeIcon>(glyphs)) {
+      for (final glyph in tester.widgetList<StrikedIcon>(glyphs)) {
         expect(inks, contains(glyph.color));
       }
       for (final word in words.evaluate()) {
@@ -1984,7 +1984,7 @@ void main() {
       );
       expect(
         ((bar.decoration! as BoxDecoration).border! as Border).top.color,
-        testTheme.extension<UpgradeTokens>()!.accent,
+        testTheme.extension<StrikedTokens>()!.accent,
       );
 
       await _tapKey(tester, handle);

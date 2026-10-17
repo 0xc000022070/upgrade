@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dartssh2/dartssh2.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/host_links.dart';
-import 'package:upgrade/platform/ssh/ssh_settle.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/host_links.dart';
+import 'package:striked/platform/ssh/ssh_settle.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/host_links.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/platform/vnc/arming.dart';
-import 'package:upgrade/platform/vnc/keysyms.dart';
+import 'package:striked/platform/vnc/arming.dart';
+import 'package:striked/platform/vnc/keysyms.dart';
 
 const ctrl = StickyModifier.ctrl;
 const alt = StickyModifier.alt;

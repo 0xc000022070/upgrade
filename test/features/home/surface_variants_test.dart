@@ -5,21 +5,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/layout.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/home/home_screen.dart';
-import 'package:upgrade/features/home/agents_panel.dart';
-import 'package:upgrade/features/tasks/drops_panel.dart';
-import 'package:upgrade/features/settings/settings_screen.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/layout.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/features/home/home_screen.dart';
+import 'package:striked/features/home/agents_panel.dart';
+import 'package:striked/features/tasks/drops_panel.dart';
+import 'package:striked/features/settings/settings_screen.dart';
 
 import '../../support/native_plugins.dart';
 import '../../support/platform_channels.dart';
 import '../../support/variants.dart';
 
-Set<Color> _chrome(UpgradeTokens tokens) => {
+Set<Color> _chrome(StrikedTokens tokens) => {
   tokens.backgroundPrimary,
   tokens.backgroundSecondary,
   tokens.surfacePrimary,
@@ -30,7 +30,7 @@ Set<Color> _chrome(UpgradeTokens tokens) => {
 
 /// Deliberately the house's under every palette. Subtracted so a screen that draws one is
 /// not read as a screen that leaked the house.
-Set<Color> _shared(UpgradeTokens tokens) => {
+Set<Color> _shared(StrikedTokens tokens) => {
   tokens.scrim,
   tokens.mediaBackdrop,
   tokens.diffMapWindow,
@@ -42,7 +42,7 @@ Set<Color> _shared(UpgradeTokens tokens) => {
 /// A rendered pixel in this set is a widget that reached for the house instead of
 /// `context.tokens`, which is invisible while the house is the palette under test.
 Set<Color> _houseOnly(Palette palette) =>
-    _chrome(UpgradeTokens.house)
+    _chrome(StrikedTokens.house)
         .difference(_chrome(palette.tokens).union(_shared(palette.tokens)));
 
 Iterable<Color> _painted(WidgetTester tester) sync* {

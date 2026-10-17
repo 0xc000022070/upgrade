@@ -63,7 +63,7 @@ end
 local function scan(prefix, pages, build)
     local rows, cursor = {}, prefix
     for _ = 1, pages do
-        local page = upgrade.data.query("boards", cursor, PAGE)
+        local page = striked.data.query("boards", cursor, PAGE)
         for _, record in ipairs(page) do
             if string.sub(record.key, 1, #prefix) ~= prefix then return rows end
             local row = build(record)
@@ -120,7 +120,7 @@ local function place(x)
 end
 
 local function store(object)
-    object.revision = upgrade.data.put("boards", object.key, encode(object), object.revision or 0)
+    object.revision = striked.data.put("boards", object.key, encode(object), object.revision or 0)
     return object
 end
 
@@ -130,7 +130,7 @@ local function removeNote(state, id)
         local touches = object.id == id
             or (object.kind == "edge" and (object.a == id or object.b == id))
         if touches and removed < MAX_DELETES then
-            upgrade.data.delete("boards", object.key, object.revision)
+            striked.data.delete("boards", object.key, object.revision)
             removed += 1
         else
             table.insert(kept, object)
@@ -321,7 +321,7 @@ local function update(state, event)
     state.message = ""
     if event.id == "new_board" then
         local name = "BOARD " .. tostring(#state.boards + 1)
-        upgrade.data.put("boards", "b:" .. event.token, name, 0)
+        striked.data.put("boards", "b:" .. event.token, name, 0)
         state.boards = readBoards()
         open(state, event.token, name)
         state.objects = {}
@@ -332,7 +332,7 @@ local function update(state, event)
         local board = find(state.boards, args.id)
         local name = clean(values["bn_" .. tostring(args.id)] or "")
         if board and name ~= "" then
-            upgrade.data.put("boards", "b:" .. args.id, name, board.revision)
+            striked.data.put("boards", "b:" .. args.id, name, board.revision)
             state.boards = readBoards()
             if state.boardId == args.id then state.boardName = name end
         else
@@ -344,10 +344,10 @@ local function update(state, event)
             local objects = readObjects(args.id)
             for index, object in ipairs(objects) do
                 if index > MAX_DELETES then break end
-                upgrade.data.delete("boards", object.key, object.revision)
+                striked.data.delete("boards", object.key, object.revision)
                 state.drafts[object.key] = nil
             end
-            upgrade.data.delete("boards", "b:" .. args.id, board.revision)
+            striked.data.delete("boards", "b:" .. args.id, board.revision)
         end
         state.boards = readBoards()
         if state.boardId == args.id then

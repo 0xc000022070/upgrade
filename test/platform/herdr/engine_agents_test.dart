@@ -1,12 +1,12 @@
-import 'package:upgrade/application/agents/agent_state.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/alerts/alerts.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/features/agents/agents_screen.dart';
-import 'package:upgrade/platform/herdr/agent_watcher.dart';
-import 'package:upgrade/platform/herdr/engine_agents.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:striked/application/agents/agent_state.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/alerts/alerts.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/features/agents/agents_screen.dart';
+import 'package:striked/platform/herdr/agent_watcher.dart';
+import 'package:striked/platform/herdr/engine_agents.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final pinned = PinnedHostKey(
@@ -138,7 +138,7 @@ void main() {
         },
         {
           'agent': 'opencode',
-          'config_path': '/home/dev/.config/opencode/plugin/upgrade.js',
+          'config_path': '/home/dev/.config/opencode/plugin/striked.js',
           'installed': true,
           'writable': true,
           'entries': 'export default {}',

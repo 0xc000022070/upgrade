@@ -48,7 +48,7 @@ host-vm-down:
     #!/usr/bin/env bash
     set -euo pipefail
     # Matched on qemu's own `-name`: the nix runner execs into qemu.
-    pkill -f 'qemu-system-.* -name upgrade-host( |$)' || true
+    pkill -f 'qemu-system-.* -name striked-host( |$)' || true
     echo "host vm: down"
 
 phone-host address scenario="full":
@@ -58,22 +58,22 @@ host-scenario name:
     nix run .#host-up-{{name}}
 
 host-scenario-down name:
-    pkill -f 'qemu-system-.* -name upgrade-host-{{name}}( |$)' || true
+    pkill -f 'qemu-system-.* -name striked-host-{{name}}( |$)' || true
 
 build_name := `sed -n 's/^version:[[:space:]]*\([^+[:space:]]\{1,\}\).*$/\1/p' pubspec.yaml`
 build_code := `git rev-list --count HEAD 2>/dev/null || echo 1`
-stamp := "--build-name=" + build_name + " --build-number=" + build_code + " --dart-define=UPGRADE_BUILD=${UPGRADE_BUILD:-dev}"
+stamp := "--build-name=" + build_name + " --build-number=" + build_code + " --dart-define=STRIKED_BUILD=${STRIKED_BUILD:-dev}"
 
 # Debug APK (arm64 only); the same artifact runs on the emulator and on faraday.
 apk: pub-build
     flutter build apk --debug --target-platform android-arm64 {{stamp}}
 
 apk-fixtures: pub-build
-    flutter build apk --debug --target-platform android-arm64 {{stamp}} --dart-define=UPGRADE_SEED_FIXTURES=true
+    flutter build apk --debug --target-platform android-arm64 {{stamp}} --dart-define=STRIKED_SEED_FIXTURES=true
 
 # Release APK, the artifact faraday is upgraded with. arm64 only.
 apk-release version=build_name code=build_code: pub-verify
-    flutter build apk --release --target-platform android-arm64 --build-name={{version}} --build-number={{code}} --dart-define=UPGRADE_BUILD=${UPGRADE_BUILD:-dev}
+    flutter build apk --release --target-platform android-arm64 --build-name={{version}} --build-number={{code}} --dart-define=STRIKED_BUILD=${STRIKED_BUILD:-dev}
 
 # Emulator on rose: the only device this repo drives interactively.
 dev:
@@ -86,7 +86,7 @@ run: pub-build
     ssh -fN -o ExitOnForwardFailure=yes -L 5038:127.0.0.1:5037 rose || true
     ADB_SERVER_SOCKET=tcp:127.0.0.1:5038 flutter run -d emulator-5554 \
         --pid-file build/run.pid \
-        --dart-define=UPGRADE_BUILD=${UPGRADE_BUILD:-dev}
+        --dart-define=STRIKED_BUILD=${STRIKED_BUILD:-dev}
 
 # The build number is the commit count at HEAD, so a handset already there is
 # left alone. `just watch` repeats this at every commit, asking in the pane first.
@@ -115,13 +115,13 @@ publish:
     set -euo pipefail
 
     rev=$(git rev-parse HEAD)
-    read -r version code UPGRADE_BUILD <<<"$(tool/deploy.sh stamp "$rev")"
+    read -r version code STRIKED_BUILD <<<"$(tool/deploy.sh stamp "$rev")"
     apk=$(tool/deploy.sh build "$rev")
 
     # '-' and not '+': a literal + in a url path reads as a space to enough clients.
-    name="upgrade-$version-$code.apk"
+    name="striked-$version-$code.apk"
     mkdir -p "{{apk_repo}}"
-    rm -f "{{apk_repo}}"/upgrade-*.apk "{{apk_repo}}/latest.apk"
+    rm -f "{{apk_repo}}"/striked-*.apk "{{apk_repo}}/latest.apk"
     install -m644 "$apk" "{{apk_repo}}/$name"
     # A hard link: no second copy of 60 MB, and no symlink out of the server's root.
     ln "{{apk_repo}}/$name" "{{apk_repo}}/latest.apk"
@@ -133,29 +133,29 @@ publish:
     {
         printf '<!doctype html><meta charset=utf-8>'
         printf '<meta name=viewport content="width=device-width,initial-scale=1">'
-        printf '<title>upgrade</title>'
+        printf '<title>striked</title>'
         printf '<style>body{background:#111;color:#eee;font:14px/1.6 ui-monospace,monospace;margin:0;padding:2rem 1.25rem;max-width:34rem}'
         printf 'a.get{display:block;padding:1.1rem;margin:1.5rem 0;background:#eee;color:#111;text-align:center;text-decoration:none;letter-spacing:.08em}'
         printf 'dt{color:#777;float:left;width:5.5rem;clear:left}dd{margin:0 0 .35rem 5.5rem;word-break:break-all}</style>'
-        printf '<h1>UPGRADE</h1>'
+        printf '<h1>STRIKED</h1>'
         printf '<a class="get" href="%s">INSTALL %s (%s)</a>' "$name" "$version" "$code"
         printf '<dl>'
-        printf '<dt>build</dt><dd>%s</dd>' "$UPGRADE_BUILD"
+        printf '<dt>build</dt><dd>%s</dd>' "$STRIKED_BUILD"
         printf '<dt>size</dt><dd>%s</dd>' "$size"
         printf '<dt>built</dt><dd>%s</dd>' "$when"
         printf '<dt>sha256</dt><dd>%s</dd>' "$sum"
         printf '</dl>'
-        printf '<p style="color:#777">SYS must read v%s (%s) %s once it lands.</p>' "$version" "$code" "$UPGRADE_BUILD"
+        printf '<p style="color:#777">SYS must read v%s (%s) %s once it lands.</p>' "$version" "$code" "$STRIKED_BUILD"
     } > "{{apk_repo}}/index.html"
 
-    echo "publish: $name ($UPGRADE_BUILD) -> {{apk_repo}}"
+    echo "publish: $name ($STRIKED_BUILD) -> {{apk_repo}}"
 
 # faraday: install and launch only, for the user to review by hand.
 review:
     phone up -t faraday
 
 desktop: pub-build
-    flutter run -d linux --dart-define=UPGRADE_BUILD=${UPGRADE_BUILD:-dev}
+    flutter run -d linux --dart-define=STRIKED_BUILD=${STRIKED_BUILD:-dev}
 
 pub-build: mosh-build ssh-build flterm-build libghostty-build
 

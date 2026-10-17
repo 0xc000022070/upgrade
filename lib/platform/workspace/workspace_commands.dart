@@ -1,4 +1,4 @@
-import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:striked/platform/shell/remote_shell.dart';
 
 /// `RS`, which git never writes: a marker made of ordinary characters would eventually
 /// be a line of somebody's diff.

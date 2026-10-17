@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/workspace/workspace_model.dart';
-import 'package:upgrade/features/code/diff_jump.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:striked/features/code/diff_jump.dart';
 
 /// Git writes `@@ -a,b +c,d @@ void main()`, which on a phone is a header whose useful
 /// half is off the right edge behind coordinates the gutter is already carrying line by

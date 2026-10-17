@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:striked/platform/plugins/contributions.dart';
 
 class PluginPlacementState {
   PluginPlacementState({

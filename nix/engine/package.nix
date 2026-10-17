@@ -36,7 +36,7 @@ rustPlatform.buildRustPackage {
   };
 
   meta = {
-    description = "The host side of a Upgrade plugin: one binary, exec'd per call";
+    description = "The host side of a Striked plugin: one binary, exec'd per call";
     mainProgram = "strikedddd";
     license = lib.licenses.mit;
     platforms = lib.platforms.unix;

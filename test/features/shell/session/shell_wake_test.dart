@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/features/shell/session/shell_wake.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/host_links.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:striked/features/shell/session/shell_wake.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/host_links.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
 
 import '../../../support/fake_shell.dart';
 import '../../../support/host_links.dart';

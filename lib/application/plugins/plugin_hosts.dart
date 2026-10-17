@@ -5,20 +5,20 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:dartssh2/dartssh2.dart';
-import 'package:upgrade_luau/data_api.dart';
+import 'package:striked_luau/data_api.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/host_links.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
-import 'package:upgrade/platform/ssh/ssh_settle.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/shell/path_scan.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/host_links.dart';
+import 'package:striked/platform/plugins/manifest.dart';
+import 'package:striked/platform/plugins/store.dart';
+import 'package:striked/platform/ssh/ssh_settle.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/shell/path_scan.dart';
 
 typedef PluginHostConfirm = Future<bool> Function(
   Host host,

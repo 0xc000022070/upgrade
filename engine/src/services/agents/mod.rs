@@ -497,7 +497,7 @@ fn apply_event(session: &mut Session, event: &str, input: &Value) -> Option<Opti
 fn print_decision(decision: &str) {
     let mut decided = json!({ "behavior": decision });
     if decision == "deny" {
-        decided["message"] = json!("Denied from Upgrade");
+        decided["message"] = json!("Denied from Striked");
     }
     let output = json!({
         "hookSpecificOutput": {
@@ -616,7 +616,7 @@ mod tests {
 
     #[test]
     fn an_answer_that_lands_as_the_wait_ends_is_taken_under_the_lock() {
-        let root = std::env::temp_dir().join(format!("upgrade-agents-close-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("striked-agents-close-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let mut store = Store::open(&root).unwrap();
         let mut session = new_session("claude:s1", "claude", "s1", now_millis());

@@ -16,7 +16,7 @@ use std::path::PathBuf;
 const MAX_REQUEST_BYTES: u64 = 1024 * 1024;
 
 const USAGE: &str = "\
-strikedddd — the host side of a Upgrade plugin.
+strikedddd — the host side of a Striked plugin.
 
 It is exec'd per call: it reads one JSON request on stdin, writes one JSON
 response on stdout, and exits. The one thing that stays is a shell/1 server:

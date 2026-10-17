@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/app/static_surface.dart';
-import 'package:upgrade/application/drops/item_search.dart';
-import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/data/views.dart';
-import 'package:upgrade/design/components/upgrade_field.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/section.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/screen_scaffold.dart';
-import 'package:upgrade/features/tasks/task_row.dart';
+import 'package:striked/app/static_surface.dart';
+import 'package:striked/application/drops/item_search.dart';
+import 'package:striked/application/providers.dart';
+import 'package:striked/data/views.dart';
+import 'package:striked/design/components/striked_field.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/section.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/screen_scaffold.dart';
+import 'package:striked/features/tasks/task_row.dart';
 
 void openItemSearch(BuildContext context) {
   Navigator.of(
@@ -52,7 +52,7 @@ class _ItemSearchScreenState extends ConsumerState<ItemSearchScreen> {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'SEARCH',
-          breadcrumb: '/ UPGRADE / SEARCH',
+          breadcrumb: '/ STRIKED / SEARCH',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(
@@ -61,7 +61,7 @@ class _ItemSearchScreenState extends ConsumerState<ItemSearchScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      UpgradeField(
+                      StrikedField(
                         key: const ValueKey('item-search-field'),
                         controller: _query,
                         autofocus: true,

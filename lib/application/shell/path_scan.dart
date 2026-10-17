@@ -1,15 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/host_links.dart';
-import 'package:upgrade/application/agents/reason_lines.dart';
-import 'package:upgrade/platform/ssh/keys.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/providers.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/host_links.dart';
+import 'package:striked/application/agents/reason_lines.dart';
+import 'package:striked/platform/ssh/keys.dart';
+import 'package:striked/application/agents/agent_kind.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/providers.dart';
 
 typedef HerdrPaths = Future<List<String>> Function({
   required String address,
@@ -99,7 +99,7 @@ class PathScanner {
       checkActive?.call();
       return PathScanFound(result);
     } on HerdrFailure catch (error) {
-      debugPrint('upgrade.paths ${host.name}: ${error.detail ?? error}');
+      debugPrint('striked.paths ${host.name}: ${error.detail ?? error}');
       return PathScanFailed(error.reason(host.name));
     }
   }

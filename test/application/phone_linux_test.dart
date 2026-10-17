@@ -4,17 +4,17 @@ import 'dart:math';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/phone_linux.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/key_repository.dart';
-import 'package:upgrade/data/repositories/settings_repository.dart';
-import 'package:upgrade/platform/phone_linux.dart';
-import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:striked/application/phone_linux.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/key_repository.dart';
+import 'package:striked/data/repositories/settings_repository.dart';
+import 'package:striked/platform/phone_linux.dart';
+import 'package:striked/platform/ssh/keys.dart';
 
 const _hostKey =
-    'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBCAFF/cQozJtrK8guDNMNM1DMSOeR2PxJQKrpzNZmDL upgrade-host';
+    'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBCAFF/cQozJtrK8guDNMNM1DMSOeR2PxJQKrpzNZmDL striked-host';
 
 class _Platform implements PhoneLinux {
   final installs = <(String, String, PhoneLinuxSetup)>[];

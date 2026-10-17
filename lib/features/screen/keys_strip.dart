@@ -1,18 +1,18 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/key_bar.dart';
-import 'package:upgrade/design/components/key_cell.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/platform/vnc/arming.dart';
-import 'package:upgrade/platform/vnc/keysyms.dart';
-import 'package:upgrade/features/screen/modifier_cell.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/key_bar.dart';
+import 'package:striked/design/components/key_cell.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/platform/vnc/arming.dart';
+import 'package:striked/platform/vnc/keysyms.dart';
+import 'package:striked/features/screen/modifier_cell.dart';
 
 typedef _StripKey = ({
   String label,
   int keysym,
-  UpgradeIcons? icon,
+  StrikedIcons? icon,
   bool repeats,
 });
 
@@ -31,20 +31,20 @@ const _stripKeys = <_StripKey>[
   (
     label: 'LEFT',
     keysym: Keysyms.left,
-    icon: UpgradeIcons.arrowLeft,
+    icon: StrikedIcons.arrowLeft,
     repeats: true,
   ),
-  (label: 'UP', keysym: Keysyms.up, icon: UpgradeIcons.arrowUp, repeats: true),
+  (label: 'UP', keysym: Keysyms.up, icon: StrikedIcons.arrowUp, repeats: true),
   (
     label: 'DOWN',
     keysym: Keysyms.down,
-    icon: UpgradeIcons.arrowDown,
+    icon: StrikedIcons.arrowDown,
     repeats: true,
   ),
   (
     label: 'RIGHT',
     keysym: Keysyms.right,
-    icon: UpgradeIcons.arrowRight,
+    icon: StrikedIcons.arrowRight,
     repeats: true,
   ),
   (label: 'END', keysym: Keysyms.end, icon: null, repeats: false),

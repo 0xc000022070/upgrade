@@ -1,31 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/drops/capture_visibility.dart';
-import 'package:upgrade/application/drops/fresh_drops.dart';
-import 'package:upgrade/application/navigation.dart';
-import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/attachment_repository.dart';
-import 'package:upgrade/data/views.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/keyboard_toolbar.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/components/solid_action_bar.dart';
-import 'package:upgrade/design/components/upgrade_field.dart';
-import 'package:upgrade/design/components/dither_field.dart';
-import 'package:upgrade/design/effects/glitch.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/layout.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/application/drops/attachment_files.dart';
-import 'package:upgrade/features/tasks/item_pickers.dart';
-import 'package:upgrade/application/links/urls.dart';
-import 'package:upgrade/features/tasks/url_highlight_controller.dart';
-import 'package:upgrade/features/home/capture_draft.dart';
+import 'package:striked/application/drops/capture_visibility.dart';
+import 'package:striked/application/drops/fresh_drops.dart';
+import 'package:striked/application/navigation.dart';
+import 'package:striked/application/providers.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/attachment_repository.dart';
+import 'package:striked/data/views.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/keyboard_toolbar.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/components/solid_action_bar.dart';
+import 'package:striked/design/components/striked_field.dart';
+import 'package:striked/design/components/dither_field.dart';
+import 'package:striked/design/effects/glitch.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/layout.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/application/drops/attachment_files.dart';
+import 'package:striked/features/tasks/item_pickers.dart';
+import 'package:striked/application/links/urls.dart';
+import 'package:striked/features/tasks/url_highlight_controller.dart';
+import 'package:striked/features/home/capture_draft.dart';
 
 const _title = 'CAPTURE / QUICK ADD';
 
@@ -320,13 +320,13 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: UpgradeField(
+                        child: StrikedField(
                           controller: _controller,
                           focusNode: _focus,
                           style: context.tokens.capture.copyWith(
                             color: context.tokens.textPrimary,
                           ),
-                          maxLines: UpgradeField.bodyLines,
+                          maxLines: StrikedField.bodyLines,
                           hint: 'Capture',
                           hintStyle: context.tokens.capture,
                           onSubmitted: (_) => _submit(),
@@ -343,8 +343,8 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
                           width: TapTargets.minHeight,
                           height: RowMetrics.minHeight,
                           child: Center(
-                            child: UpgradeIcon(
-                              UpgradeIcons.submit,
+                            child: StrikedIcon(
+                              StrikedIcons.submit,
                               size: IconSizes.md,
                               color: pending
                                   ? context.tokens.textSecondary

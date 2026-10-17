@@ -1,13 +1,13 @@
 import 'dart:typed_data';
 
-import 'package:upgrade/application/agents/reason_lines.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/connection_supervisor.dart';
+import 'package:striked/application/agents/reason_lines.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/connection_supervisor.dart';
 
-export 'package:upgrade/platform/ssh/host_files.dart'
+export 'package:striked/platform/ssh/host_files.dart'
     show FileBody, FileRoute, FileWrite, PutProgress;
 
-export 'package:upgrade/platform/ssh/connection_supervisor.dart'
+export 'package:striked/platform/ssh/connection_supervisor.dart'
     show
         AppResumed,
         AppSuspended,

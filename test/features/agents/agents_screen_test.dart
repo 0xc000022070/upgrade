@@ -7,16 +7,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/pip.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/colors.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/features/agents/agents_screen.dart';
-import 'package:upgrade/features/home/agent_mark.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:striked/application/agents/agent_state.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/pip.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/colors.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/features/agents/agents_screen.dart';
+import 'package:striked/features/home/agent_mark.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
 
 import '../../support/fake_pip.dart';
 import '../../support/platform_channels.dart';
@@ -53,7 +53,7 @@ AgentSnapshot agent(
   state: AgentState.of(status),
   terminalTitleStripped: title,
   workspaceId: workspace,
-  cwd: '/workspace/upgrade',
+  cwd: '/workspace/striked',
   stateChangeSeq: 1,
   workspaceLabel: label,
 );
@@ -127,7 +127,7 @@ void main() {
     );
     await ready(tester);
 
-    await tester.tap(find.widgetWithText(ListRow, 'CLAUDE · upgrade · Rose'));
+    await tester.tap(find.widgetWithText(ListRow, 'CLAUDE · striked · Rose'));
 
     expect(opened, [(rose, claude)]);
 
@@ -263,7 +263,7 @@ void main() {
             host: nyx,
             kind: AgentOutcomeKind.snapshot,
             agents: [
-              agent('claude', workspace: 'wK', label: 'upgrade 2'),
+              agent('claude', workspace: 'wK', label: 'striked 2'),
               agent('codex', workspace: 'wR'),
             ],
           ),
@@ -272,7 +272,7 @@ void main() {
     );
     await ready(tester);
 
-    expect(find.text('UPGRADE 2'), findsOneWidget);
+    expect(find.text('STRIKED 2'), findsOneWidget);
     expect(find.text('wR'), findsOneWidget);
     expect(find.text('WK'), findsNothing);
     expect(find.text('WR'), findsNothing);
@@ -379,7 +379,7 @@ void main() {
     expect(find.text('G'), findsOneWidget);
     expect(find.text('?'), findsNothing);
     expect(find.text('C'), findsNothing);
-    expect(find.text('GIZMO · upgrade · Nyx'), findsOneWidget);
+    expect(find.text('GIZMO · striked · Nyx'), findsOneWidget);
     await unmount(tester);
   });
 
@@ -405,9 +405,9 @@ void main() {
       for (final row in tester.widgetList<ListRow>(find.byType(ListRow)))
         row.value: row.valueColor,
     };
-    expect(rows['DONE'], UpgradeColors.textPrimary);
-    expect(rows['IDLE'], UpgradeColors.textMuted);
-    expect(rows['COMPACTING'], UpgradeColors.textMuted);
+    expect(rows['DONE'], StrikedColors.textPrimary);
+    expect(rows['IDLE'], StrikedColors.textMuted);
+    expect(rows['COMPACTING'], StrikedColors.textMuted);
     await unmount(tester);
   });
 
@@ -427,7 +427,7 @@ void main() {
     );
     await ready(tester);
 
-    expect(find.text('? · upgrade · Nyx'), findsOneWidget);
+    expect(find.text('? · striked · Nyx'), findsOneWidget);
     expect(
       find.descendant(of: find.byType(AgentMark), matching: find.text('?')),
       findsOneWidget,

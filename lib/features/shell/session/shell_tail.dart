@@ -1,11 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flterm/flterm.dart';
 
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/key_cell.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/key_cell.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
 
 /// The terminal follows its output only while it is on the last row, which is what lets a
 /// reader scroll up without the shell dragging them down again. Stateful for the
@@ -101,7 +101,7 @@ class _ShellTailCellState extends State<ShellTailCell> {
             child: KeyCell(
               key: const ValueKey('shell-tail'),
               label: 'LIVE',
-              icon: UpgradeIcons.arrowDown,
+              icon: StrikedIcons.arrowDown,
               minWidth: RowMetrics.minHeight,
               padding: RowMetrics.padding,
               height: RowMetrics.minHeight,

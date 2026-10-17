@@ -4,9 +4,9 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 
-import 'package:upgrade/platform/ssh/connection_supervisor.dart'
+import 'package:striked/platform/ssh/connection_supervisor.dart'
     show ExecResult;
-import 'package:upgrade/platform/shell/remote_shell.dart'
+import 'package:striked/platform/shell/remote_shell.dart'
     show shellQuote, underSh;
 
 final class HostSftp {

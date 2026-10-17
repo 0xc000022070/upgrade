@@ -7,7 +7,7 @@
 }:
 
 let
-  cfg = config.upgradeHost;
+  cfg = config.strikedHost;
   full = cfg.name == "full";
 
   codexMockPort = 18733;
@@ -69,7 +69,7 @@ let
   declaredConfigs = {
     ".claude/settings.json" = pkgs.writeText "settings.json" (builtins.toJSON { model = "sonnet"; });
     ".codex/hooks.json" = pkgs.writeText "hooks.json" (builtins.toJSON { hooks = { }; });
-    ".config/opencode/plugins/upgrade.js" = pkgs.writeText "upgrade.js" "export default {}\n";
+    ".config/opencode/plugins/striked.js" = pkgs.writeText "striked.js" "export default {}\n";
   };
 in
 {
@@ -79,7 +79,7 @@ in
   ];
 
   networking = {
-    hostName = if full then "upgrade-host" else "upgrade-host-${cfg.name}";
+    hostName = if full then "striked-host" else "striked-host-${cfg.name}";
     firewall.allowedTCPPorts = [ 22 ];
     firewall.allowedUDPPortRanges = [
       {
@@ -169,7 +169,7 @@ in
   ++ [ (lib.hiPrio pinnedMosh) ];
 
   # tmpfiles makes a missing parent root's, and home-manager's are the user's.
-  systemd.tmpfiles.settings.upgrade-declared-hooks = lib.mkIf cfg.declaredHooks (
+  systemd.tmpfiles.settings.striked-declared-hooks = lib.mkIf cfg.declaredHooks (
     lib.genAttrs
       (map (dir: "/home/dev/${dir}") [
         ".claude"
@@ -223,8 +223,8 @@ in
     };
   };
 
-  systemd.services.upgrade-host-fixture = {
-    description = "Seed the Upgrade remote host fixture";
+  systemd.services.striked-host-fixture = {
+    description = "Seed the Striked remote host fixture";
     wantedBy = [ "multi-user.target" ];
     path = [ pkgs.git ];
     serviceConfig = {
@@ -248,7 +248,7 @@ in
         git -C "$project" init -b main
         git -C "$project" config user.name fixture
         git -C "$project" config user.email fixture@localhost
-        printf 'Upgrade remote host fixture\n' > "$project/README"
+        printf 'Striked remote host fixture\n' > "$project/README"
         git -C "$project" add README
         git -C "$project" commit -m 'initial fixture'
       fi

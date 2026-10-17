@@ -1,9 +1,9 @@
-import 'package:upgrade/application/drops/item_search.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/repositories/activity_repository.dart';
-import 'package:upgrade/data/repositories/attachment_repository.dart';
-import 'package:upgrade/data/repositories/project_repository.dart';
-import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:striked/application/drops/item_search.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/repositories/activity_repository.dart';
+import 'package:striked/data/repositories/attachment_repository.dart';
+import 'package:striked/data/repositories/project_repository.dart';
+import 'package:striked/data/repositories/task_repository.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 

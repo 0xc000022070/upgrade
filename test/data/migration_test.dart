@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/data/database.dart';
+import 'package:striked/data/database.dart';
 
 Future<int> _userVersion(AppDatabase db) => db
     .customSelect('PRAGMA user_version')
@@ -15,8 +15,8 @@ void main() {
   late File file;
 
   setUp(() async {
-    dir = await Directory.systemTemp.createTemp('upgrade-migration');
-    file = File('${dir.path}/upgrade.sqlite');
+    dir = await Directory.systemTemp.createTemp('striked-migration');
+    file = File('${dir.path}/striked.sqlite');
   });
 
   tearDown(() => dir.delete(recursive: true));

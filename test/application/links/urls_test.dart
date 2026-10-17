@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/links/urls.dart';
+import 'package:striked/application/links/urls.dart';
 
 void main() {
   test('a scheme is the whole of what a selected link needs', () {

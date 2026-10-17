@@ -11,7 +11,7 @@ const _roots = [
 ];
 
 final _banned = RegExp(
-  r'UpgradeColors\.|UpgradeText\.|SyntaxColors\.|Color\(0x[0-9A-Fa-f]{6,8}\)',
+  r'StrikedColors\.|StrikedText\.|SyntaxColors\.|Color\(0x[0-9A-Fa-f]{6,8}\)',
 );
 
 void main() {

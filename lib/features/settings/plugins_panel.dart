@@ -3,27 +3,27 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/plugins/plugins.dart';
-import 'package:upgrade/application/plugins/plugin_hosts.dart';
-import 'package:upgrade/application/plugins/native_plugins.dart';
-import 'package:upgrade/application/plugins/plugin_placements.dart';
-import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
-import 'package:upgrade/design/components/action_block.dart';
-import 'package:upgrade/design/components/upgrade_field.dart';
-import 'package:upgrade/design/components/dot_spinner.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/components/panel_text_action.dart';
-import 'package:upgrade/design/components/segment_switch.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/contributions.dart';
-import 'package:upgrade/platform/plugins/index.dart';
-import 'package:upgrade/platform/plugins/store.dart';
-import 'package:upgrade/features/plugins/plugin_board.dart';
-import 'package:upgrade/features/plugins/plugin_page.dart';
+import 'package:striked/application/plugins/plugins.dart';
+import 'package:striked/application/plugins/plugin_hosts.dart';
+import 'package:striked/application/plugins/native_plugins.dart';
+import 'package:striked/application/plugins/plugin_placements.dart';
+import 'package:striked/data/repositories/plugin_placement_repository.dart';
+import 'package:striked/design/components/action_block.dart';
+import 'package:striked/design/components/striked_field.dart';
+import 'package:striked/design/components/dot_spinner.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/components/panel_text_action.dart';
+import 'package:striked/design/components/segment_switch.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/platform/plugins/manifest.dart';
+import 'package:striked/platform/plugins/contributions.dart';
+import 'package:striked/platform/plugins/index.dart';
+import 'package:striked/platform/plugins/store.dart';
+import 'package:striked/features/plugins/plugin_board.dart';
+import 'package:striked/features/plugins/plugin_page.dart';
 
 void openPluginSheet(
   BuildContext context, {
@@ -195,7 +195,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
         if (manifest == null) ...[
           SheetField(
             label: 'PUBLIC GITHUB REPOSITORY',
-            child: UpgradeField(
+            child: StrikedField(
               controller: _repository,
               suggest: false,
               hint: 'https://github.com/owner/repository',
@@ -205,7 +205,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
           const SheetRule(),
           SheetField(
             label: 'REF',
-            child: UpgradeField(
+            child: StrikedField(
               controller: _revision,
               suggest: false,
               hint: 'full commit SHA, tag or branch name',
@@ -338,9 +338,9 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
             _fact('PLUGIN', '${manifest.id} ${manifest.version}'),
             if (package!.origin.startsWith('builtin:') ||
                 package.origin.startsWith('bundled:'))
-              _fact('DISTRIBUTION', 'Built-in · updated with Upgrade'),
+              _fact('DISTRIBUTION', 'Built-in · updated with Striked'),
             _fact('MANIFEST', '${manifest.formatVersion}'),
-            _fact('UPGRADE API', '${manifest.api}'),
+            _fact('STRIKED API', '${manifest.api}'),
             if (manifest.uiVersion != null)
               _fact('UI API', '${manifest.uiVersion}'),
             if (!manifest.supported)
@@ -666,7 +666,7 @@ class _PluginSourcesViewState extends ConsumerState<PluginSourcesView> {
           ],
           SheetField(
             label: 'INDEX REPOSITORY',
-            child: UpgradeField(
+            child: StrikedField(
               controller: _repository,
               suggest: false,
               hint: 'https://github.com/owner/repository',
@@ -676,7 +676,7 @@ class _PluginSourcesViewState extends ConsumerState<PluginSourcesView> {
           const SheetRule(),
           SheetField(
             label: 'REF',
-            child: UpgradeField(
+            child: StrikedField(
               controller: _ref,
               suggest: false,
               hint: 'full commit SHA, tag or branch name',

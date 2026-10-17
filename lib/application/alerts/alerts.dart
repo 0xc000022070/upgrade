@@ -2,13 +2,13 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/settings_repository.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/providers.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/settings_repository.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/application/agents/agent_kind.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/providers.dart';
 
 const watcherNotificationId = 1;
 

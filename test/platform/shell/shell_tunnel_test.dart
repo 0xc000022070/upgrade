@@ -6,20 +6,20 @@ import 'dart:typed_data';
 import 'package:dart_mosh/dart_mosh.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/platform/shell/engine_channel.dart';
-import 'package:upgrade/platform/shell/mosh_channel.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/platform/shell/remote_shell.dart';
-import 'package:upgrade/platform/shell/shell_tunnel.dart';
-import 'package:upgrade/platform/shell/udp_path.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/host_links.dart';
-import 'package:upgrade/platform/ssh/keys.dart';
-import 'package:upgrade/platform/ssh/connection_supervisor.dart'
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:striked/platform/shell/engine_channel.dart';
+import 'package:striked/platform/shell/mosh_channel.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/platform/shell/remote_shell.dart';
+import 'package:striked/platform/shell/shell_tunnel.dart';
+import 'package:striked/platform/shell/udp_path.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/host_links.dart';
+import 'package:striked/platform/ssh/keys.dart';
+import 'package:striked/platform/ssh/connection_supervisor.dart'
     show ConnectionSupervisor;
-import 'package:upgrade/platform/ssh/ssh_settle.dart';
+import 'package:striked/platform/ssh/ssh_settle.dart';
 
 import '../../support/host_links.dart';
 import '../../support/reasons.dart';
@@ -623,11 +623,11 @@ const _tmuxPath = '/nix/store/tmux/bin/tmux';
 const _moshPath = '/nix/store/mosh/bin/mosh-server';
 
 String moshHostAnswer(String command, {bool tmux = true}) {
-  if (command == durableShellProbeCommand('upgrade123')) {
-    return tmux ? 'UPGRADE_TMUX=$_tmuxPath\nUPGRADE_RESUME=0\n' : '';
+  if (command == durableShellProbeCommand('striked123')) {
+    return tmux ? 'STRIKED_TMUX=$_tmuxPath\nSTRIKED_RESUME=0\n' : '';
   }
   if (command == moshServerProbeCommand()) {
-    return 'profile noise\nUPGRADE_MOSH=$_moshPath\n';
+    return 'profile noise\nSTRIKED_MOSH=$_moshPath\n';
   }
   if (command.contains('mosh-server') && command.contains(' new ')) {
     return 'MOSH CONNECT 60001 AAECAwQFBgcICQoLDA0ODw\n';
@@ -668,10 +668,10 @@ void main() {
 
     test('a durable tab starts inside its own tmux server', () async {
       const tmux = '/nix/store/tmux/bin/tmux';
-      const session = 'upgrade123';
-      const command = 'export UPGRADE_TAB=upgrade123; exec \$SHELL -l';
+      const session = 'striked123';
+      const command = 'export STRIKED_TAB=striked123; exec \$SHELL -l';
       final host = FakeHost(
-        execOut: 'noise\nUPGRADE_TMUX=$tmux\nUPGRADE_RESUME=0\n',
+        execOut: 'noise\nSTRIKED_TMUX=$tmux\nSTRIKED_RESUME=0\n',
       );
 
       final connection = await openOn(
@@ -691,8 +691,8 @@ void main() {
 
     test('an existing durable tab is classified as resumed', () async {
       const tmux = '/usr/bin/tmux';
-      const session = 'upgrade123';
-      final host = FakeHost(execOut: 'UPGRADE_TMUX=$tmux\nUPGRADE_RESUME=1\n');
+      const session = 'striked123';
+      final host = FakeHost(execOut: 'STRIKED_TMUX=$tmux\nSTRIKED_RESUME=1\n');
 
       final connection = await openOn(
         tunnelTo(host),
@@ -705,7 +705,7 @@ void main() {
     });
 
     test('a host without tmux keeps the plain SSH command', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       const command = 'exec \$SHELL -l';
       final host = FakeHost(execCode: 127);
 
@@ -724,8 +724,8 @@ void main() {
     });
 
     test('Mosh carries a durable shell and rehomes its UDP socket', () async {
-      const session = 'upgrade123';
-      const command = 'export UPGRADE_TAB=upgrade123; exec \$SHELL -l';
+      const session = 'striked123';
+      const command = 'export STRIKED_TAB=striked123; exec \$SHELL -l';
       final host = FakeHost()..execAnswer = moshHostAnswer;
       final channel = FakeMoshChannel();
       final connection = await openOn(
@@ -750,7 +750,7 @@ void main() {
         (request) =>
             request.contains('mosh-server') && request.contains(' new '),
       );
-      expect(launch, contains("$moshTabVariable='upgrade123'"));
+      expect(launch, contains("$moshTabVariable='striked123'"));
       expect(launch, contains("-- sh -c 'exec '\\''$_tmuxPath'"));
 
       connection.write(Uint8List.fromList([0x6c, 0x73, 0x0d]));
@@ -763,7 +763,7 @@ void main() {
     });
 
     test('Mosh sends a resize while an earlier probe is pending', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final host = FakeHost()..execAnswer = moshHostAnswer;
       final channel = FakeMoshChannel();
       final connection = await openOn(
@@ -785,7 +785,7 @@ void main() {
     test(
       'Mosh health follows acknowledged contact, not session existence',
       () async {
-        const session = 'upgrade123';
+        const session = 'striked123';
         final host = FakeHost()..execAnswer = moshHostAnswer;
         final channel = FakeMoshChannel();
         final connection = await openOn(
@@ -817,7 +817,7 @@ void main() {
     test(
       'a Mosh packet that carries no screen still counts as contact',
       () async {
-        const session = 'upgrade123';
+        const session = 'striked123';
         final host = FakeHost()..execAnswer = moshHostAnswer;
         final channel = FakeMoshChannel();
         final connection = await openOn(
@@ -844,7 +844,7 @@ void main() {
     test(
       'a thawed Mosh tab owes one missed answer, not one per tick',
       () async {
-        const session = 'upgrade123';
+        const session = 'striked123';
         final host = FakeHost()..execAnswer = moshHostAnswer;
         final channel = FakeMoshChannel();
         final connection = await openOn(
@@ -869,7 +869,7 @@ void main() {
     );
 
     test('a Mosh channel that stops answering reaches the reader', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final host = FakeHost()..execAnswer = moshHostAnswer;
       final channel = FakeMoshChannel();
       final connection = await openOn(
@@ -898,7 +898,7 @@ void main() {
     });
 
     test('a suspended Mosh tab goes quiet and rehomes on resume', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
@@ -942,7 +942,7 @@ void main() {
     });
 
     test('a suspended Mosh tab dials no control path', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
@@ -973,7 +973,7 @@ void main() {
 
     test('a network change replaces the SSH control path and a failed command '
         'does not', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
@@ -1010,7 +1010,7 @@ void main() {
     });
 
     test('a probe timeout during channel open never redials', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final host = FakeHost()..execAnswer = moshHostAnswer;
       var dials = 0;
       final connection = await openOn(
@@ -1043,7 +1043,7 @@ void main() {
     test(
       'a startup exec that never opens fails the open as a host failure',
       () async {
-        const session = 'upgrade123';
+        const session = 'striked123';
         final host = FakeHost()..execGate = Completer<SSHSession>();
         final retries = <Reconnect>[];
 
@@ -1068,7 +1068,7 @@ void main() {
 
     test('a Mosh probe that outlives its deadline on a live link is closed, '
         'and SSH takes the tab with no redial', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final host = FakeHost()
         ..execAnswer = moshHostAnswer
         ..execStuck = (command) => command == moshServerProbeCommand();
@@ -1113,7 +1113,7 @@ void main() {
     });
 
     test('a plain return keeps the SSH control path', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
@@ -1152,7 +1152,7 @@ void main() {
 
     test('a host that dies leaves background reads empty until a gesture '
         'dials it', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
@@ -1192,7 +1192,7 @@ void main() {
     });
 
     test('two user actions at once dial one host', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
@@ -1219,7 +1219,7 @@ void main() {
 
     test('a gesture whose dial a network change overtook lands on the host '
         'that change dialled', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
@@ -1263,7 +1263,7 @@ void main() {
 
     test('a gesture whose overtaken dial throws lands on the host that change '
         'dialled', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost(authError: SSHAuthFailError('no more methods')),
@@ -1300,7 +1300,7 @@ void main() {
       'a dead control host is dialled again on its own, and reads stay '
       'empty and stale until it lands',
       (tester) async {
-        const session = 'upgrade123';
+        const session = 'striked123';
         final hosts = [
           FakeHost()..execAnswer = moshHostAnswer,
           FakeHost()..execAnswer = moshHostAnswer,
@@ -1350,7 +1350,7 @@ void main() {
 
     testWidgets('a resume refused while another dial settles reads stale, '
         'then holds the host once the settle ends', (tester) async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       FakeLinkClient answering() =>
           FakeLinkClient()
             ..reply = (command) =>
@@ -1449,7 +1449,7 @@ void main() {
       'a gesture during the revive backoff dials now, and the revive dials '
       'nothing after it',
       (tester) async {
-        const session = 'upgrade123';
+        const session = 'striked123';
         final hosts = [
           FakeHost()..execAnswer = moshHostAnswer,
           FakeHost()..execAnswer = moshHostAnswer,
@@ -1492,7 +1492,7 @@ void main() {
 
     testWidgets('a dead control host whose redial is refused the key is not '
         'dialled again', (tester) async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost(authError: SSHAuthFailError('no more methods')),
@@ -1533,7 +1533,7 @@ void main() {
       'a dead control host that comes back with another key is not dialled '
       'again',
       (tester) async {
-        const session = 'upgrade123';
+        const session = 'striked123';
         final hosts = [
           FakeHost()..execAnswer = moshHostAnswer,
           FakeHost()..execAnswer = moshHostAnswer,
@@ -1586,7 +1586,7 @@ void main() {
 
     testWidgets('a dead control host held without a pin refuses its own redial '
         'rather than trusting it', (tester) async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
@@ -1645,7 +1645,7 @@ void main() {
 
     test('a refused channel is never asked for again on the same host, and '
         'the host is left alone', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final host = FakeHost()..execAnswer = moshHostAnswer;
       var dials = 0;
       final connection = await openOn(
@@ -1670,7 +1670,7 @@ void main() {
     });
 
     test('the channels a transport hands out are not its supervisor', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final host = FakeHost()..execAnswer = moshHostAnswer;
       var dials = 0;
       final connection = await openOn(
@@ -1689,7 +1689,7 @@ void main() {
     });
 
     test('an end another terminal minted closes nothing', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final host = FakeHost()..execAnswer = moshHostAnswer;
       var dials = 0;
       final connection = await openOn(
@@ -1715,7 +1715,7 @@ void main() {
     });
 
     test('a resume behind a suspend still in flight ends in front', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
@@ -1773,7 +1773,7 @@ void main() {
     );
 
     test('a lease from a replaced host answers nothing', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final hosts = [
         FakeHost()..execAnswer = moshHostAnswer,
         FakeHost()..execAnswer = moshHostAnswer,
@@ -1797,7 +1797,7 @@ void main() {
     });
 
     test('an unreachable Mosh UDP port falls back to SSH', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       const command = 'exec \$SHELL -l';
       final host = FakeHost()..execAnswer = moshHostAnswer;
       final channel = FakeMoshChannel();
@@ -1831,7 +1831,7 @@ void main() {
 
     test('a bug under the Mosh dial fails the open instead of falling back '
         'to SSH, and cleans the server', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final host = FakeHost()..execAnswer = moshHostAnswer;
       final retries = <Reconnect>[];
       await expectLater(
@@ -1865,7 +1865,7 @@ void main() {
     });
 
     test('a failed Mosh bootstrap is cleaned before SSH fallback', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       const command = 'exec \$SHELL -l';
       final host = FakeHost()
         ..execAnswer = moshHostAnswer
@@ -1897,7 +1897,7 @@ void main() {
 
     test('a link that dies under the Mosh bootstrap fails the open and opens '
         'no SSH shell', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       final host = FakeHost()
         ..execAnswer = (request) {
           if (request.contains('mosh-server') && request.contains(' new ')) {
@@ -1926,7 +1926,7 @@ void main() {
     });
 
     test('a Herdr pane uses Mosh without nesting tmux', () async {
-      const session = 'upgrade123';
+      const session = 'striked123';
       const command = "env HERDR_SESSION='work' herdr agent attach 'w2a:p3'";
       final host = FakeHost()..execAnswer = moshHostAnswer;
       final channel = FakeMoshChannel();
@@ -2143,8 +2143,8 @@ void main() {
 
     test('ending a durable shell kills only its named tmux session', () async {
       const tmux = '/usr/bin/tmux';
-      const session = 'upgrade123';
-      final host = FakeHost(execOut: 'UPGRADE_TMUX=$tmux\nUPGRADE_RESUME=1\n');
+      const session = 'striked123';
+      final host = FakeHost(execOut: 'STRIKED_TMUX=$tmux\nSTRIKED_RESUME=1\n');
       final connection = await openOn(
         tunnelTo(host),
         command: 'exec \$SHELL -l',
@@ -2168,16 +2168,16 @@ void main() {
 
     test('a durable shell reports the active pane directory', () async {
       const tmux = '/usr/bin/tmux';
-      const session = 'upgrade123';
-      final host = FakeHost(execOut: 'UPGRADE_TMUX=$tmux\nUPGRADE_RESUME=1\n');
+      const session = 'striked123';
+      final host = FakeHost(execOut: 'STRIKED_TMUX=$tmux\nSTRIKED_RESUME=1\n');
       final connection = await openOn(
         tunnelTo(host),
         command: 'exec \$SHELL -l',
         persistentSession: session,
       );
 
-      host.execOut = '/srv/upgrade\n';
-      expect(await connection.remoteDirectory(session), '/srv/upgrade');
+      host.execOut = '/srv/striked\n';
+      expect(await connection.remoteDirectory(session), '/srv/striked');
       expect(
         host.requests.last,
         'exec ${durableShellDirectoryCommand(tmux, session)}',
@@ -2387,7 +2387,7 @@ void main() {
 
   test('a dial that fails leaves no unhandled error behind', () async {
     final keys = Ed25519Keys(MemoryPrivateKeyStore());
-    await keys.generate(id: 'key-1', name: 'upgrade');
+    await keys.generate(id: 'key-1', name: 'striked');
     final privateKey = (await keys.privateKey('key-1'))!;
 
     final loose = <Object>[];
@@ -2466,7 +2466,7 @@ void main() {
 
   test('closing a host still authenticating waits for it to settle', () async {
     final keys = Ed25519Keys(MemoryPrivateKeyStore());
-    await keys.generate(id: 'key-1', name: 'upgrade');
+    await keys.generate(id: 'key-1', name: 'striked');
     final privateKey = (await keys.privateKey('key-1'))!;
 
     final socket = RudeSocket();
@@ -2646,7 +2646,7 @@ List<Map<String, Object?>> engineRequests(FakeHost host) => [
 ];
 
 void engineTests() {
-  const session = 'upgrade123';
+  const session = 'striked123';
 
   test('a failed engine probe never redials the SSH control host', () async {
     final host = FakeHost()..execInputAnswer = engineHostAnswer();
@@ -2691,7 +2691,7 @@ void engineTests() {
 
     expect(connection, isA<EngineShellConnection>());
     expect(connection.transport, ShellTransport.engine);
-    expect(host.requests, ["exec $moshTabVariable='upgrade123' strikedddd"]);
+    expect(host.requests, ["exec $moshTabVariable='striked123' strikedddd"]);
     expect(engineRequests(host).single, {
       'service': 'shell/1',
       'op': 'start',
@@ -3116,11 +3116,11 @@ void engineTests() {
     addTearDown(() => connection.close(UserClosed(testIntent())));
 
     expect(
-      await connection.terminateRemote('upgrade456', durableShell: false),
+      await connection.terminateRemote('striked456', durableShell: false),
       isTrue,
     );
     expect(engine.ended, isFalse);
-    expect(engineRequests(host).last['args'], {'tab': 'upgrade456'});
+    expect(engineRequests(host).last['args'], {'tab': 'striked456'});
   });
 
   test('a stop the engine refuses falls to the marker sweep', () async {
@@ -3136,17 +3136,17 @@ void engineTests() {
         : '';
 
     expect(
-      await connection.terminateRemote('upgrade456', durableShell: false),
+      await connection.terminateRemote('striked456', durableShell: false),
       isTrue,
     );
     expect(
       host.requests.last,
-      'exec ${moshServerCleanupCommand('upgrade456')}',
+      'exec ${moshServerCleanupCommand('striked456')}',
     );
 
     host.execCodeAnswer = (command) => command.endsWith('strikedddd') ? 0 : 1;
     expect(
-      await connection.terminateRemote('upgrade456', durableShell: false),
+      await connection.terminateRemote('striked456', durableShell: false),
       isFalse,
     );
   });
@@ -3667,7 +3667,7 @@ void gestureBesideTests() {
   Future<ShellConnection> plain() => openOn(ShellTunnel(links: links));
 
   Future<ShellConnection> mosh() {
-    const session = 'upgrade123';
+    const session = 'striked123';
     final channel = FakeMoshChannel();
     return openOn(
       ShellTunnel(

@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/agents/reason_lines.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/platform/vnc/vnc_failure.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/agents/reason_lines.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/platform/vnc/vnc_failure.dart';
 
 const nyx = Host(
   id: 'nyx',

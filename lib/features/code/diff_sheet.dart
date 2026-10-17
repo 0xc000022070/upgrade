@@ -7,28 +7,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/path_repository.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/action_block.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/components/section.dart';
-import 'package:upgrade/design/components/status_tag.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/layout.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/workspace/workspace_model.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/path_repository.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/action_block.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/components/section.dart';
+import 'package:striked/design/components/status_tag.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/layout.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/platform/workspace/workspace_model.dart';
 
-import 'package:upgrade/features/code/diff_jump.dart';
-import 'package:upgrade/features/code/diff_map.dart';
-import 'package:upgrade/features/code/hunk_pin.dart';
-import 'package:upgrade/features/code/intraline.dart';
-import 'package:upgrade/features/code/syntax.dart';
-import 'package:upgrade/features/code/syntax_style.dart';
-import 'package:upgrade/features/code/workspace_controller.dart';
+import 'package:striked/features/code/diff_jump.dart';
+import 'package:striked/features/code/diff_map.dart';
+import 'package:striked/features/code/hunk_pin.dart';
+import 'package:striked/features/code/intraline.dart';
+import 'package:striked/features/code/syntax.dart';
+import 'package:striked/features/code/syntax_style.dart';
+import 'package:striked/features/code/workspace_controller.dart';
 
 Future<void> showDiffSheet(
   BuildContext context,
@@ -572,7 +572,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       title: 'CHANGES',
       affordance: PanelAffordance(
         _countWord(files?.length, _filesFailed),
-        icon: _changesOpen ? UpgradeIcons.collapse : UpgradeIcons.expand,
+        icon: _changesOpen ? StrikedIcons.collapse : StrikedIcons.expand,
       ),
       onHeaderTap: () => setState(() => _changesOpen = !_changesOpen),
       bodyPadding: EdgeInsets.zero,
@@ -627,7 +627,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       title: 'COMMITS',
       affordance: PanelAffordance(
         _countWord(commits?.length, _controller.phase == WorkspacePhase.failed),
-        icon: _historyOpen ? UpgradeIcons.collapse : UpgradeIcons.expand,
+        icon: _historyOpen ? StrikedIcons.collapse : StrikedIcons.expand,
       ),
       onHeaderTap: () => setState(() => _historyOpen = !_historyOpen),
       bodyPadding: EdgeInsets.zero,

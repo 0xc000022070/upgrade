@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:upgrade/design/components/toolbar_icon_action.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/features/plugins/plugin_management_screen.dart';
-import 'package:upgrade/features/settings/settings_screen.dart';
+import 'package:striked/design/components/toolbar_icon_action.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/features/plugins/plugin_management_screen.dart';
+import 'package:striked/features/settings/settings_screen.dart';
 
 class HomeActions extends StatelessWidget {
   const HomeActions({super.key, this.beforeOpen});
@@ -23,13 +23,13 @@ class HomeActions extends StatelessWidget {
       children: [
         ToolbarIconAction(
           label: 'MANAGE PLUGINS',
-          icon: UpgradeIcons.plugins,
+          icon: StrikedIcons.plugins,
           onTap: () => _open(() => openPluginManagement(context)),
         ),
         const SizedBox(width: Spacing.sm),
         ToolbarIconAction(
           label: 'SETTINGS',
-          icon: UpgradeIcons.settings,
+          icon: StrikedIcons.settings,
           onTap: () => _open(() => openSettings(context)),
         ),
       ],

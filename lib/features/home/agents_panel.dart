@@ -1,23 +1,23 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/agents/send.dart';
-import 'package:upgrade/application/agents/send_queue.dart';
-import 'package:upgrade/application/navigation.dart';
-import 'package:upgrade/application/pip.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/dot_spinner.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/features/agents/agent_shell.dart';
-import 'package:upgrade/features/agents/agents_screen.dart';
-import 'package:upgrade/features/agents/pip_action.dart';
-import 'package:upgrade/features/hosts/hosts_screen.dart';
-import 'package:upgrade/features/home/agent_mark.dart';
-import 'package:upgrade/features/tasks/item_sheet.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/agents/send.dart';
+import 'package:striked/application/agents/send_queue.dart';
+import 'package:striked/application/navigation.dart';
+import 'package:striked/application/pip.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/dot_spinner.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/features/agents/agent_shell.dart';
+import 'package:striked/features/agents/agents_screen.dart';
+import 'package:striked/features/agents/pip_action.dart';
+import 'package:striked/features/hosts/hosts_screen.dart';
+import 'package:striked/features/home/agent_mark.dart';
+import 'package:striked/features/tasks/item_sheet.dart';
 
 class AgentsPanel extends ConsumerWidget {
   const AgentsPanel({

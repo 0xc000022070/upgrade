@@ -8,20 +8,20 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/alerts/pin_alerts.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/shell_tab_repository.dart';
-import 'package:upgrade/data/shell_snapshot_store.dart';
-import 'package:upgrade/design/components/dot_spinner.dart';
-import 'package:upgrade/features/shell/host_shell_screen.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/shell/host_system.dart';
-import 'package:upgrade/platform/shell/remote_shell.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/platform/vnc/keysyms.dart';
-import 'package:upgrade/features/shell/shell_terminal.dart';
+import 'package:striked/application/alerts/pin_alerts.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/shell_tab_repository.dart';
+import 'package:striked/data/shell_snapshot_store.dart';
+import 'package:striked/design/components/dot_spinner.dart';
+import 'package:striked/features/shell/host_shell_screen.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/shell/host_system.dart';
+import 'package:striked/platform/shell/remote_shell.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/platform/vnc/keysyms.dart';
+import 'package:striked/features/shell/shell_terminal.dart';
 import 'package:flterm/flterm.dart';
 
 import '../../../support/fake_shell.dart';
@@ -452,9 +452,9 @@ void main() {
     await _settle();
     final connection = transport.opened.single;
 
-    connection.emit('upgrade');
+    connection.emit('striked');
     await _settle();
-    expect(_text(session.terminal), contains('upgrade'));
+    expect(_text(session.terminal), contains('striked'));
 
     sessions.send(session, Uint8List.fromList([0x03]));
     expect(connection.writes.single, [0x03]);

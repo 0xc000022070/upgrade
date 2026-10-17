@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dart_mosh/dart_mosh.dart';
 
-import 'package:upgrade/platform/shell/udp_path.dart';
+import 'package:striked/platform/shell/udp_path.dart';
 
 abstract interface class MoshChannel {
   Stream<Uint8List> get output;

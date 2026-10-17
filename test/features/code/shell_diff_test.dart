@@ -4,19 +4,19 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/key_repository.dart';
-import 'package:upgrade/data/repositories/path_repository.dart';
-import 'package:upgrade/design/colors.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/features/code/diff_sheet.dart';
-import 'package:upgrade/features/shell/host_shell_screen.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/shell/remote_shell.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/key_repository.dart';
+import 'package:striked/data/repositories/path_repository.dart';
+import 'package:striked/design/colors.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/features/code/diff_sheet.dart';
+import 'package:striked/features/shell/host_shell_screen.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/shell/remote_shell.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
 
 import '../../support/fake_shell.dart';
 import '../../support/platform_channels.dart';
@@ -41,10 +41,10 @@ ExecResult _says(String stdout, {int exitCode = 0}) => ExecResult(
   stderr: Uint8List(0),
 );
 
-UpgradeIcon _mark(WidgetTester tester) => tester.widget<UpgradeIcon>(
+StrikedIcon _mark(WidgetTester tester) => tester.widget<StrikedIcon>(
   find.descendant(
     of: find.byKey(_diffCell),
-    matching: find.byType(UpgradeIcon),
+    matching: find.byType(StrikedIcon),
   ),
 );
 
@@ -54,8 +54,8 @@ void main() {
   group('a shell says where it is', () {
     test('the path is taken and the host in the url is not', () {
       expect(
-        cwdFromOsc('file://rose/home/luis/src/upgrade'),
-        '/home/luis/src/upgrade',
+        cwdFromOsc('file://rose/home/luis/src/striked'),
+        '/home/luis/src/striked',
       );
       // A hook writes the path escaped, and a space is the escape that happens.
       expect(cwdFromOsc('file://rose/home/luis/my%20src'), '/home/luis/my src');
@@ -72,7 +72,7 @@ void main() {
   group('a tab is marked so the host can be asked', () {
     test('the mark goes into the shell it is asked about', () {
       final command = shellMarked('s1a2b3c');
-      expect(command, startsWith('export UPGRADE_TAB=s1a2b3c; '));
+      expect(command, startsWith('export STRIKED_TAB=s1a2b3c; '));
       expect(command, contains('tty > "\$d/s1a2b3c"'));
       expect(command, endsWith('exec \$SHELL -l'));
       expect(
@@ -86,7 +86,7 @@ void main() {
 
       expect(probe, startsWith('sh -c '));
       expect(probe, contains('/proc/[0-9]*'));
-      expect(probe, contains('UPGRADE_TAB='));
+      expect(probe, contains('STRIKED_TAB='));
       expect(probe, contains('s1a2b3c'));
       expect(probe, contains('PPid'));
       expect(probe, contains(r'readlink "$p/cwd"'));
@@ -103,7 +103,7 @@ void main() {
       final cleanup = moshServerCleanupCommand('s1a2b3c');
 
       expect(cleanup, contains('exec 2>/dev/null'));
-      expect(cleanup, contains('UPGRADE_MOSH_TAB=s1a2b3c'));
+      expect(cleanup, contains('STRIKED_MOSH_TAB=s1a2b3c'));
       expect(cleanup, contains('mosh-server|*/mosh-server'));
       expect(cleanup, contains(r'kill "${p##*/}"'));
       expect(cleanup, isNot(contains('pkill')));
@@ -134,9 +134,9 @@ void main() {
 
   group('what the probe came back with', () {
     test('a plain shell is a directory and no session', () {
-      final place = parseShellPlace('/home/luis/src/upgrade\n\n');
+      final place = parseShellPlace('/home/luis/src/striked\n\n');
 
-      expect(place.cwd, '/home/luis/src/upgrade');
+      expect(place.cwd, '/home/luis/src/striked');
       expect(place.herdrSession, isNull);
     });
 
@@ -182,7 +182,7 @@ void main() {
       await ready(tester);
 
       expect(find.text('DIFF'), findsNothing);
-      expect(_mark(tester).icon, UpgradeIcons.branch);
+      expect(_mark(tester).icon, StrikedIcons.branch);
 
       await unmount(tester);
     });
@@ -219,7 +219,7 @@ void main() {
       await ready(tester);
 
       expect(sessions.forHost(rose.id).single.repository, isNull);
-      expect(_mark(tester).color, UpgradeColors.textDisabled);
+      expect(_mark(tester).color, StrikedColors.textDisabled);
 
       await tester.tap(find.byKey(_diffCell));
       await ready(tester);
@@ -234,16 +234,16 @@ void main() {
       transport.opening = (connection) => connection.answer = (command, _) =>
           _says(
             command.contains('rev-parse')
-                ? '/home/luis/src/upgrade\n'
-                : '/home/luis/src/upgrade/lib/features\n\n',
+                ? '/home/luis/src/striked\n'
+                : '/home/luis/src/striked/lib/features\n\n',
           );
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
       final session = sessions.forHost(rose.id).single;
-      expect(session.cwd, '/home/luis/src/upgrade/lib/features');
-      expect(session.repository, '/home/luis/src/upgrade');
-      expect(_mark(tester).color, isNot(UpgradeColors.textDisabled));
+      expect(session.cwd, '/home/luis/src/striked/lib/features');
+      expect(session.repository, '/home/luis/src/striked');
+      expect(_mark(tester).color, isNot(StrikedColors.textDisabled));
 
       await unmount(tester);
     });
@@ -253,14 +253,14 @@ void main() {
     ) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      var here = '/home/luis/src/upgrade';
+      var here = '/home/luis/src/striked';
       transport.opening = (connection) =>
           connection.answer = (command, _) =>
               _says(command.contains('rev-parse') ? '$here\n' : '$here\n\n');
       await tester.pumpWidget(app(sessions));
       await ready(tester);
       final session = sessions.forHost(rose.id).single;
-      expect(session.repository, '/home/luis/src/upgrade');
+      expect(session.repository, '/home/luis/src/striked');
 
       here = '/srv/gate';
       await tester.tap(find.byKey(_diffCell));
@@ -285,8 +285,8 @@ void main() {
         connection = opened;
         opened.answer = (command, _) => _says(
           command.contains('rev-parse')
-              ? '/home/luis/src/upgrade\n'
-              : '/home/luis/src/upgrade\n\n',
+              ? '/home/luis/src/striked\n'
+              : '/home/luis/src/striked\n\n',
         );
       };
       await tester.pumpWidget(app(sessions));
@@ -319,14 +319,14 @@ void main() {
 
       final session = sessions.forHost(rose.id).single;
       final connection = transport.opened.single;
-      connection.answerWith('/home/luis/src/upgrade\n');
+      connection.answerWith('/home/luis/src/striked\n');
       connection.directoryRequests.clear();
 
-      expect(await sessions.cwdFromHost(session), '/home/luis/src/upgrade');
+      expect(await sessions.cwdFromHost(session), '/home/luis/src/striked');
       expect(connection.execs.last.command, shellCwdProbe(session.mark));
       expect(connection.directoryRequests, isEmpty);
       expect(connection.written, isNot(contains('/proc')));
-      expect(session.cwd, '/home/luis/src/upgrade');
+      expect(session.cwd, '/home/luis/src/striked');
 
       await unmount(tester);
     });
@@ -346,12 +346,12 @@ void main() {
       connection.answerWith(
         '{"result":{"type":"pane_list","panes":['
         '{"pane_id":"w2C:p2","cwd":"/home/luis"},'
-        '{"pane_id":"w22:p1","cwd":"/home/luis/src/upgrade",'
-        '"foreground_cwd":"/home/luis/src/upgrade/lib"}'
+        '{"pane_id":"w22:p1","cwd":"/home/luis/src/striked",'
+        '"foreground_cwd":"/home/luis/src/striked/lib"}'
         ']}}',
       );
 
-      expect(await sessions.cwdFromHost(session), '/home/luis/src/upgrade');
+      expect(await sessions.cwdFromHost(session), '/home/luis/src/striked');
       expect(connection.execs.last.command, HerdrCommands.panes('hub'));
       expect(connection.execs.last.command, isNot(contains('/proc')));
 
@@ -370,10 +370,10 @@ void main() {
       final connection = transport.opened.single;
       expect(session.pane, isNull);
       connection.directory = '/srv/stale-tmux-pane';
-      connection.answerWith('/home/luis/src/upgrade\n');
+      connection.answerWith('/home/luis/src/striked\n');
       connection.directoryRequests.clear();
 
-      expect(await sessions.cwdFromHost(session), '/home/luis/src/upgrade');
+      expect(await sessions.cwdFromHost(session), '/home/luis/src/striked');
       expect(connection.directoryRequests, isEmpty);
       expect(connection.execs.last.command, shellCwdProbe(session.mark));
 
@@ -469,7 +469,7 @@ void main() {
       await DriftKeyRepository(db).save(_key);
       await DriftHostRepository(db).save(rose);
       await DriftPathRepository(db)
-          .add(hostId: rose.id, directory: '~/src/upgrade');
+          .add(hostId: rose.id, directory: '~/src/striked');
 
       final sessions = fakeShellSessions(FakeShellTransport());
       await tester.pumpWidget(app(sessions, db: db));
@@ -485,7 +485,7 @@ void main() {
       await DriftKeyRepository(db).save(_key);
       await DriftHostRepository(db).save(rose);
       final paths = DriftPathRepository(db);
-      await paths.add(hostId: rose.id, directory: '~/src/upgrade');
+      await paths.add(hostId: rose.id, directory: '~/src/striked');
       await paths.add(hostId: rose.id, directory: '/srv/gate');
 
       final sessions = fakeShellSessions(FakeShellTransport());
@@ -495,7 +495,7 @@ void main() {
       await tester.tap(find.byKey(_diffCell));
       await ready(tester);
 
-      expect(find.text('UPGRADE'), findsOneWidget);
+      expect(find.text('STRIKED'), findsOneWidget);
       expect(find.text('GATE'), findsOneWidget);
 
       await unmount(tester);

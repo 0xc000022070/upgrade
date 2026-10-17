@@ -4,19 +4,19 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/activity_repository.dart';
-import 'package:upgrade/data/repositories/attachment_repository.dart';
-import 'package:upgrade/data/repositories/task_repository.dart';
-import 'package:upgrade/design/components/keyboard_toolbar.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/features/home/home_screen.dart';
-import 'package:upgrade/features/tasks/item_tags.dart';
-import 'package:upgrade/features/tasks/link_mark.dart';
-import 'package:upgrade/features/tasks/task_row.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/activity_repository.dart';
+import 'package:striked/data/repositories/attachment_repository.dart';
+import 'package:striked/data/repositories/task_repository.dart';
+import 'package:striked/design/components/keyboard_toolbar.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/features/home/home_screen.dart';
+import 'package:striked/features/tasks/item_tags.dart';
+import 'package:striked/features/tasks/link_mark.dart';
+import 'package:striked/features/tasks/task_row.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -30,10 +30,10 @@ Future<void> _ready(WidgetTester tester) async {
 
 final _mark = find.byIcon(ToolbarGlyph.link.icon);
 
-/// Every asset icon reaches the tree through [UpgradeIcon], which names the glyph rather
+/// Every asset icon reaches the tree through [StrikedIcon], which names the glyph rather
 /// than carrying font data to match on.
 final _arrow = find.byWidgetPredicate(
-  (widget) => widget is UpgradeIcon && widget.icon == UpgradeIcons.forward,
+  (widget) => widget is StrikedIcon && widget.icon == StrikedIcons.forward,
 );
 
 void main() {

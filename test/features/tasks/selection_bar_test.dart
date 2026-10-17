@@ -4,20 +4,20 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/app/upgrade_app.dart';
-import 'package:upgrade/app/nav_shell.dart';
-import 'package:upgrade/application/drops/drop_selection.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/activity_repository.dart';
-import 'package:upgrade/data/repositories/attachment_repository.dart';
-import 'package:upgrade/data/repositories/project_repository.dart';
-import 'package:upgrade/data/repositories/task_repository.dart';
-import 'package:upgrade/features/home/capture_bar.dart';
-import 'package:upgrade/features/home/home_screen.dart';
-import 'package:upgrade/features/projects/projects_screen.dart';
-import 'package:upgrade/features/settings/settings_screen.dart';
-import 'package:upgrade/features/tasks/selection_bar.dart';
+import 'package:striked/app/striked_app.dart';
+import 'package:striked/app/nav_shell.dart';
+import 'package:striked/application/drops/drop_selection.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/activity_repository.dart';
+import 'package:striked/data/repositories/attachment_repository.dart';
+import 'package:striked/data/repositories/project_repository.dart';
+import 'package:striked/data/repositories/task_repository.dart';
+import 'package:striked/features/home/capture_bar.dart';
+import 'package:striked/features/home/home_screen.dart';
+import 'package:striked/features/projects/projects_screen.dart';
+import 'package:striked/features/settings/settings_screen.dart';
+import 'package:striked/features/tasks/selection_bar.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -72,7 +72,7 @@ void main() {
 
   Widget shell() => ProviderScope(
     overrides: [...featureTestOverrides(db)],
-    child: MaterialApp(theme: testTheme, home: UpgradeShell()),
+    child: MaterialApp(theme: testTheme, home: StrikedShell()),
   );
 
   Future<void> unmount(WidgetTester tester) async {
@@ -381,7 +381,7 @@ void main() {
     expect(find.byType(SettingsScreen), findsOneWidget);
     expect(_selection(tester).ids, isEmpty);
 
-    await tester.tap(find.text('/ UPGRADE / SYS'));
+    await tester.tap(find.text('/ STRIKED / SYS'));
     await _ready(tester);
 
     expect(find.byType(SelectionBar), findsNothing);

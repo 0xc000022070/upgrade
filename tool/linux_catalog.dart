@@ -16,7 +16,7 @@ Future<void> main(List<String> args) async {
   final original = file.readAsStringSync();
   final catalog = jsonDecode(original) as Map<String, Object?>;
   final scratch = Directory.systemTemp.createTempSync('linux-catalog-');
-  final client = HttpClient()..userAgent = 'upgrade-linux-catalog';
+  final client = HttpClient()..userAgent = 'striked-linux-catalog';
   var text = original;
   var changed = 0;
   var broken = 0;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/code/syntax.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/features/code/syntax.dart';
 
 /// Plain is null so the line's own colour shows through; punctuation is the muted text,
 /// not a syntax colour, since it is furniture.

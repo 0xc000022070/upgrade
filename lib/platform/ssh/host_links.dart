@@ -5,11 +5,11 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_files.dart';
-import 'package:upgrade/platform/ssh/host_key_dial.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/ssh_settle.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_files.dart';
+import 'package:striked/platform/ssh/host_key_dial.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/ssh_settle.dart';
 
 typedef SshLink = ({
   SSHSocket socket,
@@ -867,7 +867,7 @@ Future<SshLink> authenticatedLink(
 }
 
 void _log(String name, String message) =>
-    debugPrint('upgrade.ssh $name: $message');
+    debugPrint('striked.ssh $name: $message');
 
 SSHClient _client(
   SSHSocket socket,

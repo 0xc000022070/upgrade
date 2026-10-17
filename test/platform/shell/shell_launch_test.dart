@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:upgrade/platform/shell/shell_launch.dart';
+import 'package:striked/platform/shell/shell_launch.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -91,7 +91,7 @@ void main() {
         '{"id":"cli:workspace:list","result":{"type":"workspace_list",'
         '"workspaces":[{"agent_status":"idle","focused":false,"label":"repbit",'
         '"workspace_id":"w1G"},{"agent_status":"working","focused":true,'
-        '"label":"upgrade","workspace_id":"w1H"}]}}';
+        '"label":"striked","workspace_id":"w1H"}]}}';
     final entries = LaunchCommands.parseWorkspaces('hub', source);
     expect(
       [
@@ -100,7 +100,7 @@ void main() {
       ],
       [
         ('hub', 'w1G', 'repbit', 'idle', false),
-        ('hub', 'w1H', 'upgrade', 'working', true),
+        ('hub', 'w1H', 'striked', 'working', true),
       ],
     );
     expect(LaunchCommands.parseWorkspaces('hub', 'not json'), isEmpty);

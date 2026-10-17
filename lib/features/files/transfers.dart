@@ -4,12 +4,12 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/files/phone_inbox.dart';
-import 'package:upgrade/application/formatting.dart';
-import 'package:upgrade/features/files/transfer_queue.dart';
-import 'package:upgrade/platform/ssh/host_files.dart' show TransferStop;
+import 'package:striked/application/files/phone_inbox.dart';
+import 'package:striked/application/formatting.dart';
+import 'package:striked/features/files/transfer_queue.dart';
+import 'package:striked/platform/ssh/host_files.dart' show TransferStop;
 
-export 'package:upgrade/platform/ssh/host_files.dart' show TransferStop;
+export 'package:striked/platform/ssh/host_files.dart' show TransferStop;
 
 const transferTick = Duration(milliseconds: 500);
 const transferRateWindow = Duration(seconds: 3);

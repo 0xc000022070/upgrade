@@ -1,4 +1,4 @@
-import 'package:upgrade/platform/workspace/workspace_model.dart';
+import 'package:striked/platform/workspace/workspace_model.dart';
 
 enum LineMark { added, modified, deleted }
 

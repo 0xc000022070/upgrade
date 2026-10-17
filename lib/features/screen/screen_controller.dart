@@ -4,13 +4,13 @@ import 'dart:ui' show Offset, Size;
 
 import 'package:flutter/foundation.dart';
 
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/vnc/framebuffer.dart';
-import 'package:upgrade/platform/vnc/keysyms.dart';
-import 'package:upgrade/platform/vnc/rfb_messages.dart';
-import 'package:upgrade/platform/vnc/vnc_failure.dart';
-import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/vnc/framebuffer.dart';
+import 'package:striked/platform/vnc/keysyms.dart';
+import 'package:striked/platform/vnc/rfb_messages.dart';
+import 'package:striked/platform/vnc/vnc_failure.dart';
+import 'package:striked/platform/vnc/vnc_tunnel.dart';
 
 sealed class ScreenPhase {
   const ScreenPhase();
@@ -355,7 +355,7 @@ class HostScreenController extends ChangeNotifier {
     _summaryMaxMicros = 0;
   }
 
-  void _log(Object message) => debugPrint('upgrade.vnc ${host.name}: $message');
+  void _log(Object message) => debugPrint('striked.vnc ${host.name}: $message');
 
   @override
   void dispose() {

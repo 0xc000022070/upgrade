@@ -5,16 +5,16 @@ import 'package:flterm/flterm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/components/dot_spinner.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/features/shell/input/shell_voice.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/voice/speech.dart';
-import 'package:upgrade/platform/voice/whisper.dart';
+import 'package:striked/application/agents/agent_kind.dart';
+import 'package:striked/application/agents/agent_state.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/components/dot_spinner.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:striked/features/shell/input/shell_voice.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/voice/speech.dart';
+import 'package:striked/platform/voice/whisper.dart';
 
 import '../../../support/themed_app.dart';
 
@@ -27,7 +27,7 @@ const _rose = Host(
   keyId: 'key-1',
 );
 
-const _speech = MethodChannel('dev.luisnquin.upgrade/speech');
+const _speech = MethodChannel('dev.luisnquin.striked/speech');
 
 ShellSession _session({String? command, String? title, PaneRef? pane}) =>
     ShellSession(number: 1, terminal: TerminalController(), host: _rose)
@@ -836,7 +836,7 @@ void main() {
       tester,
     ) async {
       await pumpCell(tester);
-      expect(find.byType(UpgradeIcon), findsOneWidget);
+      expect(find.byType(StrikedIcon), findsOneWidget);
       unawaited(dictation().press(_session()));
       await tester.pump();
       expect(find.byKey(const ValueKey('shell-voice-meter')), findsOneWidget);
@@ -854,7 +854,7 @@ void main() {
       events.add(const SpeechEnded());
       await tester.pump();
       expect(find.byType(DotSpinner), findsNothing);
-      expect(find.byType(UpgradeIcon), findsOneWidget);
+      expect(find.byType(StrikedIcon), findsOneWidget);
     });
   });
 }

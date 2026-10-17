@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/drops/drop_selection.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/flash_block.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/features/home/capture_bar.dart';
-import 'package:upgrade/features/tasks/drop_actions.dart';
+import 'package:striked/application/drops/drop_selection.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/flash_block.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/features/home/capture_bar.dart';
+import 'package:striked/features/tasks/drop_actions.dart';
 
 /// Built on [BottomBarFrame] rather than on its own padding and panel: the two bars trade
 /// the same slot, and a height they each computed would shift every panel on the screen

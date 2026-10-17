@@ -4,23 +4,23 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/cell_divider.dart';
-import 'package:upgrade/design/components/connection_glyph.dart';
-import 'package:upgrade/design/components/key_cell.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/components/panel_text_action.dart';
-import 'package:upgrade/design/components/scan_sweep.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/motion.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/features/hosts/host_strip.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/features/shell/shell_status.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/cell_divider.dart';
+import 'package:striked/design/components/connection_glyph.dart';
+import 'package:striked/design/components/key_cell.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/components/panel_text_action.dart';
+import 'package:striked/design/components/scan_sweep.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/motion.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/features/hosts/host_strip.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:striked/features/shell/shell_status.dart';
 
 const _headerHeight = TapTargets.minHeight;
 
@@ -30,7 +30,7 @@ const _detailHeight = 56.0;
 
 const _tabMaxWidth = 88.0;
 
-/// A login shell's title is who and where (`luis@nyx: ~/Projects/upgrade`), and the where
+/// A login shell's title is who and where (`luis@nyx: ~/Projects/striked`), and the where
 /// is the half that tells two tabs apart. A title with a space in it is a sentence the
 /// program wrote and is kept as it stands, slashes included: `vim design/SPEC.md` is not
 /// a path.
@@ -214,7 +214,7 @@ class _ShellHeaderState extends State<ShellHeader> {
               _TabCell(
                 key: const ValueKey('shell-tab-pin'),
                 label: 'UNLOCK',
-                icon: UpgradeIcons.sshKey,
+                icon: StrikedIcons.sshKey,
                 tint: widget.pinStale
                     ? context.tokens.warning
                     : context.tokens.accent,
@@ -224,7 +224,7 @@ class _ShellHeaderState extends State<ShellHeader> {
               _TabCell(
                 key: const ValueKey('shell-tab-diff'),
                 label: 'DIFF',
-                icon: UpgradeIcons.branch,
+                icon: StrikedIcons.branch,
                 dimmed: !widget.diffReady,
                 onTap: widget.diffReady ? onDiff : null,
               ),
@@ -232,14 +232,14 @@ class _ShellHeaderState extends State<ShellHeader> {
               _TabCell(
                 key: const ValueKey('shell-tab-files'),
                 label: 'FILES',
-                icon: UpgradeIcons.files,
+                icon: StrikedIcons.files,
                 onTap: onFiles,
               ),
             if (widget.onMachine case final onMachine?)
               _TabCell(
                 key: const ValueKey('shell-tab-machine'),
                 label: 'MACHINE',
-                icon: UpgradeIcons.systemServer,
+                icon: StrikedIcons.systemServer,
                 tint: widget.machineAlert ? context.tokens.warning : null,
                 onTap: onMachine,
               ),
@@ -409,7 +409,7 @@ class _ShellHeaderState extends State<ShellHeader> {
                 PanelTextAction(
                   key: const ValueKey('shell-info-reconnect'),
                   label: 'RECONNECT',
-                  icon: UpgradeIcons.sync,
+                  icon: StrikedIcons.sync,
                   onTap: () {
                     Navigator.of(context).pop();
                     onReconnect(session);
@@ -422,7 +422,7 @@ class _ShellHeaderState extends State<ShellHeader> {
                 PanelTextAction(
                   key: const ValueKey('shell-info-stop'),
                   label: 'STOP',
-                  icon: UpgradeIcons.close,
+                  icon: StrikedIcons.close,
                   onTap: () {
                     Navigator.of(context).pop();
                     onStop(session);
@@ -541,8 +541,8 @@ class _ShellReasonRowState extends State<ShellReasonRow> {
                     ),
                   ),
                   if (detail != null)
-                    UpgradeIcon(
-                      _open ? UpgradeIcons.collapse : UpgradeIcons.expand,
+                    StrikedIcon(
+                      _open ? StrikedIcons.collapse : StrikedIcons.expand,
                       size: 12,
                       color: context.tokens.textMuted,
                     ),
@@ -617,7 +617,7 @@ class _TabCell extends StatelessWidget {
 
   final String? label;
 
-  final UpgradeIcons? icon;
+  final StrikedIcons? icon;
 
   final bool dimmed;
 
@@ -697,7 +697,7 @@ class _TabCell extends StatelessWidget {
               if (icon case final icon?)
                 Semantics(
                   label: label,
-                  child: UpgradeIcon(icon, size: IconSizes.sm, color: tint),
+                  child: StrikedIcon(icon, size: IconSizes.sm, color: tint),
                 )
               else
                 ConstrainedBox(

@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/design/motion.dart';
+import 'package:striked/design/motion.dart';
 
 class GlitchController extends ChangeNotifier {
   GlitchController({this.frames = Effects.glitchFrames});

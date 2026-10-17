@@ -2,7 +2,7 @@ import 'dart:ui' show PointMode;
 
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/design/tokens.dart';
+import 'package:striked/design/tokens.dart';
 
 class DitherField extends StatelessWidget {
   const DitherField({super.key, this.level = 3, this.child});

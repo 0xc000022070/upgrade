@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/links/link_preview.dart';
-import 'package:upgrade/platform/links/link_metadata.dart';
+import 'package:striked/application/links/link_preview.dart';
+import 'package:striked/platform/links/link_metadata.dart';
 
 const _openGraph = '''
 <!doctype html><html><head>
@@ -259,7 +259,7 @@ void main() {
     late Directory directory;
 
     setUp(() {
-      directory = Directory.systemTemp.createTempSync('upgrade-previews-test');
+      directory = Directory.systemTemp.createTempSync('striked-previews-test');
     });
 
     tearDown(() => directory.delete(recursive: true));

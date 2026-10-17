@@ -1,6 +1,6 @@
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/platform/shell/remote_shell.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/platform/shell/remote_shell.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
 
 const systemProbeScript = 'uname -s; cat /etc/os-release 2>/dev/null';
 

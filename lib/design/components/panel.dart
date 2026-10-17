@@ -4,13 +4,13 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/effects/glitch.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/components/path_line.dart';
-import 'package:upgrade/design/components/signal_text.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/effects/glitch.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/components/path_line.dart';
+import 'package:striked/design/components/signal_text.dart';
 
 class Panel extends StatelessWidget {
   const Panel({
@@ -277,14 +277,14 @@ class PanelAffordance extends StatefulWidget {
   const PanelAffordance(
     this.label, {
     super.key,
-    this.icon = UpgradeIcons.forward,
+    this.icon = StrikedIcons.forward,
     this.showIcon = true,
     this.color,
     this.onTap,
   });
 
   final String label;
-  final UpgradeIcons icon;
+  final StrikedIcons icon;
   final bool showIcon;
   final Color? color;
   final VoidCallback? onTap;
@@ -311,7 +311,7 @@ class _PanelAffordanceState extends State<PanelAffordance> {
         ),
         if (widget.showIcon) ...[
           const SizedBox(width: Spacing.sm),
-          UpgradeIcon(widget.icon, size: IconSizes.affordance, color: tint),
+          StrikedIcon(widget.icon, size: IconSizes.affordance, color: tint),
         ],
       ],
     );

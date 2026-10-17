@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/design/colors.dart';
-import 'package:upgrade/features/tasks/link_text.dart';
+import 'package:striked/design/colors.dart';
+import 'package:striked/features/tasks/link_text.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -23,7 +23,7 @@ void main() {
                   text,
                   style: const TextStyle(
                     fontSize: 14,
-                    color: UpgradeColors.textPrimary,
+                    color: StrikedColors.textPrimary,
                   ),
                 ),
               ),

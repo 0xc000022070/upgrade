@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/design/effects/glitch.dart';
+import 'package:striked/design/effects/glitch.dart';
 
 const navDestinationCount = 4;
 

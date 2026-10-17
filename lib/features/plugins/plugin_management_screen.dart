@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/app/static_surface.dart';
-import 'package:upgrade/application/plugins/plugins.dart';
-import 'package:upgrade/design/components/segment_switch.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/components/screen_scaffold.dart';
-import 'package:upgrade/features/settings/plugins_panel.dart';
-import 'package:upgrade/features/plugins/plugin_board.dart';
+import 'package:striked/app/static_surface.dart';
+import 'package:striked/application/plugins/plugins.dart';
+import 'package:striked/design/components/segment_switch.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/components/screen_scaffold.dart';
+import 'package:striked/features/settings/plugins_panel.dart';
+import 'package:striked/features/plugins/plugin_board.dart';
 
 void openPluginManagement(BuildContext context) {
   Navigator.of(context, rootNavigator: true).push(
@@ -38,7 +38,7 @@ class _PluginManagementScreenState
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'PLUGINS',
-          breadcrumb: '/ UPGRADE / PLUGINS',
+          breadcrumb: '/ STRIKED / PLUGINS',
           onBack: () => Navigator.of(context).pop(),
           header: Padding(
             padding: const EdgeInsets.only(bottom: Spacing.panelGap),

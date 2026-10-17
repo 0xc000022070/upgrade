@@ -22,7 +22,7 @@ let
   };
 in
 pkgs.mkShell {
-  name = "upgrade";
+  name = "striked";
 
   packages = [
     pkgs.flutter
@@ -76,7 +76,7 @@ pkgs.mkShell {
   ENGINE_ANDROID_LIBS = engineAndroid;
 
   shellHook = ''
-    export UPGRADE_BUILD="$(${pkgs.git}/bin/git rev-parse --short HEAD 2>/dev/null || echo dev)"
+    export STRIKED_BUILD="$(${pkgs.git}/bin/git rev-parse --short HEAD 2>/dev/null || echo dev)"
 
     # Only these two keys are rewritten, because store paths move with the
     # flake lock. Every other key is kept: `flutter build` writes

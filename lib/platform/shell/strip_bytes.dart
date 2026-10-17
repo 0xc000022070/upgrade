@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:upgrade/platform/vnc/keysyms.dart';
+import 'package:striked/platform/vnc/keysyms.dart';
 
 const _csi = [0x1b, 0x5b];
 

@@ -3,23 +3,23 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/path_repository.dart';
-import 'package:upgrade/design/components/drag_sheet.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/platform/shell/remote_shell.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/platform/workspace/workspace_model.dart';
-import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
-import 'package:upgrade/features/code/explorer.dart';
-import 'package:upgrade/features/code/workspace_controller.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/path_repository.dart';
+import 'package:striked/design/components/drag_sheet.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/platform/shell/remote_shell.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:striked/features/shell/sheets/shell_sheet.dart';
+import 'package:striked/features/code/explorer.dart';
+import 'package:striked/features/code/workspace_controller.dart';
 
 final _openWorkspaceRoutes = Expando<WorkspaceSheetRoute>();
 
@@ -289,8 +289,8 @@ class _BranchCell extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            UpgradeIcon(
-              UpgradeIcons.branch,
+            StrikedIcon(
+              StrikedIcons.branch,
               size: IconSizes.affordance,
               color: tint,
             ),

@@ -6,22 +6,22 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/key_repository.dart';
-import 'package:upgrade/design/colors.dart';
-import 'package:upgrade/design/components/solid_action_bar.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/features/settings/host_form_screen.dart';
-import 'package:upgrade/features/settings/key_form_screen.dart';
-import 'package:upgrade/features/hosts/hosts_screen.dart';
-import 'package:upgrade/features/screen/screen_preview.dart';
-import 'package:upgrade/platform/ssh/host_key_dial.dart';
-import 'package:upgrade/platform/ssh/keys.dart';
-import 'package:upgrade/platform/vnc/framebuffer.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/key_repository.dart';
+import 'package:striked/design/colors.dart';
+import 'package:striked/design/components/solid_action_bar.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/features/settings/host_form_screen.dart';
+import 'package:striked/features/settings/key_form_screen.dart';
+import 'package:striked/features/hosts/hosts_screen.dart';
+import 'package:striked/features/screen/screen_preview.dart';
+import 'package:striked/platform/ssh/host_key_dial.dart';
+import 'package:striked/platform/ssh/keys.dart';
+import 'package:striked/platform/vnc/framebuffer.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -42,7 +42,7 @@ bool keyChosen(WidgetTester tester, String id) => find
     .descendant(
       of: find.byKey(ValueKey('host-key-$id')),
       matching: find.byWidgetPredicate(
-        (widget) => widget is UpgradeIcon && widget.icon == UpgradeIcons.check,
+        (widget) => widget is StrikedIcon && widget.icon == StrikedIcons.check,
       ),
     )
     .evaluate()
@@ -63,7 +63,7 @@ void main() {
     keys = InMemoryKeyRepository();
     hosts = InMemoryHostRepository();
     privateKeys = MemoryPrivateKeyStore();
-    root = Directory.systemTemp.createTempSync('upgrade-host-form');
+    root = Directory.systemTemp.createTempSync('striked-host-form');
     previews = ScreenPreviews(Directory('${root.path}/screens'));
     dial = ({
       required address,
@@ -166,7 +166,7 @@ void main() {
     expect(keyChosen(tester, 'key-1'), isTrue);
     expect(label(tester), 'CREATE HOST');
     expect(find.text('NAME MISSING'), findsOneWidget);
-    expect(fill(tester), UpgradeColors.textDisabled);
+    expect(fill(tester), StrikedColors.textDisabled);
 
     await tester.tap(find.byType(SolidActionBar));
     await _ready(tester);
@@ -194,7 +194,7 @@ void main() {
     await tester.enterText(field(_Fields.user), 'luis');
     await tester.pump();
     expect(label(tester), 'CREATE HOST');
-    expect(fill(tester), UpgradeColors.accent);
+    expect(fill(tester), StrikedColors.accent);
 
     await unmount(tester);
   });
@@ -300,8 +300,8 @@ void main() {
         of: find.byKey(const ValueKey('integration-vnc')),
         matching: find.byWidgetPredicate(
           (widget) =>
-              widget is UpgradeIcon &&
-              widget.icon == UpgradeIcons.checkboxChecked,
+              widget is StrikedIcon &&
+              widget.icon == StrikedIcons.checkboxChecked,
         ),
       ),
       findsOneWidget,
@@ -358,7 +358,7 @@ void main() {
     await tester.enterText(field(_Fields.name), 'nyx');
     await tester.pump();
 
-    await tester.tap(find.text('/ UPGRADE / MACHINES'));
+    await tester.tap(find.text('/ STRIKED / MACHINES'));
     await _sheet(tester);
     expect(find.text('DISCARD HOST?'), findsOneWidget);
 
@@ -420,7 +420,7 @@ void main() {
       await tester.pump();
       expect(label(tester), 'CREATE HOST', reason: 'port `$typed`');
       expect(find.text('PORT MISSING'), findsOneWidget);
-      expect(fill(tester), UpgradeColors.textDisabled);
+      expect(fill(tester), StrikedColors.textDisabled);
     }
 
     await tester.tap(find.byType(SolidActionBar).first);
@@ -430,7 +430,7 @@ void main() {
     await tester.enterText(field(_Fields.port), '357');
     await tester.pump();
     expect(label(tester), 'CREATE HOST');
-    expect(fill(tester), UpgradeColors.accent);
+    expect(fill(tester), StrikedColors.accent);
 
     await unmount(tester);
   });

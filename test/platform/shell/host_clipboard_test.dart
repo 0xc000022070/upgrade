@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/platform/shell/host_clipboard.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:striked/platform/shell/host_clipboard.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
 
 ExecResult printed(String stdout, {int exitCode = 0}) => ExecResult(
   exitCode: exitCode,
@@ -131,7 +131,7 @@ void main() {
         clipboardCommand(clipboard, 'a.png'),
         "sh -c 'XDG_RUNTIME_DIR='\\''/run/user/1000'\\'' "
         "WAYLAND_DISPLAY='\\''wayland-1'\\'' wl-copy --type image/png "
-        "< '\\''/tmp/upgrade/a.png'\\'' >/dev/null 2>&1'",
+        "< '\\''/tmp/striked/a.png'\\'' >/dev/null 2>&1'",
       );
     });
 
@@ -162,7 +162,7 @@ void main() {
         ),
         allOf(
           contains('«class PNGf»'),
-          contains("'end run' '/tmp/upgrade/a.png' >"),
+          contains("'end run' '/tmp/striked/a.png' >"),
         ),
       );
     });

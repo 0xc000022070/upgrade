@@ -1,19 +1,19 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/features/home/drops_home_surface.dart';
-import 'package:upgrade/features/home/home_feedback.dart';
-import 'package:upgrade/features/home/home_card_viewport.dart';
-import 'package:upgrade/features/home/capture_bar.dart';
-import 'package:upgrade/features/tasks/drops_panel.dart';
-import 'package:upgrade/platform/plugins/module.dart';
-import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/application/drops/drop_selection.dart';
-import 'package:upgrade/application/drops/fresh_drops.dart';
-import 'package:upgrade/application/alerts/toasts.dart';
+import 'package:striked/features/home/drops_home_surface.dart';
+import 'package:striked/features/home/home_feedback.dart';
+import 'package:striked/features/home/home_card_viewport.dart';
+import 'package:striked/features/home/capture_bar.dart';
+import 'package:striked/features/tasks/drops_panel.dart';
+import 'package:striked/platform/plugins/module.dart';
+import 'package:striked/application/providers.dart';
+import 'package:striked/application/drops/drop_selection.dart';
+import 'package:striked/application/drops/fresh_drops.dart';
+import 'package:striked/application/alerts/toasts.dart';
 
 const dropsPlugin = NativePluginModule(
-  id: 'upgrade.drops',
+  id: 'striked.drops',
   directory: 'lib/builtin_plugins/drops',
   surfaces: {
     'home.layout': _home,

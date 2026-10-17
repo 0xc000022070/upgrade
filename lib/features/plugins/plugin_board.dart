@@ -4,19 +4,19 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'package:upgrade/data/plugin_emblems.dart';
-import 'package:upgrade/application/plugins/native_plugins.dart';
-import 'package:upgrade/application/plugins/plugin_hosts.dart';
-import 'package:upgrade/application/plugins/plugins.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_text_action.dart';
-import 'package:upgrade/design/effects/glitch.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/platform/plugins/store.dart';
-import 'package:upgrade/features/plugins/plugin_promise.dart';
+import 'package:striked/data/plugin_emblems.dart';
+import 'package:striked/application/plugins/native_plugins.dart';
+import 'package:striked/application/plugins/plugin_hosts.dart';
+import 'package:striked/application/plugins/plugins.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/panel_text_action.dart';
+import 'package:striked/design/effects/glitch.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/platform/plugins/store.dart';
+import 'package:striked/features/plugins/plugin_promise.dart';
 
 class BoardRow {
   const BoardRow({
@@ -803,8 +803,8 @@ class _NodeFace extends StatelessWidget {
     final lip = size * (pressed ? 0.03 : 0.09);
     final outline = size >= _Tree.node ? 3.0 : 2.0;
     final icon = emblem == null
-        ? UpgradeIcon(
-            UpgradeIcons.add,
+        ? StrikedIcon(
+            StrikedIcons.add,
             size: size * 0.4,
             color: tokens.textDisabled,
           )
@@ -869,8 +869,8 @@ class _NodeFace extends StatelessWidget {
                     borderRadius: BorderRadius.circular(2),
                     border: Border.all(color: ink, width: outline - 1),
                   ),
-                  child: UpgradeIcon(
-                    UpgradeIcons.blocked,
+                  child: StrikedIcon(
+                    StrikedIcons.blocked,
                     size: size * 0.24,
                     color: tokens.textPrimary,
                   ),

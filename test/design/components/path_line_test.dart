@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/design/components/path_line.dart';
-import 'package:upgrade/design/components/signal_text.dart';
-import 'package:upgrade/design/typography.dart';
+import 'package:striked/design/components/path_line.dart';
+import 'package:striked/design/components/signal_text.dart';
+import 'package:striked/design/typography.dart';
 
 Future<String> pumpPath(
   WidgetTester tester,
@@ -16,7 +16,7 @@ Future<String> pumpPath(
         alignment: Alignment.topLeft,
         child: SizedBox(
           width: width,
-          child: PathLine(path, style: UpgradeText.rowTitle),
+          child: PathLine(path, style: StrikedText.rowTitle),
         ),
       ),
     ),

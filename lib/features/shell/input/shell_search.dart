@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:flterm/flterm.dart';
 import 'package:flutter/material.dart';
 
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/cell_divider.dart';
-import 'package:upgrade/design/components/key_cell.dart';
-import 'package:upgrade/design/components/upgrade_field.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/motion.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/cell_divider.dart';
+import 'package:striked/design/components/key_cell.dart';
+import 'package:striked/design/components/striked_field.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/motion.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
 
 const _typingSettles = Motion.instant;
 
@@ -140,7 +140,7 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
                   horizontal: RowMetrics.padding,
                 ),
                 child: Center(
-                  child: UpgradeField(
+                  child: StrikedField(
                     key: const ValueKey('shell-find-field'),
                     controller: _query,
                     autofocus: true,
@@ -169,7 +169,7 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
             KeyCell(
               key: const ValueKey('shell-find-prev'),
               label: 'PREV',
-              icon: UpgradeIcons.arrowUp,
+              icon: StrikedIcons.arrowUp,
               inert: total == 0,
               minWidth: RowMetrics.minHeight,
               padding: RowMetrics.padding,
@@ -178,7 +178,7 @@ class _ShellSearchRowState extends State<ShellSearchRow> {
             KeyCell(
               key: const ValueKey('shell-find-next'),
               label: 'NEXT',
-              icon: UpgradeIcons.arrowDown,
+              icon: StrikedIcons.arrowDown,
               inert: total == 0,
               minWidth: RowMetrics.minHeight,
               padding: RowMetrics.padding,

@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:upgrade/platform/vnc/framebuffer.dart';
-import 'package:upgrade/platform/vnc/vnc_failure.dart';
+import 'package:striked/platform/vnc/framebuffer.dart';
+import 'package:striked/platform/vnc/vnc_failure.dart';
 
 /// One zlib stream for the whole session: the server's deflate window spans every rect
 /// it has ever sent, so the inflater is opened once and fed for as long as the

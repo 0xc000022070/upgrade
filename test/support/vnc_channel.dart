@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:upgrade/platform/vnc/rfb_client.dart';
-import 'package:upgrade/platform/vnc/rfb_messages.dart';
-import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
+import 'package:striked/platform/vnc/rfb_client.dart';
+import 'package:striked/platform/vnc/rfb_messages.dart';
+import 'package:striked/platform/vnc/vnc_tunnel.dart';
 
 class FakeVncChannel {
   FakeVncChannel() {

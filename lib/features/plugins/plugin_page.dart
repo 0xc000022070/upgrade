@@ -2,30 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:upgrade/application/plugins/native_plugins.dart';
-import 'package:upgrade/application/plugins/plugin_hosts.dart';
-import 'package:upgrade/application/plugins/plugins.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/dot_spinner.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/components/panel_text_action.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/contributions.dart';
-import 'package:upgrade/platform/plugins/store.dart';
-import 'package:upgrade/platform/plugins/ui.dart';
-import 'package:upgrade/design/components/screen_scaffold.dart';
-import 'package:upgrade/features/plugins/plugin_management_screen.dart';
+import 'package:striked/application/plugins/native_plugins.dart';
+import 'package:striked/application/plugins/plugin_hosts.dart';
+import 'package:striked/application/plugins/plugins.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/dot_spinner.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/components/panel_text_action.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/platform/plugins/manifest.dart';
+import 'package:striked/platform/plugins/contributions.dart';
+import 'package:striked/platform/plugins/store.dart';
+import 'package:striked/platform/plugins/ui.dart';
+import 'package:striked/design/components/screen_scaffold.dart';
+import 'package:striked/features/plugins/plugin_management_screen.dart';
 
 String _hex(Color color) =>
     '#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
 
 /// The theme table an API-2 plugin's `mount` event carries, so a page reads the device's
 /// active look instead of guessing at the house palette.
-Map<String, Object?> pluginThemeTable(UpgradeTokens tokens) => {
+Map<String, Object?> pluginThemeTable(StrikedTokens tokens) => {
   'brightness': tokens.brightness == Brightness.dark ? 'dark' : 'light',
   'background': _hex(tokens.backgroundPrimary),
   'surface': _hex(tokens.surfacePrimary),

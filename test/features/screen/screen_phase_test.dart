@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/features/screen/screen_controller.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/vnc/vnc_failure.dart';
-import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/features/screen/screen_controller.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/vnc/vnc_failure.dart';
+import 'package:striked/platform/vnc/vnc_tunnel.dart';
 
 const _nyx = Host(
   id: 'nyx',

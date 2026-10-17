@@ -1,23 +1,23 @@
 import 'dart:io';
 
-import 'package:upgrade/app/builtin_plugins.dart';
-import 'package:upgrade/application/plugins/native_plugins.dart';
-import 'package:upgrade/application/plugins/plugin_placements.dart';
-import 'package:upgrade/application/plugins/plugins.dart';
-import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
+import 'package:striked/app/builtin_plugins.dart';
+import 'package:striked/application/plugins/native_plugins.dart';
+import 'package:striked/application/plugins/plugin_placements.dart';
+import 'package:striked/application/plugins/plugins.dart';
+import 'package:striked/application/providers.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/repositories/plugin_placement_repository.dart';
+import 'package:striked/platform/plugins/manifest.dart';
+import 'package:striked/platform/plugins/store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 PluginPackage builtinFixture(String name) => PluginPackage(
   manifest: PluginManifest.parse(
-    File('lib/builtin_plugins/$name/upgrade.plugin.toml').readAsStringSync(),
+    File('lib/builtin_plugins/$name/striked.plugin.toml').readAsStringSync(),
     allowNative: true,
   ),
   source: File('lib/builtin_plugins/$name/main.dart').readAsStringSync(),
-  origin: 'bundled:upgrade.$name',
+  origin: 'bundled:striked.$name',
   revision: '1.0.0',
 );
 

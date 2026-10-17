@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/design/dynamic_tokens.dart';
-import 'package:upgrade/design/tokens.dart';
+import 'package:striked/design/dynamic_tokens.dart';
+import 'package:striked/design/tokens.dart';
 
 void main() {
-  group('upgradeTokensFromScheme', () {
+  group('strikedTokensFromScheme', () {
     const scheme = ColorScheme(
       brightness: Brightness.light,
       primary: Color(0xFF111111),
@@ -26,7 +26,7 @@ void main() {
     );
 
     test('chrome follows the scheme', () {
-      final tokens = upgradeTokensFromScheme(scheme);
+      final tokens = strikedTokensFromScheme(scheme);
       expect(tokens.brightness, Brightness.light);
       expect(tokens.backgroundPrimary, scheme.surface);
       expect(tokens.backgroundSecondary, scheme.surfaceContainerLow);
@@ -43,39 +43,39 @@ void main() {
     });
 
     test('every text role is recoloured but keeps its house shape', () {
-      final tokens = upgradeTokensFromScheme(scheme);
+      final tokens = strikedTokensFromScheme(scheme);
       expect(tokens.screenTitle.color, scheme.onSurface);
       expect(
         tokens.screenTitle.fontFamily,
-        UpgradeTokens.house.screenTitle.fontFamily,
+        StrikedTokens.house.screenTitle.fontFamily,
       );
       expect(
         tokens.screenTitle.fontSize,
-        UpgradeTokens.house.screenTitle.fontSize,
+        StrikedTokens.house.screenTitle.fontSize,
       );
       expect(tokens.heroPercent.color, scheme.primary);
       expect(
         tokens.panelHeader.color,
-        isNot(UpgradeTokens.house.panelHeader.color),
+        isNot(StrikedTokens.house.panelHeader.color),
       );
     });
 
     test('code and diff palettes stay the house palette', () {
-      final tokens = upgradeTokensFromScheme(scheme);
-      expect(tokens.syntax, UpgradeTokens.house.syntax);
-      expect(tokens.terminal, UpgradeTokens.house.terminal);
-      expect(tokens.diffAddedGround, UpgradeTokens.house.diffAddedGround);
-      expect(tokens.diffRemovedGround, UpgradeTokens.house.diffRemovedGround);
-      expect(tokens.mediaBackdrop, UpgradeTokens.house.mediaBackdrop);
+      final tokens = strikedTokensFromScheme(scheme);
+      expect(tokens.syntax, StrikedTokens.house.syntax);
+      expect(tokens.terminal, StrikedTokens.house.terminal);
+      expect(tokens.diffAddedGround, StrikedTokens.house.diffAddedGround);
+      expect(tokens.diffRemovedGround, StrikedTokens.house.diffRemovedGround);
+      expect(tokens.mediaBackdrop, StrikedTokens.house.mediaBackdrop);
     });
   });
 
-  group('upgradeTokensForSystem', () {
+  group('strikedTokensForSystem', () {
     test('a dynamic scheme for the platform brightness wins when offered', () {
       const light = ColorScheme.light(primary: Color(0xFF00FF00));
       const dark = ColorScheme.dark(primary: Color(0xFFFF00FF));
 
-      final atDark = upgradeTokensForSystem(
+      final atDark = strikedTokensForSystem(
         platformBrightness: Brightness.dark,
         lightDynamic: light,
         darkDynamic: dark,
@@ -83,7 +83,7 @@ void main() {
       expect(atDark.accent, dark.primary);
       expect(atDark.brightness, Brightness.dark);
 
-      final atLight = upgradeTokensForSystem(
+      final atLight = strikedTokensForSystem(
         platformBrightness: Brightness.light,
         lightDynamic: light,
         darkDynamic: dark,
@@ -93,7 +93,7 @@ void main() {
     });
 
     test('a seeded scheme stands in when the platform offers none', () {
-      final tokens = upgradeTokensForSystem(
+      final tokens = strikedTokensForSystem(
         platformBrightness: Brightness.dark,
         lightDynamic: null,
         darkDynamic: null,
@@ -101,7 +101,7 @@ void main() {
       expect(tokens.brightness, Brightness.dark);
       expect(
         tokens.backgroundPrimary,
-        isNot(UpgradeTokens.house.backgroundPrimary),
+        isNot(StrikedTokens.house.backgroundPrimary),
       );
     });
   });

@@ -4,9 +4,9 @@ library;
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/platform/shell/remote_shell.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/platform/shell/shell_tunnel.dart';
+import 'package:striked/platform/shell/remote_shell.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/platform/shell/shell_tunnel.dart';
 
 import '../support/reasons.dart';
 import 'fixture.dart';
@@ -40,7 +40,7 @@ void main() {
 
     // The guest's prompt is `%n@%m:%~%#`, so its own hostname is the one string no echo of
     // ours could have produced.
-    await readUntil(connection, 'upgrade-host');
+    await readUntil(connection, 'striked-host');
     expect(connection.transport, ShellTransport.ssh);
     expect(connection.continuity, ShellContinuity.plain);
   });
@@ -57,7 +57,7 @@ void main() {
   test('a window change reaches the remote mid-session', () async {
     final connection = await open(columns: 80, rows: 24);
     addTearDown(() => connection.close(UserClosed(testIntent())));
-    await readUntil(connection, 'upgrade-host');
+    await readUntil(connection, 'striked-host');
 
     connection.resize(120, 40);
     type(connection, 'stty size');
@@ -75,7 +75,7 @@ void main() {
   test('an exec channel runs beside the shell without disturbing it', () async {
     final connection = await open();
     addTearDown(() => connection.close(UserClosed(testIntent())));
-    final prompt = await readUntil(connection, 'upgrade-host');
+    final prompt = await readUntil(connection, 'striked-host');
 
     final result = (await connection.channels.exec(
       'printf beside',

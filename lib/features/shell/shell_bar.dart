@@ -2,17 +2,17 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/application/shell/bar_layout.dart';
-import 'package:upgrade/design/effects/glitch.dart';
-import 'package:upgrade/design/components/arrow_stick.dart';
-import 'package:upgrade/design/components/key_bar.dart';
-import 'package:upgrade/design/components/key_cell.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/platform/shell/strip_bytes.dart';
-import 'package:upgrade/platform/vnc/arming.dart';
-import 'package:upgrade/platform/vnc/keysyms.dart';
-import 'package:upgrade/features/screen/modifier_cell.dart';
-import 'package:upgrade/features/shell/input/shell_voice.dart';
+import 'package:striked/application/shell/bar_layout.dart';
+import 'package:striked/design/effects/glitch.dart';
+import 'package:striked/design/components/arrow_stick.dart';
+import 'package:striked/design/components/key_bar.dart';
+import 'package:striked/design/components/key_cell.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/platform/shell/strip_bytes.dart';
+import 'package:striked/platform/vnc/arming.dart';
+import 'package:striked/platform/vnc/keysyms.dart';
+import 'package:striked/features/screen/modifier_cell.dart';
+import 'package:striked/features/shell/input/shell_voice.dart';
 
 const _stickKeysyms = {
   AxisDirection.up: Keysyms.up,
@@ -21,11 +21,11 @@ const _stickKeysyms = {
   AxisDirection.right: Keysyms.right,
 };
 
-const _arrowCells = <(String, int, UpgradeIcons)>[
-  ('LEFT', Keysyms.left, UpgradeIcons.arrowLeft),
-  ('UP', Keysyms.up, UpgradeIcons.arrowUp),
-  ('DOWN', Keysyms.down, UpgradeIcons.arrowDown),
-  ('RIGHT', Keysyms.right, UpgradeIcons.arrowRight),
+const _arrowCells = <(String, int, StrikedIcons)>[
+  ('LEFT', Keysyms.left, StrikedIcons.arrowLeft),
+  ('UP', Keysyms.up, StrikedIcons.arrowUp),
+  ('DOWN', Keysyms.down, StrikedIcons.arrowDown),
+  ('RIGHT', Keysyms.right, StrikedIcons.arrowRight),
 ];
 
 abstract interface class BarArranger {
@@ -153,7 +153,7 @@ class ShellBar extends StatelessWidget {
       KeyCell(
         key: const ValueKey('bar-find'),
         label: 'FIND',
-        icon: UpgradeIcons.search,
+        icon: StrikedIcons.search,
         armed: searching,
         minWidth: KeyBar.height,
         padding: KeyBar.cellPadding,
@@ -186,7 +186,7 @@ class ShellBar extends StatelessWidget {
       KeyCell(
         key: const ValueKey('bar-ATTACH'),
         label: 'ATTACH',
-        icon: UpgradeIcons.image,
+        icon: StrikedIcons.image,
         armed: clipCount > 0,
         minWidth: KeyBar.height,
         padding: KeyBar.cellPadding,
@@ -207,7 +207,7 @@ class ShellBar extends StatelessWidget {
       KeyCell(
         key: const ValueKey('bar-keyboard'),
         label: 'KEYBOARD',
-        icon: UpgradeIcons.keyboard,
+        icon: StrikedIcons.keyboard,
         armed: keyboardOpen,
         minWidth: KeyBar.height,
         padding: KeyBar.cellPadding,
@@ -219,7 +219,7 @@ class ShellBar extends StatelessWidget {
   Widget _key(
     String label,
     int keysym, {
-    UpgradeIcons? icon,
+    StrikedIcons? icon,
     bool repeats = false,
   }) => KeyCell(
     key: ValueKey('bar-$label'),

@@ -1,10 +1,10 @@
 import 'dart:convert';
 
-import 'package:upgrade_luau/data_api.dart';
+import 'package:striked_luau/data_api.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:toml/toml.dart';
 
-import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:striked/platform/plugins/contributions.dart';
 
 class PluginException implements Exception {
   const PluginException(this.message);
@@ -186,7 +186,7 @@ class PluginManifest {
       final emblem = _optionalText(root['emblem'], 'emblem', 32);
       final version = Version.parse(_text(root['version'], 'version', 64));
       final api = VersionConstraint.parse(
-        _text(root['upgrade_api'], 'upgrade_api', 128),
+        _text(root['striked_api'], 'striked_api', 128),
       );
       final runtime = _map(root['runtime'], 'runtime');
       final entry = _text(runtime['entry'], 'entry', 200);
@@ -207,9 +207,9 @@ class PluginManifest {
           format != manifestVersion && !native && !uiRuntime && !filesRuntime
           ? 'Unsupported manifest version $format'
           : !api.allows(apiVersion)
-          ? 'Plugin requires Upgrade API $api'
+          ? 'Plugin requires Striked API $api'
           : native && !allowNative
-          ? 'Native plugins must be bundled with Upgrade'
+          ? 'Native plugins must be bundled with Striked'
           : runtime['kind'] != 'luau' && !native
           ? 'Unsupported plugin runtime'
           : invalidUiApi
@@ -246,7 +246,7 @@ class PluginManifest {
           'name',
           'purpose',
           'version',
-          'upgrade_api',
+          'striked_api',
           'runtime',
           'dependencies',
           'services',
@@ -380,7 +380,7 @@ class PluginManifest {
         'name',
         'purpose',
         'version',
-        'upgrade_api',
+        'striked_api',
         'runtime',
         'permissions',
         'dependencies',

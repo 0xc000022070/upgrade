@@ -3,9 +3,9 @@ import 'dart:math';
 
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/design/effects/glitch.dart';
-import 'package:upgrade/design/effects/screen_entry.dart';
-import 'package:upgrade/design/motion.dart';
+import 'package:striked/design/effects/glitch.dart';
+import 'package:striked/design/effects/screen_entry.dart';
+import 'package:striked/design/motion.dart';
 
 class SignalText extends StatefulWidget {
   const SignalText(

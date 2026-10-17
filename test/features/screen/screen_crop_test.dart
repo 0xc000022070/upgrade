@@ -2,9 +2,9 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/features/screen/screen_preview.dart';
-import 'package:upgrade/features/screen/screen_transform.dart';
-import 'package:upgrade/platform/vnc/framebuffer.dart';
+import 'package:striked/features/screen/screen_preview.dart';
+import 'package:striked/features/screen/screen_transform.dart';
+import 'package:striked/platform/vnc/framebuffer.dart';
 
 void main() {
   group('cropBetween', () {

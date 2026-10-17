@@ -24,7 +24,7 @@ String shellIn(String directory) => '${shellCd(directory)} && exec \$SHELL -l';
 
 /// Exported before the `exec`, which is what carries it into the login shell that
 /// replaces it.
-const shellMarkVariable = 'UPGRADE_TAB';
+const shellMarkVariable = 'STRIKED_TAB';
 
 /// Letters and digits, and nothing a shell or a `grep` reads as anything but itself.
 final shellMark = RegExp(r'^[a-z0-9]{6,32}$');
@@ -33,27 +33,27 @@ String shellMarked(String mark, {String? command}) {
   assert(shellMark.hasMatch(mark));
   return 'export $shellMarkVariable=$mark; '
       'if [ "\$(uname -s)" = Darwin ]; then '
-      '(d="/tmp/upgrade-\$(id -u)"; umask 077; '
+      '(d="/tmp/striked-\$(id -u)"; umask 077; '
       'mkdir -p "\$d" && [ -O "\$d" ] && '
       'tty > "\$d/$mark") 2>/dev/null; fi; '
       '${command ?? 'exec \$SHELL -l'}';
 }
 
-const durableShellSocket = 'upgrade';
+const durableShellSocket = 'striked';
 
 final durableShellSession = shellMark;
 
-const moshTabVariable = 'UPGRADE_MOSH_TAB';
+const moshTabVariable = 'STRIKED_MOSH_TAB';
 
 String durableShellProbeCommand(String session) {
   assert(durableShellSession.hasMatch(session));
   final target = shellQuote(session);
   final script =
       'p=\$(command -v tmux) || exit 127; '
-      'printf "UPGRADE_TMUX=%s\\n" "\$p"; '
+      'printf "STRIKED_TMUX=%s\\n" "\$p"; '
       'if "\$p" -L $durableShellSocket has-session -t $target 2>/dev/null; '
-      'then printf "UPGRADE_RESUME=1\\n"; '
-      'else printf "UPGRADE_RESUME=0\\n"; fi';
+      'then printf "STRIKED_RESUME=1\\n"; '
+      'else printf "STRIKED_RESUME=0\\n"; fi';
   return 'exec "\$SHELL" -lc ${shellQuote(script)}';
 }
 
@@ -84,7 +84,7 @@ String durableShellDirectoryCommand(String tmux, String session) {
 String moshServerProbeCommand() {
   const script =
       'p=\$(command -v mosh-server) || exit 127; '
-      'printf "UPGRADE_MOSH=%s\\n" "\$p"';
+      'printf "STRIKED_MOSH=%s\\n" "\$p"';
   return 'exec "\$SHELL" -lc ${shellQuote(script)}';
 }
 
@@ -148,7 +148,7 @@ String shellForegroundProcessProbe(String mark) {
       r's=$(cat "/proc/$parent/stat") || continue; '
       r's=${s##*) }; set -- $s; '
       r'[ "$3" = "$group" ] && continue; '
-      r'tr "\000" "\n" < "$p/environ" | grep -qx "UPGRADE_TAB='
+      r'tr "\000" "\n" < "$p/environ" | grep -qx "STRIKED_TAB='
       '$mark'
       r'" || continue; '
       r'a=$(tr "\000" "\n" < "$p/cmdline" | sed -n "1p"); '
@@ -158,7 +158,7 @@ String shellForegroundProcessProbe(String mark) {
       r'done';
   final darwin =
       r'exec 2>/dev/null; '
-      r'd="/tmp/upgrade-$(id -u)"; [ -O "$d" ] || exit 1; '
+      r'd="/tmp/striked-$(id -u)"; [ -O "$d" ] || exit 1; '
       't=\$(cat "\$d/$mark") || exit 1; '
       r'case "$t" in /dev/*) ;; *) exit 1;; esac; '
       r'ps -ww -t "$t" -o pid=,ppid=,pgid=,tpgid=,comm=,command= | '
@@ -190,7 +190,7 @@ ShellPlace parseShellPlace(String source) {
 
 /// World-writable and cleared by the host's own reboot, which is the right lifetime for
 /// a file nothing ever comes back for.
-const remoteUploadDirectory = '/tmp/upgrade';
+const remoteUploadDirectory = '/tmp/striked';
 
 String remotePathFor(String fileName) => '$remoteUploadDirectory/$fileName';
 

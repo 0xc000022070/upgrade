@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/shell/path_scan.dart';
-import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/application/agents/send.dart';
-import 'package:upgrade/application/agents/send_queue.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/path_repository.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/action_block.dart';
-import 'package:upgrade/design/components/upgrade_field.dart';
-import 'package:upgrade/design/components/dot_spinner.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/features/hosts/path_picker_sheet.dart';
-import 'package:upgrade/features/home/agent_mark.dart';
-import 'package:upgrade/application/drops/attachment_files.dart';
+import 'package:striked/application/agents/agent_kind.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/shell/path_scan.dart';
+import 'package:striked/application/providers.dart';
+import 'package:striked/application/agents/send.dart';
+import 'package:striked/application/agents/send_queue.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/path_repository.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/action_block.dart';
+import 'package:striked/design/components/striked_field.dart';
+import 'package:striked/design/components/dot_spinner.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/features/hosts/path_picker_sheet.dart';
+import 'package:striked/features/home/agent_mark.dart';
+import 'package:striked/application/drops/attachment_files.dart';
 
 sealed class _Step {
   const _Step();
@@ -226,7 +226,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           title: 'SEND TO',
           affordance: PanelAffordance(
             'BACK',
-            icon: UpgradeIcons.back,
+            icon: StrikedIcons.back,
             onTap: () => _back(step),
           ),
           children: [_picker()],
@@ -236,7 +236,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
           title: dispatch.target.title,
           affordance: PanelAffordance(
             'BACK',
-            icon: UpgradeIcons.back,
+            icon: StrikedIcons.back,
             onTap: () => _back(dispatch),
           ),
           footer: [
@@ -354,7 +354,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
       const SheetRule(),
       SheetField(
         label: 'MESSAGE',
-        child: UpgradeField(
+        child: StrikedField(
           key: const ValueKey('send-message'),
           semanticLabel: 'Message to agent',
           controller: _message,

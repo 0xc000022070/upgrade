@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
-import 'package:upgrade/data/bundles.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/tables.dart';
-import 'package:upgrade/data/views.dart';
+import 'package:striked/data/bundles.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/tables.dart';
+import 'package:striked/data/views.dart';
 
 part 'database.g.dart';
 
@@ -30,7 +30,7 @@ part 'database.g.dart';
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
-    : super(executor ?? driftDatabase(name: 'upgrade'));
+    : super(executor ?? driftDatabase(name: 'striked'));
 
   @override
   int get schemaVersion => 23;

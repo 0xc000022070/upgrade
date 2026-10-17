@@ -1,5 +1,5 @@
 {
-  description = "Upgrade — local-first personal control plane (Flutter)";
+  description = "Striked — local-first personal control plane (Flutter)";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -31,7 +31,7 @@
         };
 
       hostScenarios = import ./nix/host-vm/scenarios.nix;
-      hostName = name: if name == "full" then "upgrade-host" else "upgrade-host-${name}";
+      hostName = name: if name == "full" then "striked-host" else "striked-host-${name}";
       guestSystems = {
         x86_64-linux = "x86_64-linux";
         aarch64-darwin = "aarch64-linux";
@@ -44,7 +44,7 @@
             ./nix/host-vm/configuration.nix
             self.nixosModules.strikedddd
             {
-              upgradeHost = scenario // {
+              strikedHost = scenario // {
                 inherit name;
               };
               virtualisation.host.pkgs = nixpkgs.legacyPackages.${hostSystem};
@@ -87,7 +87,7 @@
           {
             "host-vm${suffix}" =
               app tools."host-vm-runner${suffix}"
-                "Run the ${name} remote host fixture for Upgrade";
+                "Run the ${name} remote host fixture for Striked";
             "host-up${suffix}" = app tools."host-up${suffix}" "Boot the ${name} remote host fixture detached";
             "host-ssh${suffix}" =
               app tools."host-ssh${suffix}"

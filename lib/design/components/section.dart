@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/components/dither_field.dart';
-import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/components/dither_field.dart';
+import 'package:striked/design/components/dot_spinner.dart';
 
 class EmptyState extends StatelessWidget {
   const EmptyState(this.label, {super.key});

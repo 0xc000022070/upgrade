@@ -1,19 +1,19 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/drops/drop_selection.dart';
-import 'package:upgrade/application/formatting.dart';
-import 'package:upgrade/application/drops/fresh_drops.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/section.dart';
-import 'package:upgrade/design/effects/glitch.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/features/tasks/item_sheet.dart';
-import 'package:upgrade/features/tasks/task_row.dart';
+import 'package:striked/application/drops/drop_selection.dart';
+import 'package:striked/application/formatting.dart';
+import 'package:striked/application/drops/fresh_drops.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/section.dart';
+import 'package:striked/design/effects/glitch.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/features/tasks/item_sheet.dart';
+import 'package:striked/features/tasks/task_row.dart';
 
 class DropsPanel extends ConsumerStatefulWidget {
   const DropsPanel({
@@ -194,7 +194,7 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
               title: 'DONE',
               affordance: PanelAffordance(
                 '${doneRows.length}',
-                icon: _showDone ? UpgradeIcons.collapse : UpgradeIcons.expand,
+                icon: _showDone ? StrikedIcons.collapse : StrikedIcons.expand,
               ),
               onHeaderTap: () => setState(() => _showDone = !_showDone),
               bodyPadding: panelRowsPadding,

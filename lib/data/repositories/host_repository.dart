@@ -1,9 +1,9 @@
 import 'package:drift/drift.dart';
 
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/path_repository.dart';
 
 class Host {
   const Host({

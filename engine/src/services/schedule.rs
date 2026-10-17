@@ -530,7 +530,7 @@ fn probe() -> Value {
     })
 }
 
-const TIMER_PREFIX: &str = "upgrade-schedule-";
+const TIMER_PREFIX: &str = "striked-schedule-";
 
 fn timer_name(scope: &str) -> String {
     format!("{TIMER_PREFIX}{scope}")
@@ -610,7 +610,7 @@ pub(crate) fn remove_systemd_timers(dir: &Path) -> Vec<String> {
             .args(["--user", "daemon-reload"])
             .output();
         // A unit that failed is held by name in the manager long after its file is gone,
-        // so without this the account is left with upgrade entries under `--failed` that
+        // so without this the account is left with striked entries under `--failed` that
         // no file on the machine explains and nothing but this can clear.
         let _ = Command::new("systemctl")
             .arg("--user")
@@ -748,7 +748,7 @@ pub(crate) fn dispatch_unit(engine: &str, scope: &str, state: &str, path: Option
         .map(|path| format!("Environment=\"PATH={}\"\n", unit_escape(path)))
         .unwrap_or_default();
     format!(
-        "[Unit]\nDescription=Upgrade agent schedule dispatch\n\
+        "[Unit]\nDescription=Striked agent schedule dispatch\n\
          [Service]\nType=oneshot\nKillMode=process\n\
          ExecStart=\"{}\" __tick \"{scope}\"\n\
          Environment=\"STRIKEDDDD_STATE={}\"\n{path_line}\
@@ -794,7 +794,7 @@ fn install_timer(scope: &str) -> EngineResult<()> {
     }
 
     let service = dispatch_unit(&engine, scope, &state, install_path().as_deref());
-    let timer = "[Unit]\nDescription=Upgrade agent schedules\n\
+    let timer = "[Unit]\nDescription=Striked agent schedules\n\
                  [Timer]\nOnCalendar=*-*-* *:*:00\nAccuracySec=1s\nPersistent=true\n\
                  [Install]\nWantedBy=timers.target\n";
 
@@ -1557,7 +1557,7 @@ mod tests {
         // the timer has to run with.
         let profile = "/etc/profiles/per-user/dev/bin:/usr/bin:/bin";
         let plist = agent_plist(
-            "upgrade-schedule-aa",
+            "striked-schedule-aa",
             "/bin/engine",
             "aa",
             "/state",
@@ -1570,7 +1570,7 @@ mod tests {
         // An account with no PATH at all leaves the key out rather than pinning an
         // empty one, which would be a narrower environment than inheriting.
         assert!(
-            !agent_plist("upgrade-schedule-aa", "/bin/engine", "aa", "/state", None)
+            !agent_plist("striked-schedule-aa", "/bin/engine", "aa", "/state", None)
                 .contains("PATH")
         );
         assert!(!dispatch_unit("/bin/engine", "aa", "/state", None).contains("PATH"));
@@ -1586,7 +1586,7 @@ mod tests {
 
     fn scratch(name: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(
-            "upgrade-schedule-unit-{}-{name}",
+            "striked-schedule-unit-{}-{name}",
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&dir);
@@ -1610,21 +1610,21 @@ mod tests {
         plant(
             &dir,
             &[
-                "upgrade-schedule-aa.plist",
-                "upgrade-schedule-bb.plist",
+                "striked-schedule-aa.plist",
+                "striked-schedule-bb.plist",
                 "com.apple.something.plist",
-                "upgrade-schedule-cc.txt",
+                "striked-schedule-cc.txt",
             ],
         );
 
         let mut removed = remove_launchd_timers(&dir);
         removed.sort();
-        assert_eq!(removed, vec!["upgrade-schedule-aa", "upgrade-schedule-bb"]);
-        assert!(!dir.join("upgrade-schedule-aa.plist").exists());
+        assert_eq!(removed, vec!["striked-schedule-aa", "striked-schedule-bb"]);
+        assert!(!dir.join("striked-schedule-aa.plist").exists());
         assert!(dir.join("com.apple.something.plist").exists());
         // A label is what launchctl is addressed by, so a file that is not a plist is
         // not this walk's to take however it is named.
-        assert!(dir.join("upgrade-schedule-cc.txt").exists());
+        assert!(dir.join("striked-schedule-cc.txt").exists());
 
         assert!(remove_launchd_timers(&dir).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
@@ -1636,8 +1636,8 @@ mod tests {
         plant(
             &dir,
             &[
-                "upgrade-schedule-aa.timer",
-                "upgrade-schedule-aa.service",
+                "striked-schedule-aa.timer",
+                "striked-schedule-aa.service",
                 "borgbackup.timer",
             ],
         );
@@ -1646,7 +1646,7 @@ mod tests {
         removed.sort();
         assert_eq!(
             removed,
-            vec!["upgrade-schedule-aa.service", "upgrade-schedule-aa.timer"]
+            vec!["striked-schedule-aa.service", "striked-schedule-aa.timer"]
         );
         assert!(dir.join("borgbackup.timer").exists());
 
@@ -1656,7 +1656,7 @@ mod tests {
 
     #[test]
     fn a_walk_over_a_directory_that_is_not_there_removes_nothing() {
-        let absent = std::env::temp_dir().join("upgrade-schedule-unit-absent");
+        let absent = std::env::temp_dir().join("striked-schedule-unit-absent");
         let _ = std::fs::remove_dir_all(&absent);
         assert!(remove_launchd_timers(&absent).is_empty());
         assert!(remove_systemd_timers(&absent).is_empty());

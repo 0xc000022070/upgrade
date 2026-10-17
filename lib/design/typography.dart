@@ -1,6 +1,6 @@
 import 'package:flutter/painting.dart';
 
-import 'package:upgrade/design/colors.dart';
+import 'package:striked/design/colors.dart';
 
 abstract final class FontFamilies {
   static const display = 'Barlow Condensed';
@@ -14,14 +14,14 @@ abstract final class FontFamilies {
   static const count = 4;
 }
 
-abstract final class UpgradeText {
+abstract final class StrikedText {
   static const screenTitle = TextStyle(
     fontFamily: FontFamilies.display,
     fontSize: 29,
     height: 1.0,
     fontWeight: FontWeight.w700,
     letterSpacing: 1.0,
-    color: UpgradeColors.textPrimary,
+    color: StrikedColors.textPrimary,
   );
 
   static const breadcrumb = TextStyle(
@@ -30,7 +30,7 @@ abstract final class UpgradeText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.5,
-    color: UpgradeColors.textMuted,
+    color: StrikedColors.textMuted,
   );
 
   static const panelHeader = TextStyle(
@@ -39,7 +39,7 @@ abstract final class UpgradeText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.8,
-    color: UpgradeColors.textMuted,
+    color: StrikedColors.textMuted,
   );
 
   static const rowKicker = TextStyle(
@@ -48,7 +48,7 @@ abstract final class UpgradeText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.8,
-    color: UpgradeColors.textSecondary,
+    color: StrikedColors.textSecondary,
   );
 
   static const rowTitle = TextStyle(
@@ -56,7 +56,7 @@ abstract final class UpgradeText {
     fontSize: 14,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: UpgradeColors.textPrimary,
+    color: StrikedColors.textPrimary,
   );
 
   static const rowTitleLead = TextStyle(
@@ -64,7 +64,7 @@ abstract final class UpgradeText {
     fontSize: 15,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: UpgradeColors.textPrimary,
+    color: StrikedColors.textPrimary,
   );
 
   static const rowSubtitle = TextStyle(
@@ -72,7 +72,7 @@ abstract final class UpgradeText {
     fontSize: 12,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: UpgradeColors.textMuted,
+    color: StrikedColors.textMuted,
   );
 
   static const value = TextStyle(
@@ -80,7 +80,7 @@ abstract final class UpgradeText {
     fontSize: 12,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: UpgradeColors.textMuted,
+    color: StrikedColors.textMuted,
   );
 
   static const valueStrong = TextStyle(
@@ -88,7 +88,7 @@ abstract final class UpgradeText {
     fontSize: 12,
     height: 1.3,
     fontWeight: FontWeight.w500,
-    color: UpgradeColors.textPrimary,
+    color: StrikedColors.textPrimary,
   );
 
   static const label = TextStyle(
@@ -97,7 +97,7 @@ abstract final class UpgradeText {
     height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.8,
-    color: UpgradeColors.textMuted,
+    color: StrikedColors.textMuted,
   );
 
   static const heroName = TextStyle(
@@ -106,7 +106,7 @@ abstract final class UpgradeText {
     height: 1.1,
     fontWeight: FontWeight.w600,
     letterSpacing: 0.4,
-    color: UpgradeColors.textPrimary,
+    color: StrikedColors.textPrimary,
   );
 
   static const heroPercent = TextStyle(
@@ -115,7 +115,7 @@ abstract final class UpgradeText {
     height: 1.0,
     fontWeight: FontWeight.w700,
     letterSpacing: 0.2,
-    color: UpgradeColors.accent,
+    color: StrikedColors.accent,
   );
 
   static const noteBody = TextStyle(
@@ -123,7 +123,7 @@ abstract final class UpgradeText {
     fontSize: 14,
     height: 1.45,
     fontWeight: FontWeight.w400,
-    color: UpgradeColors.textPrimary,
+    color: StrikedColors.textPrimary,
   );
 
   static const buildStamp = TextStyle(
@@ -131,7 +131,7 @@ abstract final class UpgradeText {
     fontSize: 11,
     height: 1.3,
     fontWeight: FontWeight.w400,
-    color: UpgradeColors.textMuted,
+    color: StrikedColors.textMuted,
   );
 
   static const capture = TextStyle(
@@ -139,7 +139,7 @@ abstract final class UpgradeText {
     fontSize: 14,
     height: 1.2,
     fontWeight: FontWeight.w400,
-    color: UpgradeColors.textMuted,
+    color: StrikedColors.textMuted,
   );
 
   static const prose = TextStyle(
@@ -147,7 +147,7 @@ abstract final class UpgradeText {
     fontSize: 14,
     height: 1.45,
     fontWeight: FontWeight.w400,
-    color: UpgradeColors.textSecondary,
+    color: StrikedColors.textSecondary,
   );
 
   static const navLabel = TextStyle(
@@ -156,7 +156,7 @@ abstract final class UpgradeText {
     height: 1.2,
     fontWeight: FontWeight.w400,
     letterSpacing: 1.0,
-    color: UpgradeColors.textMuted,
+    color: StrikedColors.textMuted,
   );
 
   /// Deliberately not the scale above. A picture-in-picture tile has no columns to carry
@@ -170,7 +170,7 @@ abstract final class UpgradeText {
     // Medium is the heaviest mono in the bundle: asking for more resolves back to this.
     fontWeight: FontWeight.w500,
     letterSpacing: 0.4,
-    color: UpgradeColors.textPrimary,
+    color: StrikedColors.textPrimary,
   );
 
   static const pipAgent = TextStyle(
@@ -178,7 +178,7 @@ abstract final class UpgradeText {
     fontSize: 11,
     height: 1.25,
     fontWeight: FontWeight.w500,
-    color: UpgradeColors.textPrimary,
+    color: StrikedColors.textPrimary,
   );
 
   static const pipState = TextStyle(
@@ -186,7 +186,7 @@ abstract final class UpgradeText {
     fontSize: 11,
     height: 1.25,
     fontWeight: FontWeight.w400,
-    color: UpgradeColors.textSecondary,
+    color: StrikedColors.textSecondary,
   );
 
   static const pipMeta = TextStyle(
@@ -195,6 +195,6 @@ abstract final class UpgradeText {
     height: 1.25,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.6,
-    color: UpgradeColors.textSecondary,
+    color: StrikedColors.textSecondary,
   );
 }

@@ -3,16 +3,16 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/features/screen/host_screen.dart';
-import 'package:upgrade/features/screen/screen_controller.dart';
-import 'package:upgrade/features/screen/screen_preview.dart';
-import 'package:upgrade/platform/ssh/keys.dart';
-import 'package:upgrade/platform/vnc/rfb_client.dart';
-import 'package:upgrade/platform/vnc/rfb_messages.dart';
-import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/features/screen/host_screen.dart';
+import 'package:striked/features/screen/screen_controller.dart';
+import 'package:striked/features/screen/screen_preview.dart';
+import 'package:striked/platform/ssh/keys.dart';
+import 'package:striked/platform/vnc/rfb_client.dart';
+import 'package:striked/platform/vnc/rfb_messages.dart';
+import 'package:striked/platform/vnc/vnc_tunnel.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
 
 import '../../support/vnc_channel.dart';
 import '../../support/themed_app.dart';
@@ -125,7 +125,7 @@ void main() {
   testWidgets('leaving the route stores a frame under the host id', (
     tester,
   ) async {
-    final root = Directory.systemTemp.createTempSync('upgrade-screen');
+    final root = Directory.systemTemp.createTempSync('striked-screen');
     addTearDown(() => root.deleteSync(recursive: true));
     final previews = ScreenPreviews(Directory('${root.path}/screens'));
     addTearDown(previews.dispose);
@@ -196,7 +196,7 @@ void main() {
   });
 
   testWidgets('no preview is stored while the app is hidden', (tester) async {
-    final root = Directory.systemTemp.createTempSync('upgrade-screen');
+    final root = Directory.systemTemp.createTempSync('striked-screen');
     addTearDown(() => root.deleteSync(recursive: true));
     final previews = ScreenPreviews(Directory('${root.path}/screens'));
     addTearDown(previews.dispose);

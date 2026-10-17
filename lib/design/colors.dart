@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-abstract final class UpgradeColors {
+abstract final class StrikedColors {
   static const backgroundPrimary = Color(0xFF08090B);
   static const backgroundSecondary = Color(0xFF0B0D10);
 

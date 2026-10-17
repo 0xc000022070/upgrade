@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/hosts/host_mark.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/features/hosts/host_mark.dart';
 
 const hostGroupMaxWidth = 80.0;
 
@@ -178,8 +178,8 @@ class HostMenu extends StatelessWidget {
             ),
             child: Row(
               children: [
-                UpgradeIcon(
-                  UpgradeIcons.hosts,
+                StrikedIcon(
+                  StrikedIcons.hosts,
                   size: IconSizes.glyph,
                   color: context.tokens.textMuted,
                 ),

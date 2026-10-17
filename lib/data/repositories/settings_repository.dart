@@ -1,4 +1,4 @@
-import 'package:upgrade/data/database.dart';
+import 'package:striked/data/database.dart';
 
 class SettingsRepository {
   SettingsRepository(this._db);

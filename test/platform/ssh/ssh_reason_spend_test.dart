@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/host_links.dart';
-import 'package:upgrade/platform/ssh/connection_supervisor.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:striked/platform/ssh/host_links.dart';
+import 'package:striked/platform/ssh/connection_supervisor.dart';
 
 import '../../support/host_links.dart';
 import '../../support/reasons.dart';
@@ -63,7 +63,7 @@ void main() {
   });
 
   Matcher refused(String type, String why) => contains(
-    allOf(startsWith('upgrade.ssh '), contains('refused $type: $why')),
+    allOf(startsWith('striked.ssh '), contains('refused $type: $why')),
   );
 
   test(

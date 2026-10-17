@@ -1,15 +1,15 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/views.dart';
-import 'package:upgrade/data/project_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/priority_row.dart';
-import 'package:upgrade/features/projects/project_icon.dart';
+import 'package:striked/application/providers.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/views.dart';
+import 'package:striked/data/project_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/priority_row.dart';
+import 'package:striked/features/projects/project_icon.dart';
 
 class ProjectRow extends ConsumerWidget {
   const ProjectRow({

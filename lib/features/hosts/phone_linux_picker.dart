@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
-import 'package:upgrade/design/components/action_block.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/meta.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/components/upgrade_field.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/hosts/host_mark.dart';
-import 'package:upgrade/platform/phone_linux.dart';
+import 'package:striked/design/components/action_block.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/meta.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/components/striked_field.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/features/hosts/host_mark.dart';
+import 'package:striked/platform/phone_linux.dart';
 
 Future<PhoneLinuxSetup?> pickPhoneLinuxSetup(
   BuildContext context, {
@@ -134,7 +134,7 @@ class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
       const SizedBox(height: Spacing.md),
       SheetField(
         label: 'NAME',
-        child: UpgradeField(
+        child: StrikedField(
           key: const ValueKey('phone-linux-name'),
           controller: _name,
           hint: widget.name,
@@ -155,8 +155,8 @@ class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
               subtitle: distro.detail,
               subtitleMaxLines: 2,
               trailing: distro == _distro
-                  ? UpgradeIcon(
-                      UpgradeIcons.check,
+                  ? StrikedIcon(
+                      StrikedIcons.check,
                       size: IconSizes.check,
                       color: tokens.accent,
                     )
@@ -190,8 +190,8 @@ class _PhoneLinuxPickerState extends State<_PhoneLinuxPicker> {
         children: [
           ListRow(
             key: const ValueKey('phone-linux-manager'),
-            leading: UpgradeIcon(
-              UpgradeIcons.checkboxChecked,
+            leading: StrikedIcon(
+              StrikedIcons.checkboxChecked,
               size: IconSizes.check,
               color: context.tokens.textMuted,
             ),
@@ -253,8 +253,8 @@ int _chosenMb(
     .where((tool) => chosen.contains(tool.id) && tool.fits(distro, nix: nix))
     .fold(0, (sum, tool) => sum + tool.mb);
 
-Widget _checkbox(BuildContext context, bool checked) => UpgradeIcon(
-  checked ? UpgradeIcons.checkboxChecked : UpgradeIcons.checkboxEmpty,
+Widget _checkbox(BuildContext context, bool checked) => StrikedIcon(
+  checked ? StrikedIcons.checkboxChecked : StrikedIcons.checkboxEmpty,
   size: IconSizes.check,
   color: checked ? context.tokens.accent : context.tokens.textMuted,
 );

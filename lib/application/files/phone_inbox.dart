@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/platform/files/phone_files.dart';
+import 'package:striked/platform/files/phone_files.dart';
 
-export 'package:upgrade/platform/files/phone_files.dart';
+export 'package:striked/platform/files/phone_files.dart';
 
 final phoneFilesProvider = Provider<PhoneFiles>((ref) => PhoneFiles());
 

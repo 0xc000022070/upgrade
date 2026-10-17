@@ -4,14 +4,14 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/drops/clips.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/colors.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/features/screen/screen_preview.dart';
-import 'package:upgrade/features/shell/sheets/attach_sheet.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:striked/application/drops/clips.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/colors.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/features/screen/screen_preview.dart';
+import 'package:striked/features/shell/sheets/attach_sheet.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:striked/platform/shell/remote_shell.dart';
 
 import '../../../support/fake_shell.dart';
 import '../../../support/platform_channels.dart';
@@ -36,7 +36,7 @@ void main() {
   late ShellSessions sessions;
 
   setUp(() {
-    directory = Directory.systemTemp.createTempSync('upgrade-attach-test');
+    directory = Directory.systemTemp.createTempSync('striked-attach-test');
     clips = ClipStore(directory);
     transport = FakeShellTransport();
     sessions = fakeShellSessions(transport);
@@ -92,7 +92,7 @@ void main() {
     expect(help, findsOneWidget);
     expect(find.text('CANCEL'), findsOneWidget);
     expect(copy, findsNothing);
-    expect(inkOf(tester), UpgradeColors.textMuted);
+    expect(inkOf(tester), StrikedColors.textMuted);
   });
 
   testWidgets('a tap raises the copy over PHOTOS and a second takes it away', (
@@ -139,11 +139,11 @@ void main() {
 
     await tester.tap(help);
     await tester.pumpAndSettle();
-    expect(inkOf(tester), UpgradeColors.accent);
+    expect(inkOf(tester), StrikedColors.accent);
 
     await tester.tap(help);
     await tester.pumpAndSettle();
-    expect(inkOf(tester), UpgradeColors.textMuted);
+    expect(inkOf(tester), StrikedColors.textMuted);
   });
 
   testWidgets('CANCEL still closes the sheet with the copy open', (

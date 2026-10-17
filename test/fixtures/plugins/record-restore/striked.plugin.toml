@@ -1,0 +1,30 @@
+manifest_version = 2
+id = "striked.record-restore"
+name = "Record restore"
+version = "2.0.0"
+striked_api = "^2.0.0"
+
+[runtime]
+kind = "luau"
+entry = "main.luau"
+
+[dependencies]
+"striked.record-text" = "^2.0.0"
+
+[capabilities.selected]
+api_version = 1
+dataset = "selection"
+operations = ["get", "propose"]
+
+[capabilities.saved]
+api_version = 1
+dataset = "striked.record-text:snapshots"
+operations = ["get"]
+contract = "text@1"
+
+[permissions]
+ui = ["record_action"]
+
+[[contributes.record_actions]]
+id = "restore"
+title = "RESTORE SNAPSHOT"

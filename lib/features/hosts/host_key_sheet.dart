@@ -1,12 +1,12 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/action_block.dart';
-import 'package:upgrade/design/components/meta.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/action_block.dart';
+import 'package:striked/design/components/meta.dart';
+import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
 
 Future<bool> askHostKey(
   BuildContext context, {
@@ -40,7 +40,7 @@ Future<bool> askHostKey(
           Meta(offer.fingerprint, strong: true, maxLines: 3),
           const SizedBox(height: Spacing.md),
           Text(
-            'VERIFY THE OFFERED FINGERPRINT OUTSIDE UPGRADE BEFORE REPLACING.',
+            'VERIFY THE OFFERED FINGERPRINT OUTSIDE STRIKED BEFORE REPLACING.',
             style: context.tokens.label.copyWith(color: context.tokens.warning),
           ),
         ] else ...[

@@ -3,11 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/features/files/transfer_bar.dart';
-import 'package:upgrade/features/files/transfer_queue.dart';
-import 'package:upgrade/features/files/transfers.dart';
-import 'package:upgrade/platform/files/phone_files.dart' show TransferStatus;
-import 'package:upgrade/platform/ssh/host_files.dart';
+import 'package:striked/features/files/transfer_bar.dart';
+import 'package:striked/features/files/transfer_queue.dart';
+import 'package:striked/features/files/transfers.dart';
+import 'package:striked/platform/files/phone_files.dart' show TransferStatus;
+import 'package:striked/platform/ssh/host_files.dart';
 
 import '../../support/themed_app.dart';
 

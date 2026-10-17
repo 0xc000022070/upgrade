@@ -2,18 +2,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart' show hostsProvider;
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/features/hosts/host_mark.dart';
-import 'package:upgrade/features/hosts/host_strip.dart';
-import 'package:upgrade/features/shell/shell_header.dart';
-import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
-import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/features/shell/session/shell_watcher.dart';
-import 'package:upgrade/features/shell/shell_status.dart';
+import 'package:striked/application/agents/agents.dart' show hostsProvider;
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/features/hosts/host_mark.dart';
+import 'package:striked/features/hosts/host_strip.dart';
+import 'package:striked/features/shell/shell_header.dart';
+import 'package:striked/features/shell/sheets/shell_sheet.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:striked/features/shell/session/shell_watcher.dart';
+import 'package:striked/features/shell/shell_status.dart';
 
 const parkedShellBarHeight = 36.0;
 

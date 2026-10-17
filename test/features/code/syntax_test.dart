@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/features/code/syntax.dart';
+import 'package:striked/features/code/syntax.dart';
 
 List<(String, SyntaxToken)> coloured(String line, String path) => [
   for (final span in highlight(line, languageOf(path)))

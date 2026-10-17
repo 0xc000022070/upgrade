@@ -5,24 +5,24 @@ import 'dart:async';
 
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/agents/send.dart';
-import 'package:upgrade/application/agents/send_queue.dart';
-import 'package:upgrade/application/alerts/toasts.dart';
-import 'package:upgrade/application/navigation.dart';
-import 'package:upgrade/data/enums.dart';
-import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/path_repository.dart';
-import 'package:upgrade/design/components/dot_spinner.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/home/agent_mark.dart';
-import 'package:upgrade/features/home/agents_panel.dart';
-import 'package:upgrade/features/hosts/hosts_screen.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/keys.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:striked/application/agents/agent_kind.dart';
+import 'package:striked/application/agents/agent_state.dart';
+import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/agents/send.dart';
+import 'package:striked/application/agents/send_queue.dart';
+import 'package:striked/application/alerts/toasts.dart';
+import 'package:striked/application/navigation.dart';
+import 'package:striked/data/enums.dart';
+import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/path_repository.dart';
+import 'package:striked/design/components/dot_spinner.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/features/home/agent_mark.dart';
+import 'package:striked/features/home/agents_panel.dart';
+import 'package:striked/features/hosts/hosts_screen.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/keys.dart';
+import 'package:striked/platform/ssh/host_keys.dart';
 
 import '../../support/themed_app.dart';
 
@@ -56,7 +56,7 @@ AgentSnapshot agent({
   state: AgentState.of(status),
   terminalTitleStripped: work,
   workspaceId: 'wQ',
-  cwd: '/workspace/upgrade',
+  cwd: '/workspace/striked',
   stateChangeSeq: sequence,
 );
 
@@ -98,8 +98,8 @@ void main() {
             path: AgentPath(
               id: 'path-1',
               hostId: 'a',
-              directory: '~/src/upgrade',
-              label: 'upgrade',
+              directory: '~/src/striked',
+              label: 'striked',
               createdAt: DateTime.utc(2026, 9, 3),
             ),
             host: hostA,
@@ -136,7 +136,7 @@ void main() {
     answer.complete(const SendFailed('spawn timed out'));
     await tester.pump();
     final failed = tester.widget<Text>(find.text('FAILED'));
-    expect(failed.style?.color, UpgradeTokens.house.danger);
+    expect(failed.style?.color, StrikedTokens.house.danger);
     expect(find.text('STARTING'), findsNothing);
     await tester.pump(toastHold);
   });

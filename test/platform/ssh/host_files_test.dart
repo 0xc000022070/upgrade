@@ -5,9 +5,9 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/platform/ssh/connection_supervisor.dart'
+import 'package:striked/platform/ssh/connection_supervisor.dart'
     show ExecResult;
-import 'package:upgrade/platform/ssh/host_files.dart';
+import 'package:striked/platform/ssh/host_files.dart';
 
 void main() {
   _widthAndOrder();
@@ -46,13 +46,13 @@ void main() {
           stderr: Uint8List(0),
         );
       },
-      path: '/tmp/upgrade/a.png',
+      path: '/tmp/striked/a.png',
       body: FileBody.bytes(bytes),
       timeout: const Duration(seconds: 1),
     );
     expect(write.ok, isTrue);
     expect(write.route, FileRoute.exec);
-    expect(runs.single.$1, putCommand('/tmp/upgrade/a.png', bytes.length));
+    expect(runs.single.$1, putCommand('/tmp/striked/a.png', bytes.length));
     expect(runs.single.$2, bytes);
   });
 
@@ -61,7 +61,7 @@ void main() {
     final write = putFile(
       sftp: () => throw SSHChannelRequestError('no sftp'),
       exec: (_, _) => Completer<ExecResult>().future,
-      path: '/tmp/upgrade/a.png',
+      path: '/tmp/striked/a.png',
       body: FileBody.bytes(bytes, stop: stop),
       timeout: const Duration(seconds: 1),
     );
@@ -77,7 +77,7 @@ void main() {
         stdout: Uint8List(0),
         stderr: Uint8List.fromList(utf8.encode(err)),
       ),
-      path: '/tmp/upgrade/a.png',
+      path: '/tmp/striked/a.png',
       body: FileBody.bytes(bytes),
       timeout: const Duration(seconds: 1),
     );
@@ -137,7 +137,7 @@ void main() {
       putFile(
         sftp: () => throw SSHStateError('closed'),
         exec: (_, _) => fail('exec ran'),
-        path: '/tmp/upgrade/a.png',
+        path: '/tmp/striked/a.png',
         body: FileBody.bytes(bytes),
         timeout: const Duration(seconds: 1),
       ),
@@ -165,7 +165,7 @@ void main() {
         putFile(
           sftp: () async => sftp,
           exec: (_, _) => fail('exec ran'),
-          path: '/tmp/upgrade/a.png',
+          path: '/tmp/striked/a.png',
           body: FileBody.bytes(bytes),
           timeout: const Duration(seconds: 1),
         ),

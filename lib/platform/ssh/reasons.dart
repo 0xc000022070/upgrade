@@ -85,7 +85,7 @@ mixin _Spends {
 bool _refuses(Object reason, String where) {
   if (reason case _Spends(:final _refused?)) {
     final line = 'refused ${reason.runtimeType}: $_refused';
-    debugPrint('upgrade.ssh $where: $line');
+    debugPrint('striked.ssh $where: $line');
     assert(false, line);
     return true;
   }

@@ -4,10 +4,10 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/shell/bar_layout.dart';
-import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/repositories/settings_repository.dart';
-import 'package:upgrade/features/settings/key_bar_block.dart';
+import 'package:striked/application/shell/bar_layout.dart';
+import 'package:striked/data/database.dart';
+import 'package:striked/data/repositories/settings_repository.dart';
+import 'package:striked/features/settings/key_bar_block.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';

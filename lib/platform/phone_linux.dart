@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
-import 'package:upgrade/data/enums.dart';
+import 'package:striked/data/enums.dart';
 
 enum PhoneLinuxPhase { idle, download, unpack, setup, nix, ready, failed }
 
@@ -213,8 +213,8 @@ Set<String> _ids(Object? raw) => {
 class PhoneLinux {
   const PhoneLinux();
 
-  static const _calls = MethodChannel('dev.luisnquin.upgrade/linux');
-  static const _changes = EventChannel('dev.luisnquin.upgrade/linux/state');
+  static const _calls = MethodChannel('dev.luisnquin.striked/linux');
+  static const _changes = EventChannel('dev.luisnquin.striked/linux/state');
 
   Stream<Map<String, PhoneLinuxState>> watch() => _changes
       .receiveBroadcastStream()

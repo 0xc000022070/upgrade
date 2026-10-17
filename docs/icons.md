@@ -1,6 +1,6 @@
-# Upgrade icon reference
+# Striked icon reference
 
-`assets/icons/` holds the Upgrade-owned SVG icons. All files use a 24×24 viewBox, a 1.75 px stroke, butt caps, miter joins, and `currentColor`. Routes stay unfilled. Nodes carry the fill.
+`assets/icons/` holds the Striked-owned SVG icons. All files use a 24×24 viewBox, a 1.75 px stroke, butt caps, miter joins, and `currentColor`. Routes stay unfilled. Nodes carry the fill.
 
 "Diamond" means endpoint, entity, or target. "Square" means system, container, device, or junction. A mixed icon uses each node for its assigned role. Circles are forbidden. Search alone owns the opposing-corner modifier. Add alone owns the bare `+`. Close alone owns the bare `×`.
 
@@ -129,9 +129,9 @@ The vendor marks below and the tmux mark under Launch targets are the only place
 
 ## Launch targets
 
-The launch picker names what a new pane starts in. tmux is the vendor's own mark, solid, under the same exception as the host systems. herdr was drawn for Upgrade as a solid trace, and is the one solid glyph the family owns.
+The launch picker names what a new pane starts in. tmux is the vendor's own mark, solid, under the same exception as the host systems. herdr was drawn for Striked as a solid trace, and is the one solid glyph the family owns.
 
 | Name | Meaning | Node class | Modifier | Min size |
 |---|---|---|---|---:|
 | launch-tmux | Start or join a tmux session: the tmux window with its split and status bar, solid | None | Vendor mark | 16 px |
-| launch-herdr | Start or join a herdr session: the herdr mark, solid | None | Upgrade-owned trace | 16 px |
+| launch-herdr | Start or join a herdr session: the herdr mark, solid | None | Striked-owned trace | 16 px |

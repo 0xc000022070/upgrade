@@ -4,9 +4,9 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 
-import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_links.dart';
-import 'package:upgrade/platform/ssh/ssh_settle.dart';
+import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_links.dart';
+import 'package:striked/platform/ssh/ssh_settle.dart';
 
 class WorkspaceReply {
   const WorkspaceReply({

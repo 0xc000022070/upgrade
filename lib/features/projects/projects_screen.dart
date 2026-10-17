@@ -1,18 +1,18 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/application/plugins/native_plugins.dart';
-import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/section.dart';
-import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/design/components/screen_scaffold.dart';
-import 'package:upgrade/features/projects/project_detail_screen.dart';
-import 'package:upgrade/features/projects/project_form_screen.dart';
-import 'package:upgrade/features/projects/project_row.dart';
+import 'package:striked/application/providers.dart';
+import 'package:striked/application/plugins/native_plugins.dart';
+import 'package:striked/design/components/list_row.dart';
+import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/section.dart';
+import 'package:striked/design/spacing.dart';
+import 'package:striked/design/tokens.dart';
+import 'package:striked/design/icons/striked_icons.dart';
+import 'package:striked/design/components/screen_scaffold.dart';
+import 'package:striked/features/projects/project_detail_screen.dart';
+import 'package:striked/features/projects/project_form_screen.dart';
+import 'package:striked/features/projects/project_row.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
@@ -102,7 +102,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
               const SizedBox(width: Spacing.lg),
               PanelAffordance(
                 'NEW',
-                icon: UpgradeIcons.add,
+                icon: StrikedIcons.add,
                 onTap: () => openProjectForm(context),
               ),
             ],
@@ -128,7 +128,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             title: 'ARCHIVED',
             affordance: PanelAffordance(
               '${archived.length}',
-              icon: _showArchived ? UpgradeIcons.collapse : UpgradeIcons.expand,
+              icon: _showArchived ? StrikedIcons.collapse : StrikedIcons.expand,
             ),
             onHeaderTap: () => setState(() => _showArchived = !_showArchived),
             bodyPadding: panelRowsPadding,
