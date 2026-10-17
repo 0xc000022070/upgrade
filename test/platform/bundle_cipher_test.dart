@@ -101,7 +101,7 @@ void main() {
     final cipher = _cipher();
     final envelope = _envelope(await cipher.seal(_payload, 'p'));
     envelope.remove('striked');
-    for (final name in ['dazzle', 'spectacle']) {
+    for (final name in ['upgrade', 'dazzle', 'spectacle']) {
       envelope[name] = 'bundle';
       expect(await cipher.open(_bytes(envelope), 'p'), _payload);
       envelope.remove(name);
