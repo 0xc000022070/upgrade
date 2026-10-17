@@ -364,6 +364,36 @@ void main() {
       expect(sent.detail, 'wQ:p7');
     });
 
+    test('a send for no item goes out as typed and leaves no row', () async {
+      final prompts = <String>[];
+      final state =
+          await sender(({
+            required address,
+            required port,
+            required user,
+            required privateKey,
+            required kind,
+            required directory,
+            required prompt,
+            images = const <RemoteFile>[],
+            model,
+            required verifier,
+          }) async {
+            prompts.add(prompt);
+            return const SpawnSent('wQ:p8');
+          })(
+            target: _target(),
+            kind: const ClaudeKind(),
+            title: 'fix the gate',
+            links: const [],
+            message: 'fix the gate\nthen rerun it',
+          );
+
+      expect(state, isA<SendSent>());
+      expect(prompts.single, 'fix the gate\nthen rerun it');
+      expect(await db.select(db.dispatches).get(), isEmpty);
+    });
+
     test('a drop s images go up as files and the prompt names them', () async {
       final calls = <_Call>[];
       final read = <String>[];

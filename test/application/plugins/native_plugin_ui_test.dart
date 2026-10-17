@@ -239,7 +239,10 @@ void main() {
       await tester.runAsync(
         () => controller.setEnabled('striked.projects', true),
       );
-      await drain(tester);
+      await drainUntil(
+        tester,
+        () => find.byType(CaptureBar).evaluate().isNotEmpty,
+      );
       expect(find.byType(CaptureBar), findsOneWidget);
       expect(find.text('Preserved drop'), findsOneWidget);
       expect(find.text('PROJECTS'), findsOneWidget);

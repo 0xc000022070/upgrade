@@ -74,6 +74,8 @@ flutter:
     - lib/builtin_plugins/drops/main.dart
     - lib/builtin_plugins/projects/striked.plugin.toml
     - lib/builtin_plugins/projects/main.dart
+    - lib/builtin_plugins/prompt/striked.plugin.toml
+    - lib/builtin_plugins/prompt/main.dart
     - plugins/agent-schedules/striked.plugin.toml
     - plugins/agent-schedules/main.luau
     - plugins/board/striked.plugin.toml

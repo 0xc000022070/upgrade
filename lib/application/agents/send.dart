@@ -75,6 +75,15 @@ String sendPrompt({
   return '$head\n\n${lines.join('\n')}';
 }
 
+class SendChoice {
+  const SendChoice({required this.target, required this.kind, this.model});
+
+  final PathTarget target;
+  final AgentKind kind;
+
+  final String? model;
+}
+
 sealed class SendState {
   const SendState();
 }
@@ -122,7 +131,7 @@ class Sender {
 
   Future<SendState> call({
     required PathTarget target,
-    required String itemId,
+    String? itemId,
     required String title,
     required List<String> links,
     required AgentKind kind,
@@ -185,14 +194,16 @@ class Sender {
     checkActive?.call();
     switch (result) {
       case SpawnSent(:final paneId):
-        await dispatches.record(
-          itemId: itemId,
-          pathId: target.path.id,
-          paneId: paneId,
-          title: title,
-          agent: kind.name,
-          model: model,
-        );
+        if (itemId != null) {
+          await dispatches.record(
+            itemId: itemId,
+            pathId: target.path.id,
+            paneId: paneId,
+            title: title,
+            agent: kind.name,
+            model: model,
+          );
+        }
         return SendSent(paneId);
       case SpawnRefused(:final refusal, :final detail):
         log(detail ?? refusal);

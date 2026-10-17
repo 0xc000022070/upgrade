@@ -16,6 +16,7 @@ import 'package:striked/design/components/striked_field.dart';
 import 'package:striked/design/components/panel.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/features/home/capture_bar.dart';
+import 'package:striked/features/home/composer_panel.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';

@@ -15,7 +15,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="Striked"
-        android:name="${applicationName}"
+        android:name=".StrikedApplication"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round">
         <activity
@@ -90,6 +90,17 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Keeps one ssh connection per configured host open so a blocked agent can raise a status-bar alert while the app is not in front."/>
         </service>
+        <receiver
+            android:name=".LauncherWidget"
+            android:label="@string/launcher_widget_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/launcher_widget_info"/>
+        </receiver>
         <!-- flutter_local_notifications routes every action tap through this receiver
              and declares it nowhere itself: without the line the buttons answer nothing. -->
         <receiver

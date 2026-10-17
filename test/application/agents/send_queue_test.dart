@@ -109,4 +109,33 @@ void main() {
     final failed = container.read(sendQueueProvider).single.state;
     expect((failed as SendFailed).reason, 'send failed');
   });
+
+  test('a failure for no item hands its text back when let go of', () async {
+    var restored = 0;
+    var attempts = 0;
+    container
+        .read(sendQueueProvider.notifier)
+        .start(
+          title: 'fix the gate',
+          target: _target,
+          kind: AgentKind.all.first,
+          run: () async {
+            attempts++;
+            return const SendFailed('no session');
+          },
+          onDismissed: () => restored++,
+        );
+    await pumpEventQueue();
+    final send = container.read(sendQueueProvider).single;
+    expect((send.itemId, send.title), (null, 'fix the gate'));
+
+    container.read(sendQueueProvider.notifier).retry(send.id);
+    await pumpEventQueue();
+    expect(attempts, 2);
+    expect(restored, 0);
+
+    container.read(sendQueueProvider.notifier).dismiss(send.id);
+    expect(container.read(sendQueueProvider), isEmpty);
+    expect(restored, 1);
+  });
 }

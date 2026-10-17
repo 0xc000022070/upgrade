@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/drops/capture_visibility.dart';
 import 'package:striked/application/drops/fresh_drops.dart';
 import 'package:striked/application/navigation.dart';
 import 'package:striked/application/providers.dart';
@@ -11,21 +10,19 @@ import 'package:striked/data/repositories/attachment_repository.dart';
 import 'package:striked/data/views.dart';
 import 'package:striked/design/tokens.dart';
 import 'package:striked/design/components/keyboard_toolbar.dart';
-import 'package:striked/design/components/panel.dart';
 import 'package:striked/design/components/panel_sheet.dart';
 import 'package:striked/design/components/solid_action_bar.dart';
 import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/design/components/dither_field.dart';
 import 'package:striked/design/effects/glitch.dart';
 import 'package:striked/design/icons/striked_icon.dart';
 import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/layout.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/application/drops/attachment_files.dart';
 import 'package:striked/features/tasks/item_pickers.dart';
 import 'package:striked/application/links/urls.dart';
 import 'package:striked/features/tasks/url_highlight_controller.dart';
 import 'package:striked/features/home/capture_draft.dart';
+import 'package:striked/features/home/composer_panel.dart';
 
 const _title = 'CAPTURE / QUICK ADD';
 
@@ -70,8 +67,6 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   /// late, so a controller disposed on close would be read after it was gone.
   final _linkField = TextEditingController();
   bool _linkOpen = false;
-
-  int? _aim;
 
   @override
   void initState() {
@@ -159,24 +154,6 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
     setState(() => _linkOpen = false);
   }
 
-  void _stow() {
-    _focus.unfocus();
-    if (_linkOpen) _closeLink();
-    ref.read(captureHiddenProvider.notifier).state = true;
-  }
-
-  void _reveal() => ref.read(captureHiddenProvider.notifier).state = false;
-
-  void _aimAt(int? step) => setState(() => _aim = step);
-
-  void _flick(int step) {
-    if (step > 0) {
-      _stow();
-    } else {
-      _reveal();
-    }
-  }
-
   Future<void> _image() async {
     final path = await ref.read(attachmentFilesProvider).pick();
     if (!mounted || path == null) return;
@@ -226,26 +203,14 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
 
   @override
   Widget build(BuildContext context) {
-    final hidden = widget.hidable && ref.watch(captureHiddenProvider);
-    // One tree either way: swapping the body for the ghost may not take the strip's own
-    // gesture state down with it, and a new branch here would do exactly that mid-drag.
-    final ghost = hidden ? _aim == -1 : _aim == 1;
-    return ValueListenableBuilder<double>(
-      // The strip is an overlay pinned to the top of the IME and the scaffold resizes the bar
-      // to sit exactly there: without this the accessory would cover the field it belongs to.
-      valueListenable: KeyboardAccessory.reservedHeight,
-      builder: (context, accessory, child) => BottomBarFrame(
-        title: _title,
-        accessory: hidden || ghost ? 0 : accessory,
-        onHeaderTap: hidden ? _reveal : null,
-        onHeaderFlick: widget.hidable ? _flick : null,
-        onHeaderAim: widget.hidable ? _aimAt : null,
-        child: ghost
-            ? CaptureGhost(action: _controller.text.trim().isNotEmpty)
-            : hidden
-            ? null
-            : child,
-      ),
+    return ComposerPanel(
+      title: _title,
+      field: _controller,
+      focus: _focus,
+      hidable: widget.hidable,
+      onStow: () {
+        if (_linkOpen) _closeLink();
+      },
       child: ValueListenableBuilder<TextEditingValue>(
         valueListenable: _controller,
         builder: (context, value, _) {
@@ -363,110 +328,6 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-/// The capture bar and the selection bar take the same slot at the bottom of a screen,
-/// and swapping one for the other may not move the panels above.
-class BottomBarFrame extends StatelessWidget {
-  const BottomBarFrame({
-    super.key,
-    required this.title,
-    this.child,
-    this.accessory = 0,
-    this.onHeaderTap,
-    this.onHeaderFlick,
-    this.onHeaderAim,
-  });
-
-  final String title;
-
-  final Widget? child;
-
-  final double accessory;
-
-  final VoidCallback? onHeaderTap;
-  final void Function(int step)? onHeaderFlick;
-  final void Function(int? step)? onHeaderAim;
-
-  @override
-  Widget build(BuildContext context) {
-    // Read rather than passed: a Scaffold spends the bottom padding on whatever sits lowest,
-    // so HOME — where the nav bar is below the bar — reads 0 here and does not move, and the
-    // IME zeroes it while the keyboard is up.
-    final systemBottom = MediaQuery.paddingOf(context).bottom;
-    return ContentColumn(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          Spacing.screenEdge,
-          Spacing.panelGap,
-          Spacing.screenEdge,
-          Spacing.md + accessory + systemBottom,
-        ),
-        child: Panel(
-          title: title,
-          onHeaderTap: onHeaderTap,
-          onHeaderFlick: onHeaderFlick,
-          onHeaderAim: onHeaderAim,
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-class CaptureGhost extends StatelessWidget {
-  const CaptureGhost({super.key, required this.action});
-
-  final bool action;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Row(
-          children: [
-            Expanded(child: _GhostBlock(height: RowMetrics.minHeight)),
-            SizedBox(width: Spacing.md),
-            _GhostBlock(
-              width: TapTargets.minHeight,
-              height: RowMetrics.minHeight,
-            ),
-          ],
-        ),
-        if (action) ...[
-          const SizedBox(height: Spacing.md),
-          const _GhostBlock(height: TapTargets.minHeight),
-        ],
-      ],
-    );
-  }
-}
-
-class _GhostBlock extends StatelessWidget {
-  const _GhostBlock({this.width, required this.height});
-
-  final double? width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      height: height,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: context.tokens.borderNormal,
-            width: Borders.hairline,
-          ),
-          borderRadius: BorderRadius.circular(Radii.sharp),
-        ),
-        child: const DitherField(level: 2),
       ),
     );
   }

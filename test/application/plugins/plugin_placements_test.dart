@@ -445,6 +445,74 @@ void main() {
     },
   );
 
+  group('a plugin turned on later', () {
+    const prompt = 'striked.prompt:widget:prompt';
+    const capture = 'striked.drops:widget:capture';
+
+    Future<PluginPlacementState> enablePrompt(ProviderContainer scope) async {
+      await scope.read(pluginsProvider.future);
+      await scope
+          .read(pluginsProvider.notifier)
+          .setEnabled('striked.prompt', true);
+      for (var i = 0; i < 100; i++) {
+        final state = scope.read(pluginPlacementsProvider).valueOrNull;
+        if (state != null && state.knownWidgets.contains(prompt)) return state;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      fail('prompt never became known');
+    }
+
+    setUp(() async {
+      catalog = await store.synchronizeBuiltins(
+        [
+          builtinFixture('drops'),
+          builtinFixture('projects'),
+          builtinFixture('prompt'),
+        ],
+        adoptEnabled: true,
+        shipOff: {'striked.prompt'},
+      );
+    });
+
+    test('leaves the composer to the capture bar holding it', () async {
+      final scope = container();
+      addTearDown(scope.dispose);
+      final initial = await scope.read(pluginPlacementsProvider.future);
+      expect(initial.placements[capture], PluginPlacementLocation.homeComposer);
+      expect(initial.knownWidgets, isNot(contains(prompt)));
+
+      final state = await enablePrompt(scope);
+      expect(state.placements, isNot(contains(prompt)));
+      expect(state.placements[capture], PluginPlacementLocation.homeComposer);
+    });
+
+    test('takes an empty composer', () async {
+      final scope = container();
+      addTearDown(scope.dispose);
+      await scope.read(pluginPlacementsProvider.future);
+      await scope
+          .read(pluginPlacementsProvider.notifier)
+          .setWidgetPlaced(capture, false);
+
+      final state = await enablePrompt(scope);
+      expect(state.placements[prompt], PluginPlacementLocation.homeComposer);
+    });
+
+    test('takes the composer from a capture bar whose plugin is off', () async {
+      final scope = container();
+      addTearDown(scope.dispose);
+      await scope.read(pluginPlacementsProvider.future);
+      await scope.read(pluginsProvider.future);
+      final plugins = scope.read(pluginsProvider.notifier);
+      await plugins.setEnabled('striked.projects', false);
+      await plugins.setEnabled('striked.drops', false);
+
+      final state = await enablePrompt(scope);
+      expect(state.placements[prompt], PluginPlacementLocation.homeComposer);
+      expect(state.placements, isNot(contains(capture)));
+    });
+  });
+
   test('pin replacement and exclusive slot replacement are explicit', () async {
     final scope = container();
     addTearDown(scope.dispose);

@@ -317,15 +317,24 @@ PluginPlacementState _withDefaults(
   final sizes = Map.of(stored.selectedSizes);
   final order = [...stored.homeOrder];
   final knownWidgets = {...stored.knownWidgets};
+  final enabled = {
+    for (final widget in catalog.widgets)
+      if (widget.owner.enabled) widget.stableId,
+  };
   final occupied = {
     for (final entry in placements.entries)
-      if (entry.value.exclusive) entry.value: entry.key,
+      if (entry.value.exclusive && enabled.contains(entry.key))
+        entry.value: entry.key,
   };
   for (final widget in catalog.widgets) {
+    if (!widget.owner.enabled) continue;
     if (knownWidgets.add(widget.stableId)) {
       sizes[widget.stableId] = widget.contribution.defaultSize;
       final location = widget.contribution.defaultLocation;
       if (!location.exclusive || !occupied.containsKey(location)) {
+        if (location.exclusive) {
+          placements.removeWhere((_, placed) => placed == location);
+        }
         placements[widget.stableId] = location;
         if (location.exclusive) occupied[location] = widget.stableId;
       }

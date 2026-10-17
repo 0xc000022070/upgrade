@@ -7,7 +7,7 @@ import 'package:striked/application/drops/drop_selection.dart';
 import 'package:striked/design/tokens.dart';
 import 'package:striked/design/components/flash_block.dart';
 import 'package:striked/design/spacing.dart';
-import 'package:striked/features/home/capture_bar.dart';
+import 'package:striked/features/home/composer_panel.dart';
 import 'package:striked/features/tasks/drop_actions.dart';
 
 /// Built on [BottomBarFrame] rather than on its own padding and panel: the two bars trade

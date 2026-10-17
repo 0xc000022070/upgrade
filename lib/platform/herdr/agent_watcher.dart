@@ -14,6 +14,7 @@ import 'package:striked/data/repositories/host_repository.dart';
 import 'package:striked/platform/notifications/alert_notifications.dart';
 import 'package:striked/platform/herdr/engine_agents.dart';
 import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/launcher_widget/launcher_widget.dart';
 import 'package:striked/platform/ssh/host_links.dart';
 import 'package:striked/platform/ssh/host_keys.dart';
 import 'package:striked/platform/ssh/keys.dart';
@@ -525,6 +526,8 @@ class AgentWatcherHandler extends TaskHandler {
   final Map<String, WatcherReport> _reports = {};
 
   String? _persistent;
+  String? _tally;
+  bool _tallied = false;
   List<AgentChannel> _channels = const [];
 
   int _shells = 0;
@@ -711,6 +714,7 @@ class AgentWatcherHandler extends TaskHandler {
   }
 
   void _post(String text) {
+    _tallyLauncher(text);
     // Most of what a host reports does not move the line, and posting it again is a binder
     // call and a redraw of a row in the shade that already reads that way.
     if (text == _persistent) return;
@@ -719,6 +723,14 @@ class AgentWatcherHandler extends TaskHandler {
       notificationTitle: watcherNotificationTitle,
       notificationText: text,
     );
+  }
+
+  void _tallyLauncher(String text) {
+    final tally = _channels.isEmpty || _book.kinds.isEmpty ? null : text;
+    if (_tallied && tally == _tally) return;
+    _tallied = true;
+    _tally = tally;
+    unawaited(LauncherWidget.setTally(tally));
   }
 }
 

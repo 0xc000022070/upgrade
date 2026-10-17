@@ -15,15 +15,18 @@ class PendingSend {
     required this.target,
     required this.kind,
     required this.run,
+    this.onDismissed,
     this.state = const SendSending(),
   });
 
   final String id;
-  final String itemId;
+  final String? itemId;
   final String title;
   final PathTarget target;
   final AgentKind kind;
   final Future<SendState> Function() run;
+
+  final void Function()? onDismissed;
 
   final SendState state;
 
@@ -34,6 +37,7 @@ class PendingSend {
     target: target,
     kind: kind,
     run: run,
+    onDismissed: onDismissed,
     state: state,
   );
 }
@@ -45,11 +49,12 @@ class SendQueue extends Notifier<List<PendingSend>> {
   List<PendingSend> build() => const [];
 
   void start({
-    required String itemId,
+    String? itemId,
     required String title,
     required PathTarget target,
     required AgentKind kind,
     required Future<SendState> Function() run,
+    void Function()? onDismissed,
   }) {
     final send = PendingSend(
       id: _uuid.v7(),
@@ -58,6 +63,7 @@ class SendQueue extends Notifier<List<PendingSend>> {
       target: target,
       kind: kind,
       run: run,
+      onDismissed: onDismissed,
     );
     state = [...state, send];
     _run(send);
@@ -75,6 +81,7 @@ class SendQueue extends Notifier<List<PendingSend>> {
     if (send == null || send.state is SendSending) return;
     ref.read(toastQueueProvider.notifier).dismiss(_toastId(id));
     state = [...state.where((other) => other.id != id)];
+    send.onDismissed?.call();
   }
 
   Future<void> _run(PendingSend send) async {

@@ -23,6 +23,8 @@ class SettingsRepository {
 
   static const phoneLinuxHosts = 'phone_linux_host';
 
+  static const promptTarget = 'prompt_target';
+
   Stream<bool> watchFlag(String key, {required bool orElse}) {
     return (_db.select(_db.settings)..where((s) => s.key.equals(key)))
         .watchSingleOrNull()

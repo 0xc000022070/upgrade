@@ -42,18 +42,21 @@ class ToolbarAction {
 }
 
 class ToolbarChip {
-  const ToolbarChip({required this.label, this.onRemove, this.tone})
+  const ToolbarChip({required this.label, this.onRemove, this.onTap, this.tone})
     : imagePath = null;
 
   const ToolbarChip.image({required String this.imagePath, this.onRemove})
     : label = '',
-      tone = null;
+      tone = null,
+      onTap = null;
 
   final String label;
 
   final String? imagePath;
 
   final VoidCallback? onRemove;
+
+  final VoidCallback? onTap;
 
   final Color? tone;
 }
@@ -671,7 +674,7 @@ class _Chip extends StatelessWidget {
     final tone = chip.tone ?? context.tokens.textSecondary;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: chip.onRemove,
+      onTap: chip.onTap ?? chip.onRemove,
       child: path != null
           ? _ImageChip(path: path, removable: chip.onRemove != null)
           : Container(

@@ -26,6 +26,7 @@ import 'package:striked/app/alerts_boot.dart';
 import 'package:striked/app/autonomous_ticks.dart';
 import 'package:striked/app/boot.dart';
 import 'package:striked/app/keyboard_release.dart';
+import 'package:striked/app/launcher_widget_host.dart';
 import 'package:striked/app/nav_shell.dart';
 import 'package:striked/app/pip_host.dart';
 import 'package:striked/app/static_surface.dart';
@@ -93,7 +94,9 @@ class StrikedApp extends ConsumerWidget {
             child: ShellWakeHost(
               child: BootGate(
                 steps: boot,
-                child: const SharedInboxHost(child: StrikedShell()),
+                child: const SharedInboxHost(
+                  child: LauncherWidgetHost(child: StrikedShell()),
+                ),
               ),
             ),
           ),

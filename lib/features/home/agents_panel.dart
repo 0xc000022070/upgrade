@@ -7,6 +7,7 @@ import 'package:striked/application/agents/send_queue.dart';
 import 'package:striked/application/navigation.dart';
 import 'package:striked/application/pip.dart';
 import 'package:striked/design/tokens.dart';
+import 'package:striked/design/components/action_block.dart';
 import 'package:striked/design/components/dot_spinner.dart';
 import 'package:striked/design/components/panel.dart';
 import 'package:striked/design/spacing.dart';
@@ -249,20 +250,22 @@ class _AgentRow extends StatelessWidget {
   }
 }
 
-class _SendRow extends StatelessWidget {
+class _SendRow extends ConsumerWidget {
   const _SendRow(this.send);
 
   final PendingSend send;
 
   @override
-  Widget build(BuildContext context) {
-    final failed = send.state is SendFailed;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = send.state;
+    final failed = state is SendFailed;
     final statusColor = failed
         ? context.tokens.danger
         : context.tokens.textMuted;
+    final itemId = send.itemId;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => openItemSheet(context, send.itemId),
+      onTap: itemId == null ? null : () => openItemSheet(context, itemId),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
         child: Padding(
@@ -308,6 +311,29 @@ class _SendRow extends StatelessWidget {
                   ),
                 ],
               ),
+              if (state is SendFailed && itemId == null) ...[
+                const SizedBox(height: Spacing.sm),
+                Text(
+                  state.reason,
+                  style: context.tokens.value.copyWith(color: statusColor),
+                ),
+                const SizedBox(height: Spacing.sm),
+                Wrap(
+                  spacing: Spacing.md,
+                  children: [
+                    ActionBlock(
+                      label: 'RETRY',
+                      onTap: () =>
+                          ref.read(sendQueueProvider.notifier).retry(send.id),
+                    ),
+                    ActionBlock(
+                      label: 'DISMISS',
+                      onTap: () =>
+                          ref.read(sendQueueProvider.notifier).dismiss(send.id),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

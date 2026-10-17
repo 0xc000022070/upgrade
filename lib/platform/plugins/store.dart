@@ -219,6 +219,7 @@ class PluginStore {
   Future<List<InstalledPlugin>> synchronizeBuiltins(
     List<PluginPackage> packages, {
     required bool adoptEnabled,
+    Set<String> shipOff = const {},
   }) => _change((entries) {
     final ids = packages.map((p) => p.manifest.id).toSet();
     if (ids.length != packages.length ||
@@ -249,7 +250,9 @@ class PluginStore {
         _adoptBuiltin(
           package,
           retained[package.manifest.id],
-          adoptEnabled && package.manifest.native,
+          adoptEnabled &&
+              package.manifest.native &&
+              !shipOff.contains(package.manifest.id),
         ),
     ];
     var reduced = true;

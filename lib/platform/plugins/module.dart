@@ -7,9 +7,12 @@ class NativePluginModule {
     required this.directory,
     required this.surfaces,
     this.deactivate,
+    this.shipsOff = false,
   });
   final String id;
   final String directory;
   final Map<String, WidgetBuilder> surfaces;
   final void Function(Ref ref)? deactivate;
+
+  final bool shipsOff;
 }

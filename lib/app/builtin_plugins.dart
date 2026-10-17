@@ -2,11 +2,16 @@ import 'package:flutter/services.dart';
 
 import 'package:striked/builtin_plugins/drops/main.dart';
 import 'package:striked/builtin_plugins/projects/main.dart';
+import 'package:striked/builtin_plugins/prompt/main.dart';
 import 'package:striked/platform/plugins/manifest.dart';
 import 'package:striked/platform/plugins/module.dart';
 import 'package:striked/platform/plugins/store.dart';
 
-const builtinModules = <NativePluginModule>[dropsPlugin, projectsPlugin];
+const builtinModules = <NativePluginModule>[
+  dropsPlugin,
+  projectsPlugin,
+  promptPlugin,
+];
 const bundledScriptDirectories = ['plugins/agent-schedules', 'plugins/board'];
 
 Future<List<PluginPackage>> loadBuiltinPlugins() async => [

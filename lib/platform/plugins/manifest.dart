@@ -298,9 +298,12 @@ class PluginManifest {
           throw const PluginException('Host service names are reserved');
         }
         final datasets = <String, PluginHostDataset>{};
-        final declaredDatasets = _map(root['datasets'], 'datasets');
-        if (declaredDatasets.isEmpty || declaredDatasets.length > 8) {
-          throw const PluginException('Declare between 1 and 8 owned datasets');
+        final declaredDatasets = _map(
+          root['datasets'] ?? <String, Object?>{},
+          'datasets',
+        );
+        if (declaredDatasets.length > 8) {
+          throw const PluginException('Declare at most 8 owned datasets');
         }
         for (final dataset in declaredDatasets.entries) {
           final fields = _map(dataset.value, 'dataset');

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:io' as io show Link;
 
+import 'package:striked/app/builtin_plugins.dart';
 import 'package:striked/data/database.dart';
 import 'package:striked/data/plugin_api.dart';
 import 'package:striked/data/plugin_inventory.dart';
@@ -241,6 +242,64 @@ void main() {
       );
     },
   );
+
+  test('prompt ships off on fresh and existing installs alike', () async {
+    final root = await Directory.systemTemp.createTemp('striked-prompt-off-');
+    addTearDown(() => root.delete(recursive: true));
+    final shipOff = {
+      for (final module in builtinModules)
+        if (module.shipsOff) module.id,
+    };
+    expect(shipOff, {'striked.prompt'});
+    final older = [builtinFixture('drops'), builtinFixture('projects')];
+    final packages = [...older, builtinFixture('prompt')];
+    Map<String, bool> enabled(List<InstalledPlugin> catalog) => {
+      for (final plugin in catalog) plugin.id: plugin.enabled,
+    };
+
+    final fresh = PluginStore(Directory('${root.path}/fresh'));
+    expect(
+      enabled(
+        await fresh.synchronizeBuiltins(
+          packages,
+          adoptEnabled: false,
+          shipOff: shipOff,
+        ),
+      ),
+      {
+        'striked.drops': false,
+        'striked.projects': false,
+        'striked.prompt': false,
+      },
+    );
+
+    final existing = PluginStore(Directory('${root.path}/existing'));
+    await existing.synchronizeBuiltins(older, adoptEnabled: true);
+    expect(
+      enabled(
+        await existing.synchronizeBuiltins(
+          packages,
+          adoptEnabled: true,
+          shipOff: shipOff,
+        ),
+      ),
+      {
+        'striked.drops': true,
+        'striked.projects': true,
+        'striked.prompt': false,
+      },
+    );
+
+    await existing.setEnabled('striked.prompt', true);
+    expect(
+      enabled(
+        await PluginStore(
+          existing.directory,
+        ).synchronizeBuiltins(packages, adoptEnabled: true, shipOff: shipOff),
+      )['striked.prompt'],
+      isTrue,
+    );
+  });
 
   test('grants isolate datasets and stale handles never reactivate', () async {
     final authority = PluginAuthority();

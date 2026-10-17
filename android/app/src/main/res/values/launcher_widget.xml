@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="launcher_ground">#FF08090B</color>
+    <color name="launcher_border">#FF2E343C</color>
+    <color name="launcher_ink">#FFE8E8E3</color>
+    <color name="launcher_dim">#FF9299A2</color>
+    <color name="launcher_accent">#FFB7FF2A</color>
+    <string name="launcher_widget_label">STRIKED</string>
+    <string name="launcher_widget_description">The agents\' tally and a door to the input bar.</string>
+</resources>

@@ -44,6 +44,7 @@ class MainActivity : FlutterActivity() {
 
     private val files by lazy { FileBridge(this) }
     private var shared: MethodChannel? = null
+    private var launcher: MethodChannel? = null
 
     override fun provideFlutterEngine(context: Context): FlutterEngine {
         warm = StrikedEngine.started
@@ -58,6 +59,7 @@ class MainActivity : FlutterActivity() {
             splashScreen.setOnExitAnimationListener { view -> view.remove() }
         }
         if (intent?.action == TransferService.OPEN) TransferService.deliver("openTransfers")
+        if (savedInstanceState == null) LauncherWidget.opened(intent)
         if (!warm) return
         StrikedEngine.orientation?.let { super.setRequestedOrientation(it) }
         super.setFrameworkHandlesBack(StrikedEngine.handlesBack)
@@ -73,9 +75,17 @@ class MainActivity : FlutterActivity() {
         TransferService.takeWaiting()?.let { shared?.invokeMethod(it, null) }
     }
 
+    // The IME drops a show request from an unfocused window, and onNewIntent, onResume and
+    // the first frame can all precede focus, so take waits for it and focus delivers.
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && LauncherWidget.isWaiting()) launcher?.invokeMethod("opened", null)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (intent.action == TransferService.OPEN) TransferService.deliver("openTransfers")
+        LauncherWidget.opened(intent)
     }
 
     private var hinted: SurfaceView? = null
@@ -151,6 +161,16 @@ class MainActivity : FlutterActivity() {
             TransferService.listener = { channel.invokeMethod(it, null) }
         }
 
+        launcher = MethodChannel(messenger, LauncherWidget.CHANNEL).also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                if (call.method == "take" && !hasWindowFocus()) {
+                    result.success(null)
+                } else {
+                    LauncherWidget.handle(applicationContext, call, result)
+                }
+            }
+        }
+
         MethodChannel(messenger, "dev.luisnquin.striked/pip")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -218,6 +238,8 @@ class MainActivity : FlutterActivity() {
         shared = null
         SharedInbox.listener = null
         TransferService.listener = null
+        launcher?.setMethodCallHandler(null)
+        launcher = null
         dictation?.destroy()
         dictation = null
     }
