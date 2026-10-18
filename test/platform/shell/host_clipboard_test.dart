@@ -131,7 +131,8 @@ void main() {
         clipboardCommand(clipboard, 'a.png'),
         "sh -c 'XDG_RUNTIME_DIR='\\''/run/user/1000'\\'' "
         "WAYLAND_DISPLAY='\\''wayland-1'\\'' wl-copy --type image/png "
-        "< '\\''/tmp/striked/a.png'\\'' >/dev/null 2>&1'",
+        "< '\\''/tmp/striked/a.png'\\'' >/dev/null 2>&1 "
+        "&& echo STRIKED_CLIPBOARD=set'",
       );
     });
 
@@ -158,7 +159,10 @@ void main() {
     test('macos reads the file as PNGf', () {
       expect(
         script(
-          clipboardCommand(const HostClipboard(ClipboardBackend.macos), 'a.png'),
+          clipboardCommand(
+            const HostClipboard(ClipboardBackend.macos),
+            'a.png',
+          ),
         ),
         allOf(
           contains('«class PNGf»'),

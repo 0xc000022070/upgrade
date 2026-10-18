@@ -183,12 +183,15 @@ HostClipboard parseProbe(ExecResult result) {
 /// so both of its outputs go to `/dev/null`: a child still holding the channel's pipes
 /// would keep the channel from closing, and the paste is waiting on that close.
 String? clipboardCommand(HostClipboard clipboard, String fileName) =>
-    clipboardImageCommand(clipboard, remotePathFor(fileName));
+    clipboardImageCommand(clipboard, remotePathFor(fileName), marked: true);
+
+const clipboardSetMarker = 'STRIKED_CLIPBOARD=set';
 
 String? clipboardImageCommand(
   HostClipboard clipboard,
   String remotePath, {
   String mime = 'image/png',
+  bool marked = false,
 }) {
   final path = shellQuote(remotePath);
   final type = RegExp(r'^[\w.+-]+/[\w.+-]+$').hasMatch(mime)
@@ -199,14 +202,18 @@ String? clipboardImageCommand(
     'image/jpeg': 'JPEG',
     'image/gif': 'GIFf',
   }[type];
-  return _clipboardScript(clipboard, switch (clipboard.backend) {
-    ClipboardBackend.wayland => 'wl-copy --type $type < $path',
-    ClipboardBackend.x11 => 'xclip -selection clipboard -t $type -i $path',
-    ClipboardBackend.macos when macClass != null =>
-      "osascript -e 'on run argv' -e 'set the clipboard to (read (POSIX file "
-          "(item 1 of argv)) as «class $macClass»)' -e 'end run' $path",
-    ClipboardBackend.macos || ClipboardBackend.none => null,
-  });
+  return _clipboardScript(
+    clipboard,
+    marked: marked,
+    switch (clipboard.backend) {
+      ClipboardBackend.wayland => 'wl-copy --type $type < $path',
+      ClipboardBackend.x11 => 'xclip -selection clipboard -t $type -i $path',
+      ClipboardBackend.macos when macClass != null =>
+        "osascript -e 'on run argv' -e 'set the clipboard to (read (POSIX file "
+            "(item 1 of argv)) as «class $macClass»)' -e 'end run' $path",
+      ClipboardBackend.macos || ClipboardBackend.none => null,
+    },
+  );
 }
 
 String? clipboardTextCommand(HostClipboard clipboard) =>
@@ -217,12 +224,17 @@ String? clipboardTextCommand(HostClipboard clipboard) =>
       ClipboardBackend.none => null,
     });
 
-String? _clipboardScript(HostClipboard clipboard, String? tool) {
+String? _clipboardScript(
+  HostClipboard clipboard,
+  String? tool, {
+  bool marked = false,
+}) {
   if (!clipboard.usable || tool == null) return null;
   final environment = clipboard.environment.entries
       .map((entry) => '${entry.key}=${shellQuote(entry.value)}')
       .join(' ');
-  return underSh('$environment $tool >/dev/null 2>&1');
+  final confirm = marked ? ' && echo $clipboardSetMarker' : '';
+  return underSh('$environment $tool >/dev/null 2>&1$confirm');
 }
 
 /// Null when no host is held, which is no answer at all.

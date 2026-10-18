@@ -311,13 +311,17 @@ Future<PasteResult> _paste(
   if (command != null) {
     try {
       final set = await channels.exec(command, timeout: remoteCommandDeadline);
-      if (set != null && set.ok) {
+      final tool = clipboard.label.toLowerCase();
+      if (set == null) {
+        reason = 'no host';
+      } else if (!set.ok) {
+        reason = '$tool exit ${set.exitCode}';
+      } else if (!set.out.contains(clipboardSetMarker)) {
+        reason = '$tool failed';
+      } else {
         store.send(session, pasteKey);
         return const PasteResult(PasteOutcome.pasted);
       }
-      reason = set == null
-          ? 'no host'
-          : '${clipboard.label.toLowerCase()} exit ${set.exitCode}';
     } catch (error) {
       reason = '$error';
     }

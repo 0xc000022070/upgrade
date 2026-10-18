@@ -51,7 +51,13 @@ void _answerProbeWith(FakeShellConnection connection, String probe) {
   connection.answer = (command, _) => ExecResult(
     exitCode: 0,
     stdout: Uint8List.fromList(
-      utf8.encode(command.contains('uname') ? probe : ''),
+      utf8.encode(
+        command.contains('uname')
+            ? probe
+            : command.contains(clipboardSetMarker)
+            ? '$clipboardSetMarker\n'
+            : '',
+      ),
     ),
     stderr: Uint8List(0),
   );
@@ -272,6 +278,35 @@ void main() {
     expect(result.line, 'PATH · wayland exit 1');
     expect(connection.written, contains('/tmp/striked/'));
   });
+
+  test(
+    'a clipboard tool that fails behind an exit of 0 falls back to the path',
+    () async {
+      final transport = FakeShellTransport();
+      final store = fakeShellSessions(transport);
+      final session = store.open(intent: testIntent(), _nyx)!;
+      await _settle();
+      final connection = transport.opened.single;
+      connection.answer = (command, _) => ExecResult(
+        exitCode: 0,
+        stdout: Uint8List.fromList(
+          utf8.encode(command.contains('uname') ? _waylandProbe : ''),
+        ),
+        stderr: Uint8List(0),
+      );
+
+      final result = await pasteClip(
+        store: store,
+        session: session,
+        clip: clip,
+        action: UserAction(testIntent()),
+      );
+
+      expect(result.line, 'PATH · wayland failed');
+      expect(connection.written, contains('/tmp/striked/${clip.fileName}'));
+      expect(connection.writes.any((bytes) => bytes.contains(0x16)), isFalse);
+    },
+  );
 
   test('a photo goes as bytes under a fresh name, held nowhere', () async {
     final transport = FakeShellTransport();
