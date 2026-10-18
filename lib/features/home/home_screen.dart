@@ -23,7 +23,6 @@ import 'package:striked/platform/plugins/contributions.dart';
 import 'package:striked/design/components/screen_scaffold.dart';
 import 'package:striked/features/tasks/item_search_screen.dart';
 import 'package:striked/features/tasks/selection_bar.dart';
-import 'package:striked/features/devices/screens_action.dart';
 import 'package:striked/features/plugins/plugin_card.dart';
 import 'package:striked/features/plugins/plugin_management_screen.dart';
 import 'package:striked/features/plugins/plugin_promise.dart';
@@ -175,7 +174,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         },
                       ),
                     if (drops) const SizedBox(width: Spacing.sm),
-                    const ScreensAction(),
                     HomeActions(beforeOpen: _leave),
                   ],
                 ),
