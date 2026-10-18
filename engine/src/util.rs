@@ -6,6 +6,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
+pub fn warn(line: impl std::fmt::Display) {
+    let _ = writeln!(io::stderr(), "{line}");
+}
+
+pub fn say(line: impl std::fmt::Display) {
+    let _ = writeln!(io::stdout(), "{line}");
+}
+
 pub fn base64_encode(input: &[u8]) -> String {
     let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
     for chunk in input.chunks(3) {

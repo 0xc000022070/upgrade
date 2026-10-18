@@ -247,7 +247,7 @@ pub fn serve(dir: &Path) -> i32 {
     );
     drop(ready);
     let ending = server.run(signals);
-    eprintln!("shell server ended: {ending:?}");
+    crate::util::warn(format!("shell server ended: {ending:?}"));
     let _ = fs::remove_dir_all(dir);
     drop(held);
     0

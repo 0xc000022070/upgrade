@@ -402,7 +402,7 @@ fn env_text(key: &str) -> Option<String> {
 
 pub fn hook(agent: &str) -> i32 {
     if let Err(err) = run_hook(agent) {
-        eprintln!("strikedddd hook: {err}");
+        crate::util::warn(format!("strikedddd hook: {err}"));
     }
     0
 }
@@ -545,7 +545,7 @@ fn print_decision(decision: &str) {
             "decision": decided,
         }
     });
-    println!("{output}");
+    crate::util::say(output);
 }
 
 fn read_hook_input() -> EngineResult<Value> {

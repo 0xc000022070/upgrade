@@ -1,4 +1,5 @@
 #![deny(unsafe_code)]
+#![deny(clippy::print_stdout, clippy::print_stderr)]
 
 mod owner;
 mod paths;
@@ -60,42 +61,44 @@ fn main() {
     match args.first().map(String::as_str) {
         Some("__supervise") => {
             let Some(dir) = args.get(1) else {
-                eprintln!("__supervise wants a job directory");
+                util::warn("__supervise wants a job directory");
                 std::process::exit(2);
             };
             std::process::exit(services::run::supervise(&PathBuf::from(dir)));
         }
         Some("__shell") => {
             let Some(dir) = args.get(1) else {
-                eprintln!("__shell wants a tab directory");
+                util::warn("__shell wants a tab directory");
                 std::process::exit(2);
             };
             std::process::exit(shell::serve(&PathBuf::from(dir)));
         }
         Some("__tick") => {
             let Some(scope) = args.get(1) else {
-                eprintln!("__tick wants a scope");
+                util::warn("__tick wants a scope");
                 std::process::exit(2);
             };
             std::process::exit(services::schedule::tick(scope));
         }
         Some("hook") => {
             let Some(agent) = args.get(1) else {
-                eprintln!("hook wants an agent kind");
+                util::warn("hook wants an agent kind");
                 std::process::exit(0);
             };
             std::process::exit(services::agents::hook(agent));
         }
         Some("--help" | "-h") => {
-            print!("{USAGE}");
+            let _ = std::io::stdout().write_all(USAGE.as_bytes());
             return;
         }
         Some("--version" | "-V") => {
-            println!("{}", services::lifecycle::version());
+            util::say(services::lifecycle::version());
             return;
         }
         Some(other) => {
-            eprintln!("strikedddd: unknown argument {other}; the request goes on stdin");
+            util::warn(format!(
+                "strikedddd: unknown argument {other}; the request goes on stdin"
+            ));
             std::process::exit(2);
         }
         None => {}
@@ -111,7 +114,9 @@ fn main() {
     }) {
         Ok(()) => {}
         Err(err) => {
-            eprintln!("strikedddd: the response could not be written: {err}");
+            util::warn(format!(
+                "strikedddd: the response could not be written: {err}"
+            ));
             std::process::exit(2);
         }
     }

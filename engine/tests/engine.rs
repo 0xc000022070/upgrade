@@ -247,6 +247,39 @@ fn probe_answers_without_an_owner_and_names_only_what_is_built() {
     }
 }
 
+/// Both streams on one pipe nobody reads, the way a dropped ssh channel leaves them.
+fn hung_up(sandbox: &Sandbox, args: &[&str]) -> Option<i32> {
+    let (reader, writer) = std::io::pipe().unwrap();
+    drop(reader);
+    let mut child = sandbox
+        .command(&sandbox.bin().display().to_string())
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(writer.try_clone().unwrap())
+        .stderr(writer)
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(
+            json!({ "service": "lifecycle", "op": "probe" })
+                .to_string()
+                .as_bytes(),
+        )
+        .unwrap();
+    child.wait().unwrap().code()
+}
+
+#[test]
+fn a_caller_that_hung_up_gets_an_exit_status_and_not_a_crash() {
+    let sandbox = Sandbox::new("hung-up");
+    assert_eq!(hung_up(&sandbox, &[]), Some(2));
+    assert_eq!(hung_up(&sandbox, &["--version"]), Some(0));
+    assert_eq!(hung_up(&sandbox, &["--bogus"]), Some(2));
+}
+
 #[test]
 fn a_call_made_for_another_owner_is_refused() {
     let sandbox = Sandbox::new("owner");
