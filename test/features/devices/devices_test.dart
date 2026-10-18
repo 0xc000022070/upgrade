@@ -2112,6 +2112,27 @@ void main() {
       );
     });
 
+    testWidgets('opens its list above the keyboard', (tester) async {
+      await _pump(tester, _opener(FakeDeviceLink(const [_pixel])));
+      await tuck(tester);
+      rootNavigatorKey.currentState!.push(_ShellLikeRoute());
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      final ratio = tester.view.devicePixelRatio;
+      final screen = tester.view.physicalSize / ratio;
+      final keyboard = screen.height * 0.6;
+      tester.view.viewInsets = FakeViewPadding(bottom: keyboard * ratio);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pump();
+      final rest = tester.getRect(find.byKey(handle));
+
+      await _tapKey(tester, handle);
+      final list = tester.getRect(find.byKey(_barKey));
+      expect(list.bottom, lessThanOrEqualTo(rest.bottom));
+      expect(list.height, greaterThan(rest.height * 2));
+    });
+
     testWidgets('has a twin in the header that opens the list', (tester) async {
       await _pump(tester, _opener(FakeDeviceLink(const [_pixel])), show: false);
       expect(find.byKey(_barKey), findsNothing);

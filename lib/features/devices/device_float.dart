@@ -410,9 +410,9 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     final screen = media.size;
     final top = _clampTop(media, deviceBubbleSize);
     final bottom = top + deviceBubbleSize;
-    final upward = top + deviceBubbleSize / 2 > screen.height / 2;
     final roof = media.padding.top + Spacing.lg;
     final floor = _floor(media);
+    final upward = bottom - roof > floor - top;
     final at = _dragAt;
     final shown = _menu
         ? ConstrainedBox(
