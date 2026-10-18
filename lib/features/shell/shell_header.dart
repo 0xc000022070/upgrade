@@ -244,16 +244,16 @@ class _ShellHeaderState extends State<ShellHeader> {
                 onTap: onMachine,
               ),
             if (onClose != null) ...[
-              const SizedBox(width: Spacing.md),
               const CellDivider(),
-              const SizedBox(width: Spacing.sm),
               _TabCell(
                 key: const ValueKey('shell-tab-close'),
                 label: '×',
                 onTap: onClose,
               ),
             ],
-            const SizedBox(width: Spacing.screenEdge),
+            SizedBox(
+              width: onClose != null ? Spacing.sm : Spacing.screenEdge,
+            ),
           ],
         ),
       ),

@@ -435,7 +435,7 @@ void main() {
       );
       expect(diff.width, greaterThan(0));
       expect(diff.right, lessThanOrEqualTo(close.left));
-      expect(close.right, closeTo(411 - Spacing.screenEdge, 0.5));
+      expect(close.right, closeTo(411 - Spacing.sm, 0.5));
 
       await unmount(tester);
     });
