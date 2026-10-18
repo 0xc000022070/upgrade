@@ -1759,7 +1759,10 @@ class ShellSessions extends ChangeNotifier {
         timeout: pinAnswerWait,
       );
       if (result == null) return unsent();
-      return result.ok ? PinAnswer.sent : PinAnswer.expired;
+      final landed =
+          result.ok &&
+          const LineSplitter().convert(result.out).contains(pinentryAnswered);
+      return landed ? PinAnswer.sent : PinAnswer.expired;
     } on ChannelOpenTimeout {
       return unsent();
     } on TimeoutException {

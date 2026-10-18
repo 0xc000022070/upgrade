@@ -2544,11 +2544,39 @@ void main() {
 
       connection.emit(osc({'mode': 'pin'}));
       await _settle();
+      connection.answer = (command, _) => ExecResult(
+        exitCode: 0,
+        stdout: Uint8List.fromList(
+          utf8.encode(
+            command == pinentryAnswerCommand(id) ? '$pinentryAnswered\n' : '',
+          ),
+        ),
+        stderr: Uint8List(0),
+      );
 
       expect(
         await sessions.answerPin(session, 'hunter2', testIntent()),
         PinAnswer.sent,
       );
+
+      await sessions.close(intent: testIntent(), _rose.id, session);
+    });
+
+    test('an answer a host exits 0 for without landing is expired', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(intent: testIntent(), _rose)!;
+      await _settle();
+      final connection = transport.opened.single;
+
+      connection.emit(osc({'mode': 'pin'}));
+      await _settle();
+
+      expect(
+        await sessions.answerPin(session, 'hunter2', testIntent()),
+        PinAnswer.expired,
+      );
+      expect(session.pin, isNull);
 
       await sessions.close(intent: testIntent(), _rose.id, session);
     });

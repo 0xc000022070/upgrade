@@ -31,7 +31,12 @@ void main() {
     test('the answer hands the id over and never opens the fifo itself', () {
       final command = pinentryAnswerCommand('0123456789abcdef');
       expect(command, startsWith('sh -c '));
-      expect(command, contains('pinentry-gate answer 0123456789abcdef'));
+      expect(
+        command,
+        contains(
+          'pinentry-gate answer 0123456789abcdef && echo $pinentryAnswered',
+        ),
+      );
       expect(command, isNot(contains('[ -p ')));
       expect(command, isNot(contains('cat > ')));
     });

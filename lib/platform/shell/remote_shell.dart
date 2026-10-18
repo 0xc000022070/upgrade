@@ -223,13 +223,16 @@ String pinentryOpenCommand() => underSh(
 /// command.
 final pinentryRequestId = RegExp(r'^[a-f0-9]{16,32}$');
 
+const pinentryAnswered = 'STRIKED_PIN=sent';
+
 /// A shell opening the fifo itself waits forever on one whose reader is gone, so the
-/// host's own pinentry takes the decision. A settled request exits non-zero.
+/// host's own pinentry takes the decision. A settled request exits non-zero and never
+/// prints [pinentryAnswered].
 String pinentryAnswerCommand(String id) {
   assert(pinentryRequestId.hasMatch(id));
   return underSh(
     'exec 2>/dev/null; '
     'PATH="\$PATH:/run/current-system/sw/bin:\$HOME/.nix-profile/bin"; '
-    'exec pinentry-gate answer $id',
+    'pinentry-gate answer $id && echo $pinentryAnswered',
   );
 }
