@@ -17,19 +17,22 @@ void main() {
     final root = Directory.systemTemp.createTempSync('put-');
     addTearDown(() => root.deleteSync(recursive: true));
     final path = '${root.path}/new dir/a.png';
-    Future<int> put(Uint8List sent) async {
+    Future<(int, String)> put(Uint8List sent) async {
       final put = await Process.start('sh', [
         '-c',
         putCommand(path, bytes.length),
       ]);
       put.stdin.add(sent);
       await put.stdin.close();
-      return put.exitCode;
+      final out = await put.stdout.transform(utf8.decoder).join();
+      return (await put.exitCode, out);
     }
 
-    expect(await put(bytes.sublist(0, 2)), isNot(0));
+    final short = await put(bytes.sublist(0, 2));
+    expect(short.$1, isNot(0));
+    expect(short.$2, isNot(contains(putLanded)));
     expect(Directory('${root.path}/new dir').listSync(), isEmpty);
-    expect(await put(bytes), 0);
+    expect(await put(bytes), (0, '$putLanded\n'));
     expect(File(path).readAsBytesSync(), bytes);
     expect(Directory('${root.path}/new dir').listSync(), hasLength(1));
   });
@@ -42,7 +45,7 @@ void main() {
         runs.add((command, await collectBytes(stdin)));
         return ExecResult(
           exitCode: 0,
-          stdout: Uint8List(0),
+          stdout: Uint8List.fromList(utf8.encode('$putLanded\n')),
           stderr: Uint8List(0),
         );
       },
@@ -85,6 +88,55 @@ void main() {
     expect((await put('')).failure, 'upload exit 1');
   });
 
+  test('an exec that exits 0 without the marker did not land', () async {
+    final put = await putFile(
+      sftp: () => throw SSHChannelRequestError('no sftp'),
+      exec: (_, stdin) async {
+        await collectBytes(stdin);
+        return ExecResult(
+          exitCode: 0,
+          stdout: Uint8List(0),
+          stderr: Uint8List.fromList(utf8.encode('No space left\n')),
+        );
+      },
+      path: '/tmp/striked/a.png',
+      body: FileBody.bytes(bytes),
+      timeout: const Duration(seconds: 1),
+    );
+    expect(put.failure, 'No space left');
+
+    final dir = await Directory.systemTemp.createTemp('get');
+    addTearDown(() => dir.delete(recursive: true));
+    final into = File('${dir.path}/b.bin');
+    final got = await getFile(
+      sftp: () => throw SSHChannelRequestError('no sftp'),
+      exec: (_, _) async =>
+          ExecResult(exitCode: 0, stdout: Uint8List(0), stderr: Uint8List(0)),
+      path: '/home/dev/b.bin',
+      into: into,
+      timeout: const Duration(seconds: 1),
+    );
+    expect(got.failure, 'download not confirmed');
+    expect(await into.exists(), isFalse);
+  });
+
+  test('the pull command marks success on stderr, not in the bytes', () async {
+    final dir = await Directory.systemTemp.createTemp('get');
+    addTearDown(() => dir.delete(recursive: true));
+    final file = File('${dir.path}/b.bin')..writeAsBytesSync(bytes);
+    Future<(Uint8List, String)> get(String path) async {
+      final get = await Process.start('sh', ['-c', getCommand(path)]);
+      final out = collectBytes(get.stdout.map(Uint8List.fromList));
+      final err = get.stderr.transform(utf8.decoder).join();
+      return (await out, await err);
+    }
+
+    final whole = await get(file.path);
+    expect(whole.$1, bytes);
+    expect(whole.$2, '$getLanded\n');
+    expect((await get('${dir.path}/gone')).$2, isNot(contains(getLanded)));
+  });
+
   test(
     'a file pulled over exec lands whole, and a failed one not at all',
     () async {
@@ -101,7 +153,7 @@ void main() {
           return ExecResult(
             exitCode: 0,
             stdout: Uint8List(0),
-            stderr: Uint8List(0),
+            stderr: Uint8List.fromList(utf8.encode('$getLanded\n')),
           );
         },
         path: '/home/dev/b.bin',

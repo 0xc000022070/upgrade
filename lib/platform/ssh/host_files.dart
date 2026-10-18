@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -48,6 +49,8 @@ final class FileWrite {
 /// file goes over exec.
 const sftpHandshakeDeadline = Duration(seconds: 3);
 
+const putLanded = 'STRIKED_PUT_LANDED';
+
 /// The part is renamed only once it holds [length] bytes: a host that ignores the stop
 /// signal sees stdin close, and cat ends as if the file were whole.
 String putCommand(String path, int length) {
@@ -59,7 +62,7 @@ String putCommand(String path, int length) {
   return underSh(
     '${directory == null ? '' : 'mkdir -p ${shellQuote(directory)} && '}'
     '{ cat > $part && [ \$(wc -c < $part) -eq $length ] && '
-    'mv -f $part ${shellQuote(path)}; } '
+    'mv -f $part ${shellQuote(path)} && echo $putLanded; } '
     '|| { rm -f $part; exit 1; }',
   );
 }
@@ -211,15 +214,11 @@ Future<FileWrite> _overExec(
       return chunk;
     }),
   );
-  if (result.ok) {
+  if (result.ok && _says(result.out, putLanded)) {
     onProgress?.call(body.length);
     return const FileWrite.landed(FileRoute.exec);
   }
-  final said = result.err.trim();
-  return FileWrite.failed(
-    FileRoute.exec,
-    said.isEmpty ? 'upload exit ${result.exitCode}' : said,
-  );
+  return FileWrite.failed(FileRoute.exec, _failure('upload', result));
 }
 
 Future<void> _write(
@@ -266,7 +265,11 @@ Future<bool> _isDirectory(SftpClient client, String path) async {
   }
 }
 
-String getCommand(String path) => underSh('cat -- ${shellQuote(path)}');
+const getLanded = 'STRIKED_GET_LANDED';
+
+/// The marker goes to stderr so stdout stays the file's bytes alone.
+String getCommand(String path) =>
+    underSh('cat -- ${shellQuote(path)} && echo $getLanded >&2');
 
 typedef GetExec = Future<ExecResult> Function(
   String command,
@@ -361,12 +364,23 @@ Future<FileWrite> _readOverExec(
     read += chunk.length;
     onProgress?.call(read);
   });
-  if (result.ok) return const FileWrite.landed(FileRoute.exec);
-  final said = result.err.trim();
-  return FileWrite.failed(
-    FileRoute.exec,
-    said.isEmpty ? 'download exit ${result.exitCode}' : said,
-  );
+  if (result.ok && _says(result.err, getLanded)) {
+    return const FileWrite.landed(FileRoute.exec);
+  }
+  return FileWrite.failed(FileRoute.exec, _failure('download', result));
+}
+
+bool _says(String output, String marker) =>
+    const LineSplitter().convert(output).any((line) => line.trim() == marker);
+
+String _failure(String what, ExecResult result) {
+  final said = const LineSplitter()
+      .convert(result.err)
+      .where((line) => line.trim() != getLanded)
+      .join('\n')
+      .trim();
+  if (said.isNotEmpty) return said;
+  return result.ok ? '$what not confirmed' : '$what exit ${result.exitCode}';
 }
 
 const uploadWidth = 3;

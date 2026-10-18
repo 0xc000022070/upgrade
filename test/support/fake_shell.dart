@@ -11,7 +11,7 @@ import 'package:striked/features/shell/session/shell_sessions.dart';
 import 'package:dartssh2/dartssh2.dart' show SSHChannelRequestError;
 import 'package:striked/platform/shell/shell_connection.dart';
 import 'package:striked/platform/ssh/host_files.dart'
-    show FileBody, PutProgress, collectBytes, putFile;
+    show FileBody, PutProgress, collectBytes, putFile, putLanded;
 import 'package:striked/platform/ssh/host_keys.dart';
 
 class FakeShellConnection implements ShellConnection {
@@ -258,11 +258,19 @@ class _FakeChannels implements HostChannels {
     if (background && !_connection.hostHeld) return null;
     return putFile(
       sftp: () => throw SSHChannelRequestError('no sftp'),
-      exec: (command, stdin) async => _connection._exec(
-        command,
-        stdin: await collectBytes(stdin),
-        timeout: timeout,
-      ),
+      exec: (command, stdin) async {
+        final result = await _connection._exec(
+          command,
+          stdin: await collectBytes(stdin),
+          timeout: timeout,
+        );
+        if (!result.ok) return result;
+        return ExecResult(
+          exitCode: result.exitCode,
+          stdout: Uint8List.fromList(utf8.encode('$putLanded\n')),
+          stderr: result.stderr,
+        );
+      },
       path: path,
       body: body,
       timeout: timeout,
