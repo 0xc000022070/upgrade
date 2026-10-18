@@ -31,7 +31,6 @@ import 'package:striked/platform/shell/shell_connection.dart';
 import 'package:striked/platform/shell/shell_launch.dart';
 import 'package:striked/platform/vnc/keysyms.dart';
 import 'package:striked/features/code/diff_sheet.dart';
-import 'package:striked/features/files/files_sheet.dart';
 import 'package:striked/features/files/transfer_bar.dart';
 import 'package:striked/features/hosts/host_key_sheet.dart';
 import 'package:striked/features/hosts/hosts_screen.dart' show showMachineSheet;
@@ -1047,10 +1046,6 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                             diffReady:
                                 active?.repository != null ||
                                 diffTargets.isNotEmpty,
-                            onFiles: () => showHostFiles(
-                              context,
-                              active?.host ?? widget.host,
-                            ),
                             onMachine: () => showMachineSheet(context, machine),
                             machineAlert: linuxStopped,
                             reasonLine: reasonLine,

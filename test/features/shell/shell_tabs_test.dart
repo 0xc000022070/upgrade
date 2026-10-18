@@ -757,6 +757,24 @@ void main() {
 
       await unmount(tester);
     });
+
+    testWidgets('a machine that is up is in the readout and not the header', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      sessions.open(intent: testIntent(), rose);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+
+      expect(find.byKey(const ValueKey('shell-tab-files')), findsNothing);
+      expect(find.byKey(const ValueKey('shell-tab-machine')), findsNothing);
+
+      await openInfo(tester);
+      expect(find.byKey(const ValueKey('shell-info-machine')), findsOneWidget);
+
+      await unmount(tester);
+    });
   });
 
   testWidgets('the plus is gone once nine tabs are open', (tester) async {

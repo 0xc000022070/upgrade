@@ -30,6 +30,8 @@ const _detailHeight = 56.0;
 
 const _tabMaxWidth = 88.0;
 
+const _fadeWidth = Spacing.xxl;
+
 /// A login shell's title is who and where (`luis@nyx: ~/Projects/striked`), and the where
 /// is the half that tells two tabs apart. A title with a space in it is a sentence the
 /// program wrote and is kept as it stands, slashes included: `vim design/SPEC.md` is not
@@ -77,7 +79,6 @@ class ShellHeader extends StatefulWidget {
     required this.onReconnect,
     required this.onDiff,
     this.diffReady = false,
-    this.onFiles,
     this.onMachine,
     this.machineAlert = false,
     this.reasonLine,
@@ -109,8 +110,6 @@ class ShellHeader extends StatefulWidget {
   /// CHECKOUT` is a tap spent on what the app already knew.
   final bool diffReady;
 
-  final VoidCallback? onFiles;
-
   final VoidCallback? onMachine;
 
   final bool machineAlert;
@@ -132,6 +131,8 @@ class _ShellHeaderState extends State<ShellHeader> {
 
   final _newMenu = MenuController();
   var _newMenuOpen = false;
+
+  var _past = (before: false, after: false);
 
   @override
   void initState() {
@@ -168,6 +169,39 @@ class _ShellHeaderState extends State<ShellHeader> {
     });
   }
 
+  bool _onStripMetrics(ScrollMetricsNotification notification) {
+    if (notification.depth != 0) return false;
+    final metrics = notification.metrics;
+    final past = (
+      before: metrics.extentBefore > 0,
+      after: metrics.extentAfter > 0,
+    );
+    if (past != _past) setState(() => _past = past);
+    return false;
+  }
+
+  /// Always masked, even with nothing past either end: a mask that came and went would
+  /// put the strip under a new parent and throw its scroll offset away.
+  Widget _faded(Widget strip) {
+    final past = _past;
+    return ShaderMask(
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (bounds) {
+        final edge = (_fadeWidth / bounds.width).clamp(0.0, 0.5);
+        return LinearGradient(
+          colors: [
+            past.before ? Colors.transparent : Colors.white,
+            Colors.white,
+            Colors.white,
+            past.after ? Colors.transparent : Colors.white,
+          ],
+          stops: [0, edge, 1 - edge, 1],
+        ).createShader(bounds);
+      },
+      child: strip,
+    );
+  }
+
   Widget _lifted(Widget child, int index, Animation<double> animation) =>
       ColoredBox(color: context.tokens.surfaceSecondary, child: child);
 
@@ -196,18 +230,23 @@ class _ShellHeaderState extends State<ShellHeader> {
             // keep the size of what they hold, and nine shells open scroll inside
             // whatever is left rather than overflowing the row.
             Expanded(
-              child: ReorderableListView(
-                key: const ValueKey('shell-strip'),
-                scrollDirection: Axis.horizontal,
-                buildDefaultDragHandles: false,
-                proxyDecorator: _lifted,
-                onReorderItem: widget.onMoveGroup,
-                footer: widget.newHosts.isEmpty ? null : _plus(context),
-                children: [
-                  for (final (index, (group, sessions))
-                      in widget.groups.indexed)
-                    _group(context, index, group, sessions),
-                ],
+              child: NotificationListener<ScrollMetricsNotification>(
+                onNotification: _onStripMetrics,
+                child: _faded(
+                  ReorderableListView(
+                    key: const ValueKey('shell-strip'),
+                    scrollDirection: Axis.horizontal,
+                    buildDefaultDragHandles: false,
+                    proxyDecorator: _lifted,
+                    onReorderItem: widget.onMoveGroup,
+                    footer: widget.newHosts.isEmpty ? null : _plus(context),
+                    children: [
+                      for (final (index, (group, sessions))
+                          in widget.groups.indexed)
+                        _group(context, index, group, sessions),
+                    ],
+                  ),
+                ),
               ),
             ),
             if (widget.onPin case final onPin?)
@@ -228,19 +267,12 @@ class _ShellHeaderState extends State<ShellHeader> {
                 dimmed: !widget.diffReady,
                 onTap: widget.diffReady ? onDiff : null,
               ),
-            if (widget.onFiles case final onFiles?)
-              _TabCell(
-                key: const ValueKey('shell-tab-files'),
-                label: 'FILES',
-                icon: StrikedIcons.files,
-                onTap: onFiles,
-              ),
-            if (widget.onMachine case final onMachine?)
+            if (widget.onMachine case final onMachine? when widget.machineAlert)
               _TabCell(
                 key: const ValueKey('shell-tab-machine'),
                 label: 'MACHINE',
                 icon: StrikedIcons.systemServer,
-                tint: widget.machineAlert ? context.tokens.warning : null,
+                tint: context.tokens.warning,
                 onTap: onMachine,
               ),
             if (onClose != null) ...[
@@ -251,9 +283,7 @@ class _ShellHeaderState extends State<ShellHeader> {
                 onTap: onClose,
               ),
             ],
-            SizedBox(
-              width: onClose != null ? Spacing.sm : Spacing.screenEdge,
-            ),
+            SizedBox(width: onClose != null ? Spacing.sm : Spacing.screenEdge),
           ],
         ),
       ),
@@ -347,6 +377,7 @@ class _ShellHeaderState extends State<ShellHeader> {
     final title = '${session.host.name.toUpperCase()} ${session.number}';
     final onStop = widget.onStop;
     final onReconnect = widget.onReconnect;
+    final onMachine = widget.onMachine;
     return showPanelSheet<void>(
       context,
       title: title,
@@ -426,6 +457,18 @@ class _ShellHeaderState extends State<ShellHeader> {
                   onTap: () {
                     Navigator.of(context).pop();
                     onStop(session);
+                  },
+                ),
+              ],
+              if (onMachine != null) ...[
+                const SheetRule(),
+                PanelTextAction(
+                  key: const ValueKey('shell-info-machine'),
+                  label: 'MACHINE',
+                  icon: StrikedIcons.systemServer,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    onMachine();
                   },
                 ),
               ],
