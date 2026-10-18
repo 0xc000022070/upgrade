@@ -68,12 +68,29 @@ List<PathTarget> promptOffered(
   ];
 }
 
-String promptTargetLabel(SendChoice choice) => [
+String promptTargetLabel(
+  SendChoice choice, [
+  List<PathTarget> offered = const [],
+]) => [
   choice.target.host.name,
-  choice.target.path.label,
+  promptDirectoryLabel(choice.target, offered),
   choice.kind.name,
   ?choice.model,
 ].join(' · ');
+
+String promptDirectoryLabel(PathTarget target, List<PathTarget> offered) {
+  final path = target.path;
+  if (path.label != defaultPathLabel(path.directory)) return path.label;
+  final shared = offered.any(
+    (other) => other.path.id != path.id && other.path.label == path.label,
+  );
+  if (!shared) return path.label;
+  final trimmed = path.directory.replaceFirst(RegExp(r'/+$'), '');
+  final cut = trimmed.lastIndexOf('/');
+  if (cut <= 0) return path.label;
+  final parent = defaultPathLabel(trimmed.substring(0, cut));
+  return parent.isEmpty ? path.label : '$parent/${path.label}';
+}
 
 final promptTargetProvider = StreamProvider<PromptTarget?>(
   (ref) => ref
@@ -82,12 +99,17 @@ final promptTargetProvider = StreamProvider<PromptTarget?>(
       .map(PromptTarget.decode),
 );
 
-/// The saved target, else the newest send's whose host, directory and agent are still offered.
-final promptChoiceProvider = Provider<SendChoice?>((ref) {
-  final offered = promptOffered(
+final promptOfferedProvider = Provider<List<PathTarget>>(
+  (ref) => promptOffered(
     ref.watch(pathTargetsProvider).valueOrNull ?? const [],
     ref.watch(herdrHostsProvider).valueOrNull ?? const [],
-  );
+  ),
+  dependencies: [pathTargetsProvider],
+);
+
+/// The saved target, else the newest send's whose host, directory and agent are still offered.
+final promptChoiceProvider = Provider<SendChoice?>((ref) {
+  final offered = ref.watch(promptOfferedProvider);
   final saved = ref.watch(promptTargetProvider).valueOrNull?.resolve(offered);
   if (saved != null) return saved;
   for (final send in ref.watch(sendsProvider).valueOrNull ?? const []) {
@@ -99,12 +121,32 @@ final promptChoiceProvider = Provider<SendChoice?>((ref) {
     if (choice != null) return choice;
   }
   return null;
-}, dependencies: [pathTargetsProvider, sendsProvider]);
+}, dependencies: [promptOfferedProvider, sendsProvider]);
 
 final promptSummaryProvider = Provider<String?>((ref) {
   final choice = ref.watch(promptChoiceProvider);
-  return choice == null ? null : promptTargetLabel(choice);
-}, dependencies: [promptChoiceProvider]);
+  return choice == null
+      ? null
+      : promptTargetLabel(choice, ref.watch(promptOfferedProvider));
+}, dependencies: [promptChoiceProvider, promptOfferedProvider]);
+
+typedef LauncherTarget = ({String directory, String detail});
+
+final launcherTargetProvider = Provider<LauncherTarget?>((ref) {
+  final choice = ref.watch(promptChoiceProvider);
+  if (choice == null) return null;
+  return (
+    directory: promptDirectoryLabel(
+      choice.target,
+      ref.watch(promptOfferedProvider),
+    ),
+    detail: [
+      choice.kind.name,
+      ?choice.model,
+      choice.target.host.name,
+    ].join(' · '),
+  );
+}, dependencies: [promptChoiceProvider, promptOfferedProvider]);
 
 Future<void> savePromptTarget(SettingsRepository settings, SendChoice choice) =>
     settings.setText(

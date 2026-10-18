@@ -38,9 +38,11 @@ class _LauncherWidgetHostState extends ConsumerState<LauncherWidgetHost> {
     ref.listenManual(inputBarHolderProvider, (_, _) => _writeBar());
     ref.listenManual(composerSummaryProvider, (_, _) => _writeBar());
     _writeBar();
-    ref.listenManual<String?>(
-      promptSummaryProvider,
-      (_, label) => unawaited(LauncherWidget.setTarget(label)),
+    ref.listenManual<LauncherTarget?>(
+      launcherTargetProvider,
+      (_, target) => unawaited(
+        LauncherWidget.setTarget(target?.directory, target?.detail),
+      ),
       fireImmediately: true,
     );
     ref.listenManual<List<PendingSend>>(sendQueueProvider, (previous, next) {

@@ -102,6 +102,33 @@ void main() {
     );
   });
 
+  test(
+    'a folder name shared with another offered directory gets its parent',
+    () {
+      PathTarget under(String id, String directory, [String? label]) =>
+          PathTarget(
+            path: AgentPath(
+              id: id,
+              hostId: _nyx.id,
+              directory: directory,
+              label: label ?? defaultPathLabel(directory),
+              createdAt: DateTime.utc(2026, 9, 3),
+            ),
+            host: _nyx,
+          );
+      final mine = under('a', '~/Projects/github.com/0xc000022070/striked');
+      final fork = under('b', '~/Projects/github.com/luisnquin/striked/');
+      expect(promptDirectoryLabel(mine, [mine, _dotfiles]), 'striked');
+      expect(promptDirectoryLabel(mine, [mine, fork]), '0xc000022070/striked');
+      expect(promptDirectoryLabel(fork, [mine, fork]), 'luisnquin/striked');
+      final named = under('c', '~/work/striked', 'work');
+      expect(
+        promptDirectoryLabel(named, [named, under('d', '~/x/work')]),
+        'work',
+      );
+    },
+  );
+
   group('the saved choice', () {
     late AppDatabase db;
     late SettingsRepository settings;

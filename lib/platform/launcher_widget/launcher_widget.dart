@@ -99,8 +99,8 @@ abstract final class LauncherWidget {
   static Future<void> setBar(String? title, String? summary) =>
       _quiet('bar', {'label': launcherBarLabel(title, summary)});
 
-  static Future<void> setTarget(String? label) =>
-      _quiet('target', {'label': label});
+  static Future<void> setTarget(String? directory, String? detail) =>
+      _quiet('target', {'directory': directory, 'detail': detail});
 
   static Future<void> putSend(LauncherSend send) =>
       _quiet('send', send.toJson());

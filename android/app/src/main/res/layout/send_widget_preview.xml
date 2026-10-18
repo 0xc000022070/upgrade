@@ -34,20 +34,39 @@
             android:maxLines="1"
             android:text="PROMPT AN AGENT"/>
 
-        <TextView
-            android:id="@+id/send_target"
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="12dp"
             android:layout_marginEnd="10dp"
             android:gravity="end"
-            android:fontFamily="monospace"
-            android:textSize="11sp"
-            android:textColor="@color/launcher_disabled"
-            android:maxLines="1"
-            android:ellipsize="start"
-            android:text="nyx · owner/repo · claude"/>
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/send_target"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:fontFamily="monospace"
+                android:textSize="11sp"
+                android:textColor="@color/launcher_dim"
+                android:maxLines="1"
+                android:ellipsize="start"
+                android:text="owner/repo"/>
+
+            <TextView
+                android:id="@+id/send_target_detail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:fontFamily="monospace"
+                android:textSize="10sp"
+                android:textColor="@color/launcher_disabled"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="claude · nyx"/>
+        </LinearLayout>
 
         <ImageView
             android:layout_width="18dp"

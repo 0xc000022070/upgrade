@@ -87,6 +87,7 @@ class LauncherWidget : AppWidgetProvider() {
         private const val KEY_TALLY_BOOT = "tally_boot"
         private const val KEY_BAR = "bar"
         private const val KEY_TARGET = "target"
+        private const val KEY_TARGET_DETAIL = "target_detail"
         private const val KEY_SENDS = "sends"
         private const val KEY_LIVE = "live"
         private const val KEY_LIVE_BOOT = "live_boot"
@@ -111,7 +112,10 @@ class LauncherWidget : AppWidgetProvider() {
                     result.success(null)
                 }
                 "target" -> {
-                    prefs(context).edit().putString(KEY_TARGET, call.argument<String>("label")).apply()
+                    prefs(context).edit()
+                        .putString(KEY_TARGET, call.argument<String>("directory"))
+                        .putString(KEY_TARGET_DETAIL, call.argument<String>("detail"))
+                        .apply()
                     redraw(context)
                     result.success(null)
                 }
@@ -292,8 +296,11 @@ class LauncherWidget : AppWidgetProvider() {
 
         private fun sendViews(context: Context, widgetId: Int, list: Boolean): RemoteViews {
             val target = prefs(context).getString(KEY_TARGET, null)
+            val detail = prefs(context).getString(KEY_TARGET_DETAIL, null)
             val views = RemoteViews(context.packageName, R.layout.send_widget).apply {
                 setTextViewText(R.id.send_target, target ?: "NO TARGET")
+                setTextViewText(R.id.send_target_detail, detail ?: "")
+                setViewVisibility(R.id.send_target_detail, if (target == null || detail == null) View.GONE else View.VISIBLE)
                 setOnClickPendingIntent(R.id.send_input, composeDoor(context))
             }
             if (!list) return views

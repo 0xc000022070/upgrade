@@ -209,7 +209,7 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
     final noHost = hosts.hasValue && (hosts.valueOrNull ?? const []).isEmpty;
     final summary = _choice == null
         ? ref.watch(promptSummaryProvider)
-        : promptTargetLabel(_choice!);
+        : promptTargetLabel(_choice!, ref.watch(promptOfferedProvider));
     final tokens = context.tokens;
     final pending = _pending;
     final failed = pending?.state;
