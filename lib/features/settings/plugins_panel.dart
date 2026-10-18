@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:striked_luau/striked_luau.dart' show PluginDataReport;
 
 import 'package:striked/application/plugins/plugins.dart';
 import 'package:striked/application/plugins/plugin_hosts.dart';
 import 'package:striked/application/plugins/native_plugins.dart';
 import 'package:striked/application/plugins/plugin_placements.dart';
+import 'package:striked/data/plugin_inventory.dart';
 import 'package:striked/data/repositories/plugin_placement_repository.dart';
 import 'package:striked/design/components/action_block.dart';
 import 'package:striked/design/components/striked_field.dart';
@@ -18,6 +20,7 @@ import 'package:striked/design/components/panel_text_action.dart';
 import 'package:striked/design/components/segment_switch.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/design/tokens.dart';
+import 'package:striked/platform/plugins/access.dart';
 import 'package:striked/platform/plugins/manifest.dart';
 import 'package:striked/platform/plugins/contributions.dart';
 import 'package:striked/platform/plugins/index.dart';
@@ -50,6 +53,13 @@ class _PluginSheet extends ConsumerStatefulWidget {
   @override
   ConsumerState<_PluginSheet> createState() => _PluginSheetState();
 }
+
+typedef _PluginReports = ({
+  AsyncValue<List<NativeDatasetInventory>>? native,
+  PluginAuthority? authority,
+  AsyncValue<PluginDataReport>? script,
+  AsyncValue<int>? pending,
+});
 
 class _PluginSheetState extends ConsumerState<_PluginSheet> {
   final _repository = TextEditingController();
@@ -134,44 +144,187 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
     final installed = widget.installed;
     final package = _candidate ?? (_updating ? null : installed?.package);
     final manifest = package?.manifest;
-    final old = installed?.manifest.permissions ?? <PluginPermission>{};
-    final nativeReport = installed != null && installed.manifest.native
-        ? ref.watch(nativeDatasetReportProvider(installed.id))
-        : null;
-    final authority = installed != null && installed.manifest.native
-        ? ref.watch(pluginAuthorityProvider)
-        : null;
-    final report = installed == null || installed.manifest.native
-        ? null
-        : ref.watch(
-            pluginDataReportProvider((
-              id: installed.id,
-              origin: installed.package.origin,
-            )),
-          );
-    final metrics = installed == null
-        ? null
-        : ref.read(pluginsProvider.notifier).lastResult(installed.id);
-    final pending =
-        installed == null || installed.manifest.hostCapabilities.isEmpty
-        ? null
-        : ref.watch(pluginHostPendingProvider(pluginHostOwner(installed)));
+    final reports = (
+      native: installed != null && installed.manifest.native
+          ? ref.watch(nativeDatasetReportProvider(installed.id))
+          : null,
+      authority: installed != null && installed.manifest.native
+          ? ref.watch(pluginAuthorityProvider)
+          : null,
+      script: installed == null || installed.manifest.native
+          ? null
+          : ref.watch(
+              pluginDataReportProvider((
+                id: installed.id,
+                origin: installed.package.origin,
+              )),
+            ),
+      pending: installed == null || installed.manifest.hostCapabilities.isEmpty
+          ? null
+          : ref.watch(pluginHostPendingProvider(pluginHostOwner(installed))),
+    );
     final catalog = ref.watch(effectivePluginsProvider);
-    final usedBy = installed == null
-        ? const <InstalledPlugin>[]
-        : catalog
-              .where(
-                (plugin) =>
-                    plugin.id != installed.id &&
-                    plugin.manifest.dependencies.containsKey(installed.id),
-              )
-              .toList();
-    final plan = installed == null
-        ? const <String>[]
-        : switchPlan(catalog, installed.id, !installed.enabled);
+    return PanelSheetBody(
+      title: manifest?.name ?? 'ADD PLUGIN',
+      children: manifest == null
+          ? _fetchForm()
+          : _candidate != null
+          ? _review(_candidate!, catalog)
+          : _installedDetail(installed!, catalog, reports),
+    );
+  }
+
+  Widget _errorText() => Text(
+    _error!,
+    style: context.tokens.rowSubtitle.copyWith(color: context.tokens.danger),
+  );
+
+  List<Widget> _fetchForm() => [
+    if (_error != null) ...[_errorText(), const SheetRule()],
+    SheetField(
+      label: 'PUBLIC GITHUB REPOSITORY',
+      child: StrikedField(
+        controller: _repository,
+        suggest: false,
+        hint: 'https://github.com/owner/repository',
+        keyboardType: TextInputType.url,
+      ),
+    ),
+    const SheetRule(),
+    SheetField(
+      label: 'REF',
+      child: StrikedField(
+        controller: _revision,
+        suggest: false,
+        hint: 'full commit SHA, tag or branch name',
+      ),
+    ),
+    const SheetRule(),
+    ActionBlock(
+      label: _busy ? 'FETCHING' : 'REVIEW',
+      onTap: _busy
+          ? null
+          : () {
+              FocusScope.of(context).unfocus();
+              _prepare(
+                () => PluginFetcher().fetch(
+                  _repository.text,
+                  _revision.text.trim(),
+                ),
+              );
+            },
+    ),
+    if (widget.installed != null) ...[
+      const SizedBox(height: Spacing.md),
+      ActionBlock(
+        label: _busy ? 'FETCHING' : 'USE LATEST',
+        onTap: _busy
+            ? null
+            : () {
+                FocusScope.of(context).unfocus();
+                final fetcher = PluginFetcher();
+                _prepare(() async {
+                  final ref = await fetcher.latestRef(_repository.text);
+                  _revision.text = ref;
+                  return fetcher.fetch(_repository.text, ref);
+                });
+              },
+      ),
+    ],
+  ];
+
+  List<Widget> _overview(
+    PluginManifest manifest,
+    List<InstalledPlugin> catalog, {
+    required InstalledPlugin? shown,
+  }) {
+    final installed = widget.installed;
+    return [
+      _ItemHeader(
+        manifest: manifest,
+        installed: shown,
+        blocked: installed == null || installed.enabled
+            ? null
+            : blockedReason(installed, {
+                for (final plugin in catalog) plugin.id: plugin,
+              }),
+      ),
+      const SizedBox(height: Spacing.lg),
+      _ItemStats(manifest: manifest, on: installed?.enabled ?? false),
+      const SizedBox(height: Spacing.lg),
+      _ItemChain(
+        manifest: manifest,
+        catalog: catalog,
+        usedBy: installed == null
+            ? const <InstalledPlugin>[]
+            : catalog
+                  .where(
+                    (plugin) =>
+                        plugin.id != installed.id &&
+                        plugin.manifest.dependencies.containsKey(installed.id),
+                  )
+                  .toList(),
+      ),
+      const SizedBox(height: Spacing.lg),
+      if (manifest.summary != null) _fact('SUMMARY', manifest.summary!),
+      if (manifest.author != null) _fact('AUTHOR', manifest.author!),
+      if (manifest.homepage != null) _fact('HOMEPAGE', manifest.homepage!),
+      if (manifest.license != null) _fact('LICENSE', manifest.license!),
+    ];
+  }
+
+  List<Widget> _review(PluginPackage package, List<InstalledPlugin> catalog) {
+    final manifest = package.manifest;
+    final installed = widget.installed;
+    final old = installed?.manifest.permissions ?? <PluginPermission>{};
+    return [
+      if (_error != null) ...[_errorText(), const SheetRule()],
+      ..._overview(manifest, catalog, shown: null),
+      _TrustNote(origin: package.origin),
+      _fact('SOURCE REVISION', '${package.origin}\n${package.revision}'),
+      SheetField(
+        label: 'REQUESTED CAPABILITIES',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (manifest.permissions.isEmpty)
+              Text('NONE', style: context.tokens.rowSubtitle),
+            for (final permission in manifest.permissions)
+              Padding(
+                padding: const EdgeInsets.only(bottom: Spacing.md),
+                child: Text(
+                  '${installed != null && !old.contains(permission) ? 'NEW · ' : ''}${permission.id}\n${permission.description}',
+                  style: installed != null && !old.contains(permission)
+                      ? context.tokens.rowSubtitle.copyWith(
+                          color: context.tokens.warning,
+                        )
+                      : context.tokens.rowSubtitle,
+                ),
+              ),
+          ],
+        ),
+      ),
+      ..._diagnosticsSection(package),
+      ActionBlock(
+        label: _busy ? 'INSTALLING' : 'INSTALL',
+        tone: context.tokens.accent,
+        filled: true,
+        onTap: _busy ? null : () => _change((p) => p.install(package)),
+      ),
+    ];
+  }
+
+  List<Widget> _installedDetail(
+    InstalledPlugin installed,
+    List<InstalledPlugin> catalog,
+    _PluginReports reports,
+  ) {
+    final manifest = installed.manifest;
+    final pending = reports.pending;
+    final plan = switchPlan(catalog, installed.id, !installed.enabled);
     final carried = [
       for (final id in plan)
-        if (id != installed?.id)
+        if (id != installed.id)
           catalog
                   .where((plugin) => plugin.id == id)
                   .firstOrNull
@@ -180,369 +333,260 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                   .toUpperCase() ??
               id,
     ];
-    return PanelSheetBody(
-      title: manifest?.name ?? 'ADD PLUGIN',
-      children: [
-        if (_error != null && (manifest == null || _candidate != null)) ...[
-          Text(
-            _error!,
-            style: context.tokens.rowSubtitle.copyWith(
-              color: context.tokens.danger,
-            ),
+    return [
+      ..._overview(manifest, catalog, shown: installed),
+      ActionBlock(
+        label: _busy
+            ? 'UPDATING'
+            : _armed
+            ? 'TAP AGAIN · SWITCH ${plan.length}'
+            : installed.enabled
+            ? 'DISABLE'
+            : 'ENABLE',
+        tone: _armed ? context.tokens.warning : context.tokens.accent,
+        filled: !installed.enabled && !_armed,
+        onTap: _busy || !manifest.supported
+            ? null
+            : () => _switch(plan, !installed.enabled),
+      ),
+      if (carried.isNotEmpty) ...[
+        const SizedBox(height: Spacing.sm),
+        Text(
+          '${installed.enabled ? 'ALSO TURNS OFF' : 'ALSO TURNS ON'} ${carried.join(' · ')}',
+          style: context.tokens.label.copyWith(
+            color: _armed ? context.tokens.warning : null,
           ),
-          const SheetRule(),
-        ],
-        if (manifest == null) ...[
-          SheetField(
-            label: 'PUBLIC GITHUB REPOSITORY',
-            child: StrikedField(
-              controller: _repository,
-              suggest: false,
-              hint: 'https://github.com/owner/repository',
-              keyboardType: TextInputType.url,
-            ),
+        ),
+      ],
+      if (_error != null) ...[
+        const SizedBox(height: Spacing.md),
+        _errorText(),
+        const SizedBox(height: Spacing.md),
+      ],
+      const SizedBox(height: Spacing.lg),
+      _PluginAdds(plugin: installed),
+      ..._diagnosticsSection(installed.package),
+      if (_diagnostics)
+        ...manifest.native
+            ? _nativeDiagnostics(installed, reports)
+            : _scriptDiagnostics(installed, reports),
+      if (pending?.hasError == true)
+        _fact('HOST PAUSE STATUS', '${pending!.error}'),
+      if ((pending?.valueOrNull ?? 0) > 0) ...[
+        _fact(
+          'HOST PAUSE PENDING',
+          '${pending!.valueOrNull} hosts have not acknowledged the pause. Future runs may still execute there.',
+        ),
+        PanelTextAction(
+          label: 'RETRY HOST PAUSE',
+          onTap: _busy
+              ? null
+              : () => _change(
+                  (_) => ref
+                      .read(pluginHostRegistryProvider)
+                      .deactivate(installed),
+                ),
+        ),
+      ],
+      if (installed.enabled)
+        for (final page in manifest.pages)
+          PanelTextAction(
+            label: 'OPEN ${page.title.toUpperCase()}',
+            onTap: () {
+              final navigator = Navigator.of(context);
+              navigator.pop();
+              navigator.push(
+                MaterialPageRoute<void>(
+                  builder: (_) => PluginPage(plugin: installed, page: page),
+                ),
+              );
+            },
           ),
-          const SheetRule(),
-          SheetField(
-            label: 'REF',
-            child: StrikedField(
-              controller: _revision,
-              suggest: false,
-              hint: 'full commit SHA, tag or branch name',
-            ),
-          ),
-          const SheetRule(),
-          ActionBlock(
-            label: _busy ? 'FETCHING' : 'REVIEW',
-            onTap: _busy
-                ? null
-                : () {
-                    FocusScope.of(context).unfocus();
-                    _prepare(
-                      () => PluginFetcher().fetch(
-                        _repository.text,
-                        _revision.text.trim(),
-                      ),
-                    );
-                  },
-          ),
-          if (widget.installed != null) ...[
-            const SizedBox(height: Spacing.md),
+      Wrap(
+        spacing: Spacing.md,
+        runSpacing: Spacing.md,
+        children: [
+          if (installed.package.origin.startsWith('https:'))
             ActionBlock(
-              label: _busy ? 'FETCHING' : 'USE LATEST',
+              label: 'UPDATE',
+              onTap: _busy ? null : () => setState(() => _updating = true),
+            ),
+          if (!installed.package.packageOriginIsBuiltin)
+            ActionBlock(
+              label: 'REMOVE',
               onTap: _busy
                   ? null
-                  : () {
-                      FocusScope.of(context).unfocus();
-                      final fetcher = PluginFetcher();
-                      _prepare(() async {
-                        final ref = await fetcher.latestRef(_repository.text);
-                        _revision.text = ref;
-                        return fetcher.fetch(_repository.text, ref);
-                      });
-                    },
+                  : () => _change((p) => p.remove(installed.id)),
             ),
-          ],
-        ] else ...[
-          _ItemHeader(
-            manifest: manifest,
-            installed: _candidate == null ? installed : null,
-            blocked: installed == null || installed.enabled
-                ? null
-                : blockedReason(installed, {
-                    for (final plugin in catalog) plugin.id: plugin,
-                  }),
-          ),
-          const SizedBox(height: Spacing.lg),
-          _ItemStats(manifest: manifest, on: installed?.enabled ?? false),
-          const SizedBox(height: Spacing.lg),
-          _ItemChain(manifest: manifest, catalog: catalog, usedBy: usedBy),
-          const SizedBox(height: Spacing.lg),
-          if (manifest.summary != null) _fact('SUMMARY', manifest.summary!),
-          if (manifest.author != null) _fact('AUTHOR', manifest.author!),
-          if (manifest.homepage != null) _fact('HOMEPAGE', manifest.homepage!),
-          if (manifest.license != null) _fact('LICENSE', manifest.license!),
-          if (_candidate != null) ...[
-            _TrustNote(origin: package!.origin),
-            _fact('SOURCE REVISION', '${package.origin}\n${package.revision}'),
-            SheetField(
-              label: 'REQUESTED CAPABILITIES',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (manifest.permissions.isEmpty)
-                    Text('NONE', style: context.tokens.rowSubtitle),
-                  for (final permission in manifest.permissions)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: Spacing.md),
-                      child: Text(
-                        '${installed != null && !old.contains(permission) ? 'NEW · ' : ''}${permission.id}\n${permission.description}',
-                        style: installed != null && !old.contains(permission)
-                            ? context.tokens.rowSubtitle.copyWith(
-                                color: context.tokens.warning,
-                              )
-                            : context.tokens.rowSubtitle,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-          if (_candidate == null && installed != null) ...[
-            ActionBlock(
-              label: _busy
-                  ? 'UPDATING'
-                  : _armed
-                  ? 'TAP AGAIN · SWITCH ${plan.length}'
-                  : installed.enabled
-                  ? 'DISABLE'
-                  : 'ENABLE',
-              tone: _armed ? context.tokens.warning : context.tokens.accent,
-              filled: !installed.enabled && !_armed,
-              onTap: _busy || !manifest.supported
-                  ? null
-                  : () => _switch(plan, !installed.enabled),
-            ),
-            if (carried.isNotEmpty) ...[
-              const SizedBox(height: Spacing.sm),
-              Text(
-                '${installed.enabled ? 'ALSO TURNS OFF' : 'ALSO TURNS ON'} ${carried.join(' · ')}',
-                style: context.tokens.label.copyWith(
-                  color: _armed ? context.tokens.warning : null,
-                ),
-              ),
-            ],
-          ],
-          if (_error != null && _candidate == null && installed != null) ...[
-            const SizedBox(height: Spacing.md),
-            Text(
-              _error!,
-              style: context.tokens.rowSubtitle.copyWith(
-                color: context.tokens.danger,
-              ),
-            ),
-            const SizedBox(height: Spacing.md),
-          ],
-          if (_candidate == null && installed != null) ...[
-            const SizedBox(height: Spacing.lg),
-            _PluginAdds(plugin: installed),
-          ],
-          const SheetRule(),
-          PanelTextAction(
-            label: _diagnostics
-                ? 'HIDE TECHNICAL DIAGNOSTICS'
-                : 'SHOW TECHNICAL DIAGNOSTICS',
-            onTap: () => setState(() => _diagnostics = !_diagnostics),
-          ),
-          if (_diagnostics) ...[
-            _fact('PLUGIN', '${manifest.id} ${manifest.version}'),
-            if (package!.origin.startsWith('builtin:') ||
-                package.origin.startsWith('bundled:'))
-              _fact('DISTRIBUTION', 'Built-in · updated with Striked'),
-            _fact('MANIFEST', '${manifest.formatVersion}'),
-            _fact('STRIKED API', '${manifest.api}'),
-            if (manifest.uiVersion != null)
-              _fact('UI API', '${manifest.uiVersion}'),
-            if (!manifest.supported)
-              _fact('DISABLED', manifest.incompatibility!),
-            _fact('SOURCE', '${package.origin}\n${package.revision}'),
-            for (final dataset in manifest.datasets.values)
-              _fact(
-                'DATASET ${dataset.name}',
-                'Schema ${dataset.schemaVersion} · ${dataset.quotaBytes} bytes · ${dataset.quotaRecords} records maximum\n'
-                    '${dataset.exportContract == null ? "Private" : "Read export: ${dataset.exportContract}"}',
-              ),
-            for (final dataset in manifest.hostDatasets.values)
-              _fact(
-                'DATASET ${dataset.name}',
-                'Schema ${dataset.schemaVersion} · API ${dataset.service}\nHost-managed storage · retained while disabled',
-              ),
-            for (final service in manifest.exports.entries)
-              _fact('EXPORTED API ${service.key}', service.value),
-            SheetField(
-              label: _candidate == null
-                  ? 'GRANTED CAPABILITIES'
-                  : 'REQUESTED CAPABILITIES',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final permission
-                      in _candidate != null
-                          ? manifest.permissions
-                          : installed!.grants)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: Spacing.md),
-                      child: Text(
-                        '${_candidate != null && installed != null && !old.contains(permission) ? "NEW: " : ""}${permission.id}\n${permission.description}',
-                        style: context.tokens.rowSubtitle,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            if (manifest.actions.isNotEmpty)
-              _fact('ACTIONS', manifest.actions.map((a) => a.title).join('\n')),
-            if (manifest.surfaces.isNotEmpty)
-              _fact('FEATURES', manifest.surfaces.join('\n')),
-            if (installed != null && _candidate == null && manifest.native) ...[
-              _fact(
-                'RUNTIME',
-                'Native · no plugin VM or interpreter\nShared Flutter heap; per-plugin heap is not attributable',
-              ),
-              if (nativeReport!.isLoading) _counting('STORAGE'),
-              if (nativeReport.hasError)
-                _fact('STORAGE', '${nativeReport.error}'),
-              for (final dataset in nativeReport.valueOrNull ?? [])
-                _fact(
-                  'STORED ${dataset.name}',
-                  '${dataset.records} records · ${dataset.fieldBytes} field bytes\n${dataset.fileBytes} attachment bytes · ${dataset.missingFiles} missing files',
-                ),
-              _fact(
-                'ISOLATION',
-                'API-owned datasets in host storage. Shared database pages and indexes are not charged twice.',
-              ),
-              for (final usage in authority!.usage(installed.id).entries)
-                _fact(
-                  'API ${usage.key}',
-                  '${usage.value.calls} calls/events · ${usage.value.rejected} rejected\n${usage.value.activeSubscriptions} active subscriptions · ${usage.value.elapsedMicros} µs awaited host time',
-                ),
-              if (authority.persistenceError != null)
-                _fact('COUNTER STORAGE ERROR', '${authority.persistenceError}'),
-              PanelTextAction(
-                label: 'REFRESH USAGE',
-                onTap: () {
-                  ref.invalidate(nativeDatasetReportProvider(installed.id));
-                  setState(() {});
-                },
-              ),
-            ],
-            if (installed != null &&
-                _candidate == null &&
-                !manifest.native) ...[
-              if (manifest.hostCapabilities.isNotEmpty)
-                for (final entry
-                    in ref
-                        .read(pluginHostRegistryProvider)
-                        .usage(installed)
-                        .entries)
-                  _fact(
-                    'HOST API ${entry.key}',
-                    '${entry.value.calls} calls · ${entry.value.failed} failed\n${entry.value.sentBytes} request bytes · ${entry.value.receivedBytes} response bytes\n${entry.value.elapsedMicros} µs awaited · current app session',
-                  ),
-              if (report!.isLoading) _counting('USAGE'),
-              if (report.hasError) _fact('USAGE', '${report.error}'),
-              if (report.valueOrNull case final data?) ...[
-                _fact(
-                  'RUNTIME',
-                  '${data.residentVms} resident VMs · ${data.vmBytes} VM bytes',
-                ),
-                for (final inventory in data.inventory)
-                  _fact(
-                    'STORED ${inventory.dataset.name}',
-                    '${inventory.records} records · ${inventory.logicalBytes} logical bytes\n'
-                        '${inventory.fileBytes} bytes on disk, including journal',
-                  ),
-                if (data.inventory.isEmpty)
-                  _fact('STORAGE', 'No datasets created yet'),
-                for (final usage in data.usage)
-                  _fact(
-                    'API ${data.inventory.where((i) => i.dataset.identity == usage.dataset).firstOrNull?.dataset.name ?? usage.dataset}',
-                    '${usage.calls} calls · ${usage.denied} rejected\n'
-                        '${usage.readBytes} bytes read · ${usage.writtenBytes} bytes written\n'
-                        '${usage.puts} puts · ${usage.deletes} deletes · ${usage.proposals} proposals\n'
-                        '${usage.elapsedMicros} µs host total',
-                  ),
-              ],
-              if (metrics != null)
-                _fact(
-                  'LAST RUN',
-                  '${metrics.loadMicros} µs load · ${metrics.runMicros} µs script\n'
-                      '${metrics.dataWaitMicros} µs host · ${metrics.peakBytes} peak VM bytes\n'
-                      '${metrics.responseBytes} response bytes',
-                ),
-              PanelTextAction(
-                label: 'REFRESH USAGE',
-                onTap: () => ref.invalidate(
-                  pluginDataReportProvider((
-                    id: installed.id,
-                    origin: installed.package.origin,
-                  )),
-                ),
-              ),
-            ],
-          ],
-          if (_candidate != null)
-            ActionBlock(
-              label: _busy ? 'INSTALLING' : 'INSTALL',
-              tone: context.tokens.accent,
-              filled: true,
-              onTap: _busy ? null : () => _change((p) => p.install(package!)),
-            ),
-          if (_candidate == null && installed != null) ...[
-            if (pending?.hasError == true)
-              _fact('HOST PAUSE STATUS', '${pending!.error}'),
-            if ((pending?.valueOrNull ?? 0) > 0) ...[
-              _fact(
-                'HOST PAUSE PENDING',
-                '${pending!.valueOrNull} hosts have not acknowledged the pause. Future runs may still execute there.',
-              ),
-              PanelTextAction(
-                label: 'RETRY HOST PAUSE',
-                onTap: _busy
-                    ? null
-                    : () => _change(
-                        (_) => ref
-                            .read(pluginHostRegistryProvider)
-                            .deactivate(installed),
-                      ),
-              ),
-            ],
-            if (installed.enabled)
-              for (final page in manifest.pages)
-                PanelTextAction(
-                  label: 'OPEN ${page.title.toUpperCase()}',
-                  onTap: () {
-                    final navigator = Navigator.of(context);
-                    navigator.pop();
-                    navigator.push(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            PluginPage(plugin: installed, page: page),
-                      ),
-                    );
-                  },
-                ),
-            Wrap(
-              spacing: Spacing.md,
-              runSpacing: Spacing.md,
-              children: [
-                if (package!.origin.startsWith('https:'))
-                  ActionBlock(
-                    label: 'UPDATE',
-                    onTap: _busy
-                        ? null
-                        : () => setState(() => _updating = true),
-                  ),
-                if (!installed.package.packageOriginIsBuiltin)
-                  ActionBlock(
-                    label: 'REMOVE',
-                    onTap: _busy
-                        ? null
-                        : () => _change((p) => p.remove(installed.id)),
-                  ),
-              ],
-            ),
-            const SizedBox(height: Spacing.md),
-            Text(
-              'Disable unloads the plugin and revokes its APIs. Stored data stays.\n'
-              '${manifest.hostCapabilities.isNotEmpty ? "Host pauses require acknowledgement; running agents are not killed.\n" : ""}'
-              '${installed.package.packageOriginIsBuiltin ? "Built-in plugins stay installed." : "Remove retains records, datasets and source revisions."}',
-              style: context.tokens.rowSubtitle,
-            ),
-          ],
         ],
+      ),
+      const SizedBox(height: Spacing.md),
+      Text(
+        'Disable unloads the plugin and revokes its APIs. Stored data stays.\n'
+        '${manifest.hostCapabilities.isNotEmpty ? "Host pauses require acknowledgement; running agents are not killed.\n" : ""}'
+        '${installed.package.packageOriginIsBuiltin ? "Built-in plugins stay installed." : "Remove retains records, datasets and source revisions."}',
+        style: context.tokens.rowSubtitle,
+      ),
+    ];
+  }
+
+  List<Widget> _diagnosticsSection(PluginPackage package) {
+    final manifest = package.manifest;
+    final installed = widget.installed;
+    final old = installed?.manifest.permissions ?? <PluginPermission>{};
+    return [
+      const SheetRule(),
+      PanelTextAction(
+        label: _diagnostics
+            ? 'HIDE TECHNICAL DIAGNOSTICS'
+            : 'SHOW TECHNICAL DIAGNOSTICS',
+        onTap: () => setState(() => _diagnostics = !_diagnostics),
+      ),
+      if (_diagnostics) ...[
+        _fact('PLUGIN', '${manifest.id} ${manifest.version}'),
+        if (package.packageOriginIsBuiltin)
+          _fact('DISTRIBUTION', 'Built-in · updated with Striked'),
+        _fact('MANIFEST', '${manifest.formatVersion}'),
+        _fact('STRIKED API', '${manifest.api}'),
+        if (manifest.uiVersion != null)
+          _fact('UI API', '${manifest.uiVersion}'),
+        if (!manifest.supported) _fact('DISABLED', manifest.incompatibility!),
+        _fact('SOURCE', '${package.origin}\n${package.revision}'),
+        for (final dataset in manifest.datasets.values)
+          _fact(
+            'DATASET ${dataset.name}',
+            'Schema ${dataset.schemaVersion} · ${dataset.quotaBytes} bytes · ${dataset.quotaRecords} records maximum\n'
+                '${dataset.exportContract == null ? "Private" : "Read export: ${dataset.exportContract}"}',
+          ),
+        for (final dataset in manifest.hostDatasets.values)
+          _fact(
+            'DATASET ${dataset.name}',
+            'Schema ${dataset.schemaVersion} · API ${dataset.service}\nHost-managed storage · retained while disabled',
+          ),
+        for (final service in manifest.exports.entries)
+          _fact('EXPORTED API ${service.key}', service.value),
+        SheetField(
+          label: _candidate == null
+              ? 'GRANTED CAPABILITIES'
+              : 'REQUESTED CAPABILITIES',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final permission
+                  in _candidate != null
+                      ? manifest.permissions
+                      : installed!.grants)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Spacing.md),
+                  child: Text(
+                    '${_candidate != null && installed != null && !old.contains(permission) ? "NEW: " : ""}${permission.id}\n${permission.description}',
+                    style: context.tokens.rowSubtitle,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (manifest.actions.isNotEmpty)
+          _fact('ACTIONS', manifest.actions.map((a) => a.title).join('\n')),
+        if (manifest.surfaces.isNotEmpty)
+          _fact('FEATURES', manifest.surfaces.join('\n')),
       ],
-    );
+    ];
+  }
+
+  List<Widget> _nativeDiagnostics(
+    InstalledPlugin installed,
+    _PluginReports reports,
+  ) {
+    final storage = reports.native!;
+    final authority = reports.authority!;
+    return [
+      _fact(
+        'RUNTIME',
+        'Native · no plugin VM or interpreter\nShared Flutter heap; per-plugin heap is not attributable',
+      ),
+      if (storage.isLoading) _counting('STORAGE'),
+      if (storage.hasError) _fact('STORAGE', '${storage.error}'),
+      for (final dataset in storage.valueOrNull ?? [])
+        _fact(
+          'STORED ${dataset.name}',
+          '${dataset.records} records · ${dataset.fieldBytes} field bytes\n${dataset.fileBytes} attachment bytes · ${dataset.missingFiles} missing files',
+        ),
+      _fact(
+        'ISOLATION',
+        'API-owned datasets in host storage. Shared database pages and indexes are not charged twice.',
+      ),
+      for (final usage in authority.usage(installed.id).entries)
+        _fact(
+          'API ${usage.key}',
+          '${usage.value.calls} calls/events · ${usage.value.rejected} rejected\n${usage.value.activeSubscriptions} active subscriptions · ${usage.value.elapsedMicros} µs awaited host time',
+        ),
+      if (authority.persistenceError != null)
+        _fact('COUNTER STORAGE ERROR', '${authority.persistenceError}'),
+      PanelTextAction(
+        label: 'REFRESH USAGE',
+        onTap: () {
+          ref.invalidate(nativeDatasetReportProvider(installed.id));
+          setState(() {});
+        },
+      ),
+    ];
+  }
+
+  List<Widget> _scriptDiagnostics(
+    InstalledPlugin installed,
+    _PluginReports reports,
+  ) {
+    final report = reports.script!;
+    final metrics = ref.read(pluginsProvider.notifier).lastResult(installed.id);
+    return [
+      if (installed.manifest.hostCapabilities.isNotEmpty)
+        for (final entry
+            in ref.read(pluginHostRegistryProvider).usage(installed).entries)
+          _fact(
+            'HOST API ${entry.key}',
+            '${entry.value.calls} calls · ${entry.value.failed} failed\n${entry.value.sentBytes} request bytes · ${entry.value.receivedBytes} response bytes\n${entry.value.elapsedMicros} µs awaited · current app session',
+          ),
+      if (report.isLoading) _counting('USAGE'),
+      if (report.hasError) _fact('USAGE', '${report.error}'),
+      if (report.valueOrNull case final data?) ...[
+        _fact(
+          'RUNTIME',
+          '${data.residentVms} resident VMs · ${data.vmBytes} VM bytes',
+        ),
+        for (final inventory in data.inventory)
+          _fact(
+            'STORED ${inventory.dataset.name}',
+            '${inventory.records} records · ${inventory.logicalBytes} logical bytes\n'
+                '${inventory.fileBytes} bytes on disk, including journal',
+          ),
+        if (data.inventory.isEmpty) _fact('STORAGE', 'No datasets created yet'),
+        for (final usage in data.usage)
+          _fact(
+            'API ${data.inventory.where((i) => i.dataset.identity == usage.dataset).firstOrNull?.dataset.name ?? usage.dataset}',
+            '${usage.calls} calls · ${usage.denied} rejected\n'
+                '${usage.readBytes} bytes read · ${usage.writtenBytes} bytes written\n'
+                '${usage.puts} puts · ${usage.deletes} deletes · ${usage.proposals} proposals\n'
+                '${usage.elapsedMicros} µs host total',
+          ),
+      ],
+      if (metrics != null)
+        _fact(
+          'LAST RUN',
+          '${metrics.loadMicros} µs load · ${metrics.runMicros} µs script\n'
+              '${metrics.dataWaitMicros} µs host · ${metrics.peakBytes} peak VM bytes\n'
+              '${metrics.responseBytes} response bytes',
+        ),
+      PanelTextAction(
+        label: 'REFRESH USAGE',
+        onTap: () => ref.invalidate(
+          pluginDataReportProvider((
+            id: installed.id,
+            origin: installed.package.origin,
+          )),
+        ),
+      ),
+    ];
   }
 
   Widget _fact(String name, String value) => Padding(
