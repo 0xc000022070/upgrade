@@ -103,7 +103,7 @@ class PluginAuthority {
       for (final plugin in next.values)
         if (plugin.enabled) plugin.id: plugin.manifest,
     });
-    final changed = <String>{};
+    final direct = <String>{};
     for (final id in {..._plugins.keys, ...next.keys}) {
       final before = _plugins[id];
       final after = next[id];
@@ -113,19 +113,13 @@ class PluginAuthority {
           before != null &&
               after != null &&
               !before.grants.containsAll(after.grants)) {
-        changed.add(id);
+        direct.add(id);
       }
     }
-    var expanded = true;
-    while (expanded) {
-      expanded = false;
-      for (final plugin in [..._plugins.values, ...next.values]) {
-        if (plugin.manifest.dependencies.keys.any(changed.contains) &&
-            changed.add(plugin.id)) {
-          expanded = true;
-        }
-      }
-    }
+    final changed = withDependents([
+      ..._plugins.values,
+      ...next.values,
+    ], direct);
     for (final id in changed) {
       _generations[id] = (_generations[id] ?? 0) + 1;
     }
@@ -153,9 +147,7 @@ class PluginAuthority {
         .putIfAbsent(service, PluginCallUsage.new);
     if (!enabled(pluginId) ||
         contract == null ||
-        !plugin!.grants.contains(
-          PluginPermission('service.$service', 'Use $service ($contract)'),
-        )) {
+        !plugin!.grants.contains(PluginPermission.service(service, contract))) {
       meter.rejected++;
       _usageChanged();
       throw PluginException('$pluginId cannot access $service');

@@ -142,17 +142,7 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
   int activation(String id) => _generations[id] ?? 0;
 
   Future<void> _invalidate(String id, List<InstalledPlugin> entries) async {
-    final affected = {id};
-    var added = true;
-    while (added) {
-      added = false;
-      for (final plugin in entries) {
-        if (plugin.manifest.dependencies.keys.any(affected.contains) &&
-            affected.add(plugin.id)) {
-          added = true;
-        }
-      }
-    }
+    final affected = withDependents(entries, {id});
     for (final target in affected) {
       _generations[target] = (_generations[target] ?? 0) + 1;
     }

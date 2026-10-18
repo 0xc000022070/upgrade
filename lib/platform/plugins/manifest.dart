@@ -15,6 +15,8 @@ class PluginException implements Exception {
 
 class PluginPermission {
   const PluginPermission(this.id, this.description);
+  PluginPermission.service(String name, String contract)
+    : this('service.$name', 'Use $name ($contract)');
   static const recordAction = PluginPermission(
     'ui.record_action',
     'Add actions to a selected record',
@@ -190,6 +192,21 @@ class PluginManifest {
       );
       final runtime = _map(root['runtime'], 'runtime');
       final entry = _text(runtime['entry'], 'entry', 200);
+      final header = (
+        source: source,
+        id: id,
+        name: name,
+        purpose: purpose,
+        version: version,
+        api: api,
+        entry: entry,
+        format: format,
+        author: author,
+        homepage: homepage,
+        license: license,
+        summary: summary,
+        emblem: emblem,
+      );
       final native =
           runtime['kind'] == 'native' && format == nativeManifestVersion;
       final uiRuntime =
@@ -239,453 +256,13 @@ class PluginManifest {
           emblem: emblem,
         );
       }
-      if (native) {
-        _keys(root, {
-          'manifest_version',
-          'id',
-          'name',
-          'purpose',
-          'version',
-          'striked_api',
-          'runtime',
-          'dependencies',
-          'services',
-          'exports',
-          'contributes',
-          'datasets',
-          'author',
-          'homepage',
-          'license',
-          'summary',
-          'emblem',
-        });
-        _keys(runtime, {'kind', 'entry'});
-        if (!RegExp(r'^[a-z][a-z0-9_/-]*\.dart$').hasMatch(entry) ||
-            entry.split('/').contains('')) {
-          throw const PluginException(
-            'Native entry must be a relative .dart path',
-          );
-        }
-        final dependencies = <String, VersionConstraint>{};
-        final declared = _map(
-          root['dependencies'] ?? <String, Object?>{},
-          'dependencies',
-        );
-        if (declared.length > 16) {
-          throw const PluginException('Too many dependencies');
-        }
-        for (final dependency in declared.entries) {
-          final target = _identifier(dependency.key);
-          if (target == id) {
-            throw const PluginException('Plugin depends on itself');
-          }
-          dependencies[target] = VersionConstraint.parse(
-            _text(dependency.value, 'dependency version', 128),
-          );
-        }
-        Map<String, String> contracts(String field) {
-          final values = _map(root[field] ?? <String, Object?>{}, field);
-          if (values.length > 16) throw PluginException('Too many $field');
-          return {
-            for (final item in values.entries)
-              _identifier(item.key): _contract(item.value),
-          };
-        }
-
-        final services = contracts('services');
-        final exports = contracts('exports');
-        if (exports.keys.any((name) => name.startsWith('host.'))) {
-          throw const PluginException('Host service names are reserved');
-        }
-        final datasets = <String, PluginHostDataset>{};
-        final declaredDatasets = _map(
-          root['datasets'] ?? <String, Object?>{},
-          'datasets',
-        );
-        if (declaredDatasets.length > 8) {
-          throw const PluginException('Declare at most 8 owned datasets');
-        }
-        for (final dataset in declaredDatasets.entries) {
-          final fields = _map(dataset.value, 'dataset');
-          _keys(fields, {'schema_version', 'service'});
-          final name = _dataName(dataset.key);
-          final service = _identifier(fields['service']);
-          if (!exports.containsKey(service)) {
-            throw const PluginException(
-              'Owned dataset must name its exported API',
-            );
-          }
-          datasets[name] = PluginHostDataset(
-            name,
-            _integer(fields['schema_version'], 'schema version', 1000000),
-            service,
-          );
-        }
-        final contributes = _map(root['contributes'], 'contributes');
-        _keys(contributes, {'surfaces', 'widgets', 'pages'});
-        final values = contributes['surfaces'] ?? <Object?>[];
-        if (values is! List<Object?> || values.length > 8) {
-          throw const PluginException('Declare at most 8 native surfaces');
-        }
-        final declaredSurfaces = values.map(_identifier).toSet();
-        if (declaredSurfaces.length != values.length) {
-          throw const PluginException('Duplicate native surface');
-        }
-        final widgets = _widgetContributions(
-          contributes['widgets'],
-          native: true,
-        );
-        final pages = _pageContributions(contributes['pages'], native: true);
-        final surfaces = {
-          ...declaredSurfaces,
-          ...widgets.map((widget) => widget.surface!),
-          ...pages.map((page) => page.surface!),
-        };
-        if (surfaces.isEmpty) {
-          throw const PluginException('Declare a native contribution');
-        }
-        return PluginManifest._(
-          source: source,
-          id: id,
-          name: name,
-          purpose: purpose,
-          version: version,
-          api: api,
-          entry: entry,
-          runtimeKind: 'native',
-          formatVersion: format,
-          services: Map.unmodifiable(services),
-          exports: Map.unmodifiable(exports),
-          surfaces: Set.unmodifiable(surfaces),
-          widgets: List.unmodifiable(widgets),
-          pages: List.unmodifiable(pages),
-          hostDatasets: Map.unmodifiable(datasets),
-          dependencies: Map.unmodifiable(dependencies),
-          actions: const [],
-          datasets: const {},
-          capabilities: const {},
-          permissions: Set.unmodifiable({
-            for (final service in services.entries)
-              PluginPermission(
-                'service.${service.key}',
-                'Use ${service.key} (${service.value})',
-              ),
-            for (final surface in surfaces)
-              PluginPermission('ui.$surface', 'Contribute $surface'),
-          }),
-          author: author,
-          homepage: homepage,
-          license: license,
-          summary: summary,
-          emblem: emblem,
-        );
-      }
-      _keys(root, {
-        'manifest_version',
-        'id',
-        'name',
-        'purpose',
-        'version',
-        'striked_api',
-        'runtime',
-        'permissions',
-        'dependencies',
-        'contributes',
-        'datasets',
-        'capabilities',
-        'author',
-        'homepage',
-        'license',
-        'summary',
-        'emblem',
-        if (uiRuntime || filesRuntime) 'ui_api',
-        if (uiRuntime || filesRuntime) 'host_capabilities',
-        if (filesRuntime) 'files',
-      });
-      final hasUi = uiRuntime || (filesRuntime && uiApiDeclared);
-      _keys(runtime, {'kind', 'entry'});
-      _luauPath(entry, 'entry');
-      final declaredFiles = <String>[];
-      if (filesRuntime) {
-        final rawFiles = root['files'] ?? const <Object?>[];
-        if (rawFiles is! List<Object?> || rawFiles.length > maxDeclaredFiles) {
-          throw const PluginException('Declare at most 31 additional files');
-        }
-        final seen = <String>{};
-        for (final raw in rawFiles) {
-          final path = _text(raw, 'file path', 200);
-          _luauPath(path, 'file path');
-          if (path == entry || !seen.add(path)) {
-            throw const PluginException('Duplicate or entry-shadowing file');
-          }
-          declaredFiles.add(path);
-        }
-      }
-      final dependencies = <String, VersionConstraint>{};
-      final declared = _map(
-        root['dependencies'] ?? <String, Object?>{},
-        'dependencies',
-      );
-      if (declared.length > 16) {
-        throw const PluginException('Too many dependencies');
-      }
-      for (final dependency in declared.entries) {
-        final target = _identifier(dependency.key);
-        if (target == id) {
-          throw const PluginException('Plugin depends on itself');
-        }
-        dependencies[target] = VersionConstraint.parse(
-          _text(dependency.value, 'dependency version', 128),
-        );
-      }
-      final datasets = <String, PluginDataset>{};
-      final declaredDatasets = _map(
-        root['datasets'] ?? <String, Object?>{},
-        'datasets',
-      );
-      if (declaredDatasets.length > 8) {
-        throw const PluginException('At most 8 datasets');
-      }
-      var reservedBytes = 0;
-      for (final entry in declaredDatasets.entries) {
-        final name = _dataName(entry.key);
-        final fields = _map(entry.value, 'dataset');
-        _keys(fields, {
-          'schema_version',
-          'quota_bytes',
-          'quota_records',
-          'export_contract',
-        });
-        final dataset = PluginDataset(
-          name,
-          _integer(fields['schema_version'], 'schema version', 1000000),
-          _integer(fields['quota_bytes'], 'byte quota', 8 * 1024 * 1024),
-          _integer(fields['quota_records'], 'record quota', 10000),
-          fields['export_contract'] == null
-              ? null
-              : _contract(fields['export_contract']),
-        );
-        reservedBytes += dataset.quotaBytes;
-        datasets[name] = dataset;
-      }
-      if (reservedBytes > 32 * 1024 * 1024) {
-        throw const PluginException('Dataset reservations exceed 32 MiB');
-      }
-      final permissions = <PluginPermission>{};
-      final capabilities = <String, PluginCapability>{};
-      final declaredCapabilities = _map(
-        root['capabilities'] ?? <String, Object?>{},
-        'capabilities',
-      );
-      if (declaredCapabilities.length > 16) {
-        throw const PluginException('At most 16 capabilities');
-      }
-      for (final entry in declaredCapabilities.entries) {
-        final alias = _dataName(entry.key);
-        final fields = _map(entry.value, 'capability');
-        _keys(fields, {'api_version', 'dataset', 'operations', 'contract'});
-        if (fields['api_version'] is! int || fields['api_version'] != 1) {
-          throw const PluginException('Unsupported data API version');
-        }
-        final target = _text(fields['dataset'], 'dataset target', 170);
-        final declaredOps = fields['operations'];
-        if (declaredOps is! List<Object?> || declaredOps.isEmpty) {
-          throw const PluginException('Declare capability operations');
-        }
-        final ops = <DataOperation>{};
-        for (final op in declaredOps) {
-          final matches = DataOperation.values.where(
-            (value) => value.name == op,
-          );
-          if (matches.isEmpty || !ops.add(matches.first)) {
-            throw const PluginException(
-              'Unsupported or duplicate data operation',
-            );
-          }
-        }
-        final contract = fields['contract'] == null
-            ? null
-            : _contract(fields['contract']);
-        final capability = PluginCapability(alias, target, ops, contract);
-        if (capability.isSelection) {
-          if (!{DataOperation.get, DataOperation.propose}.containsAll(ops) ||
-              contract != null) {
-            throw const PluginException(
-              'Selection allows only get and propose',
-            );
-          }
-        } else {
-          final parts = target.split(':');
-          if (parts.length != 2) {
-            throw const PluginException('Invalid dataset target');
-          }
-          _dataName(parts.last);
-          if (parts.first == 'self') {
-            if (!datasets.containsKey(parts.last) ||
-                contract != null ||
-                ops.contains(DataOperation.propose)) {
-              throw const PluginException('Invalid private dataset capability');
-            }
-          } else {
-            _identifier(parts.first);
-            if (!dependencies.containsKey(parts.first) ||
-                contract == null ||
-                !{DataOperation.get, DataOperation.query}.containsAll(ops)) {
-              throw const PluginException(
-                'Shared reads require a dependency and contract',
-              );
-            }
-          }
-        }
-        capabilities[alias] = capability;
-        permissions.addAll(ops.map(capability.permission));
-      }
-      final groups = _map(root['permissions'], 'permissions');
-      _keys(groups, {'ui'});
-      final ui = groups['ui'];
-      if (ui is! List<Object?> ||
-          ui.isEmpty ||
-          ui.toSet().length != ui.length ||
-          ui.any(
-            (entry) =>
-                entry != 'record_action' &&
-                (!hasUi || !{'page', 'canvas', 'widget'}.contains(entry)),
-          )) {
-        throw const PluginException('Unsupported UI permission');
-      }
-      if (ui.contains('record_action')) {
-        permissions.add(PluginPermission.recordAction);
-      }
-      if (ui.contains('page')) {
-        permissions.add(
-          const PluginPermission(
-            'ui.page',
-            'Create native plugin pages; UI API 1',
-          ),
-        );
-      }
-      if (ui.contains('canvas')) {
-        permissions.add(
-          const PluginPermission(
-            'ui.canvas',
-            'Draw bounded native canvas commands; UI API 1',
-          ),
-        );
-      }
-      if (ui.contains('widget')) {
-        permissions.add(
-          const PluginPermission('ui.widget', 'Draw Home cards; UI API 1'),
-        );
-      }
-      final contributions = _map(root['contributes'], 'contributes');
-      _keys(contributions, {
-        'record_actions',
-        if (hasUi) ...{'pages', 'widgets'},
-      });
-      final declaredActions = contributions['record_actions'] ?? <Object?>[];
-      if (declaredActions is! List<Object?> ||
-          !hasUi && declaredActions.isEmpty ||
-          declaredActions.length > 16) {
-        throw const PluginException('Declare between 1 and 16 record actions');
-      }
-      final actionIds = <String>{};
-      final actions = <PluginAction>[];
-      for (final value in declaredActions) {
-        if (!ui.contains('record_action')) {
-          throw const PluginException('Actions require ui.record_action');
-        }
-        final action = _map(value, 'record action');
-        _keys(action, {'id', 'title'});
-        final actionId = _identifier(action['id']);
-        if (!actionIds.add(actionId)) {
-          throw const PluginException('Duplicate action ID');
-        }
-        actions.add(
-          PluginAction(actionId, _text(action['title'], 'action title', 48)),
-        );
-      }
-      final pages = _pageContributions(contributions['pages'], native: false);
-      if (pages.isNotEmpty && !ui.contains('page')) {
-        throw const PluginException('Pages require ui.page');
-      }
-      final widgets = _widgetContributions(
-        contributions['widgets'],
-        native: false,
-      );
-      if (widgets.isNotEmpty && !ui.contains('widget')) {
-        throw const PluginException('Widgets require ui.widget');
-      }
-      for (final widget in widgets) {
-        if (widget.refresh case final every?) {
-          permissions.add(
-            PluginPermission(
-              'ui.widget.${widget.id}.refresh.${every.inMinutes}',
-              'Refresh the ${widget.title} card every ${every.inMinutes} min while Home is open',
-            ),
-          );
-        }
-      }
-      if (actions.isEmpty && pages.isEmpty && widgets.isEmpty) {
-        throw const PluginException('Declare an action, page or widget');
-      }
-      final hostCapabilities = <String, PluginHostCapability>{};
-      final hostFields = _map(
-        root['host_capabilities'] ?? <String, Object?>{},
-        'host capabilities',
-      );
-      if (hostFields.length > 8) {
-        throw const PluginException('At most 8 host capabilities');
-      }
-      for (final entry in hostFields.entries) {
-        final alias = _dataName(entry.key);
-        final fields = _map(entry.value, 'host capability');
-        _keys(fields, {'api_version', 'service', 'operations'});
-        if (fields['api_version'] is! int || fields['api_version'] != 1) {
-          throw const PluginException('Unsupported host API version');
-        }
-        final service = _identifier(fields['service']);
-        final declaredOps = fields['operations'];
-        if (declaredOps is! List<Object?> ||
-            declaredOps.isEmpty ||
-            declaredOps.length > 16) {
-          throw const PluginException('Declare host operations');
-        }
-        final operations = declaredOps.map(_identifier).toSet();
-        if (operations.length != declaredOps.length) {
-          throw const PluginException('Duplicate host operation');
-        }
-        final capability = PluginHostCapability(
-          alias,
-          service,
-          Set.unmodifiable(operations),
-        );
-        hostCapabilities[alias] = capability;
-        permissions.addAll(operations.map(capability.permission));
-      }
-      return PluginManifest._(
-        source: source,
-        id: id,
-        name: name,
-        purpose: purpose,
-        version: version,
-        api: api,
-        entry: entry,
-        permissions: Set.unmodifiable(permissions),
-        dependencies: Map.unmodifiable(dependencies),
-        actions: List.unmodifiable(actions),
-        datasets: Map.unmodifiable(datasets),
-        capabilities: Map.unmodifiable(capabilities),
-        pages: List.unmodifiable(pages),
-        widgets: List.unmodifiable(widgets),
-        hostCapabilities: Map.unmodifiable(hostCapabilities),
-        uiVersion: hasUi ? root['ui_api']! as int : null,
-        formatVersion: format,
-        files: List.unmodifiable(declaredFiles),
-        author: author,
-        homepage: homepage,
-        license: license,
-        summary: summary,
-        emblem: emblem,
+      if (native) return _nativeManifest(header, root, runtime);
+      return _scriptManifest(
+        header,
+        root,
+        runtime,
+        uiRuntime: uiRuntime,
+        filesRuntime: filesRuntime,
       );
     } on PluginException {
       rethrow;
@@ -693,6 +270,468 @@ class PluginManifest {
       throw const PluginException('Malformed plugin manifest');
     }
   }
+
+  static PluginManifest _nativeManifest(
+    _Header header,
+    Map<String, Object?> root,
+    Map<String, Object?> runtime,
+  ) {
+    final entry = header.entry;
+    _keys(root, {
+      'manifest_version',
+      'id',
+      'name',
+      'purpose',
+      'version',
+      'striked_api',
+      'runtime',
+      'dependencies',
+      'services',
+      'exports',
+      'contributes',
+      'datasets',
+      'author',
+      'homepage',
+      'license',
+      'summary',
+      'emblem',
+    });
+    _keys(runtime, {'kind', 'entry'});
+    if (!RegExp(r'^[a-z][a-z0-9_/-]*\.dart$').hasMatch(entry) ||
+        entry.split('/').contains('')) {
+      throw const PluginException('Native entry must be a relative .dart path');
+    }
+    final dependencies = _dependencies(root, header.id);
+    Map<String, String> contracts(String field) {
+      final values = _map(root[field] ?? <String, Object?>{}, field);
+      if (values.length > 16) throw PluginException('Too many $field');
+      return {
+        for (final item in values.entries)
+          _identifier(item.key): _contract(item.value),
+      };
+    }
+
+    final services = contracts('services');
+    final exports = contracts('exports');
+    if (exports.keys.any((name) => name.startsWith('host.'))) {
+      throw const PluginException('Host service names are reserved');
+    }
+    final datasets = <String, PluginHostDataset>{};
+    final declaredDatasets = _map(
+      root['datasets'] ?? <String, Object?>{},
+      'datasets',
+    );
+    if (declaredDatasets.length > 8) {
+      throw const PluginException('Declare at most 8 owned datasets');
+    }
+    for (final dataset in declaredDatasets.entries) {
+      final fields = _map(dataset.value, 'dataset');
+      _keys(fields, {'schema_version', 'service'});
+      final name = _dataName(dataset.key);
+      final service = _identifier(fields['service']);
+      if (!exports.containsKey(service)) {
+        throw const PluginException('Owned dataset must name its exported API');
+      }
+      datasets[name] = PluginHostDataset(
+        name,
+        _integer(fields['schema_version'], 'schema version', 1000000),
+        service,
+      );
+    }
+    final contributes = _map(root['contributes'], 'contributes');
+    _keys(contributes, {'surfaces', 'widgets', 'pages'});
+    final values = contributes['surfaces'] ?? <Object?>[];
+    if (values is! List<Object?> || values.length > 8) {
+      throw const PluginException('Declare at most 8 native surfaces');
+    }
+    final declaredSurfaces = values.map(_identifier).toSet();
+    if (declaredSurfaces.length != values.length) {
+      throw const PluginException('Duplicate native surface');
+    }
+    final widgets = _widgetContributions(contributes['widgets'], native: true);
+    final pages = _pageContributions(contributes['pages'], native: true);
+    final surfaces = {
+      ...declaredSurfaces,
+      ...widgets.map((widget) => widget.surface!),
+      ...pages.map((page) => page.surface!),
+    };
+    if (surfaces.isEmpty) {
+      throw const PluginException('Declare a native contribution');
+    }
+    return PluginManifest._(
+      source: header.source,
+      id: header.id,
+      name: header.name,
+      purpose: header.purpose,
+      version: header.version,
+      api: header.api,
+      entry: entry,
+      runtimeKind: 'native',
+      formatVersion: header.format,
+      services: Map.unmodifiable(services),
+      exports: Map.unmodifiable(exports),
+      surfaces: Set.unmodifiable(surfaces),
+      widgets: List.unmodifiable(widgets),
+      pages: List.unmodifiable(pages),
+      hostDatasets: Map.unmodifiable(datasets),
+      dependencies: Map.unmodifiable(dependencies),
+      actions: const [],
+      datasets: const {},
+      capabilities: const {},
+      permissions: Set.unmodifiable({
+        for (final service in services.entries)
+          PluginPermission.service(service.key, service.value),
+        for (final surface in surfaces)
+          PluginPermission('ui.$surface', 'Contribute $surface'),
+      }),
+      author: header.author,
+      homepage: header.homepage,
+      license: header.license,
+      summary: header.summary,
+      emblem: header.emblem,
+    );
+  }
+
+  static PluginManifest _scriptManifest(
+    _Header header,
+    Map<String, Object?> root,
+    Map<String, Object?> runtime, {
+    required bool uiRuntime,
+    required bool filesRuntime,
+  }) {
+    final entry = header.entry;
+    _keys(root, {
+      'manifest_version',
+      'id',
+      'name',
+      'purpose',
+      'version',
+      'striked_api',
+      'runtime',
+      'permissions',
+      'dependencies',
+      'contributes',
+      'datasets',
+      'capabilities',
+      'author',
+      'homepage',
+      'license',
+      'summary',
+      'emblem',
+      if (uiRuntime || filesRuntime) 'ui_api',
+      if (uiRuntime || filesRuntime) 'host_capabilities',
+      if (filesRuntime) 'files',
+    });
+    final hasUi = uiRuntime || (filesRuntime && root.containsKey('ui_api'));
+    _keys(runtime, {'kind', 'entry'});
+    _luauPath(entry, 'entry');
+    final declaredFiles = <String>[];
+    if (filesRuntime) {
+      final rawFiles = root['files'] ?? const <Object?>[];
+      if (rawFiles is! List<Object?> || rawFiles.length > maxDeclaredFiles) {
+        throw const PluginException('Declare at most 31 additional files');
+      }
+      final seen = <String>{};
+      for (final raw in rawFiles) {
+        final path = _text(raw, 'file path', 200);
+        _luauPath(path, 'file path');
+        if (path == entry || !seen.add(path)) {
+          throw const PluginException('Duplicate or entry-shadowing file');
+        }
+        declaredFiles.add(path);
+      }
+    }
+    final dependencies = _dependencies(root, header.id);
+    final datasets = <String, PluginDataset>{};
+    final declaredDatasets = _map(
+      root['datasets'] ?? <String, Object?>{},
+      'datasets',
+    );
+    if (declaredDatasets.length > 8) {
+      throw const PluginException('At most 8 datasets');
+    }
+    var reservedBytes = 0;
+    for (final entry in declaredDatasets.entries) {
+      final name = _dataName(entry.key);
+      final fields = _map(entry.value, 'dataset');
+      _keys(fields, {
+        'schema_version',
+        'quota_bytes',
+        'quota_records',
+        'export_contract',
+      });
+      final dataset = PluginDataset(
+        name,
+        _integer(fields['schema_version'], 'schema version', 1000000),
+        _integer(fields['quota_bytes'], 'byte quota', 8 * 1024 * 1024),
+        _integer(fields['quota_records'], 'record quota', 10000),
+        fields['export_contract'] == null
+            ? null
+            : _contract(fields['export_contract']),
+      );
+      reservedBytes += dataset.quotaBytes;
+      datasets[name] = dataset;
+    }
+    if (reservedBytes > 32 * 1024 * 1024) {
+      throw const PluginException('Dataset reservations exceed 32 MiB');
+    }
+    final capabilities = _dataCapabilities(root, datasets, dependencies);
+    final ui = _uiGrants(root, hasUi: hasUi);
+    final contributions = _map(root['contributes'], 'contributes');
+    _keys(contributions, {
+      'record_actions',
+      if (hasUi) ...{'pages', 'widgets'},
+    });
+    final declaredActions = contributions['record_actions'] ?? <Object?>[];
+    if (declaredActions is! List<Object?> ||
+        !hasUi && declaredActions.isEmpty ||
+        declaredActions.length > 16) {
+      throw const PluginException('Declare between 1 and 16 record actions');
+    }
+    final actionIds = <String>{};
+    final actions = <PluginAction>[];
+    for (final value in declaredActions) {
+      if (!ui.contains('record_action')) {
+        throw const PluginException('Actions require ui.record_action');
+      }
+      final action = _map(value, 'record action');
+      _keys(action, {'id', 'title'});
+      final actionId = _identifier(action['id']);
+      if (!actionIds.add(actionId)) {
+        throw const PluginException('Duplicate action ID');
+      }
+      actions.add(
+        PluginAction(actionId, _text(action['title'], 'action title', 48)),
+      );
+    }
+    final pages = _pageContributions(contributions['pages'], native: false);
+    if (pages.isNotEmpty && !ui.contains('page')) {
+      throw const PluginException('Pages require ui.page');
+    }
+    final widgets = _widgetContributions(
+      contributions['widgets'],
+      native: false,
+    );
+    if (widgets.isNotEmpty && !ui.contains('widget')) {
+      throw const PluginException('Widgets require ui.widget');
+    }
+    if (actions.isEmpty && pages.isEmpty && widgets.isEmpty) {
+      throw const PluginException('Declare an action, page or widget');
+    }
+    final hostCapabilities = _hostCapabilities(root);
+    return PluginManifest._(
+      source: header.source,
+      id: header.id,
+      name: header.name,
+      purpose: header.purpose,
+      version: header.version,
+      api: header.api,
+      entry: entry,
+      permissions: Set.unmodifiable({
+        for (final capability in capabilities.values)
+          ...capability.operations.map(capability.permission),
+        ..._uiPermissions(ui),
+        for (final widget in widgets)
+          if (widget.refresh case final every?)
+            PluginPermission(
+              'ui.widget.${widget.id}.refresh.${every.inMinutes}',
+              'Refresh the ${widget.title} card every ${every.inMinutes} min while Home is open',
+            ),
+        for (final capability in hostCapabilities.values)
+          ...capability.operations.map(capability.permission),
+      }),
+      dependencies: Map.unmodifiable(dependencies),
+      actions: List.unmodifiable(actions),
+      datasets: Map.unmodifiable(datasets),
+      capabilities: Map.unmodifiable(capabilities),
+      pages: List.unmodifiable(pages),
+      widgets: List.unmodifiable(widgets),
+      hostCapabilities: Map.unmodifiable(hostCapabilities),
+      uiVersion: hasUi ? root['ui_api']! as int : null,
+      formatVersion: header.format,
+      files: List.unmodifiable(declaredFiles),
+      author: header.author,
+      homepage: header.homepage,
+      license: header.license,
+      summary: header.summary,
+      emblem: header.emblem,
+    );
+  }
+}
+
+typedef _Header = ({
+  String source,
+  String id,
+  String name,
+  String purpose,
+  Version version,
+  VersionConstraint api,
+  String entry,
+  int format,
+  String? author,
+  String? homepage,
+  String? license,
+  String? summary,
+  String? emblem,
+});
+
+Map<String, VersionConstraint> _dependencies(
+  Map<String, Object?> root,
+  String id,
+) {
+  final dependencies = <String, VersionConstraint>{};
+  final declared = _map(
+    root['dependencies'] ?? <String, Object?>{},
+    'dependencies',
+  );
+  if (declared.length > 16) {
+    throw const PluginException('Too many dependencies');
+  }
+  for (final dependency in declared.entries) {
+    final target = _identifier(dependency.key);
+    if (target == id) {
+      throw const PluginException('Plugin depends on itself');
+    }
+    dependencies[target] = VersionConstraint.parse(
+      _text(dependency.value, 'dependency version', 128),
+    );
+  }
+  return dependencies;
+}
+
+Map<String, PluginCapability> _dataCapabilities(
+  Map<String, Object?> root,
+  Map<String, PluginDataset> datasets,
+  Map<String, VersionConstraint> dependencies,
+) {
+  final capabilities = <String, PluginCapability>{};
+  final declaredCapabilities = _map(
+    root['capabilities'] ?? <String, Object?>{},
+    'capabilities',
+  );
+  if (declaredCapabilities.length > 16) {
+    throw const PluginException('At most 16 capabilities');
+  }
+  for (final entry in declaredCapabilities.entries) {
+    final alias = _dataName(entry.key);
+    final fields = _map(entry.value, 'capability');
+    _keys(fields, {'api_version', 'dataset', 'operations', 'contract'});
+    if (fields['api_version'] is! int || fields['api_version'] != 1) {
+      throw const PluginException('Unsupported data API version');
+    }
+    final target = _text(fields['dataset'], 'dataset target', 170);
+    final declaredOps = fields['operations'];
+    if (declaredOps is! List<Object?> || declaredOps.isEmpty) {
+      throw const PluginException('Declare capability operations');
+    }
+    final ops = <DataOperation>{};
+    for (final op in declaredOps) {
+      final matches = DataOperation.values.where((value) => value.name == op);
+      if (matches.isEmpty || !ops.add(matches.first)) {
+        throw const PluginException('Unsupported or duplicate data operation');
+      }
+    }
+    final contract = fields['contract'] == null
+        ? null
+        : _contract(fields['contract']);
+    final capability = PluginCapability(alias, target, ops, contract);
+    if (capability.isSelection) {
+      if (!{DataOperation.get, DataOperation.propose}.containsAll(ops) ||
+          contract != null) {
+        throw const PluginException('Selection allows only get and propose');
+      }
+    } else {
+      final parts = target.split(':');
+      if (parts.length != 2) {
+        throw const PluginException('Invalid dataset target');
+      }
+      _dataName(parts.last);
+      if (parts.first == 'self') {
+        if (!datasets.containsKey(parts.last) ||
+            contract != null ||
+            ops.contains(DataOperation.propose)) {
+          throw const PluginException('Invalid private dataset capability');
+        }
+      } else {
+        _identifier(parts.first);
+        if (!dependencies.containsKey(parts.first) ||
+            contract == null ||
+            !{DataOperation.get, DataOperation.query}.containsAll(ops)) {
+          throw const PluginException(
+            'Shared reads require a dependency and contract',
+          );
+        }
+      }
+    }
+    capabilities[alias] = capability;
+  }
+  return capabilities;
+}
+
+List<Object?> _uiGrants(Map<String, Object?> root, {required bool hasUi}) {
+  final groups = _map(root['permissions'], 'permissions');
+  _keys(groups, {'ui'});
+  final ui = groups['ui'];
+  if (ui is! List<Object?> ||
+      ui.isEmpty ||
+      ui.toSet().length != ui.length ||
+      ui.any(
+        (entry) =>
+            entry != 'record_action' &&
+            (!hasUi || !{'page', 'canvas', 'widget'}.contains(entry)),
+      )) {
+    throw const PluginException('Unsupported UI permission');
+  }
+  return ui;
+}
+
+Iterable<PluginPermission> _uiPermissions(List<Object?> ui) => [
+  if (ui.contains('record_action')) PluginPermission.recordAction,
+  if (ui.contains('page'))
+    const PluginPermission('ui.page', 'Create native plugin pages; UI API 1'),
+  if (ui.contains('canvas'))
+    const PluginPermission(
+      'ui.canvas',
+      'Draw bounded native canvas commands; UI API 1',
+    ),
+  if (ui.contains('widget'))
+    const PluginPermission('ui.widget', 'Draw Home cards; UI API 1'),
+];
+
+Map<String, PluginHostCapability> _hostCapabilities(Map<String, Object?> root) {
+  final hostCapabilities = <String, PluginHostCapability>{};
+  final hostFields = _map(
+    root['host_capabilities'] ?? <String, Object?>{},
+    'host capabilities',
+  );
+  if (hostFields.length > 8) {
+    throw const PluginException('At most 8 host capabilities');
+  }
+  for (final entry in hostFields.entries) {
+    final alias = _dataName(entry.key);
+    final fields = _map(entry.value, 'host capability');
+    _keys(fields, {'api_version', 'service', 'operations'});
+    if (fields['api_version'] is! int || fields['api_version'] != 1) {
+      throw const PluginException('Unsupported host API version');
+    }
+    final service = _identifier(fields['service']);
+    final declaredOps = fields['operations'];
+    if (declaredOps is! List<Object?> ||
+        declaredOps.isEmpty ||
+        declaredOps.length > 16) {
+      throw const PluginException('Declare host operations');
+    }
+    final operations = declaredOps.map(_identifier).toSet();
+    if (operations.length != declaredOps.length) {
+      throw const PluginException('Duplicate host operation');
+    }
+    hostCapabilities[alias] = PluginHostCapability(
+      alias,
+      service,
+      Set.unmodifiable(operations),
+    );
+  }
+  return hostCapabilities;
 }
 
 Map<String, Object?> _map(Object? value, String field) {

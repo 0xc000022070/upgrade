@@ -209,6 +209,21 @@ class InstalledPlugin {
   }
 }
 
+Set<String> withDependents(Iterable<InstalledPlugin> plugins, Set<String> ids) {
+  final closure = {...ids};
+  var changed = true;
+  while (changed) {
+    changed = false;
+    for (final plugin in plugins) {
+      if (plugin.manifest.dependencies.keys.any(closure.contains) &&
+          closure.add(plugin.id)) {
+        changed = true;
+      }
+    }
+  }
+  return closure;
+}
+
 class PluginStore {
   PluginStore(this.directory);
   final Directory directory;
@@ -227,21 +242,11 @@ class PluginStore {
       throw const PluginException('Invalid built-in plugin registry');
     }
     final retained = {for (final entry in entries) entry.id: entry};
-    final unavailable = {
+    final unavailable = withDependents(entries, {
       for (final entry in entries)
         if (entry.package.packageOriginIsBuiltin && !ids.contains(entry.id))
           entry.id,
-    };
-    var changed = true;
-    while (changed) {
-      changed = false;
-      for (final entry in entries) {
-        if (entry.manifest.dependencies.keys.any(unavailable.contains) &&
-            unavailable.add(entry.id)) {
-          changed = true;
-        }
-      }
-    }
+    });
     var synchronized = [
       for (final entry in entries)
         if (!ids.contains(entry.id) && !entry.package.packageOriginIsBuiltin)
@@ -328,20 +333,10 @@ class PluginStore {
           entries.map((p) => p.id).toSet().length != entries.length) {
         throw const PluginException('Invalid plugin catalog');
       }
-      final unavailable = {
+      final unavailable = withDependents(entries, {
         for (final p in entries)
           if (!p.manifest.supported) p.id,
-      };
-      var changed = true;
-      while (changed) {
-        changed = false;
-        for (final p in entries) {
-          if (p.manifest.dependencies.keys.any(unavailable.contains) &&
-              unavailable.add(p.id)) {
-            changed = true;
-          }
-        }
-      }
+      });
       return [
         for (final p in entries)
           unavailable.contains(p.id) ? p.withEnabled(false) : p,
