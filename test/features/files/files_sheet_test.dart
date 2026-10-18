@@ -9,6 +9,8 @@ import 'package:striked/application/files/host_file_link.dart';
 import 'package:striked/application/files/phone_inbox.dart';
 import 'package:striked/data/repositories/host_repository.dart';
 import 'package:striked/features/files/files_sheet.dart';
+import 'package:striked/features/files/host_transfers.dart'
+    show copyGone, unreadFolder;
 import 'package:striked/features/files/send_sheet.dart';
 import 'package:striked/features/files/transfer_bar.dart';
 import 'package:striked/platform/ssh/host_files.dart' show FileRoute;

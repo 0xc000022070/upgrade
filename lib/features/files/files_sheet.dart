@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import 'package:striked/application/agents/agents.dart'
     show hostsProvider, registeredHostProvider;
@@ -22,10 +21,10 @@ import 'package:striked/design/spacing.dart';
 import 'package:striked/design/tokens.dart';
 import 'package:striked/features/code/file_icons.dart';
 import 'package:striked/features/code/syntax.dart';
+import 'package:striked/features/files/host_transfers.dart';
 import 'package:striked/features/files/transfer_bar.dart' show TransferJobView;
 import 'package:striked/features/files/transfer_queue.dart';
 import 'package:striked/features/files/transfers.dart';
-import 'package:striked/platform/shell/remote_shell.dart' show remotePathFor;
 
 Future<void> showHostFiles(BuildContext context, Host host) async {
   final transfers = ProviderScope.containerOf(context).read(transfersProvider);
@@ -61,194 +60,6 @@ Future<Host?> pickHost(
     ],
   );
   return picked;
-}
-
-String joinPath(String directory, String name) =>
-    directory == '/' ? '/$name' : '$directory/$name';
-
-Future<String?> pullFile(
-  HostFiles from,
-  String path,
-  File into,
-  int size,
-  void Function(AttachItem item) report, {
-  int sharing = 1,
-  TransferStop? stop,
-}) async {
-  var item = AttachItem(bytes: size, down: true).to(AttachStage.sending);
-  report(item);
-  final write = await from.get(
-    path,
-    into,
-    size: size,
-    sharing: sharing,
-    stop: stop,
-    onProgress: (sent) =>
-        report(item = item.to(AttachStage.sending, sent: sent)),
-  );
-  if (write.failure != null) return write.failure;
-  report(item.to(AttachStage.landed, sent: size));
-  return null;
-}
-
-Future<String?> pushFile(
-  HostFiles to,
-  String path,
-  File file,
-  void Function(AttachItem item) report, {
-  int sharing = 1,
-  AttachStage done = AttachStage.landed,
-  TransferStop? stop,
-}) async {
-  final size = await file.length();
-  var item = AttachItem(bytes: size).to(AttachStage.sending);
-  report(item);
-  final write = await to.put(
-    path,
-    FileBody.file(file, size, stop: stop),
-    sharing: sharing,
-    onProgress: (sent) =>
-        report(item = item.to(AttachStage.sending, sent: sent)),
-  );
-  if (write.failure != null) return write.failure;
-  report(item.to(done, sent: size));
-  return null;
-}
-
-const unreadFolder = 'could not read the folder';
-const copyGone = 'the phone copy is gone';
-
-typedef AfterUpload = Future<String?> Function(
-  HostFiles link,
-  Map<String, String> sent,
-  Set<String>? taken,
-);
-
-typedef UploadEnded = void Function(
-  TransferJob? job,
-  Map<String, String> sent,
-  String? failure,
-);
-
-Future<void> uploadFiles({
-  required Transfers transfers,
-  required HostFilesOpener open,
-  required Host host,
-  required List<SharedFile> files,
-  String? into,
-  Map<String, String> sent = const {},
-  AfterUpload? then,
-  void Function(TransferJob job)? began,
-  UploadEnded? ended,
-  TransferJob? replacing,
-}) async {
-  final job = files.isEmpty
-      ? null
-      : transfers.begin(
-          verb: 'UPLOADING',
-          host: host.name,
-          hostId: host.id,
-          files: [
-            for (final file in files)
-              QueuedFile(name: file.name, bytes: file.size),
-          ],
-          replacing: replacing,
-        );
-  if (job != null) began?.call(job);
-  final landed = {...sent};
-  HostFiles? link;
-  String? failure;
-  var missed = const <SharedFile>[];
-  try {
-    try {
-      link = await open(host);
-    } catch (error) {
-      failure = filesFailureLine(error);
-    }
-    Set<String>? taken;
-    if (link != null && into != null) {
-      final listed = await link.list(into);
-      if (listed == null) {
-        failure = 'FOLDER · $unreadFolder';
-      } else {
-        taken = {for (final entry in listed) entry.name};
-      }
-    }
-    final paths = <String>[];
-    if (failure == null) {
-      for (final file in files) {
-        if (taken == null) {
-          paths.add(remotePathFor('${const Uuid().v4()}/${file.name}'));
-          continue;
-        }
-        final name = freeName(file.name, taken);
-        taken.add(name);
-        paths.add(joinPath(into!, name));
-      }
-    }
-    final List<String?> failures;
-    if (job == null) {
-      failures = const [];
-    } else if (failure case final line?) {
-      for (var i = 0; i < files.length; i++) {
-        job.report(i, job.items[i].to(AttachStage.failed, detail: line));
-      }
-      failures = List.filled(files.length, line);
-    } else {
-      final sharing = uploadsSharing(files.length);
-      failures = await runQueue(
-        job.files,
-        (i, report, stop) async {
-          final copy = File(files[i].path);
-          if (!await copy.exists()) return copyGone;
-          return pushFile(
-            link!,
-            paths[i],
-            copy,
-            report,
-            sharing: sharing,
-            stop: stop,
-          );
-        },
-        stop: job.stop,
-        onItem: job.report,
-      );
-    }
-    for (var i = 0; i < failures.length; i++) {
-      if (failures[i] == null) landed[files[i].path] = paths[i];
-    }
-    missed = [
-      for (var i = 0; i < failures.length; i++)
-        if (failures[i] != null && failures[i] != copyGone) files[i],
-    ];
-    if (job != null && missed.isNotEmpty) {
-      job.kept.addAll([...landed.keys, for (final file in missed) file.path]);
-      job.retry = () => uploadFiles(
-        transfers: transfers,
-        open: open,
-        host: host,
-        files: missed,
-        into: into,
-        sent: landed,
-        then: then,
-        began: began,
-        ended: ended,
-        replacing: job,
-      );
-    } else if (failure == null && then != null) {
-      failure = await then(link!, landed, taken);
-      if (job != null && failure != null) {
-        job.note = [failure, if (into == null) ...landed.values].join('\n');
-      }
-    }
-  } finally {
-    link?.close();
-    job?.end();
-  }
-  if (missed.isEmpty && (failure == null || ended == null)) {
-    await discardCopies(landed.keys);
-  }
-  ended?.call(job, landed, failure);
 }
 
 class FilesSheet extends ConsumerStatefulWidget {
@@ -459,6 +270,41 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     );
   }
 
+  Future<String?> _pullOne(
+    String verb,
+    HostFiles files,
+    String path,
+    DirEntry entry,
+    File into, {
+    required Future<void> Function(TransferJob replacing) again,
+    TransferJob? replacing,
+    Future<String?> Function(
+      void Function(AttachItem item) report,
+      TransferStop? stop,
+    )?
+    then,
+  }) async {
+    final failures = await _run(
+      verb,
+      [QueuedFile(name: entry.name, bytes: entry.size)],
+      (_, report, stop) async {
+        final failed = await pullFile(
+          files,
+          path,
+          into,
+          entry.size,
+          report,
+          stop: stop,
+        );
+        if (failed != null || then == null) return failed;
+        return then(report, stop);
+      },
+      replacing: replacing,
+      again: again,
+    );
+    return failures.single;
+  }
+
   Future<void> _share(
     String path,
     DirEntry entry, {
@@ -472,15 +318,16 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     final phone = ref.read(phoneFilesProvider);
     final into = File('${(await phone.outgoing()).path}/${entry.name}');
     if (!mounted) return;
-    final failures = await _run(
+    final failed = await _pullOne(
       'SHARING',
-      [QueuedFile(name: entry.name, bytes: entry.size)],
-      (_, report, stop) =>
-          pullFile(files, path, into, entry.size, report, stop: stop),
+      files,
+      path,
+      entry,
+      into,
       replacing: replacing,
       again: (job) => _share(path, entry, replacing: job),
     );
-    if (failures.single == null) await phone.share([into.path]);
+    if (failed == null) await phone.share([into.path]);
   }
 
   Future<void> _save(
@@ -497,16 +344,17 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     final scratch = await phone.scratch();
     final into = File('${scratch.path}/${entry.name}');
     if (!mounted) return;
-    final failures = await _run(
+    final failed = await _pullOne(
       'SAVING',
-      [QueuedFile(name: entry.name, bytes: entry.size)],
-      (_, report, stop) =>
-          pullFile(files, path, into, entry.size, report, stop: stop),
+      files,
+      path,
+      entry,
+      into,
       replacing: replacing,
       again: (job) => _save(path, entry, replacing: job),
     );
     String? line;
-    if (failures.single == null) {
+    if (failed == null) {
       try {
         line = await phone.save(into.path, entry.name) ? 'SAVED' : 'NOT SAVED';
       } on PlatformException catch (error) {
@@ -538,19 +386,13 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     final opener = ref.read(hostFilesOpenerProvider);
     HostFiles? there;
     if (!mounted) return discardCopies([copy.path]);
-    await _run(
+    await _pullOne(
       'SENDING',
-      [QueuedFile(name: entry.name, bytes: entry.size)],
-      (_, report, stop) async {
-        final failed = await pullFile(
-          files,
-          path,
-          copy,
-          entry.size,
-          report,
-          stop: stop,
-        );
-        if (failed != null) return failed;
+      files,
+      path,
+      entry,
+      copy,
+      then: (report, stop) async {
         final to = there = target.id == widget.host.id
             ? files
             : await opener(target);

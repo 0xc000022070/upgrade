@@ -18,7 +18,8 @@ import 'package:striked/design/components/picker_row.dart';
 import 'package:striked/design/components/section.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/design/tokens.dart';
-import 'package:striked/features/files/files_sheet.dart';
+import 'package:striked/features/files/files_sheet.dart' show pickHostFolder;
+import 'package:striked/features/files/host_transfers.dart';
 import 'package:striked/features/files/transfer_queue.dart';
 import 'package:striked/features/files/transfers.dart';
 
