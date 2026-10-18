@@ -11,6 +11,17 @@ import 'package:striked/design/components/panel.dart';
 import 'package:striked/design/components/panel_sheet.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/design/components/screen_scaffold.dart';
+import 'package:striked/platform/shell/remote_shell.dart';
+
+String keyInstallLine(String publicKey) {
+  final key = shellQuote(publicKey.trim());
+  const file = '~/.ssh/authorized_keys';
+  // The leading newline keeps a file that ends without one from running its last key
+  // into this one.
+  return 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && '
+      'grep -qxF $key $file 2>/dev/null || '
+      "printf '\\n%s\\n' $key >> $file; chmod 600 $file";
+}
 
 void openKeyDetail(BuildContext context, ManagedKey key) {
   Navigator.of(context, rootNavigator: true).push(
@@ -74,6 +85,7 @@ class KeyDetailScreen extends ConsumerWidget {
                   title: '[ PUBLIC ]',
                   affordance: PanelAffordance(
                     'COPY',
+                    key: const ValueKey('key-public-copy'),
                     showIcon: false,
                     onTap: () => Clipboard.setData(
                       ClipboardData(text: keyRecord.publicKey),
@@ -81,6 +93,21 @@ class KeyDetailScreen extends ConsumerWidget {
                   ),
                   child: SelectableText(
                     keyRecord.publicKey,
+                    style: context.tokens.rowTitle,
+                  ),
+                ),
+                Panel(
+                  title: '[ INSTALL ]',
+                  affordance: PanelAffordance(
+                    'COPY',
+                    key: const ValueKey('key-install-copy'),
+                    showIcon: false,
+                    onTap: () => Clipboard.setData(
+                      ClipboardData(text: keyInstallLine(keyRecord.publicKey)),
+                    ),
+                  ),
+                  child: SelectableText(
+                    keyInstallLine(keyRecord.publicKey),
                     style: context.tokens.rowTitle,
                   ),
                 ),

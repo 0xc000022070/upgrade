@@ -1,5 +1,7 @@
 import '../../support/native_plugins.dart';
 
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -88,11 +90,37 @@ void main() {
     await tester.pumpWidget(host(KeyDetailScreen(keyRecord: managedKey)));
     await _ready(tester);
 
-    await tester.tap(find.text('COPY'));
+    await tester.tap(find.byKey(const ValueKey('key-public-copy')));
     await tester.pump();
-
     expect(copied, managedKey.publicKey);
+
+    await tester.tap(find.byKey(const ValueKey('key-install-copy')));
+    await tester.pump();
+    expect(copied, keyInstallLine(managedKey.publicKey));
     await unmount(tester);
+  });
+
+  test('the install line adds the key once and keeps what was there', () async {
+    final home = await Directory.systemTemp.createTemp('striked-install-');
+    addTearDown(() => home.delete(recursive: true));
+    final file = File('${home.path}/.ssh/authorized_keys');
+    await file.parent.create();
+    await file.writeAsString('ssh-ed25519 AAAAMINE mine');
+    const quoted = "ssh-ed25519 AAAATEST it's \\n \$HOME";
+
+    for (var run = 0; run < 2; run++) {
+      final result = await Process.run(
+        'sh',
+        ['-c', keyInstallLine(quoted)],
+        environment: {'HOME': home.path},
+      );
+      expect(result.exitCode, 0, reason: '${result.stderr}');
+    }
+
+    final lines = (await file.readAsLines()).where((line) => line.isNotEmpty);
+    expect(lines, ['ssh-ed25519 AAAAMINE mine', quoted]);
+    expect((await file.stat()).modeString(), 'rw-------');
+    expect((await file.parent.stat()).modeString(), 'rwx------');
   });
 
   testWidgets('a referenced key has disabled delete ink', (tester) async {
@@ -109,6 +137,11 @@ void main() {
     );
     await tester.pumpWidget(host(KeyDetailScreen(keyRecord: managedKey)));
     await _ready(tester);
+    await tester.scrollUntilVisible(
+      find.text('USED BY 1 HOST'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
 
     expect(find.text('DELETE'), findsNothing);
     final delete = tester.widget<Text>(find.text('USED BY 1 HOST'));

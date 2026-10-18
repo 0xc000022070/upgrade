@@ -690,13 +690,13 @@ Struck: `done` in the toolbar extras behind `+`. That row exists for what cannot
 
 ### A key is made on the phone and never leaves it
 
-A key row is the name over a truncated `SHA256:…` fingerprint in mono. A tap opens the key's detail — `[ NAME ]`, `[ TYPE ]` reading ed25519, `[ PUBLIC ]` as the full `ssh-ed25519 AAAA… name` line in a selectable mono field with `COPY` beside it, `[ USED BY ]` listing the hosts that reference it, and `DELETE` at the bottom behind a confirm.
+A key row is the name over a truncated `SHA256:…` fingerprint in mono. A tap opens the key's detail — `[ NAME ]`, `[ TYPE ]` reading ed25519, `[ PUBLIC ]` as the full `ssh-ed25519 AAAA… name` line in a selectable mono field with `COPY` beside it, `[ INSTALL ]` as the shell line that appends that key to `~/.ssh/authorized_keys` with its own `COPY`, `[ USED BY ]` listing the hosts that reference it, and `DELETE` at the bottom behind a confirm.
 
 A new key is a form with `[ NAME ]` and nothing else: ed25519 always, the comment being the name. It is generated on the device. **The private key never leaves the phone and is never shown** — the row lives in a `keys` table of id, name, public key and creation time, and the secret lives in the platform's secure storage under the key's id, behind the Android keystore.
 
 **A key in use cannot be deleted until the host is repointed**, and the bar says so: it reads `USED BY N HOST(S)` where `DELETE` would be, rather than sitting there greyed and silent.
 
-Installing a public key on a host is the user's own job, done by hand. The app never writes an `authorized_keys` anywhere, with one exception: the Linux it runs on the phone itself, which is the app's own files and no one's machine.
+Installing a public key on a host is the user's own job, done by hand. The install line only saves the typing: the user runs it in a session they already have, and running it twice adds the key once and leaves every other line as it was. The app never writes an `authorized_keys` anywhere, with one exception: the Linux it runs on the phone itself, which is the app's own files and no one's machine.
 
 ### A host is a machine, not an integration
 
