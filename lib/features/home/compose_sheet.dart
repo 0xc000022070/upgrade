@@ -41,7 +41,10 @@ Future<void> showCompose(
 ).push(_composeRoute(ComposeSheet(text: text, choice: choice)));
 
 Route<void> composeWindowRoute() =>
-    _composeRoute(const ComposeSheet(window: true), window: true);
+    launcherWindowRoute(const ComposeSheet(window: true));
+
+Route<void> launcherWindowRoute(Widget sheet) =>
+    _composeRoute(sheet, window: true);
 
 bool isComposeWindowRoute(Route<Object?> route) =>
     route.settings.name == _windowName;

@@ -5,6 +5,7 @@ enum LauncherOpen {
   inputBar,
   plugins,
   sheet,
+  barSheet,
   compose,
   run,
   sent,

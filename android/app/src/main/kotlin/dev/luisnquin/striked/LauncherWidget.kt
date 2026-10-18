@@ -8,6 +8,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -73,9 +74,10 @@ class LauncherWidget : AppWidgetProvider() {
         const val TARGET = "target"
         private const val SEND = "send"
         private const val AGENTS = "agents"
-        private const val INPUT_BAR = "inputBar"
+        const val INPUT_BAR = "inputBar"
         private const val PLUGINS = "plugins"
         const val SHEET = "sheet"
+        const val BAR_SHEET = "barSheet"
         const val COMPOSE = "compose"
         private const val RUN = "run"
         private const val SENT = "sent"
@@ -90,9 +92,7 @@ class LauncherWidget : AppWidgetProvider() {
         private const val KEY_LIVE_BOOT = "live_boot"
 
         private const val KEPT_SENDS = 10
-        private const val SEND_MIN_WIDTH = 250f
-        private const val SEND_MIN_HEIGHT = 40f
-        private const val SEND_LIST_HEIGHT = 140
+        private const val SEND_LIST_HEIGHT = 160f
 
         private var waiting: Map<String, String?>? = null
 
@@ -261,23 +261,33 @@ class LauncherWidget : AppWidgetProvider() {
                 setTextViewText(R.id.launcher_bar_label, bar ?: "NO INPUT BAR")
                 setOnClickPendingIntent(
                     R.id.launcher_bar,
-                    open(context, if (bar == null) PLUGINS else INPUT_BAR),
+                    if (bar == null) open(context, PLUGINS) else composeDoor(context, BAR_SHEET),
                 )
             }
         }
 
-        fun sendViews(context: Context, widgetId: Int): RemoteViews {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                return RemoteViews(
-                    mapOf(
-                        SizeF(SEND_MIN_WIDTH, SEND_MIN_HEIGHT) to sendViews(context, widgetId, false),
-                        SizeF(SEND_MIN_WIDTH, SEND_LIST_HEIGHT.toFloat()) to sendViews(context, widgetId, true),
-                    ),
-                )
+        fun sendViews(context: Context, widgetId: Int): RemoteViews =
+            sendViews(context, widgetId, sendHeight(context, widgetId) >= SEND_LIST_HEIGHT)
+
+        // Some launchers report these sizes in pixels; a width past the screen's is taken as one.
+        private fun sendHeight(context: Context, widgetId: Int): Float {
+            val options = AppWidgetManager.getInstance(context).getAppWidgetOptions(widgetId)
+            val config = context.resources.configuration
+            val landscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE
+            val sizes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                @Suppress("DEPRECATION")
+                options.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES).orEmpty()
+            } else {
+                emptyList()
             }
-            val height = AppWidgetManager.getInstance(context).getAppWidgetOptions(widgetId)
-                .getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
-            return sendViews(context, widgetId, height >= SEND_LIST_HEIGHT)
+            val size = if (landscape) sizes.maxByOrNull { it.width } else sizes.minByOrNull { it.width }
+            val width = size?.width ?: options.getInt(
+                if (landscape) AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH else AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,
+            ).toFloat()
+            val height = size?.height ?: options.getInt(
+                if (landscape) AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT else AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT,
+            ).toFloat()
+            return if (width > config.screenWidthDp) height / context.resources.displayMetrics.density else height
         }
 
         private fun sendViews(context: Context, widgetId: Int, list: Boolean): RemoteViews {
@@ -394,10 +404,10 @@ class LauncherWidget : AppWidgetProvider() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        private fun composeDoor(context: Context): PendingIntent = PendingIntent.getActivity(
+        private fun composeDoor(context: Context, target: String = SHEET): PendingIntent = PendingIntent.getActivity(
             context,
-            SHEET.hashCode(),
-            Intent(context, ComposeDoor::class.java),
+            target.hashCode(),
+            Intent(context, ComposeDoor::class.java).putExtra(TARGET, target),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
@@ -458,13 +468,17 @@ class SendRowsService : RemoteViewsService() {
 class ComposeDoor : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val target = intent.getStringExtra(LauncherWidget.TARGET) ?: LauncherWidget.SHEET
         startActivity(
             if (StrikedEngine.inPip) {
-                LauncherWidget.openIntent(this, LauncherWidget.COMPOSE)
+                LauncherWidget.openIntent(
+                    this,
+                    if (target == LauncherWidget.BAR_SHEET) LauncherWidget.INPUT_BAR else LauncherWidget.COMPOSE,
+                )
             } else {
                 Intent(this, ComposeActivity::class.java)
                     .setAction(LauncherWidget.OPEN)
-                    .putExtra(LauncherWidget.TARGET, LauncherWidget.SHEET)
+                    .putExtra(LauncherWidget.TARGET, target)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             },
         )

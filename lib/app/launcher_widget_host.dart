@@ -12,6 +12,7 @@ import 'package:striked/application/navigation.dart';
 import 'package:striked/application/prompt/prompt_target.dart';
 import 'package:striked/features/agents/agents_screen.dart';
 import 'package:striked/features/agents/sent_screen.dart';
+import 'package:striked/features/home/bar_window.dart';
 import 'package:striked/features/home/compose_sheet.dart';
 import 'package:striked/features/home/home_screen.dart';
 import 'package:striked/features/plugins/plugin_management_screen.dart';
@@ -79,11 +80,10 @@ class _LauncherWidgetHostState extends ConsumerState<LauncherWidgetHost> {
     super.dispose();
   }
 
-  void _openWindow() {
+  void _openWindow(Route<void> route) {
     final navigator = rootNavigatorKey.currentState;
     if (navigator == null) return;
     _dropWindow();
-    final route = composeWindowRoute();
     _window = route;
     ref.read(composeWindowProvider.notifier).state = true;
     unawaited(navigator.push(route));
@@ -99,7 +99,13 @@ class _LauncherWidgetHostState extends ConsumerState<LauncherWidgetHost> {
   Future<void> _take() async {
     final tap = await LauncherWidget.take();
     if (tap == null || !mounted) return;
-    if (tap.open == LauncherOpen.sheet) return _openWindow();
+    switch (tap.open) {
+      case LauncherOpen.sheet:
+        return _openWindow(composeWindowRoute());
+      case LauncherOpen.barSheet:
+        return _openWindow(launcherWindowRoute(const BarWindow()));
+      default:
+    }
     _dropWindow();
     var guarded = false;
     rootNavigatorKey.currentState?.popUntil((route) {
@@ -125,6 +131,7 @@ class _LauncherWidgetHostState extends ConsumerState<LauncherWidgetHost> {
       case LauncherOpen.sent:
         openSent(context);
       case LauncherOpen.sheet:
+      case LauncherOpen.barSheet:
         break;
       case LauncherOpen.inputBar:
         ref.read(navIndexProvider.notifier).state = HomeScreen.navIndex;
