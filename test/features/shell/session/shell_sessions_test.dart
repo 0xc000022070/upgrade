@@ -1485,6 +1485,36 @@ void main() {
     await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
+  testWidgets('a screen drawn for the view after a smaller host snapshot '
+      'lands whole', (tester) async {
+    final transport = FakeShellTransport()..transport = ShellTransport.engine;
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(intent: testIntent(), _rose)!;
+    await _pumpDial(tester);
+    final connection = transport.opened.single;
+    await _pumpView(tester, session, const Size(600, 600));
+    final [columns, rows] = connection.resizes.last;
+    final resized = connection.resizes.length;
+
+    final source = TerminalController(
+      config: const TerminalConfig(cols: 20, rows: 5),
+    );
+    final snapshot = source.snapshot();
+    source.dispose();
+    connection.emitSnapshot(snapshot);
+    connection.emit('\x1b[H\x1b[2JTOP\x1b[$rows;${columns - 2}HLOW');
+    await tester.pump();
+    await _restored(tester, session);
+    await tester.pump();
+
+    final lines = _text(session.terminal).split('\n');
+    expect(lines.first.trimRight(), 'TOP');
+    expect(lines[rows - 1], '${' ' * (columns - 3)}LOW');
+    expect(connection.resizes, hasLength(resized));
+
+    await sessions.close(intent: testIntent(), _rose.id, session);
+  });
+
   test('a measured cell gives an engine pty its pixel size', () async {
     final transport = FakeShellTransport()..transport = ShellTransport.engine;
     final sessions = fakeShellSessions(transport);

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -489,8 +490,8 @@ class ShellSession extends ChangeNotifier {
 
   static final _moshPaneMouse = utf8.encode('\x1b[?1002h\x1b[?1006h');
 
-  void _feed(Uint8List bytes) {
-    _pinentry?.add(bytes);
+  void _feed(Uint8List bytes, {bool scanned = false}) {
+    if (!scanned) _pinentry?.add(bytes);
     _feeding = true;
     try {
       terminal.write(bytes);
@@ -532,6 +533,28 @@ class ShellSession extends ChangeNotifier {
   }
 
   String? _heldMarker;
+
+  /// Output drawn for the remote's size behind a snapshot of another grid; fed before the
+  /// view sizes the new terminal, it would be clipped for good.
+  BytesBuilder? _unsized;
+
+  static const _unsizedLimit = 1 << 22;
+
+  void _receive(Uint8List bytes) {
+    final unsized = _unsized;
+    if (unsized == null) return _feed(bytes);
+    _pinentry?.add(bytes);
+    unsized.add(bytes);
+    if (unsized.length > _unsizedLimit) _releaseUnsized();
+  }
+
+  void _releaseUnsized() {
+    final unsized = _unsized;
+    _unsized = null;
+    if (unsized != null && unsized.isNotEmpty) {
+      _feed(unsized.takeBytes(), scanned: true);
+    }
+  }
 
   /// Held across the waits between dials: a schedule that runs out shows what the last one
   /// hit, not the drop that started it.
@@ -1119,6 +1142,14 @@ class ShellSessions extends ChangeNotifier {
     answerInColours(next, StrikedTokens.house.terminal);
     session._terminal.value = next;
     _wireTerminal(session);
+    final columns = session._columns;
+    final rows = session._rows;
+    session._unsized =
+        columns != null &&
+            rows != null &&
+            (next.config.cols != columns || next.config.rows != rows)
+        ? BytesBuilder(copy: false)
+        : null;
     final marker = session._heldMarker;
     session._heldMarker = null;
     if (marker != null) session._write(marker);
@@ -1472,6 +1503,7 @@ class ShellSessions extends ChangeNotifier {
       session.changed();
     };
     terminal.onResize = (columns, rows) {
+      session._releaseUnsized();
       if (columns == session._columns && rows == session._rows) return;
       session._columns = columns;
       session._rows = rows;
@@ -1978,7 +2010,7 @@ class ShellSessions extends ChangeNotifier {
       session._output = connection.output.listen((bytes) {
         if (identical(session.connection, connection)) {
           session.painted.value = true;
-          session._feed(bytes);
+          session._receive(bytes);
         }
       }, onError: (Object error) => _fail(session, error, attempt));
     } catch (error) {
