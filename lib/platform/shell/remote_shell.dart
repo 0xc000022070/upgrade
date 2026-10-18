@@ -56,14 +56,38 @@ String moshServerCleanupCommand(String session) {
       'tr "\\000" "\\n" < "\$p/environ" | grep -qx "'
       '$moshTabVariable=';
   return underSh(
-    'exec 2>/dev/null; ok=1; '
+    'exec 2>/dev/null; ok=1; e=; [ -d /proc/self ] && e=env; '
     'for p in /proc/[0-9]*; do '
     '$marked$session" 2>/dev/null || continue; '
     'a=\$(tr "\\000" " " < "\$p/cmdline" 2>/dev/null); '
     'case "\${a%% *}" in mosh-server|*/mosh-server|strikedddd|*/strikedddd) '
     'kill "\${p##*/}" 2>/dev/null || ok=0;; esac; '
-    'done; [ "\$ok" -eq 1 ]',
+    'done; '
+    'l=\$(ps -A -ww -o pid=,command=) || [ -n "\$e" ] || exit 1; '
+    'printf "%s\\n" "\$l" | { while read -r q a; do '
+    'case "\${a%% *}" in mosh-server|*/mosh-server) '
+    'case " \$a " in *" ${moshServerMark(session)} "*) '
+    'kill "\$q" || ! kill -0 "\$q" || ok=0;; esac;; esac; '
+    'done; [ "\$ok" -eq 1 ] && echo "$_moshSwept\${e:-argv}"; }',
   );
+}
+
+String moshServerMark(String session) => '-l $moshTabVariable=$session';
+
+const _moshSwept = 'STRIKED_MOSH_SWEPT=';
+
+enum MoshSweep { environments, arguments }
+
+MoshSweep? moshSwept(String out) {
+  for (final line in out.split('\n')) {
+    switch (line.trim()) {
+      case '${_moshSwept}env':
+        return MoshSweep.environments;
+      case '${_moshSwept}argv':
+        return MoshSweep.arguments;
+    }
+  }
+  return null;
 }
 
 /// The topmost marked process is the tab's shell: everything it starts inherits the mark,

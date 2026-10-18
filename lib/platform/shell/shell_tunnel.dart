@@ -275,14 +275,15 @@ class ShellTunnel {
         moshServerCleanupCommand(tabSession),
         timeout: timeout,
       );
-      if (cleanup == null || !cleanup.ok) return null;
+      if (cleanup == null || moshSwept(cleanup.out) == null) return null;
       final launch = MoshSshBootstrap(
         serverBinary: serverPath,
         locale: 'C.UTF-8',
         term: terminalType,
       ).command();
       final bootstrap = await supervisor.exec(
-        '$moshTabVariable=${shellQuote(tabSession)} $launch -- '
+        '$moshTabVariable=${shellQuote(tabSession)} $launch '
+        '${moshServerMark(tabSession)} -- '
         'sh -c ${shellQuote(command)}',
         timeout: timeout,
       );
@@ -601,7 +602,7 @@ class MoshShellConnection implements ShellConnection {
       moshServerCleanupCommand(session),
       timeout: remoteCommandDeadline,
     );
-    return mosh?.ok ?? false;
+    return mosh != null && moshSwept(mosh.out) != null;
   }
 
   @override
@@ -929,11 +930,11 @@ class EngineShellConnection implements ShellConnection {
       moshServerCleanupCommand(session),
       timeout: remoteCommandDeadline,
     );
-    if (swept == null || !swept.ok) return false;
-    if (stopped == null) {
-      _log(_supervisor.endpoint, 'engine: no stop for $session, swept');
-    }
-    return true;
+    final sweep = swept == null ? null : moshSwept(swept.out);
+    if (sweep == null) return false;
+    if (stopped != null) return true;
+    _log(_supervisor.endpoint, 'engine: no stop for $session, swept');
+    return sweep == MoshSweep.environments;
   }
 
   @override

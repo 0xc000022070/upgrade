@@ -626,6 +626,9 @@ String moshHostAnswer(String command) {
   if (command.contains('mosh-server') && command.contains(' new ')) {
     return 'MOSH CONNECT 60001 AAECAwQFBgcICQoLDA0ODw\n';
   }
+  if (command.contains('STRIKED_MOSH_SWEPT=')) {
+    return 'STRIKED_MOSH_SWEPT=env\n';
+  }
   return '';
 }
 
@@ -687,6 +690,7 @@ void main() {
             request.contains('mosh-server') && request.contains(' new '),
       );
       expect(launch, contains("$moshTabVariable='striked123'"));
+      expect(launch, contains('${moshServerMark(session)} -- '));
       expect(launch, contains('-- sh -c ${shellQuote(command)}'));
 
       connection.write(Uint8List.fromList([0x6c, 0x73, 0x0d]));
@@ -1852,6 +1856,23 @@ void main() {
       expect(host.requests.last, 'exec ${moshServerCleanupCommand(session)}');
       await connection.close(UserClosed(testIntent()));
     });
+
+    test('a Mosh tab whose sweep prints no marker is not cleaned, whatever '
+        'the exit status', () async {
+      const session = 'striked123';
+      final host = FakeHost()..execAnswer = moshHostAnswer;
+      final connection = await openOn(
+        moshTunnelTo(host, FakeMoshChannel()),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(testIntent())));
+      host.execAnswer = (request) => request.contains('STRIKED_MOSH_SWEPT=')
+          ? ''
+          : moshHostAnswer(request);
+
+      expect(await connection.terminateRemote(session), isFalse);
+    });
   });
 
   group('the live session', () {
@@ -2963,9 +2984,10 @@ void engineTests() {
       tabSession: session,
     );
     addTearDown(() => connection.close(UserClosed(testIntent())));
+    var swept = 'STRIKED_MOSH_SWEPT=env\n';
     host.execInputAnswer = (command, stdin) => command.endsWith('strikedddd')
         ? '{"ok":false,"error":{"kind":"failed","message":"no"}}'
-        : '';
+        : swept;
 
     expect(await connection.terminateRemote('striked456'), isTrue);
     expect(
@@ -2973,8 +2995,27 @@ void engineTests() {
       'exec ${moshServerCleanupCommand('striked456')}',
     );
 
-    host.execCodeAnswer = (command) => command.endsWith('strikedddd') ? 0 : 1;
+    swept = '';
     expect(await connection.terminateRemote('striked456'), isFalse);
+    swept = 'STRIKED_MOSH_SWEPT=argv\n';
+    expect(await connection.terminateRemote('striked456'), isFalse);
+  });
+
+  test('a sweep that could not see the engine leans on its stop', () async {
+    final answer = engineHostAnswer();
+    final host = FakeHost()
+      ..execInputAnswer = (command, stdin) =>
+          command.contains('STRIKED_MOSH_SWEPT=')
+          ? 'STRIKED_MOSH_SWEPT=argv\n'
+          : answer(command, stdin);
+    final connection = await openOn(
+      engineTunnelTo(host, FakeEngineChannel(), FakeMoshChannel()),
+      command: 'exec \$SHELL -l',
+      tabSession: session,
+    );
+    addTearDown(() => connection.close(UserClosed(testIntent())));
+
+    expect(await connection.terminateRemote('striked456'), isTrue);
   });
 
   test('a silent channel is probed, then reconnecting, then dropped', () async {
