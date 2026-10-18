@@ -58,6 +58,33 @@ final rememberScreensHostProvider = Provider<Future<void> Function(String)>(
           .setText(SettingsRepository.screensHost, hostId),
 );
 
+typedef ScreensRest = ({bool right, double top});
+
+final screensRestProvider = FutureProvider<ScreensRest?>((ref) async {
+  final raw = await ref
+      .read(settingsRepositoryProvider)
+      .text(SettingsRepository.screensRest, orElse: '');
+  final at = raw.indexOf(':');
+  if (at < 0) return null;
+  final side = raw.substring(0, at);
+  final top = double.tryParse(raw.substring(at + 1));
+  if (top == null || !top.isFinite || (side != 'right' && side != 'left')) {
+    return null;
+  }
+  return (right: side == 'right', top: top);
+});
+
+final rememberScreensRestProvider =
+    Provider<Future<void> Function(ScreensRest)>(
+      (ref) =>
+          (rest) => ref
+              .read(settingsRepositoryProvider)
+              .setText(
+                SettingsRepository.screensRest,
+                '${rest.right ? 'right' : 'left'}:${rest.top}',
+              ),
+    );
+
 class DeviceFloat extends ConsumerStatefulWidget {
   const DeviceFloat({super.key, required this.child});
 
@@ -153,6 +180,14 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
       final value = hosts.valueOrNull;
       if (value != null) _dock.rename(value);
     });
+    ref.listenManual<AsyncValue<ScreensRest?>>(screensRestProvider, (_, rest) {
+      final value = rest.valueOrNull;
+      if (value == null || _top != null || _dragAt != null) return;
+      setState(() {
+        _right = value.right;
+        _top = value.top;
+      });
+    }, fireImmediately: true);
   }
 
   @override
@@ -226,10 +261,10 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     expandDesktop(context, _dock);
   }
 
-  double _clampTop(MediaQueryData media, double height) {
+  double _clampTop(MediaQueryData media, double height, [double? top]) {
     final minTop = media.padding.top + Spacing.lg;
     final maxTop = math.max(minTop, _floor(media) - height);
-    return (_top ?? maxTop).clamp(minTop, maxTop);
+    return (top ?? _top ?? maxTop).clamp(minTop, maxTop);
   }
 
   void _drag(Offset delta, Offset pointer, MediaQueryData media) {
@@ -250,17 +285,25 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
       media.size.width,
     );
     setState(() {
-      _right = settled.right;
-      _top = settled.top;
+      if (!close) {
+        _right = settled.right;
+        // Bounded as if the keyboard were down, so its rise lifts the bubble
+        // and its fall gives the height back.
+        _top = _clampTop(
+          media.removeViewInsets(removeBottom: true),
+          deviceBubbleSize,
+          settled.top,
+        );
+      }
       _dragAt = null;
       _overClose = false;
       _menu = false;
     });
-    if (close) {
-      _dock.close();
-    } else if (settled.tucked) {
-      _dock.tuck();
-    }
+    if (close) return _dock.close();
+    unawaited(
+      ref.read(rememberScreensRestProvider)((right: _right, top: _top!)),
+    );
+    if (settled.tucked) _dock.tuck();
   }
 
   @override

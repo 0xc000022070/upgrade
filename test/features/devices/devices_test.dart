@@ -181,6 +181,8 @@ Future<void> _pump(
   FakePip? pip,
   String? remembered,
   List<String>? remembers,
+  ScreensRest? rest,
+  List<ScreensRest>? rests,
 }) async {
   stubDeviceChannels();
   final saved = StreamController<String?>()..add(remembered);
@@ -195,6 +197,10 @@ Future<void> _pump(
           remembers?.add(hostId);
           saved.add(hostId);
         }),
+        screensRestProvider.overrideWith((ref) async => rest),
+        rememberScreensRestProvider.overrideWithValue(
+          (rest) async => rests?.add(rest),
+        ),
         privateKeyStoreProvider.overrideWithValue(store),
         staticEnabledProvider.overrideWith((ref) => Stream.value(false)),
         deviceLinkOpenerProvider.overrideWithValue(open),
@@ -1654,24 +1660,25 @@ void main() {
       );
     });
 
-    testWidgets('ending the dock ends a boot in flight and shuts nothing down', (
-      tester,
-    ) async {
-      final link = _hostLink(const [_pixel, _booted]);
-      link.held[_bootPart] = Completer<String>();
-      await _pump(tester, _opener(link));
-      await _openSheet(tester);
-      await _tapKey(tester, const ValueKey('device-boot-Pixel_9'));
-      await _settle(tester);
-      _dock(tester).close();
-      await _settle(tester);
+    testWidgets(
+      'ending the dock ends a boot in flight and shuts nothing down',
+      (tester) async {
+        final link = _hostLink(const [_pixel, _booted]);
+        link.held[_bootPart] = Completer<String>();
+        await _pump(tester, _opener(link));
+        await _openSheet(tester);
+        await _tapKey(tester, const ValueKey('device-boot-Pixel_9'));
+        await _settle(tester);
+        _dock(tester).close();
+        await _settle(tester);
 
-      expect(link.closed, isTrue);
-      expect(link.held[_bootPart]!.isCompleted, isTrue);
-      expect(link.readsOf(_killPart), 0);
-      expect(link.readsOf('simctl shutdown'), 0);
-      expect(link.commands, isEmpty);
-    });
+        expect(link.closed, isTrue);
+        expect(link.held[_bootPart]!.isCompleted, isTrue);
+        expect(link.readsOf(_killPart), 0);
+        expect(link.readsOf('simctl shutdown'), 0);
+        expect(link.commands, isEmpty);
+      },
+    );
 
     testWidgets('a long press offers SHUT DOWN and DELETE on what it made', (
       tester,
@@ -2119,6 +2126,85 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byKey(handle), findsOneWidget);
       expect(tester.getCenter(find.byKey(handle)).dx, lessThan(400));
+    });
+
+    testWidgets('rests where it was last let go, across launches', (
+      tester,
+    ) async {
+      final rests = <ScreensRest>[];
+      await _pump(
+        tester,
+        _opener(FakeDeviceLink(const [_pixel])),
+        rests: rests,
+      );
+      await tester.drag(find.byKey(_bubbleKey), const Offset(-600, -200));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(rests, hasLength(1));
+      final saved = rests.single;
+      expect(saved.right, isFalse);
+      expect(tester.getTopLeft(find.byKey(_bubbleKey)).dy, saved.top);
+
+      await tester.pumpWidget(const SizedBox());
+      await _pump(tester, _opener(FakeDeviceLink(const [_pixel])), rest: saved);
+      expect(tester.getTopLeft(find.byKey(_bubbleKey)).dy, saved.top);
+      expect(tester.getCenter(find.byKey(_bubbleKey)).dx, lessThan(400));
+    });
+
+    testWidgets('keeps a height let go under the keyboard for when it falls', (
+      tester,
+    ) async {
+      final rests = <ScreensRest>[];
+      await _pump(
+        tester,
+        _opener(FakeDeviceLink(const [_pixel])),
+        rests: rests,
+      );
+      final ratio = tester.view.devicePixelRatio;
+      tester.view.viewInsets = FakeViewPadding(bottom: 300 * ratio);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      final screen = tester.view.physicalSize / ratio;
+
+      await tester.drag(find.byKey(_bubbleKey), const Offset(0, 250));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      final up = tester.getRect(find.byKey(_bubbleKey));
+      expect(up.bottom, lessThanOrEqualTo(screen.height - 300));
+      expect(rests.single.top, greaterThan(up.top));
+
+      tester.view.resetViewInsets();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(tester.getTopLeft(find.byKey(_bubbleKey)).dy, rests.single.top);
+    });
+
+    testWidgets('does not rest on the close target', (tester) async {
+      final rests = <ScreensRest>[];
+      await _pump(
+        tester,
+        _opener(FakeDeviceLink(const [_pixel])),
+        rests: rests,
+      );
+      final before = tester.getTopLeft(find.byKey(_bubbleKey));
+      final media = MediaQuery.of(tester.element(find.byKey(_bubbleKey)));
+      final target = Offset(
+        media.size.width / 2,
+        media.size.height - media.padding.bottom - deviceFloatClearance / 2,
+      );
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(_bubbleKey)),
+      );
+      await gesture.moveTo(target - const Offset(20, 0));
+      await tester.pump();
+      await gesture.moveTo(target);
+      await tester.pump();
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(rests, isEmpty);
+      expect(find.byKey(_bubbleKey), findsNothing);
+      expect(tester.getTopLeft(find.byKey(handle)).dy, closeTo(before.dy, 1));
     });
 
     testWidgets('is only on the tabs', (tester) async {
