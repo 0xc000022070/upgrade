@@ -31,6 +31,8 @@ Future<HostSystem?> probeSystem(HostChannels channels) async {
     underSh(systemProbeScript),
     timeout: const Duration(seconds: 10),
   );
-  if (result == null || !result.ok) return null;
-  return parseSystemProbe(result.out);
+  // The exit is cat's, which fails on a Mac with no os-release; only the answer counts.
+  final out = result?.out ?? '';
+  if (out.trim().isEmpty) return null;
+  return parseSystemProbe(out);
 }

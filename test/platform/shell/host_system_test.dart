@@ -1,9 +1,14 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:striked/data/enums.dart';
 import 'package:striked/data/repositories/host_repository.dart';
 import 'package:striked/design/icons/striked_icons.dart';
 import 'package:striked/features/hosts/host_mark.dart';
 import 'package:striked/platform/shell/host_system.dart';
+import 'package:striked/platform/ssh/connection_supervisor.dart';
+import 'package:striked/platform/ssh/host_files.dart';
 
 void main() {
   group('the probe answer', () {
@@ -59,6 +64,38 @@ void main() {
     });
   });
 
+  group('the probe', () {
+    test(
+      'a Mac is read by its answer, not by the exit of a missing os-release',
+      () async {
+        final channels = _Answers(
+          ExecResult(
+            exitCode: 1,
+            stdout: _bytes('Darwin\n'),
+            stderr: _bytes(''),
+          ),
+        );
+        expect(await probeSystem(channels), HostSystem.darwin);
+      },
+    );
+
+    test('no exec or no answer is never probed', () async {
+      expect(await probeSystem(_Answers(null)), isNull);
+      expect(
+        await probeSystem(
+          _Answers(
+            ExecResult(
+              exitCode: 127,
+              stdout: _bytes(''),
+              stderr: _bytes('sh: not found'),
+            ),
+          ),
+        ),
+        isNull,
+      );
+    });
+  });
+
   test('an unknown word on disk reads as never probed', () {
     expect(HostSystem.fromWire('plan9'), isNull);
     expect(HostSystem.fromWire(null), isNull);
@@ -95,4 +132,27 @@ void main() {
       expect((await hosts.all()).single.system, HostSystem.nixos);
     },
   );
+}
+
+Uint8List _bytes(String text) => Uint8List.fromList(utf8.encode(text));
+
+class _Answers implements HostChannels {
+  _Answers(this.result);
+
+  final ExecResult? result;
+
+  @override
+  Future<ExecResult?> exec(
+    String command, {
+    Uint8List? stdin,
+    required Duration timeout,
+  }) async => result;
+
+  @override
+  Future<FileWrite?> put(
+    String path,
+    FileBody body, {
+    required Duration timeout,
+    PutProgress? onProgress,
+  }) => throw UnimplementedError();
 }
