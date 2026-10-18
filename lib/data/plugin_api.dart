@@ -223,7 +223,7 @@ class PluginTaskApi implements TaskRepository {
   Future<void> delete(String id, {DateTime? at}) => _gate.call(
     'items',
     () => _base.delete(id, at: at),
-    also: ['attachments', 'item_notes'],
+    also: ['attachments', 'item_notes', 'host.dispatch'],
   );
 }
 

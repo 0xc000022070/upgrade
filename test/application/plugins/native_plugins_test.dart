@@ -10,6 +10,7 @@ import 'package:striked/data/repositories/settings_repository.dart';
 import 'package:striked/data/repositories/note_repository.dart';
 import 'package:striked/data/repositories/activity_repository.dart';
 import 'package:striked/data/repositories/attachment_repository.dart';
+import 'package:striked/data/repositories/dispatch_repository.dart';
 import 'package:striked/data/repositories/project_repository.dart';
 import 'package:striked/data/repositories/task_repository.dart';
 import 'package:striked/platform/plugins/access.dart';
@@ -397,6 +398,88 @@ void main() {
       expect((await restored.watchById(id).first)!.title, 'Edited through API');
     },
   );
+
+  test('deleting an item needs the dispatch grant its sends go with', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final activity = ActivityRepository(db);
+    final backend = TaskRepository(db, activity);
+    final sends = DriftDispatchRepository(db, activity);
+    await db
+        .into(db.hosts)
+        .insert(
+          HostsCompanion.insert(
+            id: 'host-1',
+            name: 'nyx',
+            address: '100.64.0.1',
+            user: 'luis',
+            keyId: 'key-1',
+          ),
+        );
+    await db
+        .into(db.paths)
+        .insert(
+          PathsCompanion.insert(
+            id: 'path-1',
+            hostId: 'host-1',
+            directory: '~/src/striked',
+            label: 'striked',
+            createdAt: DateTime.utc(2026, 9, 3),
+          ),
+        );
+    final id = await backend.capture('Sent drop');
+    await sends.start(
+      id: 's1',
+      itemId: id,
+      pathId: 'path-1',
+      text: 'fix it',
+      agent: 'codex',
+    );
+    final authority = PluginAuthority(
+      hostServices: const {
+        'host.capture_targets': 'capture-targets@1',
+        'host.dispatch': 'dispatch@1',
+      },
+    );
+    addTearDown(authority.close);
+    final entries = enabledBuiltins();
+    final drops = builtinFixture('drops');
+    final undeclared = PluginManifest.parse(
+      drops.manifest.source.replaceFirst(
+        '"host.dispatch" = "dispatch@1"\n',
+        '',
+      ),
+      allowNative: true,
+    );
+    expect(undeclared.services, isNot(contains('host.dispatch')));
+    authority.update([
+      InstalledPlugin(
+        PluginPackage(
+          manifest: undeclared,
+          source: drops.source,
+          origin: drops.origin,
+          revision: drops.revision,
+        ),
+        undeclared.permissions,
+      ),
+      entries.last,
+    ]);
+    final api = PluginTaskApi(
+      backend,
+      PluginDataGate(db, authority, 'striked.drops'),
+    );
+    await expectLater(() => api.delete(id), throwsA(isA<PluginException>()));
+    expect(await backend.watchById(id).first, isNotNull);
+    expect((await sends.watchOne('s1').first)!.itemId, id);
+
+    authority.update(entries);
+    await PluginTaskApi(
+      backend,
+      PluginDataGate(db, authority, 'striked.drops'),
+    ).delete(id);
+    expect(await backend.watchById(id).first, isNull);
+    expect(await sends.watchOne('s1').first, isNull);
+  });
 
   test(
     'revocation before commit rolls the in-flight native write back',
