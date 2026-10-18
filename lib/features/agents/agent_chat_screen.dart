@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,6 +17,7 @@ import 'package:striked/platform/herdr/herdr_client.dart';
 import 'package:striked/platform/shell/shell_connection.dart';
 import 'package:striked/features/home/agent_mark.dart';
 import 'package:striked/design/components/screen_scaffold.dart';
+import 'package:striked/features/agents/agent_session_feed.dart';
 import 'package:striked/features/agents/agent_shell.dart';
 
 void openAgentChat(BuildContext context, Host host, AgentSnapshot agent) {
@@ -46,169 +45,39 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   Host get _host =>
       ref.read(registeredHostProvider(widget.host.id)) ?? widget.host;
 
-  static const _pageLimit = 200;
-  static const _pagesPerTick = 20;
-  static const _kept = 400;
-
-  late final EngineOpen _open = ref.read(engineOpenProvider);
-  Future<EngineAgents>? _engine;
-  Timer? _timer;
-  late bool _visible = ref.read(appVisibleProvider);
-  bool _onStage = true;
-  bool _asking = false;
-  bool _gone = false;
-
-  late AgentSnapshot? _session = widget.agent;
-  final List<TranscriptItem> _items = [];
-  bool _cut = false;
-  int? _last;
-  bool _noTranscript = false;
-  bool _unnamed = false;
-  String? _failure;
-  String? _answering;
-  String? _answerLine;
+  late final AgentSessionFeed _feed;
 
   String get _key => widget.agent.paneId;
-
-  void _drop() {
-    final engine = _engine;
-    _engine = null;
-    unawaited(
-      engine?.then((engine) => engine.session.close(), onError: (_) {}),
-    );
-  }
 
   @override
   void initState() {
     super.initState();
+    _feed = AgentSessionFeed(
+      open: ref.read(engineOpenProvider),
+      target: () async => _host,
+      interval: AgentChatScreen.interval,
+      tag: 'chat',
+      visible: ref.read(appVisibleProvider),
+      key: _key,
+      session: widget.agent,
+    )..addListener(_changed);
     ref.listenManual<bool>(appVisibleProvider, (_, visible) {
-      _visible = visible;
-      _sync();
+      _feed.visible = visible;
     });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _onStage = TickerMode.valuesOf(context).enabled;
-    _sync();
+    _feed.onStage = TickerMode.valuesOf(context).enabled;
   }
 
-  void _sync() {
-    final run = _visible && _onStage;
-    if (run == (_timer != null)) return;
-    _timer?.cancel();
-    _timer = null;
-    if (!run) {
-      _drop();
-      return;
-    }
-    unawaited(_tick());
-    _timer = Timer.periodic(AgentChatScreen.interval, (_) => _tick());
-  }
+  void _changed() => setState(() {});
 
   @override
   void dispose() {
-    _gone = true;
-    _timer?.cancel();
-    _drop();
+    _feed.dispose();
     super.dispose();
-  }
-
-  Future<void> _tick() async {
-    if (_asking || _gone) return;
-    _asking = true;
-    try {
-      final engine = await (_engine ??= _open(_host));
-      if (_gone) return;
-      final watched = await engine.watch();
-      final session = watched.agents
-          .where((agent) => agent.paneId == _key)
-          .firstOrNull;
-      final read = await _read(engine);
-      if (_gone || !mounted) return;
-      setState(() {
-        _session = session;
-        _last = read.last;
-        _unnamed = read.unnamed;
-        _items.addAll(read.fresh);
-        if (_items.length > _kept) {
-          _items.removeRange(0, _items.length - _kept);
-          _cut = true;
-        }
-        _failure = read.failure;
-      });
-    } catch (error) {
-      debugPrint('striked.engine ${_host.name} chat: $error');
-      _drop();
-      if (_gone || !mounted) return;
-      setState(
-        () => _failure = switch (error) {
-          HerdrFailure() => error.line.on(_host.name),
-          EngineRefused() => _refusal(error),
-          _ => 'failed',
-        },
-      );
-    } finally {
-      _asking = false;
-    }
-  }
-
-  static String _refusal(EngineRefused error) =>
-      error.kind.replaceAll('_', ' ');
-
-  Future<
-    ({List<TranscriptItem> fresh, int? last, bool unnamed, String? failure})
-  >
-  _read(EngineAgents engine) async {
-    final fresh = <TranscriptItem>[];
-    var last = _last;
-    if (_noTranscript) {
-      return (fresh: fresh, last: last, unnamed: false, failure: null);
-    }
-    try {
-      for (var page = 0; page < _pagesPerTick; page++) {
-        final read = await engine.transcript(_key, after: last);
-        fresh.addAll(read.items);
-        final done = read.last == last || read.items.length < _pageLimit;
-        last = read.last;
-        if (done) break;
-      }
-    } on EngineRefused catch (error) {
-      _noTranscript = error.kind == 'unsupported';
-      final settled = error.notFound || _noTranscript;
-      return (
-        fresh: fresh,
-        last: last,
-        unnamed: error.notFound,
-        failure: settled ? null : _refusal(error),
-      );
-    }
-    return (fresh: fresh, last: last, unnamed: false, failure: null);
-  }
-
-  Future<void> _answer(AgentApproval approval, {required bool allow}) async {
-    setState(() {
-      _answering = approval.id;
-      _answerLine = null;
-    });
-    try {
-      final engine = await (_engine ??= _open(_host));
-      await engine.answer(approval.id, allow: allow);
-      if (mounted) setState(() => _answerLine = allow ? 'ALLOWED' : 'DENIED');
-    } on EngineRefused catch (error) {
-      if (mounted) {
-        setState(
-          () => _answerLine = error.notFound ? 'ALREADY ANSWERED' : 'REFUSED',
-        );
-      }
-    } catch (error) {
-      debugPrint('striked.engine ${_host.name} answer: $error');
-      if (mounted) setState(() => _answerLine = 'FAILED');
-    } finally {
-      if (mounted) setState(() => _answering = null);
-    }
-    unawaited(_tick());
   }
 
   PaneRef? _link(AgentPanelState? feed) {
@@ -227,7 +96,8 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   @override
   Widget build(BuildContext context) {
     ref.watch(registeredHostProvider(widget.host.id));
-    final session = _session;
+    final feed = _feed;
+    final session = feed.session;
     final link = _link(ref.watch(agentsFeedProvider).valueOrNull);
     final bar = _bar(context, session, link);
     return Scaffold(
@@ -255,28 +125,28 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                       ),
                       _Row('DIRECTORY', widget.agent.cwd),
                       _Row('HOST', _host.name),
-                      if (_failure != null)
-                        _Row('LINK', _failure!, color: context.tokens.warning),
+                      if (feed.failure case final failure?)
+                        _Row('LINK', failure, color: context.tokens.warning),
                     ],
                   ),
                 ),
                 Panel(
                   title: 'CONVERSATION',
-                  child: _noTranscript
+                  child: feed.noTranscript
                       ? const EmptyState('NO TRANSCRIPT')
-                      : _items.isEmpty
+                      : feed.items.isEmpty
                       ? EmptyState(
-                          _unnamed
+                          feed.unnamed
                               ? 'no transcript yet'
-                              : _last == null
+                              : feed.last == null
                               ? 'waiting for host'
                               : 'nothing yet',
                         )
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            if (_cut) const Meta('earlier lines cut'),
-                            for (final item in _items)
+                            if (feed.cut) const Meta('earlier lines cut'),
+                            for (final item in feed.items)
                               _Item(item, agent: widget.agent.agent),
                           ],
                         ),
@@ -317,7 +187,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
               ),
-              if (_answerLine != null) Meta(_answerLine!),
+              if (_feed.answerLine case final line?) Meta(line),
               const SizedBox(height: Spacing.sm),
               Row(
                 children: [
@@ -325,8 +195,8 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                     child: ActionBlock(
                       label: 'DENY',
                       tone: context.tokens.warning,
-                      onTap: _answering == null
-                          ? () => _answer(approval, allow: false)
+                      onTap: _feed.answering == null
+                          ? () => _feed.answer(_host, approval, allow: false)
                           : null,
                     ),
                   ),
@@ -336,8 +206,8 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                       label: 'ALLOW',
                       tone: context.tokens.accent,
                       filled: true,
-                      onTap: _answering == null
-                          ? () => _answer(approval, allow: true)
+                      onTap: _feed.answering == null
+                          ? () => _feed.answer(_host, approval, allow: true)
                           : null,
                     ),
                   ),

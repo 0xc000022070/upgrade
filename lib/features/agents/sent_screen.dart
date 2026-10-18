@@ -31,6 +31,7 @@ import 'package:striked/design/icons/striked_icons.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/design/tokens.dart';
 import 'package:striked/features/agents/agent_chat_screen.dart';
+import 'package:striked/features/agents/agent_session_feed.dart';
 import 'package:striked/features/agents/agent_shell.dart';
 import 'package:striked/features/home/agent_mark.dart';
 import 'package:striked/features/home/compose_sheet.dart';
@@ -249,153 +250,65 @@ class RunScreen extends ConsumerStatefulWidget {
 }
 
 class _RunScreenState extends ConsumerState<RunScreen> {
-  static const _pageLimit = 200;
-  static const _pagesPerTick = 20;
-  static const _kept = 400;
-
-  late final EngineOpen _open = ref.read(engineOpenProvider);
-  Future<EngineAgents>? _engine;
-  Timer? _timer;
-  late bool _visible = ref.read(appVisibleProvider);
-  bool _onStage = true;
-  bool _asking = false;
-  bool _disposed = false;
-
-  String? _key;
-  AgentSnapshot? _session;
-  bool _looked = false;
-  final List<TranscriptItem> _items = [];
-  bool _cut = false;
-  int? _last;
-  bool _noTranscript = false;
-  bool _unnamed = false;
-  bool _sessionGone = false;
-  String? _failure;
-  String? _answering;
-  String? _answerLine;
-
-  void _drop() {
-    final engine = _engine;
-    _engine = null;
-    unawaited(
-      engine?.then(
-        (engine) => engine.session.close(),
-        onError: (_) {
-          // ignored: an engine that never opened has nothing to close
-        },
-      ),
-    );
-  }
+  late final AgentSessionFeed _feed;
+  Dispatch? _send;
 
   @override
   void initState() {
     super.initState();
+    _feed = AgentSessionFeed(
+      open: ref.read(engineOpenProvider),
+      target: _target,
+      resolveKey: _resolve,
+      interval: RunScreen.interval,
+      tag: 'run',
+      visible: ref.read(appVisibleProvider),
+      settles: true,
+    )..addListener(_changed);
     ref.listenManual<bool>(appVisibleProvider, (_, visible) {
-      _visible = visible;
-      _sync();
+      _feed.visible = visible;
     });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _onStage = TickerMode.valuesOf(context).enabled;
-    _sync();
+    _feed.onStage = TickerMode.valuesOf(context).enabled;
   }
 
-  void _sync() {
-    final run = _visible && _onStage;
-    if (run == (_timer != null)) return;
-    _timer?.cancel();
-    _timer = null;
-    if (!run) {
-      _drop();
-      return;
-    }
-    unawaited(_tick());
-    _timer = Timer.periodic(RunScreen.interval, (_) => _tick());
-  }
+  void _changed() => setState(() {});
 
   @override
   void dispose() {
-    _disposed = true;
-    _timer?.cancel();
-    _drop();
+    _feed.dispose();
     super.dispose();
   }
 
-  Future<void> _tick() async {
-    if (_asking || _disposed || _sessionGone || _noTranscript) return;
-    _asking = true;
-    Host? host;
-    try {
-      final send = await ref.read(sendProvider(widget.sendId).future);
-      if (_disposed || send == null || send.paneId == null) return;
-      final integrations = await ref.read(
-        hostIntegrationsProvider(send.hostId).future,
-      );
-      host = ref.read(registeredHostProvider(send.hostId));
-      if (_disposed || host == null) return;
-      if (!integrations.contains(IntegrationKind.agents)) return;
-      final engine = await (_engine ??= _open(host));
-      if (_disposed) return;
-      final watched = await engine.watch();
-      final key =
-          _key ?? send.engineSession ?? await _match(engine, watched, send);
-      if (_disposed || !mounted) return;
-      if (key == null) {
-        setState(() => _looked = true);
-        return;
-      }
-      if (_key == null) {
-        _key = key;
-        if (send.engineSession != key) {
-          unawaited(
-            ref
-                .read(dispatchRepositoryProvider)
-                .linkSession(send.id, key)
-                .catchError(
-                  (Object error) => debugPrint('striked.sent: $error'),
-                ),
-          );
-        }
-      }
-      final session = watched.agents
-          .where((agent) => agent.paneId == key)
-          .firstOrNull;
-      final read = await _read(engine, key, listed: session != null);
-      if (_disposed || !mounted) return;
-      setState(() {
-        _looked = true;
-        _session = session;
-        _last = read.last;
-        _unnamed = read.unnamed;
-        _keep(read.fresh);
-        _failure = read.failure;
-      });
-    } catch (error) {
-      final name = host?.name ?? 'host';
-      debugPrint('striked.engine $name run: $error');
-      _drop();
-      if (_disposed || !mounted) return;
-      setState(
-        () => _failure = switch (error) {
-          HerdrFailure() => error.line.on(name),
-          EngineRefused() => error.kind.replaceAll('_', ' '),
-          _ => 'failed',
-        },
-      );
-    } finally {
-      _asking = false;
-    }
+  Future<Host?> _target() async {
+    final send = await ref.read(sendProvider(widget.sendId).future);
+    if (!mounted || send == null || send.paneId == null) return null;
+    final integrations = await ref.read(
+      hostIntegrationsProvider(send.hostId).future,
+    );
+    final host = ref.read(registeredHostProvider(send.hostId));
+    if (!mounted || host == null) return null;
+    if (!integrations.contains(IntegrationKind.agents)) return null;
+    _send = send;
+    return host;
   }
 
-  void _keep(List<TranscriptItem> fresh) {
-    _items.addAll(fresh);
-    if (_items.length > _kept) {
-      _items.removeRange(0, _items.length - _kept);
-      _cut = true;
+  Future<String?> _resolve(EngineAgents engine, EngineWatch watched) async {
+    final send = _send!;
+    final key = send.engineSession ?? await _match(engine, watched, send);
+    if (key != null && mounted && send.engineSession != key) {
+      unawaited(
+        ref
+            .read(dispatchRepositoryProvider)
+            .linkSession(send.id, key)
+            .catchError((Object error) => debugPrint('striked.sent: $error')),
+      );
     }
+    return key;
   }
 
   Future<String?> _match(
@@ -409,73 +322,15 @@ class _RunScreenState extends ConsumerState<RunScreen> {
       try {
         page = await engine.transcript(agent.paneId);
       } on EngineRefused catch (error) {
-        if (error.kind == 'unsupported') _noTranscript = true;
+        if (error.kind == 'unsupported') _feed.keepsNoTranscript();
         continue;
       }
       final first = firstPrompt(page.items);
       if (first == null || !promptMatches(first, send.text)) continue;
-      _keep(page.items);
-      _last = page.last;
+      _feed.seed(page);
       return agent.paneId;
     }
     return null;
-  }
-
-  Future<
-    ({List<TranscriptItem> fresh, int? last, bool unnamed, String? failure})
-  >
-  _read(EngineAgents engine, String key, {required bool listed}) async {
-    final fresh = <TranscriptItem>[];
-    var last = _last;
-    try {
-      for (var page = 0; page < _pagesPerTick; page++) {
-        final read = await engine.transcript(key, after: last);
-        fresh.addAll(read.items);
-        final done = read.last == last || read.items.length < _pageLimit;
-        last = read.last;
-        if (done) break;
-      }
-    } on EngineRefused catch (error) {
-      _noTranscript = error.kind == 'unsupported';
-      _sessionGone = error.notFound && !listed;
-      final settled = error.notFound || _noTranscript;
-      if (_sessionGone) _drop();
-      return (
-        fresh: fresh,
-        last: last,
-        unnamed: error.notFound && listed,
-        failure: settled ? null : error.kind.replaceAll('_', ' '),
-      );
-    }
-    return (fresh: fresh, last: last, unnamed: false, failure: null);
-  }
-
-  Future<void> _answer(
-    Host host,
-    AgentApproval approval, {
-    required bool allow,
-  }) async {
-    setState(() {
-      _answering = approval.id;
-      _answerLine = null;
-    });
-    try {
-      final engine = await (_engine ??= _open(host));
-      await engine.answer(approval.id, allow: allow);
-      if (mounted) setState(() => _answerLine = allow ? 'ALLOWED' : 'DENIED');
-    } on EngineRefused catch (error) {
-      if (mounted) {
-        setState(
-          () => _answerLine = error.notFound ? 'ALREADY ANSWERED' : 'REFUSED',
-        );
-      }
-    } catch (error) {
-      debugPrint('striked.engine ${host.name} answer: $error');
-      if (mounted) setState(() => _answerLine = 'FAILED');
-    } finally {
-      if (mounted) setState(() => _answering = null);
-    }
-    unawaited(_tick());
   }
 
   @override
@@ -503,7 +358,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
         : null;
     final live = feed == null ? null : paneStateOf(feed, send);
     final state = _rowState(context, send, live);
-    final session = _session;
+    final session = _feed.session;
     final pane = switch ((send.herdrSession, send.paneId)) {
       (final String session, final String pane)
           when live != null && live != endedState =>
@@ -545,12 +400,8 @@ class _RunScreenState extends ConsumerState<RunScreen> {
                           send.failure!,
                           color: context.tokens.danger,
                         ),
-                      if (_failure != null)
-                        _Field(
-                          'LINK',
-                          _failure!,
-                          color: context.tokens.warning,
-                        ),
+                      if (_feed.failure case final failure?)
+                        _Field('LINK', failure, color: context.tokens.warning),
                     ],
                   ),
                 ),
@@ -581,7 +432,8 @@ class _RunScreenState extends ConsumerState<RunScreen> {
         ),
       );
     }
-    if (_noTranscript) {
+    final feed = _feed;
+    if (feed.noTranscript) {
       return Panel(
         title: 'STEPS',
         child: _Timeline(
@@ -590,24 +442,24 @@ class _RunScreenState extends ConsumerState<RunScreen> {
         ),
       );
     }
-    if (_sessionGone) {
+    if (feed.sessionGone) {
       return Panel(title: 'SESSION GONE', child: _Timeline(send));
     }
-    if (_items.isEmpty) {
+    if (feed.items.isEmpty) {
       return Panel(
         title: 'STEPS',
         child: EmptyState(
-          _unnamed
+          feed.unnamed
               ? 'no transcript yet'
-              : _looked
-              ? (_key == null ? 'no session yet' : 'nothing yet')
+              : feed.looked
+              ? (feed.key == null ? 'no session yet' : 'nothing yet')
               : 'waiting for host',
         ),
       );
     }
     final ended = session == null || session.state.resting;
     final lines = runLines(
-      _items,
+      feed.items,
       agent: send.agent,
       approval: session?.approval,
       ended: ended,
@@ -617,7 +469,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_cut) const Meta('earlier lines cut'),
+          if (feed.cut) const Meta('earlier lines cut'),
           for (final line in lines) _RunLineView(line),
         ],
       ),
@@ -625,11 +477,14 @@ class _RunScreenState extends ConsumerState<RunScreen> {
   }
 
   Widget? _bar(BuildContext context, Host host, Dispatch send, PaneRef? pane) {
-    final session = _session;
+    final session = _feed.session;
     final approval = session?.approval;
-    final key = _key;
-    final conversation = key != null && !_sessionGone;
-    if (approval == null && pane == null && !conversation) return null;
+    final question = session?.question;
+    final key = _feed.key;
+    final conversation = key != null && !_feed.sessionGone;
+    if (approval == null && question == null && pane == null && !conversation) {
+      return null;
+    }
     return SafeArea(
       top: false,
       child: Container(
@@ -654,7 +509,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
               ),
-              if (_answerLine != null) Meta(_answerLine!),
+              if (_feed.answerLine case final line?) Meta(line),
               const SizedBox(height: Spacing.sm),
               Row(
                 children: [
@@ -662,8 +517,8 @@ class _RunScreenState extends ConsumerState<RunScreen> {
                     child: ActionBlock(
                       label: 'DENY',
                       tone: context.tokens.warning,
-                      onTap: _answering == null
-                          ? () => _answer(host, approval, allow: false)
+                      onTap: _feed.answering == null
+                          ? () => _feed.answer(host, approval, allow: false)
                           : null,
                     ),
                   ),
@@ -673,14 +528,20 @@ class _RunScreenState extends ConsumerState<RunScreen> {
                       label: 'ALLOW',
                       tone: context.tokens.accent,
                       filled: true,
-                      onTap: _answering == null
-                          ? () => _answer(host, approval, allow: true)
+                      onTap: _feed.answering == null
+                          ? () => _feed.answer(host, approval, allow: true)
                           : null,
                     ),
                   ),
                 ],
               ),
-            ],
+            ] else if (question != null)
+              Text(
+                question,
+                style: context.tokens.value,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+              ),
             Row(
               children: [
                 if (pane != null)
@@ -813,7 +674,7 @@ class _RunLineViewState extends State<_RunLineView> {
       SaidLine(:final text, :final first) => _tappable(
         Text(
           _open ? text : first,
-          style: tokens.value.copyWith(color: tokens.textMuted),
+          style: tokens.value,
           maxLines: _open ? null : 1,
           overflow: _open ? null : TextOverflow.ellipsis,
         ),
