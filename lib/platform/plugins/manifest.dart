@@ -331,11 +331,14 @@ class PluginManifest {
         if (declaredSurfaces.length != values.length) {
           throw const PluginException('Duplicate native surface');
         }
-        final widgets = _widgetContributions(contributes['widgets']);
+        final widgets = _widgetContributions(
+          contributes['widgets'],
+          native: true,
+        );
         final pages = _pageContributions(contributes['pages'], native: true);
         final surfaces = {
           ...declaredSurfaces,
-          ...widgets.map((widget) => widget.surface),
+          ...widgets.map((widget) => widget.surface!),
           ...pages.map((page) => page.surface!),
         };
         if (surfaces.isEmpty) {
@@ -546,7 +549,7 @@ class PluginManifest {
           ui.any(
             (entry) =>
                 entry != 'record_action' &&
-                (!hasUi || !{'page', 'canvas'}.contains(entry)),
+                (!hasUi || !{'page', 'canvas', 'widget'}.contains(entry)),
           )) {
         throw const PluginException('Unsupported UI permission');
       }
@@ -569,8 +572,16 @@ class PluginManifest {
           ),
         );
       }
+      if (ui.contains('widget')) {
+        permissions.add(
+          const PluginPermission('ui.widget', 'Draw Home cards; UI API 1'),
+        );
+      }
       final contributions = _map(root['contributes'], 'contributes');
-      _keys(contributions, {'record_actions', if (hasUi) 'pages'});
+      _keys(contributions, {
+        'record_actions',
+        if (hasUi) ...{'pages', 'widgets'},
+      });
       final declaredActions = contributions['record_actions'] ?? <Object?>[];
       if (declaredActions is! List<Object?> ||
           !hasUi && declaredActions.isEmpty ||
@@ -597,8 +608,25 @@ class PluginManifest {
       if (pages.isNotEmpty && !ui.contains('page')) {
         throw const PluginException('Pages require ui.page');
       }
-      if (actions.isEmpty && pages.isEmpty) {
-        throw const PluginException('Declare an action or page');
+      final widgets = _widgetContributions(
+        contributions['widgets'],
+        native: false,
+      );
+      if (widgets.isNotEmpty && !ui.contains('widget')) {
+        throw const PluginException('Widgets require ui.widget');
+      }
+      for (final widget in widgets) {
+        if (widget.refresh case final every?) {
+          permissions.add(
+            PluginPermission(
+              'ui.widget.${widget.id}.refresh.${every.inMinutes}',
+              'Refresh the ${widget.title} card every ${every.inMinutes} min while Home is open',
+            ),
+          );
+        }
+      }
+      if (actions.isEmpty && pages.isEmpty && widgets.isEmpty) {
+        throw const PluginException('Declare an action, page or widget');
       }
       final hostCapabilities = <String, PluginHostCapability>{};
       final hostFields = _map(
@@ -648,6 +676,7 @@ class PluginManifest {
         datasets: Map.unmodifiable(datasets),
         capabilities: Map.unmodifiable(capabilities),
         pages: List.unmodifiable(pages),
+        widgets: List.unmodifiable(widgets),
         hostCapabilities: Map.unmodifiable(hostCapabilities),
         uiVersion: hasUi ? root['ui_api']! as int : null,
         formatVersion: format,
@@ -731,7 +760,10 @@ String _contract(Object? value) {
   return contract;
 }
 
-List<PluginWidgetContribution> _widgetContributions(Object? value) {
+List<PluginWidgetContribution> _widgetContributions(
+  Object? value, {
+  required bool native,
+}) {
   final declared = value ?? <Object?>[];
   if (declared is! List<Object?> || declared.length > 16) {
     throw const PluginException('At most 16 plugin widgets');
@@ -750,11 +782,14 @@ List<PluginWidgetContribution> _widgetContributions(Object? value) {
           'default_location',
           'sizes',
           'default_size',
+          if (!native) 'refresh_minutes',
         });
         final id = _identifier(widget['id']);
-        final surface = _identifier(widget['surface']);
+        final surface = native
+            ? _identifier(widget['surface'])
+            : _forbidden(widget['surface']);
         if (!ids.add(id)) throw const PluginException('Duplicate widget ID');
-        if (!surfaces.add(surface)) {
+        if (surface != null && !surfaces.add(surface)) {
           throw const PluginException('Duplicate widget surface');
         }
         final rawLocations = widget['locations'];
@@ -768,7 +803,9 @@ List<PluginWidgetContribution> _widgetContributions(Object? value) {
           final location = rawLocation is String
               ? PluginPlacementLocation.fromId(rawLocation)
               : null;
-          if (location == null || !locations.add(location)) {
+          if (location == null ||
+              !native && location != PluginPlacementLocation.homeCard ||
+              !locations.add(location)) {
             throw const PluginException(
               'Unsupported or duplicate widget location',
             );
@@ -838,6 +875,15 @@ List<PluginWidgetContribution> _widgetContributions(Object? value) {
         if (!sizeIds.contains(defaultSize)) {
           throw const PluginException('Invalid default widget size');
         }
+        final minutes = widget['refresh_minutes'];
+        if (minutes != null &&
+            (minutes is! int ||
+                minutes < PluginWidgetContribution.minRefreshMinutes ||
+                minutes > 1440)) {
+          throw const PluginException(
+            'Widget refresh must be 15 to 1440 minutes',
+          );
+        }
         return PluginWidgetContribution(
           id: id,
           title: _text(widget['title'], 'widget title', 48),
@@ -846,6 +892,7 @@ List<PluginWidgetContribution> _widgetContributions(Object? value) {
           defaultLocation: defaultLocation,
           sizes: List.unmodifiable(sizes),
           defaultSize: defaultSize,
+          refresh: minutes is int ? Duration(minutes: minutes) : null,
         );
       })(),
   ];
@@ -889,6 +936,13 @@ List<PluginPageContribution> _pageContributions(
         );
       })(),
   ];
+}
+
+Never? _forbidden(Object? value) {
+  if (value != null) {
+    throw const PluginException('Script widgets cannot name a native surface');
+  }
+  return null;
 }
 
 double? _dimension(Object? value, String field) {

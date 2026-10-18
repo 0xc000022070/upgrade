@@ -24,6 +24,7 @@ import 'package:striked/design/components/screen_scaffold.dart';
 import 'package:striked/features/tasks/item_search_screen.dart';
 import 'package:striked/features/tasks/selection_bar.dart';
 import 'package:striked/features/devices/screens_action.dart';
+import 'package:striked/features/plugins/plugin_card.dart';
 import 'package:striked/features/plugins/plugin_management_screen.dart';
 import 'package:striked/features/plugins/plugin_promise.dart';
 import 'package:striked/features/home/agents_panel.dart';
@@ -397,7 +398,9 @@ class _PlacedPluginWidget extends StatelessWidget {
   Widget build(BuildContext context) => _PlacedPluginBounds(
     registration: registration,
     placements: placements,
-    child: NativeContributionSurface.widget(registration),
+    child: registration.luau
+        ? PluginCard(registration: registration)
+        : NativeContributionSurface.widget(registration),
   );
 }
 

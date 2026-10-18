@@ -240,12 +240,32 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
     throw const PluginException('Plugin is disabled or removed');
   }
 
-  Future<LuauResult> frame(String id, Map<String, Object?> input) async {
+  Future<LuauResult> frame(String id, Map<String, Object?> input) =>
+      _ui(id, 'frame', 'ui.page', input);
+
+  Future<LuauResult> card(
+    String id,
+    String widget,
+    Map<String, Object?> input,
+  ) {
+    final plugin = _enabled(id);
+    if (!plugin.manifest.widgets.any((entry) => entry.id == widget)) {
+      throw const PluginException('Widget is not declared');
+    }
+    return _ui(id, 'card', 'ui.widget', {...input, 'widget': widget});
+  }
+
+  Future<LuauResult> _ui(
+    String id,
+    String action,
+    String permission,
+    Map<String, Object?> input,
+  ) async {
     final plugin = _enabled(id);
     final generation = activation(id);
     if (plugin.manifest.uiVersion != 1 && plugin.manifest.uiVersion != 2 ||
-        !plugin.grants.any((permission) => permission.id == 'ui.page')) {
-      throw const PluginException('Plugin pages are not supported or granted');
+        !plugin.grants.any((grant) => grant.id == permission)) {
+      throw const PluginException('Plugin UI is not supported or granted');
     }
     final data = bindPluginData(id, state.requireValue);
     final worker = await ref.read(pluginRuntimeProvider.future);
@@ -260,7 +280,7 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
     final result = await worker.invoke(
       key: 'ui1:${plugin.package.digest}',
       source: '$luauUiSdk\n${plugin.package.linkedSource}',
-      action: 'frame',
+      action: action,
       input: input,
       data: data,
     );

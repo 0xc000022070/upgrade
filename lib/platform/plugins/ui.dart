@@ -22,12 +22,48 @@ class PluginUiNode {
   final List<PluginUiNode> children;
   String get key => props['key']! as String;
 
-  static PluginUiNode parse(Object? source, {required bool allowCanvas}) {
+  static const _fillingCardKinds = {
+    'panel',
+    'section',
+    'column',
+    'box',
+    'list_row',
+    'bracket_label',
+  };
+
+  static const _cardKinds = {
+    'panel',
+    'section',
+    'column',
+    'row',
+    'box',
+    'text',
+    'button',
+    'list_row',
+    'status_tag',
+    'bracket_label',
+    'spacer',
+    'divider',
+    'canvas',
+  };
+
+  static PluginUiNode parse(
+    Object? source, {
+    required bool allowCanvas,
+    bool card = false,
+  }) {
     var count = 0;
     var drawingCommands = 0;
     final keys = <String>{};
-    PluginUiNode read(Object? value, int depth) {
-      if (++count > 2048 || depth > 24 || value is! Map<String, Object?>) {
+    PluginUiNode read(
+      Object? value,
+      int depth, {
+      String? parent,
+      bool bounded = true,
+    }) {
+      if (++count > (card ? 256 : 2048) ||
+          depth > 24 ||
+          value is! Map<String, Object?>) {
         throw const PluginException('UI exceeds its node or depth limit');
       }
       final kind = value['kind'];
@@ -63,6 +99,21 @@ class PluginUiNode {
         throw const PluginException(
           'Unknown UI primitive or invalid properties',
         );
+      }
+      final flex = props['flex'];
+      final inRow = parent == 'row' && bounded;
+      // A card has no height to share and an unflexed row child no width, so
+      // anything that fills its parent needs one handed to it.
+      final wide =
+          props['width'] is num ||
+          (parent == 'row' ? inRow && flex is num && flex.toInt() > 0 : bounded);
+      if (card &&
+          (!_cardKinds.contains(kind) ||
+              depth == 0 && kind != 'panel' ||
+              flex != null && !inRow ||
+              !wide && _fillingCardKinds.contains(kind) ||
+              props['interactive'] == true)) {
+        throw const PluginException('A card is one panel of display nodes');
       }
       final key = props['key'];
       if (key is! String || key.isEmpty || key.length > 160 || !keys.add(key)) {
@@ -176,7 +227,8 @@ class PluginUiNode {
         }
       }
       final children = [
-        for (final child in uiList(value['children'])) read(child, depth + 1),
+        for (final child in uiList(value['children']))
+          read(child, depth + 1, parent: kind, bounded: wide),
       ];
       return PluginUiNode(
         kind,

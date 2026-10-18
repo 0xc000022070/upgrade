@@ -78,8 +78,9 @@ class PluginWidgetRegistration {
   final PluginWidgetContribution contribution;
   final WidgetBuilder? builder;
   String get stableId => contribution.stableId(owner.id);
+  bool get luau => contribution.surface == null;
   bool get enabled =>
-      owner.enabled && owner.manifest.supported && builder != null;
+      owner.enabled && owner.manifest.supported && (luau || builder != null);
 }
 
 class PluginPageRegistration {

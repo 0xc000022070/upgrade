@@ -94,15 +94,19 @@ class PluginWidgetContribution {
     required this.defaultLocation,
     required this.sizes,
     required this.defaultSize,
+    this.refresh,
   });
+
+  static const minRefreshMinutes = 15;
 
   final String id;
   final String title;
-  final String surface;
+  final String? surface;
   final Set<PluginPlacementLocation> locations;
   final PluginPlacementLocation defaultLocation;
   final List<PluginWidgetSize> sizes;
   final String defaultSize;
+  final Duration? refresh;
 
   PluginWidgetSize size(String id) =>
       sizes.singleWhere((size) => size.id == id);
