@@ -227,20 +227,23 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   void _drop(MediaQueryData media, Velocity velocity) {
     final dropped = _dragAt;
     if (dropped == null) return;
-    final center = dropped + _dragSize.center(Offset.zero);
-    final thrown = center + velocity.pixelsPerSecond * _throw;
     final close = _overClose;
-    final tucked = center.dx < 0 || center.dx > media.size.width;
+    final settled = _settle(
+      dropped,
+      _dragSize,
+      velocity.pixelsPerSecond,
+      media.size.width,
+    );
     setState(() {
-      _right = (tucked ? center : thrown).dx > media.size.width / 2;
-      _top = dropped.dy + velocity.pixelsPerSecond.dy * _throw;
+      _right = settled.right;
+      _top = settled.top;
       _dragAt = null;
       _overClose = false;
       _menu = false;
     });
     if (close) {
       _dock.close();
-    } else if (tucked) {
+    } else if (settled.tucked) {
       _dock.tuck();
     }
   }
@@ -509,6 +512,22 @@ Offset _target(MediaQueryData media) =>
 
 bool _overTarget(Offset pointer, MediaQueryData media) =>
     (pointer - _target(media)).distance < deviceCloseTarget;
+
+({bool right, double top, bool tucked}) _settle(
+  Offset dropped,
+  Size size,
+  Offset velocity,
+  double screenWidth,
+) {
+  final center = dropped + size.center(Offset.zero);
+  final fling = velocity * _throw;
+  final tucked = center.dx < 0 || center.dx > screenWidth;
+  return (
+    right: (tucked ? center : center + fling).dx > screenWidth / 2,
+    top: dropped.dy + fling.dy,
+    tucked: tucked,
+  );
+}
 
 class _CloseSlot extends StatelessWidget {
   const _CloseSlot({required this.hot});
@@ -829,19 +848,22 @@ class _FloatWindowState extends State<_FloatWindow> {
         return;
       }
       final close = _overClose;
-      final center = dropped + size.center(Offset.zero);
-      final fling = details.velocity.pixelsPerSecond * _throw;
-      final tucked = center.dx < 0 || center.dx > screen.width;
+      final settled = _settle(
+        dropped,
+        size,
+        details.velocity.pixelsPerSecond,
+        screen.width,
+      );
       setState(() {
-        _right = (tucked ? center : center + fling).dx > screen.width / 2;
-        _top = dropped.dy + fling.dy;
+        _right = settled.right;
+        _top = settled.top;
         _dragAt = null;
         _pointer = null;
         _gesturing = false;
         _overClose = false;
       });
       if (close) return widget.onClose();
-      if (tucked) widget.onCollapse();
+      if (settled.tucked) widget.onCollapse();
     }
 
     final id = widget.id;
