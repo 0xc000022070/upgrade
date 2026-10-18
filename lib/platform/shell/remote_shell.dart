@@ -39,47 +39,9 @@ String shellMarked(String mark, {String? command}) {
       '${command ?? 'exec \$SHELL -l'}';
 }
 
-const durableShellSocket = 'striked';
-
 final durableShellSession = shellMark;
 
 const moshTabVariable = 'STRIKED_MOSH_TAB';
-
-String durableShellProbeCommand(String session) {
-  assert(durableShellSession.hasMatch(session));
-  final target = shellQuote(session);
-  final script =
-      'p=\$(command -v tmux) || exit 127; '
-      'printf "STRIKED_TMUX=%s\\n" "\$p"; '
-      'if "\$p" -L $durableShellSocket has-session -t $target 2>/dev/null; '
-      'then printf "STRIKED_RESUME=1\\n"; '
-      'else printf "STRIKED_RESUME=0\\n"; fi';
-  return 'exec "\$SHELL" -lc ${shellQuote(script)}';
-}
-
-String durableShellCommand(String tmux, String session, String command) {
-  assert(tmux.startsWith('/'));
-  assert(durableShellSession.hasMatch(session));
-  return 'exec ${shellQuote(tmux)} -L $durableShellSocket '
-      'new-session -A -s ${shellQuote(session)} ${shellQuote(command)}';
-}
-
-String durableShellTerminateCommand(String tmux, String session) {
-  assert(tmux.startsWith('/'));
-  assert(durableShellSession.hasMatch(session));
-  final client = '${shellQuote(tmux)} -L $durableShellSocket';
-  return underSh(
-    'if $client has-session -t ${shellQuote(session)} 2>/dev/null; '
-    'then $client kill-session -t ${shellQuote(session)}; fi',
-  );
-}
-
-String durableShellDirectoryCommand(String tmux, String session) {
-  assert(tmux.startsWith('/'));
-  assert(durableShellSession.hasMatch(session));
-  return '${shellQuote(tmux)} -L $durableShellSocket display-message -p '
-      '-t ${shellQuote('$session:')} ${shellQuote('#{pane_current_path}')}';
-}
 
 String moshServerProbeCommand() {
   const script =

@@ -571,7 +571,6 @@ Future<ShellConnection> openOn(
   ShellTunnel tunnel, {
   String? command,
   String? tabSession,
-  String? persistentSession,
   HostKeyVerifier? verifier,
   void Function(Reconnect retry)? failed,
 }) => tunnel.open(
@@ -584,7 +583,6 @@ Future<ShellConnection> openOn(
   rows: 40,
   command: command,
   tabSession: tabSession,
-  persistentSession: persistentSession,
   verifier: verifier ?? HostKeyVerifier.pinnedOnly(pinnedKey),
   failed: failed,
 );
@@ -619,13 +617,9 @@ Future<ShellFailureKind> kindOf(Future<void> Function() body) async {
   fail('the open was expected to fail');
 }
 
-const _tmuxPath = '/nix/store/tmux/bin/tmux';
 const _moshPath = '/nix/store/mosh/bin/mosh-server';
 
-String moshHostAnswer(String command, {bool tmux = true}) {
-  if (command == durableShellProbeCommand('striked123')) {
-    return tmux ? 'STRIKED_TMUX=$_tmuxPath\nSTRIKED_RESUME=0\n' : '';
-  }
+String moshHostAnswer(String command) {
   if (command == moshServerProbeCommand()) {
     return 'profile noise\nSTRIKED_MOSH=$_moshPath\n';
   }
@@ -666,64 +660,7 @@ void main() {
       },
     );
 
-    test('a durable tab starts inside its own tmux server', () async {
-      const tmux = '/nix/store/tmux/bin/tmux';
-      const session = 'striked123';
-      const command = 'export STRIKED_TAB=striked123; exec \$SHELL -l';
-      final host = FakeHost(
-        execOut: 'noise\nSTRIKED_TMUX=$tmux\nSTRIKED_RESUME=0\n',
-      );
-
-      final connection = await openOn(
-        tunnelTo(host),
-        command: command,
-        persistentSession: session,
-      );
-      addTearDown(() => connection.close(UserClosed(testIntent())));
-
-      expect(connection.continuity, ShellContinuity.started);
-      expect(host.requests, [
-        'exec ${durableShellProbeCommand(session)}',
-        'run ${durableShellCommand(tmux, session, command)} '
-            'xterm-256color 100x40',
-      ]);
-    });
-
-    test('an existing durable tab is classified as resumed', () async {
-      const tmux = '/usr/bin/tmux';
-      const session = 'striked123';
-      final host = FakeHost(execOut: 'STRIKED_TMUX=$tmux\nSTRIKED_RESUME=1\n');
-
-      final connection = await openOn(
-        tunnelTo(host),
-        command: 'exec \$SHELL -l',
-        persistentSession: session,
-      );
-      addTearDown(() => connection.close(UserClosed(testIntent())));
-
-      expect(connection.continuity, ShellContinuity.resumed);
-    });
-
-    test('a host without tmux keeps the plain SSH command', () async {
-      const session = 'striked123';
-      const command = 'exec \$SHELL -l';
-      final host = FakeHost(execCode: 127);
-
-      final connection = await openOn(
-        tunnelTo(host),
-        command: command,
-        persistentSession: session,
-      );
-      addTearDown(() => connection.close(UserClosed(testIntent())));
-
-      expect(connection.continuity, ShellContinuity.plain);
-      expect(host.requests, [
-        'exec ${durableShellProbeCommand(session)}',
-        'run $command xterm-256color 100x40',
-      ]);
-    });
-
-    test('Mosh carries a durable shell and rehomes its UDP socket', () async {
+    test('Mosh carries a tab and rehomes its UDP socket', () async {
       const session = 'striked123';
       const command = 'export STRIKED_TAB=striked123; exec \$SHELL -l';
       final host = FakeHost()..execAnswer = moshHostAnswer;
@@ -732,11 +669,10 @@ void main() {
         moshTunnelTo(host, channel),
         command: command,
         tabSession: session,
-        persistentSession: session,
       );
 
       expect(connection, isA<MoshShellConnection>());
-      expect(connection.continuity, ShellContinuity.started);
+      expect(connection.continuity, ShellContinuity.plain);
       expect(host.requests, contains('exec ${moshServerProbeCommand()}'));
       expect(
         host.requests,
@@ -751,7 +687,7 @@ void main() {
             request.contains('mosh-server') && request.contains(' new '),
       );
       expect(launch, contains("$moshTabVariable='striked123'"));
-      expect(launch, contains("-- sh -c 'exec '\\''$_tmuxPath'"));
+      expect(launch, contains('-- sh -c ${shellQuote(command)}'));
 
       connection.write(Uint8List.fromList([0x6c, 0x73, 0x0d]));
       connection.resize(91, 37);
@@ -909,7 +845,6 @@ void main() {
         moshTunnelOver(hosts, channel, () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
-        persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(testIntent())));
 
@@ -953,7 +888,6 @@ void main() {
         moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
-        persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(testIntent())));
 
@@ -984,7 +918,6 @@ void main() {
         moshTunnelOver(hosts, channel, () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
-        persistentSession: session,
       );
 
       hosts.first.refuse = StateError('control host failed');
@@ -1017,7 +950,6 @@ void main() {
         moshTunnelOver([host], FakeMoshChannel(), () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
-        persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(testIntent())));
 
@@ -1056,12 +988,13 @@ void main() {
             ),
             command: 'exec \$SHELL -l',
             tabSession: session,
-            persistentSession: session,
             failed: retries.add,
           ),
           throwsA(anything),
         );
-        expect(host.requests, ['exec ${durableShellProbeCommand(session)}']);
+        expect(host.requests, [
+          'exec $moshTabVariable=${shellQuote(session)} strikedddd',
+        ]);
         expect(retries, hasLength(1));
       },
     );
@@ -1124,7 +1057,6 @@ void main() {
         moshTunnelOver(hosts, channel, () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
-        persistentSession: session,
       );
 
       await connection.rehome();
@@ -1162,7 +1094,6 @@ void main() {
         moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
-        persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(testIntent())));
 
@@ -1203,7 +1134,6 @@ void main() {
         moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
-        persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(testIntent())));
       hosts.first.die();
@@ -1230,7 +1160,6 @@ void main() {
         moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
-        persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(testIntent())));
       hosts.first.die();
@@ -1274,7 +1203,6 @@ void main() {
         moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
-        persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(testIntent())));
       hosts.first.die();
@@ -1312,7 +1240,6 @@ void main() {
             moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
             command: 'exec \$SHELL -l',
             tabSession: session,
-            persistentSession: session,
           ),
         );
         final links = <ControlLink>[];
@@ -1397,7 +1324,6 @@ void main() {
           ),
           command: 'exec \$SHELL -l',
           tabSession: session,
-          persistentSession: session,
         ).then((connection) => opened = connection),
       );
       for (var i = 0; i < 100 && opened == null; i++) {
@@ -1462,7 +1388,6 @@ void main() {
             moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
             command: 'exec \$SHELL -l',
             tabSession: session,
-            persistentSession: session,
           ),
         );
         hosts.first.die();
@@ -1505,7 +1430,6 @@ void main() {
           moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
           command: 'exec \$SHELL -l',
           tabSession: session,
-          persistentSession: session,
         ),
       );
       final links = <ControlLink>[];
@@ -1550,7 +1474,6 @@ void main() {
             ], verifiers),
             command: 'exec \$SHELL -l',
             tabSession: session,
-            persistentSession: session,
           ),
         );
         final links = <ControlLink>[];
@@ -1601,7 +1524,6 @@ void main() {
           ], verifiers),
           command: 'exec \$SHELL -l',
           tabSession: session,
-          persistentSession: session,
           verifier: HostKeyVerifier.pinnedOnly(null),
         ),
       );
@@ -1652,7 +1574,6 @@ void main() {
         moshTunnelOver([host], FakeMoshChannel(), () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
-        persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(testIntent())));
       final before = host.requests.length;
@@ -1677,7 +1598,6 @@ void main() {
         moshTunnelOver([host], FakeMoshChannel(), () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
-        persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(testIntent())));
 
@@ -1696,7 +1616,6 @@ void main() {
         moshTunnelOver([host], FakeMoshChannel(), () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
-        persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(testIntent())));
 
@@ -1726,7 +1645,6 @@ void main() {
         moshTunnelOver(hosts, channel, () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
-        persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(testIntent())));
 
@@ -1783,7 +1701,6 @@ void main() {
         moshTunnelOver(hosts, FakeMoshChannel(), () => dials++),
         command: 'exec \$SHELL -l',
         tabSession: session,
-        persistentSession: session,
       );
       addTearDown(() => connection.close(UserClosed(testIntent())));
       final lease = await connection.channelsFor(UserAction(testIntent()));
@@ -1810,7 +1727,6 @@ void main() {
         ),
         command: command,
         tabSession: session,
-        persistentSession: session,
       );
 
       expect(connection, isA<SshShellConnection>());
@@ -1821,11 +1737,7 @@ void main() {
         ),
         hasLength(2),
       );
-      expect(
-        host.requests.last,
-        'run ${durableShellCommand(_tmuxPath, session, command)} '
-        'xterm-256color 100x40',
-      );
+      expect(host.requests.last, 'run $command xterm-256color 100x40');
       await connection.close(UserClosed(testIntent()));
     });
 
@@ -1846,7 +1758,6 @@ void main() {
           ),
           command: 'exec \$SHELL -l',
           tabSession: session,
-          persistentSession: session,
           failed: retries.add,
         ),
         throwsStateError,
@@ -1877,7 +1788,6 @@ void main() {
         moshTunnelTo(host, FakeMoshChannel()),
         command: command,
         tabSession: session,
-        persistentSession: session,
       );
 
       expect(connection, isA<SshShellConnection>());
@@ -1887,11 +1797,7 @@ void main() {
         ),
         hasLength(2),
       );
-      expect(
-        host.requests.last,
-        'run ${durableShellCommand(_tmuxPath, session, command)} '
-        'xterm-256color 100x40',
-      );
+      expect(host.requests.last, 'run $command xterm-256color 100x40');
       await connection.close(UserClosed(testIntent()));
     });
 
@@ -1925,7 +1831,7 @@ void main() {
       );
     });
 
-    test('a Herdr pane uses Mosh without nesting tmux', () async {
+    test('a Herdr pane rides Mosh as its own command', () async {
       const session = 'striked123';
       const command = "env HERDR_SESSION='work' herdr agent attach 'w2a:p3'";
       final host = FakeHost()..execAnswer = moshHostAnswer;
@@ -1937,19 +1843,12 @@ void main() {
       );
 
       expect(connection, isA<MoshShellConnection>());
-      expect(
-        host.requests,
-        isNot(contains('exec ${durableShellProbeCommand(session)}')),
-      );
       final launch = host.requests.singleWhere(
         (request) =>
             request.contains('mosh-server') && request.contains(' new '),
       );
       expect(launch, contains(shellQuote(command)));
-      expect(
-        await connection.terminateRemote(session, durableShell: false),
-        isTrue,
-      );
+      expect(await connection.terminateRemote(session), isTrue);
       expect(host.requests.last, 'exec ${moshServerCleanupCommand(session)}');
       await connection.close(UserClosed(testIntent()));
     });
@@ -2139,50 +2038,6 @@ void main() {
       expect(host.pty.closed, isTrue);
       expect(host.closed, isTrue);
       expect(await connection.exitCode, isNull);
-    });
-
-    test('ending a durable shell kills only its named tmux session', () async {
-      const tmux = '/usr/bin/tmux';
-      const session = 'striked123';
-      final host = FakeHost(execOut: 'STRIKED_TMUX=$tmux\nSTRIKED_RESUME=1\n');
-      final connection = await openOn(
-        tunnelTo(host),
-        command: 'exec \$SHELL -l',
-        persistentSession: session,
-      );
-
-      host
-        ..execOut = ''
-        ..execCode = 0;
-      expect(
-        await connection.terminateRemote(session, durableShell: true),
-        isTrue,
-      );
-
-      expect(
-        host.requests.last,
-        'exec ${durableShellTerminateCommand(tmux, session)}',
-      );
-      await connection.close(UserClosed(testIntent()));
-    });
-
-    test('a durable shell reports the active pane directory', () async {
-      const tmux = '/usr/bin/tmux';
-      const session = 'striked123';
-      final host = FakeHost(execOut: 'STRIKED_TMUX=$tmux\nSTRIKED_RESUME=1\n');
-      final connection = await openOn(
-        tunnelTo(host),
-        command: 'exec \$SHELL -l',
-        persistentSession: session,
-      );
-
-      host.execOut = '/srv/striked\n';
-      expect(await connection.remoteDirectory(session), '/srv/striked');
-      expect(
-        host.requests.last,
-        'exec ${durableShellDirectoryCommand(tmux, session)}',
-      );
-      await connection.close(UserClosed(testIntent()));
     });
   });
 
@@ -2826,23 +2681,6 @@ void engineTests() {
     expect(resumes, [null, same(left), same(left), null]);
   });
 
-  test('a durable tab hands its tmux attach to the engine', () async {
-    final host = FakeHost()
-      ..execAnswer = moshHostAnswer
-      ..execInputAnswer = engineHostAnswer();
-    final connection = await openOn(
-      engineTunnelTo(host, FakeEngineChannel(), FakeMoshChannel()),
-      command: 'exec \$SHELL -l',
-      tabSession: session,
-      persistentSession: session,
-    );
-    addTearDown(() => connection.close(UserClosed(testIntent())));
-
-    expect(connection.continuity, ShellContinuity.started);
-    final args = engineRequests(host).single['args'] as Map<String, Object?>;
-    expect((args['command'] as List<Object?>).last, contains(_tmuxPath));
-  });
-
   for (final (name, start) in [
     ('not installed', ''),
     ('too old to know shell/1', '{"ok":false,"error":{"kind":"unsupported"}}'),
@@ -3090,10 +2928,7 @@ void engineTests() {
       tabSession: session,
     );
 
-    expect(
-      await connection.terminateRemote(session, durableShell: false),
-      isTrue,
-    );
+    expect(await connection.terminateRemote(session), isTrue);
     expect(engine.ended, isTrue);
     expect(engineRequests(host).last, {
       'service': 'shell/1',
@@ -3115,10 +2950,7 @@ void engineTests() {
     );
     addTearDown(() => connection.close(UserClosed(testIntent())));
 
-    expect(
-      await connection.terminateRemote('striked456', durableShell: false),
-      isTrue,
-    );
+    expect(await connection.terminateRemote('striked456'), isTrue);
     expect(engine.ended, isFalse);
     expect(engineRequests(host).last['args'], {'tab': 'striked456'});
   });
@@ -3135,20 +2967,14 @@ void engineTests() {
         ? '{"ok":false,"error":{"kind":"failed","message":"no"}}'
         : '';
 
-    expect(
-      await connection.terminateRemote('striked456', durableShell: false),
-      isTrue,
-    );
+    expect(await connection.terminateRemote('striked456'), isTrue);
     expect(
       host.requests.last,
       'exec ${moshServerCleanupCommand('striked456')}',
     );
 
     host.execCodeAnswer = (command) => command.endsWith('strikedddd') ? 0 : 1;
-    expect(
-      await connection.terminateRemote('striked456', durableShell: false),
-      isFalse,
-    );
+    expect(await connection.terminateRemote('striked456'), isFalse);
   });
 
   test('a silent channel is probed, then reconnecting, then dropped', () async {
@@ -3684,7 +3510,6 @@ void gestureBesideTests() {
       ),
       command: 'exec \$SHELL -l',
       tabSession: session,
-      persistentSession: session,
     );
   }
 

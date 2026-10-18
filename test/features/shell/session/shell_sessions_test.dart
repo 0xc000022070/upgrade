@@ -1442,7 +1442,7 @@ void main() {
 
     final late = transport.opened.last;
     expect(transport.opened, hasLength(2));
-    expect(late.terminated, [(session: session.tab, durableShell: false)]);
+    expect(late.terminated, [session.tab]);
     expect(late.discarded, isTrue);
     expect(session.state, isA<ShellFailed>());
 
@@ -2784,7 +2784,6 @@ void main() {
       expect(after.forHost(_nyx.id).map((session) => session.number), [1]);
       await _settle();
       expect(transport.opened, hasLength(3));
-      expect(transport.persistentSessions, [null, null, null]);
       expect(
         _text(after.forHost(_rose.id).first.terminal),
         contains('-- reconnected --'),
@@ -3014,7 +3013,6 @@ void main() {
 
       expect(session.remoteSession, isNotNull);
       expect(transport.tabSessions.single, session.remoteSession);
-      expect(transport.persistentSessions.single, isNull);
       final row = (await tabs.all()).single;
       expect(row.remoteSession, session.remoteSession);
       expect(row.herdrSession, pane.session);
@@ -3065,7 +3063,6 @@ void main() {
         transport.commands.single,
         shellMarked(restored.mark, command: HerdrCommands.attach(pane)),
       );
-      expect(transport.persistentSessions.single, isNull);
       expect(_text(restored.terminal), contains('-- session restored --'));
     });
 
@@ -3145,9 +3142,7 @@ void main() {
 
       await sessions.close(intent: testIntent(), _rose.id, session);
 
-      expect(transport.opened.single.terminated, [
-        (session: session.remoteSession!, durableShell: false),
-      ]);
+      expect(transport.opened.single.terminated, [session.remoteSession!]);
       expect(await tabs.all(), isEmpty);
       expect(await tabs.retired(_rose.id), isEmpty);
     });
@@ -3172,10 +3167,7 @@ void main() {
       await _settle();
       await _settle();
 
-      expect(
-        transport.opened.last.terminated,
-        contains((session: first.remoteSession!, durableShell: false)),
-      );
+      expect(transport.opened.last.terminated, contains(first.remoteSession!));
       expect(await tabs.retired(_rose.id), isEmpty);
 
       await sessions.close(intent: testIntent(), _rose.id, second);

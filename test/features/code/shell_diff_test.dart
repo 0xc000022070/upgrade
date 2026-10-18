@@ -320,11 +320,9 @@ void main() {
       final session = sessions.forHost(rose.id).single;
       final connection = transport.opened.single;
       connection.answerWith('/home/luis/src/striked\n');
-      connection.directoryRequests.clear();
 
       expect(await sessions.cwdFromHost(session), '/home/luis/src/striked');
       expect(connection.execs.last.command, shellCwdProbe(session.mark));
-      expect(connection.directoryRequests, isEmpty);
       expect(connection.written, isNot(contains('/proc')));
       expect(session.cwd, '/home/luis/src/striked');
 
@@ -354,28 +352,6 @@ void main() {
       expect(await sessions.cwdFromHost(session), '/home/luis/src/striked');
       expect(connection.execs.last.command, HerdrCommands.panes('hub'));
       expect(connection.execs.last.command, isNot(contains('/proc')));
-
-      await unmount(tester);
-    });
-
-    testWidgets('an ordinary tab never asks a durable session for cwd', (
-      tester,
-    ) async {
-      final transport = FakeShellTransport();
-      final sessions = fakeShellSessions(transport);
-      await tester.pumpWidget(app(sessions));
-      await ready(tester);
-
-      final session = sessions.forHost(rose.id).single;
-      final connection = transport.opened.single;
-      expect(session.pane, isNull);
-      connection.directory = '/srv/stale-tmux-pane';
-      connection.answerWith('/home/luis/src/striked\n');
-      connection.directoryRequests.clear();
-
-      expect(await sessions.cwdFromHost(session), '/home/luis/src/striked');
-      expect(connection.directoryRequests, isEmpty);
-      expect(connection.execs.last.command, shellCwdProbe(session.mark));
 
       await unmount(tester);
     });

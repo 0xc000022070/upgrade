@@ -32,17 +32,15 @@ class FakeShellConnection implements ShellConnection {
   final pixels = <List<int>>[];
   var closed = false;
   var terminateRemoteResult = true;
-  final terminated = <({String session, bool durableShell})>[];
+  final terminated = <String>[];
 
   final terminateActions = <UserAction?>[];
   final closes = <DropReason>[];
   final opens = <UserAction>[];
-  final directoryRequests = <String>[];
   var rehomes = 0;
   var networkRehomes = 0;
   var suspends = 0;
   var resumes = 0;
-  String? directory;
 
   @override
   final ShellContinuity continuity;
@@ -134,12 +132,8 @@ class FakeShellConnection implements ShellConnection {
   }
 
   @override
-  Future<bool> terminateRemote(
-    String session, {
-    required bool durableShell,
-    UserAction? action,
-  }) async {
-    terminated.add((session: session, durableShell: durableShell));
+  Future<bool> terminateRemote(String session, {UserAction? action}) async {
+    terminated.add(session);
     terminateActions.add(action);
     return terminateRemoteResult;
   }
@@ -155,17 +149,6 @@ class FakeShellConnection implements ShellConnection {
 
   @override
   Future<void> resume(AppResumed reason) async => resumes++;
-
-  @override
-  Future<String?> remoteDirectory(String session) async {
-    directoryRequests.add(session);
-    final fixed = directory;
-    if (fixed != null) return fixed;
-    final result = answer('remote directory $session', null);
-    if (!result.ok) return null;
-    final value = result.out.trim();
-    return value.startsWith('/') ? value : null;
-  }
 
   @override
   late final HostChannels channels = _FakeChannels(this, background: true);
@@ -302,12 +285,9 @@ class FakeShellTransport {
   final reasons = <OpenReason>[];
   final ports = <int>[];
   final tabSessions = <String?>[];
-  final persistentSessions = <String?>[];
   final alone = <bool>[];
 
-  ShellContinuity? continuity;
   ShellTransport transport = ShellTransport.ssh;
-  final _persistent = <String>{};
 
   /// Set to make the next dial fail, cleared to let it succeed. Null keeps a dial pending
   /// forever, which is how `CONNECTING` is held still.
@@ -319,8 +299,7 @@ class FakeShellTransport {
   void Function(FakeShellConnection connection)? opening;
 
   /// The dials [stall] is holding, so a test can let one land late.
-  final _stalled =
-      <({Completer<ShellConnection> pending, String? persistentSession})>[];
+  final _stalled = <Completer<ShellConnection>>[];
 
   Future<ShellConnection> open({
     required OpenReason reason,
@@ -333,7 +312,6 @@ class FakeShellTransport {
     required int rows,
     String? command,
     String? tabSession,
-    String? persistentSession,
     void Function(Reconnect retry)? failed,
     bool alone = false,
   }) async {
@@ -344,10 +322,9 @@ class FakeShellTransport {
     verifiers.add(verifier);
     commands.add(command);
     tabSessions.add(tabSession);
-    persistentSessions.add(persistentSession);
     if (stall) {
       final pending = Completer<ShellConnection>();
-      _stalled.add((pending: pending, persistentSession: persistentSession));
+      _stalled.add(pending);
       return pending.future;
     }
     final failure = refuse;
@@ -355,10 +332,7 @@ class FakeShellTransport {
       failed?.call(ShellEnded.unbound().reconnect);
       throw failure;
     }
-    final connection = FakeShellConnection(
-      continuity: _continuityFor(persistentSession),
-      transport: transport,
-    );
+    final connection = FakeShellConnection(transport: transport);
     opened.add(connection);
     opening?.call(connection);
     return connection;
@@ -366,25 +340,13 @@ class FakeShellTransport {
 
   /// Completes every dial [stall] is holding, oldest first.
   void land() {
-    for (final stalled in _stalled) {
-      final connection = FakeShellConnection(
-        continuity: _continuityFor(stalled.persistentSession),
-        transport: transport,
-      );
+    for (final pending in _stalled) {
+      final connection = FakeShellConnection(transport: transport);
       opened.add(connection);
       opening?.call(connection);
-      stalled.pending.complete(connection);
+      pending.complete(connection);
     }
     _stalled.clear();
-  }
-
-  ShellContinuity _continuityFor(String? persistentSession) {
-    if (persistentSession == null) return ShellContinuity.plain;
-    final forced = continuity;
-    if (forced != null) return forced;
-    return _persistent.add(persistentSession)
-        ? ShellContinuity.started
-        : ShellContinuity.resumed;
   }
 }
 

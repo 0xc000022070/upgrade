@@ -468,6 +468,17 @@ class ShellSession extends ChangeNotifier {
     controlFailure = null;
   }
 
+  void _detach() {
+    unawaited(_output?.cancel());
+    _output = null;
+    unawaited(_snapshots?.cancel());
+    _snapshots = null;
+    unawaited(_foregroundProcesses?.cancel());
+    _foregroundProcesses = null;
+    _unwatch();
+    _pinentry = null;
+  }
+
   /// Watches the channel for the pinentry's OSC on its way into the terminal. Null
   /// between connections, so a dead one's bytes are not read for a request.
   PrivateOscScanner? _pinentry;
@@ -1389,14 +1400,7 @@ class ShellSessions extends ChangeNotifier {
       }
     }
     notifyListeners();
-    unawaited(session._output?.cancel());
-    session._output = null;
-    unawaited(session._snapshots?.cancel());
-    session._snapshots = null;
-    unawaited(session._foregroundProcesses?.cancel());
-    session._foregroundProcesses = null;
-    session._unwatch();
-    session._pinentry = null;
+    session._detach();
     _retire(session);
     final connection = session.connection;
     session.connection = null;
@@ -1410,11 +1414,7 @@ class ShellSessions extends ChangeNotifier {
     var terminated = false;
     try {
       terminated =
-          await connection?.terminateRemote(
-            remoteSession,
-            durableShell: false,
-            action: action,
-          ) ??
+          await connection?.terminateRemote(remoteSession, action: action) ??
           false;
     } catch (error) {
       debugPrint('striked.shell ${session.host.name}: cleanup failed: $error');
@@ -1843,7 +1843,6 @@ class ShellSessions extends ChangeNotifier {
         rows: rows,
         command: shellMarked(session.mark, command: session.command),
         tabSession: session.tab,
-        persistentSession: null,
         alone: session.ownConnection,
         verifier: verifierFor(
           host,
@@ -1862,7 +1861,6 @@ class ShellSessions extends ChangeNotifier {
         if (session._closed && session.remoteSession != null) {
           final terminated = await connection.terminateRemote(
             session.remoteSession!,
-            durableShell: false,
           );
           if (terminated) {
             await tabs?.close(host.id, session.number);
@@ -1870,7 +1868,7 @@ class ShellSessions extends ChangeNotifier {
         } else if (!session._attempt.dials &&
             connection.transport != ShellTransport.ssh &&
             connection.continuity != ShellContinuity.resumed) {
-          await connection.terminateRemote(session.tab, durableShell: false);
+          await connection.terminateRemote(session.tab);
         }
       } catch (error) {
         debugPrint('striked.shell ${host.name}: cleanup failed: $error');
@@ -2039,10 +2037,7 @@ class ShellSessions extends ChangeNotifier {
       for (final tab in await store.retired(hostId)) {
         final remoteSession = tab.remoteSession;
         if (remoteSession == null ||
-            await connection.terminateRemote(
-              remoteSession,
-              durableShell: false,
-            )) {
+            await connection.terminateRemote(remoteSession)) {
           await store.close(tab.hostId, tab.number);
         }
       }
@@ -2367,18 +2362,7 @@ class ShellSessions extends ChangeNotifier {
     // future, and an exit belonging to the attempt being replaced would otherwise
     // paint `EXITED` over the dial already under way.
     session._disown();
-    // Not awaited, here or in [close]: a cancel takes effect the moment it is
-    // called — nothing else arrives from that stream — and the future it hands back
-    // belongs to the stream's own zone, which is not always one the caller's is
-    // running.
-    unawaited(session._output?.cancel());
-    session._output = null;
-    unawaited(session._snapshots?.cancel());
-    session._snapshots = null;
-    unawaited(session._foregroundProcesses?.cancel());
-    session._foregroundProcesses = null;
-    session._unwatch();
-    session._pinentry = null;
+    session._detach();
     session.connection = null;
     // The title belonged to the shell that died. The pane outlives it, because the
     // dial that follows carries the same attach and comes back to the same agent.

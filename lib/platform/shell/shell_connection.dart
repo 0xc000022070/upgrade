@@ -75,13 +75,7 @@ abstract interface class ShellConnection {
   Future<void> resume(AppResumed reason);
 
   /// Without an [action] only a held host is used, and none means false.
-  Future<bool> terminateRemote(
-    String session, {
-    required bool durableShell,
-    UserAction? action,
-  });
-
-  Future<String?> remoteDirectory(String session);
+  Future<bool> terminateRemote(String session, {UserAction? action});
 
   /// A second channel, so the shell on the pty never sees any of it. Every background read
   /// goes here, and gets null while no host is held.
@@ -96,7 +90,7 @@ abstract interface class ShellConnection {
   Stream<ControlLink> get controlLink;
 }
 
-enum ShellContinuity { plain, started, resumed }
+enum ShellContinuity { plain, resumed }
 
 enum ShellTransport { ssh, mosh, engine }
 
@@ -112,7 +106,6 @@ typedef ShellOpener = Future<ShellConnection> Function({
   required int rows,
   String? command,
   String? tabSession,
-  String? persistentSession,
   required HostKeyVerifier verifier,
   void Function(Reconnect retry)? failed,
   bool alone,
