@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 
-import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_failure.dart';
+import 'package:striked/platform/ssh/exec_tracker.dart';
 import 'package:striked/platform/ssh/host_links.dart';
 import 'package:striked/platform/ssh/ssh_settle.dart';
 
@@ -39,8 +39,7 @@ class WorkspaceSsh implements WorkspaceRunner {
   HostLease _lease;
   final Future<HostLease> Function()? _again;
   Future<HostLease>? _leasing;
-  final _execs = <SSHSession>{};
-  var _closed = false;
+  final _execs = ExecTracker('workspace closed');
 
   Future<HostLease> _held() {
     if (!_lease.closed) return Future.value(_lease);
@@ -50,7 +49,7 @@ class WorkspaceSsh implements WorkspaceRunner {
       try {
         _lease.release();
         final lease = await again();
-        if (_closed) {
+        if (_execs.closed) {
           lease.release();
           throw const HerdrUnreachable('workspace closed');
         }
@@ -63,41 +62,28 @@ class WorkspaceSsh implements WorkspaceRunner {
 
   @override
   Future<WorkspaceReply> run(String command) async {
-    if (_closed) throw const HerdrUnreachable('workspace closed');
+    _execs.ensureOpen();
     final lease = await _held();
     final SSHSession session;
     try {
-      session = await openWithin(lease.execute(command), timeout, endExec);
-    } on SSHChannelOpenError catch (error) {
-      throw HerdrBusy('$error');
+      session = await _execs.open(
+        () => openWithin(lease.execute(command), timeout, endExec),
+      );
     } catch (error) {
       throw _failure(error);
     }
-    if (_closed) {
-      endExec(session);
-      throw const HerdrUnreachable('workspace closed');
-    }
-    _execs.add(session);
     try {
-      final out = BytesBuilder(copy: false);
-      final err = BytesBuilder(copy: false);
-      await Future.wait([
-        session.stdout.cast<List<int>>().forEach(out.add),
-        session.stderr.cast<List<int>>().forEach(err.add),
-        session.stdin.close(),
-        session.done,
-      ]).timeout(answer);
-      if (_closed) throw const HerdrUnreachable('workspace closed');
+      final (:stdout, :stderr) = await drainExec(session).timeout(answer);
+      _execs.ensureOpen();
       return WorkspaceReply(
         exitCode: session.exitCode,
-        stdout: utf8.decode(out.takeBytes(), allowMalformed: true),
-        stderr: utf8.decode(err.takeBytes(), allowMalformed: true),
+        stdout: utf8.decode(stdout, allowMalformed: true),
+        stderr: utf8.decode(stderr, allowMalformed: true),
       );
     } catch (error) {
       throw _failure(error);
     } finally {
-      _execs.remove(session);
-      endExec(session);
+      _execs.end(session);
     }
   }
 
@@ -105,12 +91,8 @@ class WorkspaceSsh implements WorkspaceRunner {
 
   @override
   Future<void> close() async {
-    if (_closed) return;
-    _closed = true;
-    for (final exec in [..._execs]) {
-      endExec(exec);
-    }
-    _execs.clear();
+    if (_execs.closed) return;
+    _execs.endAll();
     _lease.release();
   }
 }

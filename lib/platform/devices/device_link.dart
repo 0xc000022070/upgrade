@@ -5,7 +5,8 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/exec_tracker.dart';
+import 'package:striked/platform/ssh/host_failure.dart';
 import 'package:striked/platform/ssh/host_keys.dart';
 import 'package:striked/platform/ssh/host_links.dart';
 import 'package:striked/platform/shell/remote_shell.dart';
@@ -761,44 +762,32 @@ class DeviceSsh implements DeviceLink {
   final Future<_Borrowed> Function(HostUse use) _lend;
   final void Function() _letGo;
   final bool Function() _gone;
-  final _execs = <SSHSession, void Function()>{};
-  var _closed = false;
+  final _execs = ExecTracker('device link closed');
 
   static void _nothing() {}
   static bool _never() => false;
 
   @override
   Future<List<HostDevice>> list() async {
-    final stdout = await _guard(() => _run(DeviceCommands.list()));
+    final stdout = await guardHerdr(() => _run(DeviceCommands.list()));
     return parseDeviceList(utf8.decode(stdout, allowMalformed: true));
   }
 
   Future<SSHSession> _exec(String command, HostUse use) async {
-    if (_closed) throw const HerdrUnreachable('device link closed');
+    _execs.ensureOpen();
     final held = await _lend(use);
-    final SSHSession session;
     try {
-      session = await held.execute(command);
-    } on SSHChannelOpenError catch (error) {
-      held.release();
-      throw HerdrBusy('$error');
+      return await _execs.open(
+        () => held.execute(command),
+        onEnd: held.release,
+      );
     } catch (_) {
       held.release();
       rethrow;
     }
-    if (_closed) {
-      endExec(session);
-      held.release();
-      throw const HerdrUnreachable('device link closed');
-    }
-    _execs[session] = held.release;
-    return session;
   }
 
-  void _end(SSHSession session) {
-    _execs.remove(session)?.call();
-    endExec(session);
-  }
+  void _end(SSHSession session) => _execs.end(session);
 
   Future<Uint8List> _run(String command) async {
     final session = await _exec(command, HostUse.devices);
@@ -809,21 +798,13 @@ class DeviceSsh implements DeviceLink {
     }
   }
 
-  static Future<Uint8List> _drain(SSHSession session) async {
-    final out = BytesBuilder(copy: false);
-    await Future.wait([
-      session.stdout.cast<List<int>>().forEach(out.add),
-      session.stderr.cast<List<int>>().drain<void>(),
-      session.stdin.close(),
-    ]);
-    await session.done;
-    return out.takeBytes();
-  }
+  static Future<Uint8List> _drain(SSHSession session) async =>
+      (await drainExec(session)).stdout;
 
   @override
   Future<String> read(String command, {Duration? limit}) async {
-    final session = await _guard(() => _exec(command, HostUse.devices));
-    final pending = _guard(() => _drain(session));
+    final session = await guardHerdr(() => _exec(command, HostUse.devices));
+    final pending = guardHerdr(() => _drain(session));
     try {
       final out = limit == null ? await pending : await pending.timeout(limit);
       return utf8.decode(out, allowMalformed: true);
@@ -844,7 +825,7 @@ class DeviceSsh implements DeviceLink {
     out = StreamController<DeviceFrame>(
       onListen: () async {
         try {
-          final opened = await _guard(
+          final opened = await guardHerdr(
             () => _exec(DeviceCommands.frames(device), HostUse.deviceDock),
           );
           if (cancelled) {
@@ -882,30 +863,16 @@ class DeviceSsh implements DeviceLink {
 
   @override
   Future<void> run(String command) async {
-    await _guard(() => _run(command));
+    await guardHerdr(() => _run(command));
   }
 
   @override
-  bool get closed => _closed || _gone();
+  bool get closed => _execs.closed || _gone();
 
   @override
   Future<void> close() async {
-    if (_closed) return;
-    _closed = true;
-    for (final exec in [..._execs.keys]) {
-      _end(exec);
-    }
+    if (_execs.closed) return;
+    _execs.endAll();
     _letGo();
-  }
-}
-
-Future<T> _guard<T>(
-  Future<T> Function() body, [
-  HostKeyVerifier? verifier,
-]) async {
-  try {
-    return await body();
-  } catch (error) {
-    throw asHerdrFailure(error, verifier?.refusal) ?? error;
   }
 }

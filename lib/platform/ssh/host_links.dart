@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 
-import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/ssh/host_failure.dart';
 import 'package:striked/platform/ssh/host_files.dart';
 import 'package:striked/platform/ssh/host_key_dial.dart';
 import 'package:striked/platform/ssh/host_keys.dart';

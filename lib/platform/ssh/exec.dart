@@ -105,20 +105,15 @@ Future<ExecResult> _finishExec(
   Stream<Uint8List>? feed,
   void Function(Uint8List chunk)? onStdout,
 }) async {
-  final out = BytesBuilder(copy: false);
-  final err = BytesBuilder(copy: false);
-  final drained = Future.wait([
-    channel.stdout.forEach(onStdout ?? out.add),
-    channel.stderr.forEach(err.add),
-  ]);
-  if (stdin != null) channel.stdin.add(stdin);
-  if (feed != null) await channel.stdin.addStream(feed);
-  await channel.stdin.close();
-  await channel.done;
-  await drained;
+  final output = await drainExec(
+    channel,
+    stdin: stdin,
+    feed: feed,
+    onStdout: onStdout,
+  );
   return ExecResult(
     exitCode: channel.exitCode,
-    stdout: out.takeBytes(),
-    stderr: err.takeBytes(),
+    stdout: output.stdout,
+    stderr: output.stderr,
   );
 }

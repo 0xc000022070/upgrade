@@ -1,10 +1,8 @@
-import 'dart:async';
-import 'dart:io';
-
 import 'package:dartssh2/dartssh2.dart';
 
 import 'package:striked/application/agents/reason_lines.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/herdr/herdr_socket.dart';
+import 'package:striked/platform/ssh/host_failure.dart';
 import 'package:striked/platform/ssh/host_keys.dart';
 
 sealed class VncFailure implements Exception {
@@ -115,27 +113,23 @@ VncFailure? asVncFailure(Object error, [HostKeyRefusal? refusal]) =>
         HostKeyRefusal.unverified => VncHostKeyUnverified('$error'),
         HostKeyRefusal.changed => VncHostKeyChanged('$error'),
       },
-      HerdrUnresolved() => VncUnresolved(error.detail ?? '$error'),
-      HerdrKeyRejected() => VncKeyRejected(error.detail ?? '$error'),
-      HerdrHostKeyUnverified() => VncHostKeyUnverified(
-        error.detail ?? '$error',
-      ),
-      HerdrHostKeyChanged() => VncHostKeyChanged(error.detail ?? '$error'),
-      HerdrFailure() => VncUnreachable(error.detail ?? '$error'),
-      SSHHostkeyError() => VncHostKeyChanged('$error'),
       // dartssh2 raises this when the server answers the channel open with a failure, which
       // is what `restrict` and a missing `permitopen` both do.
       SSHChannelOpenError() => VncTunnelRefused('$error'),
-      SSHAuthFailError() => VncKeyRejected('$error'),
-      SSHKeyDecodeError() => VncKeyRejected('$error'),
-      // The test is [HerdrClient]'s, deliberately: which errno family a lookup failure lands
-      // in is a platform detail.
-      SocketException() when HerdrClient.isLookupFailure(error) =>
-        VncUnresolved('$error'),
-      SocketException() => VncUnreachable('$error'),
-      TimeoutException() => VncUnreachable('$error'),
-      SSHError() => VncUnreachable('$error'),
-      _ => null,
+      // A herdr reply cannot come down a VNC tunnel; one here is a bug, left as itself.
+      HerdrMalformed() => null,
+      _ => switch (asHerdrFailure(error)) {
+        null => null,
+        HerdrUnresolved(:final detail) => VncUnresolved(detail ?? '$error'),
+        HerdrKeyRejected(:final detail) => VncKeyRejected(detail ?? '$error'),
+        HerdrHostKeyUnverified(:final detail) => VncHostKeyUnverified(
+          detail ?? '$error',
+        ),
+        HerdrHostKeyChanged(:final detail) => VncHostKeyChanged(
+          detail ?? '$error',
+        ),
+        HerdrFailure(:final detail) => VncUnreachable(detail ?? '$error'),
+      },
     };
 
 Future<T> guardVnc<T>(

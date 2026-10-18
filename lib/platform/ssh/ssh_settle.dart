@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 
@@ -39,4 +40,25 @@ void endExec(SSHSession session) {
     // ignored: a terminated channel cannot take a signal, and destroy still runs
   }
   session.channel.destroy();
+}
+
+typedef ExecOutput = ({Uint8List stdout, Uint8List stderr});
+
+Future<ExecOutput> drainExec(
+  SSHSession session, {
+  Uint8List? stdin,
+  Stream<Uint8List>? feed,
+  void Function(Uint8List chunk)? onStdout,
+}) async {
+  final out = BytesBuilder(copy: false);
+  final err = BytesBuilder(copy: false);
+  final drained = Future.wait([
+    session.stdout.forEach(onStdout ?? out.add),
+    session.stderr.forEach(err.add),
+  ]);
+  if (stdin != null) session.stdin.add(stdin);
+  if (feed != null) await session.stdin.addStream(feed);
+  await session.stdin.close();
+  await Future.wait([session.done, drained]);
+  return (stdout: out.takeBytes(), stderr: err.takeBytes());
 }

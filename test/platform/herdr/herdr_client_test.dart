@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:striked/platform/ssh/host_files.dart' show uploadsSharing;
 import 'package:striked/application/agents/agent_kind.dart';
+import 'package:striked/application/agents/agent_state.dart';
 import 'package:striked/platform/herdr/herdr_client.dart';
 import 'package:striked/platform/ssh/host_links.dart';
 import 'package:striked/platform/herdr/herdr_socket.dart';
@@ -129,6 +130,40 @@ void main() {
       ),
       isEmpty,
     );
+  });
+
+  test('labelling a workspace keeps what the agent was already carrying', () {
+    const approval = AgentApproval(id: 'a1', tool: 'Bash', summary: 'ls');
+    const link = (session: 'lab', pane: 'p9');
+    final labelled = HerdrClient.labelWorkspaces(
+      [
+        const AgentSnapshot(
+          session: 'lab',
+          paneId: 'wQ:p1',
+          agent: 'claude',
+          state: IdleState(),
+          terminalTitleStripped: 'zsh',
+          workspaceId: 'wQ',
+          cwd: '~',
+          stateChangeSeq: 3,
+          source: AgentSource.engine,
+          approval: approval,
+          question: 'which one?',
+          message: 'done here',
+          herdrPane: 'wQ:p1',
+          link: link,
+        ),
+      ],
+      const {'wQ': 'striked'},
+    ).single;
+
+    expect(labelled.workspaceLabel, 'striked');
+    expect(labelled.source, AgentSource.engine);
+    expect(labelled.approval, same(approval));
+    expect(labelled.question, 'which one?');
+    expect(labelled.message, 'done here');
+    expect(labelled.herdrPane, 'wQ:p1');
+    expect(labelled.link, link);
   });
 
   String roster(List<(String, {bool running, bool isDefault})> sessions) =>

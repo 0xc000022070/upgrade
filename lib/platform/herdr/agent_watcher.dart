@@ -1167,16 +1167,7 @@ class _HostLoop {
     await _onSnapshot([
       for (final agent in agents)
         if (agent.paneId == 'wF:p2')
-          AgentSnapshot(
-            session: agent.session,
-            paneId: agent.paneId,
-            agent: agent.agent,
-            state: const DoneState(),
-            terminalTitleStripped: agent.terminalTitleStripped,
-            workspaceId: agent.workspaceId,
-            cwd: agent.cwd,
-            stateChangeSeq: agent.stateChangeSeq + 1,
-          )
+          agent.movedTo(const DoneState())
         else
           agent,
     ], null);
