@@ -103,7 +103,7 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
             // A job still running would outlive the directory recording it, leaving a
             // process nothing on this machine could name again.
             if let Ok(status) = run_service::read_status(&entry.path()) {
-                if status.state == "running" || status.state == "starting" {
+                if status.state.is_live() {
                     if let Some(pgid) = status.pgid {
                         let _ = killpg(Pid::from_raw(pgid), Signal::SIGTERM);
                         jobs_signalled += 1;

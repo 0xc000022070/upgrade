@@ -7,6 +7,7 @@ use super::server::{Server, Timing};
 use super::signals::Signals;
 use super::vt::Options;
 use super::wire::{Size, KEY_LEN};
+use crate::util::{write_atomic, Durability, Perms, WritePolicy};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
@@ -200,9 +201,15 @@ fn read_readiness(pipe: &mut File) -> io::Result<Readiness> {
 pub fn rekey(dir: &Path, record: &Record) -> io::Result<Option<[u8; KEY_LEN]>> {
     let key: [u8; KEY_LEN] = random_bytes()?;
     let path = dir.join("key");
-    let tmp = dir.join("key.tmp");
-    write_private(&tmp, &key)?;
-    fs::rename(&tmp, &path)?;
+    write_atomic(
+        &path,
+        &key,
+        &WritePolicy {
+            perms: Perms::Private,
+            durability: Durability::None,
+            tmp_suffix: ".tmp",
+        },
+    )?;
     unsafe { libc::kill(record.pid, libc::SIGUSR1) };
     let deadline = Instant::now() + REKEY_WAIT;
     while path.exists() {

@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use std::fs;
 use std::io::{BufRead, BufReader};
 
-use super::{cut, summarize, typed};
+use super::{cut, summarize, typed, AgentKind};
 
 const DEFAULT_LIMIT: u64 = 200;
 const MAX_LIMIT: u64 = 500;
@@ -43,7 +43,7 @@ fn block_text(block: &Value) -> &str {
 }
 
 fn claude_said(index: usize, text: &str, out: &mut Vec<Value>) {
-    if let Some(text) = typed("claude", text) {
+    if let Some(text) = typed(AgentKind::Claude, text) {
         push_text(index, "user", &text, out);
     }
 }
@@ -133,7 +133,7 @@ fn codex(index: usize, record: &Value, out: &mut Vec<Value>) {
             match payload.get("role").and_then(Value::as_str) {
                 Some("user") => {
                     let text = joined(content, &["input_text"]);
-                    if let Some(text) = typed("codex", &text) {
+                    if let Some(text) = typed(AgentKind::Codex, &text) {
                         out.push(item(index, "user", &text, TEXT_CHARS));
                     }
                 }
@@ -172,7 +172,7 @@ fn codex(index: usize, record: &Value, out: &mut Vec<Value>) {
     }
 }
 
-pub fn read(args: &Value, sessions: &[(String, String, Option<String>)]) -> EngineResult<Value> {
+pub fn read(args: &Value, sessions: &[(String, AgentKind, Option<String>)]) -> EngineResult<Value> {
     let key = arg_str(args, "session")?;
     let after = arg_u64_opt(args, "after")?;
     let limit = arg_u64_opt(args, "limit")?
@@ -181,9 +181,9 @@ pub fn read(args: &Value, sessions: &[(String, String, Option<String>)]) -> Engi
     let Some((_, agent, path)) = sessions.iter().find(|(candidate, _, _)| candidate == key) else {
         return Err(EngineError::not_found("no such agent session"));
     };
-    let parse: fn(usize, &Value, &mut Vec<Value>) = match agent.as_str() {
-        "claude" => claude,
-        "codex" => codex,
+    let parse: fn(usize, &Value, &mut Vec<Value>) = match agent {
+        AgentKind::Claude => claude,
+        AgentKind::Codex => codex,
         other => return Err(EngineError::unsupported(format!("{other} keeps no transcript the engine reads"))),
     };
     let Some(path) = path else {
@@ -231,7 +231,7 @@ mod tests {
         let file = format!("striked-transcript-unit-{}-{name}.jsonl", std::process::id());
         let path = std::env::temp_dir().join(file);
         fs::write(&path, body).unwrap();
-        let sessions = [("claude:s".to_owned(), "claude".to_owned(), Some(path.display().to_string()))];
+        let sessions = [("claude:s".to_owned(), AgentKind::Claude, Some(path.display().to_string()))];
         let args = match after {
             Some(after) => json!({ "session": "claude:s", "after": after }),
             None => json!({ "session": "claude:s" }),

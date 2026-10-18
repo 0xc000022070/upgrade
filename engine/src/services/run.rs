@@ -3,7 +3,7 @@ use crate::policy::Policy;
 use crate::protocol::{
     arg_bool, arg_str, arg_str_list, arg_str_opt, arg_u64_opt, EngineError, EngineResult,
 };
-use crate::util::now_millis;
+use crate::util::{now_millis, write_atomic, PLAIN_WRITE};
 use nix::errno::Errno;
 use nix::sys::signal::{kill, killpg, Signal};
 use nix::unistd::{setsid, Pid};
@@ -37,9 +37,25 @@ pub struct JobSpec {
     pub stdin_file: Option<String>,
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum JobState {
+    #[default]
+    Starting,
+    Running,
+    Exited,
+    Lost,
+}
+
+impl JobState {
+    pub fn is_live(self) -> bool {
+        matches!(self, Self::Starting | Self::Running)
+    }
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct JobStatus {
-    pub state: String,
+    pub state: JobState,
     pub pid: Option<i32>,
     pub pgid: Option<i32>,
     #[serde(default)]
@@ -75,13 +91,11 @@ pub fn read_status(dir: &Path) -> EngineResult<JobStatus> {
 }
 
 pub fn write_status(dir: &Path, status: &JobStatus) -> EngineResult<()> {
-    // Written beside the target and renamed, so a reader never sees half a status.
-    let tmp = dir.join("status.json.tmp");
-    fs::write(
-        &tmp,
-        serde_json::to_vec(status).map_err(|err| EngineError::failed(err.to_string()))?,
+    write_atomic(
+        &dir.join("status.json"),
+        &serde_json::to_vec(status).map_err(|err| EngineError::failed(err.to_string()))?,
+        &PLAIN_WRITE,
     )?;
-    fs::rename(tmp, dir.join("status.json"))?;
     Ok(())
 }
 
@@ -168,7 +182,7 @@ pub fn launch(state_root: &Path, id: &str, spec: &JobSpec) -> EngineResult<PathB
     write_status(
         &dir,
         &JobStatus {
-            state: "starting".into(),
+            state: JobState::Starting,
             ..JobStatus::default()
         },
     )?;
@@ -204,7 +218,7 @@ fn older_than(dir: &Path, age: u64) -> bool {
 }
 
 pub fn liveness_checked(dir: &Path, mut status: JobStatus) -> JobStatus {
-    if status.state != "running" && status.state != "starting" {
+    if !status.state.is_live() {
         return status;
     }
     // The supervisor is what is asked about, never the child. The supervisor reaps the
@@ -218,8 +232,8 @@ pub fn liveness_checked(dir: &Path, mut status: JobStatus) -> JobStatus {
         // moment the job was written down bounds it: recording itself costs the
         // supervisor one exec, so a job still `starting` this long after it was
         // created is one whose supervisor never arrived.
-        if status.state == "starting" && older_than(dir, STARTUP_GRACE) {
-            status.state = "lost".into();
+        if status.state == JobState::Starting && older_than(dir, STARTUP_GRACE) {
+            status.state = JobState::Lost;
             status.error = Some("the supervisor never started".into());
             let _ = write_status(dir, &status);
         }
@@ -229,7 +243,7 @@ pub fn liveness_checked(dir: &Path, mut status: JobStatus) -> JobStatus {
     // that is gone with nothing recorded lost its supervisor, which is not the same
     // answer as an exit and is not reported as one.
     if kill(Pid::from_raw(pid), None) == Err(Errno::ESRCH) {
-        status.state = "lost".into();
+        status.state = JobState::Lost;
         status.error = Some("the supervisor stopped without recording an exit".into());
         let _ = write_status(dir, &status);
     }
@@ -262,7 +276,7 @@ pub(crate) fn cancel(args: &Value, state_root: &Path) -> EngineResult<Value> {
     let id = arg_str(args, "id")?;
     let dir = job_dir(state_root, id)?;
     let status = read_status(&dir)?;
-    if status.state == "exited" {
+    if status.state == JobState::Exited {
         return Ok(json!({ "id": id, "state": status.state, "cancelled": false }));
     }
     // The marker is written first: whichever of the two the supervisor notices, it
@@ -429,7 +443,7 @@ pub fn supervise(dir: &Path) -> i32 {
         let _ = write_status(
             dir,
             &JobStatus {
-                state: "exited".into(),
+                state: JobState::Exited,
                 finished: Some(now_millis()),
                 code: Some(-1),
                 error: Some(message),
@@ -486,7 +500,7 @@ pub fn supervise(dir: &Path) -> i32 {
     let _ = write_status(
         dir,
         &JobStatus {
-            state: "running".into(),
+            state: JobState::Running,
             pid: Some(pid),
             pgid: Some(pid),
             supervisor: Some(std::process::id() as i32),
@@ -541,7 +555,7 @@ pub fn supervise(dir: &Path) -> i32 {
     let _ = write_status(
         dir,
         &JobStatus {
-            state: "exited".into(),
+            state: JobState::Exited,
             pid: Some(pid),
             pgid: Some(pid),
             supervisor: Some(std::process::id() as i32),
@@ -559,7 +573,7 @@ pub fn supervise(dir: &Path) -> i32 {
 
 #[cfg(test)]
 mod tests {
-    use super::{filter_lines, Filter};
+    use super::{filter_lines, Filter, JobState, JobStatus};
 
     fn filter() -> Filter {
         Filter {
@@ -615,5 +629,23 @@ mod tests {
         assert_eq!(lines, vec!["aaaa", "bbbb"]);
         assert_eq!(matched, 3);
         assert!(truncated);
+    }
+
+    #[test]
+    fn status_json_states_round_trip_unchanged() {
+        for (raw, state) in [
+            ("starting", JobState::Starting),
+            ("running", JobState::Running),
+            ("exited", JobState::Exited),
+            ("lost", JobState::Lost),
+        ] {
+            let json = format!(
+                r#"{{"state":"{raw}","pid":null,"pgid":null,"supervisor":null,"started":null,"finished":null,"code":null,"signal":null,"cancelled":false,"timed_out":false,"error":null}}"#
+            );
+            let status: JobStatus = serde_json::from_str(&json).unwrap();
+            assert_eq!(status.state, state);
+            assert_eq!(serde_json::to_string(&status).unwrap(), json);
+            assert_eq!(serde_json::json!(state), serde_json::json!(raw));
+        }
     }
 }

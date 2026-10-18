@@ -1,12 +1,13 @@
 use crate::paths;
 use crate::protocol::{EngineError, EngineResult};
+use crate::util::{self, Durability, Perms, WritePolicy};
 use nix::unistd::{access, AccessFlags};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::KINDS;
+use super::AgentKind;
 
 const MARK: &str = "strikedddd hook";
 const PLUGIN_MARK: &str = "// strikedddd agents plugin";
@@ -40,34 +41,33 @@ fn env_dir(key: &str) -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
-fn config_path(agent: &str) -> EngineResult<PathBuf> {
+fn config_path(agent: AgentKind) -> EngineResult<PathBuf> {
     let home = paths::home()?;
     Ok(match agent {
-        "claude" => env_dir("CLAUDE_CONFIG_DIR")
+        AgentKind::Claude => env_dir("CLAUDE_CONFIG_DIR")
             .unwrap_or(home.join(".claude"))
             .join("settings.json"),
-        "codex" => env_dir("CODEX_HOME")
+        AgentKind::Codex => env_dir("CODEX_HOME")
             .unwrap_or(home.join(".codex"))
             .join("hooks.json"),
-        "opencode" => env_dir("XDG_CONFIG_HOME")
+        AgentKind::OpenCode => env_dir("XDG_CONFIG_HOME")
             .unwrap_or(home.join(".config"))
             .join("opencode/plugins/striked.js"),
-        other => return Err(EngineError::bad_request(format!("no agent kind {other}"))),
     })
 }
 
-fn command(agent: &str) -> String {
+fn command(agent: AgentKind) -> String {
     format!("{MARK} {agent}")
 }
 
-fn events(agent: &str) -> &'static [&'static str] {
+fn events(agent: AgentKind) -> &'static [&'static str] {
     match agent {
-        "claude" => CLAUDE_EVENTS,
-        _ => CODEX_EVENTS,
+        AgentKind::Claude => CLAUDE_EVENTS,
+        AgentKind::Codex | AgentKind::OpenCode => CODEX_EVENTS,
     }
 }
 
-fn entries(agent: &str) -> Value {
+fn entries(agent: AgentKind) -> Value {
     let mut hooks = Map::new();
     for event in events(agent) {
         let timeout = if *event == "PermissionRequest" {
@@ -147,7 +147,7 @@ export const StrikedAgents = async ({{ client, $, directory }}) => {{
     )
 }
 
-fn is_ours(entry: &Value, agent: &str) -> bool {
+fn is_ours(entry: &Value, agent: AgentKind) -> bool {
     entry
         .get("hooks")
         .and_then(Value::as_array)
@@ -201,8 +201,8 @@ fn render(config: &Value, original: &str) -> EngineResult<String> {
     Ok(raw)
 }
 
-fn claim(agent: &str, path: &Path) -> EngineResult<()> {
-    let foreign = agent == "opencode" && path.exists() && !installed(agent, path);
+fn claim(agent: AgentKind, path: &Path) -> EngineResult<()> {
+    let foreign = agent == AgentKind::OpenCode && path.exists() && !installed(agent, path);
     if foreign || !writable(path) {
         return Err(EngineError::denied(format!(
             "{} is not the engine's to write; add the entries to your own config",
@@ -212,8 +212,8 @@ fn claim(agent: &str, path: &Path) -> EngineResult<()> {
     Ok(())
 }
 
-fn installed(agent: &str, path: &Path) -> bool {
-    if agent == "opencode" {
+fn installed(agent: AgentKind, path: &Path) -> bool {
+    if agent == AgentKind::OpenCode {
         return fs::read_to_string(path).is_ok_and(|raw| raw.starts_with(PLUGIN_MARK));
     }
     let Ok(config) = read_json(path) else {
@@ -242,16 +242,16 @@ fn writable(path: &Path) -> bool {
     access(&target, AccessFlags::W_OK).is_ok()
 }
 
-fn manual(agent: &str) -> Value {
+fn manual(agent: AgentKind) -> Value {
     match agent {
-        "opencode" => json!(plugin()),
-        _ => entries(agent),
+        AgentKind::OpenCode => json!(plugin()),
+        AgentKind::Claude | AgentKind::Codex => entries(agent),
     }
 }
 
 pub fn describe() -> EngineResult<Value> {
-    let agents: EngineResult<Vec<Value>> = KINDS
-        .iter()
+    let agents: EngineResult<Vec<Value>> = AgentKind::ALL
+        .into_iter()
         .map(|agent| {
             let path = config_path(agent)?;
             Ok(json!({
@@ -270,16 +270,19 @@ fn write_atomic(path: &Path, contents: &str) -> EngineResult<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let tmp = path.with_extension("striked.tmp");
-    fs::write(&tmp, contents)?;
-    if let Ok(meta) = fs::metadata(path) {
-        fs::set_permissions(&tmp, meta.permissions())?;
-    }
-    fs::rename(tmp, path)?;
+    util::write_atomic(
+        path,
+        contents.as_bytes(),
+        &WritePolicy {
+            perms: Perms::Keep,
+            durability: Durability::None,
+            tmp_suffix: ".striked.tmp",
+        },
+    )?;
     Ok(())
 }
 
-fn merged(agent: &str, mut config: Value) -> EngineResult<Value> {
+fn merged(agent: AgentKind, mut config: Value) -> EngineResult<Value> {
     let Value::Object(root) = &mut config else {
         return Err(EngineError::failed("the config is not a JSON object"));
     };
@@ -299,15 +302,12 @@ fn merged(agent: &str, mut config: Value) -> EngineResult<Value> {
     Ok(config)
 }
 
-pub fn install(agent: &str) -> EngineResult<Value> {
-    if !KINDS.contains(&agent) {
-        return Err(EngineError::bad_request(format!("no agent kind {agent}")));
-    }
+pub fn install(agent: AgentKind) -> EngineResult<Value> {
     let path = config_path(agent)?;
     claim(agent, &path)?;
     let contents = match agent {
-        "opencode" => plugin(),
-        _ => {
+        AgentKind::OpenCode => plugin(),
+        AgentKind::Claude | AgentKind::Codex => {
             let raw = read_raw(&path)?;
             render(&merged(agent, parse(&raw, &path)?)?, &raw)?
         }
@@ -322,14 +322,14 @@ pub fn install(agent: &str) -> EngineResult<Value> {
 
 pub fn remove_all() -> Vec<String> {
     let mut removed = Vec::new();
-    for agent in KINDS {
+    for agent in AgentKind::ALL {
         let Ok(path) = config_path(agent) else {
             continue;
         };
         if !writable(&path) || !installed_any(agent, &path) {
             continue;
         }
-        let done = if *agent == "opencode" {
+        let done = if agent == AgentKind::OpenCode {
             fs::remove_file(&path).is_ok()
         } else {
             read_raw(&path).is_ok_and(|raw| {
@@ -347,8 +347,8 @@ pub fn remove_all() -> Vec<String> {
     removed
 }
 
-fn installed_any(agent: &str, path: &Path) -> bool {
-    if agent == "opencode" {
+fn installed_any(agent: AgentKind, path: &Path) -> bool {
+    if agent == AgentKind::OpenCode {
         return installed(agent, path);
     }
     read_json(path).is_ok_and(|config| {
@@ -361,7 +361,7 @@ fn installed_any(agent: &str, path: &Path) -> bool {
     })
 }
 
-fn stripped(agent: &str, mut config: Value) -> Option<Value> {
+fn stripped(agent: AgentKind, mut config: Value) -> Option<Value> {
     let root = config.as_object_mut()?;
     let hooks = root.get_mut("hooks")?.as_object_mut()?;
     let before = hooks.len();
@@ -380,7 +380,7 @@ fn stripped(agent: &str, mut config: Value) -> Option<Value> {
 
 #[cfg(test)]
 mod tests {
-    use super::{claim, merged, parse, plugin, render, stripped, PLUGIN_MARK};
+    use super::{claim, merged, parse, plugin, render, stripped, AgentKind, PLUGIN_MARK};
     use crate::protocol::ErrorKind;
     use serde_json::{json, Value};
     use std::path::{Path, PathBuf};
@@ -393,7 +393,7 @@ mod tests {
         dir
     }
 
-    fn round_trip(agent: &str, original: &str) -> (String, String) {
+    fn round_trip(agent: AgentKind, original: &str) -> (String, String) {
         let path = Path::new("settings.json");
         let installed = render(&merged(agent, parse(original, path).unwrap()).unwrap(), original).unwrap();
         let removed = render(&stripped(agent, parse(&installed, path).unwrap()).unwrap(), &installed).unwrap();
@@ -403,7 +403,7 @@ mod tests {
     #[test]
     fn install_and_teardown_keep_the_user_key_order_and_indent() {
         let original = "{\n    \"zeta\": 1,\n    \"alpha\": {\n        \"b\": 1,\n        \"a\": 2\n    }\n}\n";
-        let (installed, removed) = round_trip("claude", original);
+        let (installed, removed) = round_trip(AgentKind::Claude, original);
         let keys: Vec<String> = serde_json::from_str::<serde_json::Map<String, Value>>(&installed)
             .unwrap()
             .keys()
@@ -417,18 +417,18 @@ mod tests {
     #[test]
     fn a_file_without_a_trailing_newline_keeps_none() {
         let original = "{\n  \"model\": \"opus\"\n}";
-        let (_, removed) = round_trip("codex", original);
+        let (_, removed) = round_trip(AgentKind::Codex, original);
         assert_eq!(removed, original);
     }
 
     #[test]
     fn teardown_leaves_the_user_own_empty_lists_and_adds_no_hooks_object() {
         let config = json!({ "hooks": { "PreToolUse": [], "Stop": [{ "hooks": [{ "type": "command", "command": "mine" }] }] } });
-        let back = stripped("claude", merged("claude", config.clone()).unwrap()).unwrap();
+        let back = stripped(AgentKind::Claude, merged(AgentKind::Claude, config.clone()).unwrap()).unwrap();
         assert_eq!(back, config);
 
         let bare = json!({ "model": "opus" });
-        assert_eq!(stripped("claude", merged("claude", bare.clone()).unwrap()).unwrap(), bare);
+        assert_eq!(stripped(AgentKind::Claude, merged(AgentKind::Claude, bare.clone()).unwrap()).unwrap(), bare);
     }
 
     #[test]
@@ -436,13 +436,13 @@ mod tests {
         let dir = scratch("claim");
         let foreign = dir.join("foreign.js");
         std::fs::write(&foreign, "export const Mine = async () => ({});\n").unwrap();
-        let refused = claim("opencode", &foreign).unwrap_err();
+        let refused = claim(AgentKind::OpenCode, &foreign).unwrap_err();
         assert_eq!(refused.kind, ErrorKind::Denied);
 
         let ours = dir.join("ours.js");
         std::fs::write(&ours, format!("{PLUGIN_MARK}\nold\n")).unwrap();
-        assert!(claim("opencode", &ours).is_ok());
-        assert!(claim("opencode", &dir.join("absent.js")).is_ok());
+        assert!(claim(AgentKind::OpenCode, &ours).is_ok());
+        assert!(claim(AgentKind::OpenCode, &dir.join("absent.js")).is_ok());
         let _ = std::fs::remove_dir_all(&dir);
     }
 

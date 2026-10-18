@@ -1,5 +1,5 @@
 use super::os::{lock, try_lock};
-use crate::util::now_millis;
+use crate::util::{now_millis, write_atomic, PLAIN_WRITE};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
 use std::io;
@@ -69,9 +69,11 @@ pub fn server_lock(dir: &Path) -> io::Result<Option<File>> {
 }
 
 pub fn write_record(dir: &Path, record: &Record) -> io::Result<()> {
-    let tmp = dir.join("server.json.tmp");
-    fs::write(&tmp, serde_json::to_vec(record)?)?;
-    fs::rename(tmp, dir.join("server.json"))
+    write_atomic(
+        &dir.join("server.json"),
+        &serde_json::to_vec(record)?,
+        &PLAIN_WRITE,
+    )
 }
 
 pub fn is_live(dir: &Path) -> bool {

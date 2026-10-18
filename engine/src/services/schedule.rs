@@ -1,14 +1,15 @@
 use crate::paths;
 use crate::protocol::{arg_str, arg_u64_opt, EngineError, EngineResult};
+use crate::services::agents::AgentKind;
 use crate::services::run;
-use crate::util::now_millis;
+use crate::util::{now_millis, tmp_path, write_atomic, Durability, Perms, WritePolicy};
 use chrono::{LocalResult, NaiveDate, TimeZone, Utc};
 use chrono_tz::Tz;
 use nix::unistd::getuid;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs;
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Read, Seek, SeekFrom};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -43,9 +44,35 @@ const MISSED_AFTER: i64 = 300;
 /// Two at once. An agent run is not cheap, and a machine that fell behind should not
 /// answer by starting everything it owes at the same moment.
 const MAX_ACTIVE: usize = 2;
+const STATE_WRITE: WritePolicy = WritePolicy {
+    perms: Perms::Private,
+    durability: Durability::FileAndDir,
+    tmp_suffix: ".tmp",
+};
 
 fn now_secs() -> i64 {
     (now_millis() / 1000) as i64
+}
+
+const SCHEDULED_AGENTS: [AgentKind; 2] = [AgentKind::Codex, AgentKind::Claude];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum Repeat {
+    Now,
+    Daily,
+    Once,
+}
+
+impl Repeat {
+    fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "now" => Some(Self::Now),
+            "daily" => Some(Self::Daily),
+            "once" => Some(Self::Once),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,10 +81,10 @@ struct Job {
     revision: u64,
     title: String,
     directory: String,
-    agent: String,
+    agent: AgentKind,
     model: String,
     prompt: String,
-    repeat: String,
+    repeat: Repeat,
     date: String,
     time: String,
     timezone: String,
@@ -198,16 +225,12 @@ impl Store {
         self.state.version = SCHEMA_VERSION;
         let file = self.root.join("state.json");
         no_symlink(&file)?;
-        let tmp = self.root.join("state.json.tmp");
-        no_symlink(&tmp)?;
-        let mut output = fs::File::create(&tmp)?;
-        fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600))?;
-        output.write_all(
+        no_symlink(&tmp_path(&file, STATE_WRITE.tmp_suffix))?;
+        write_atomic(
+            &file,
             &serde_json::to_vec(&self.state).map_err(|err| EngineError::failed(err.to_string()))?,
+            &STATE_WRITE,
         )?;
-        output.sync_all()?;
-        fs::rename(tmp, file)?;
-        fs::File::open(&self.root)?.sync_all()?;
         Ok(())
     }
 
@@ -237,12 +260,12 @@ fn parse_hhmm(value: &str) -> Option<(u32, u32)> {
 /// forward and can happen twice in an autumn. A skipped day is passed over rather than
 /// silently moved, and a doubled one fires on the first of the two.
 fn next_due(job: &Job, now: i64) -> Option<i64> {
-    if job.repeat == "now" {
+    if job.repeat == Repeat::Now {
         return Some(now);
     }
     let zone: Tz = job.timezone.parse().ok()?;
     let (hour, minute) = parse_hhmm(&job.time)?;
-    let start = if job.repeat == "once" {
+    let start = if job.repeat == Repeat::Once {
         NaiveDate::parse_from_str(&job.date, "%Y-%m-%d").ok()?
     } else {
         Utc.timestamp_opt(now, 0)
@@ -250,7 +273,7 @@ fn next_due(job: &Job, now: i64) -> Option<i64> {
             .with_timezone(&zone)
             .date_naive()
     };
-    let span = if job.repeat == "daily" { 370 } else { 1 };
+    let span = if job.repeat == Repeat::Daily { 370 } else { 1 };
     for offset in 0..span {
         let Some(day) = start.checked_add_signed(chrono::Duration::days(offset)) else {
             break;
@@ -349,10 +372,9 @@ fn validate(value: &Value, now: i64) -> EngineResult<Job> {
     }
     let directory = paths::display(&fs::canonicalize(directory)?);
 
-    let agent = text(value, "agent", 200)?;
-    if agent != "codex" && agent != "claude" {
-        return Err(EngineError::bad_request("unsupported agent"));
-    }
+    let agent = AgentKind::from_name(&text(value, "agent", 200)?)
+        .filter(|agent| SCHEDULED_AGENTS.contains(agent))
+        .ok_or_else(|| EngineError::bad_request("unsupported agent"))?;
 
     let model = match value.get("model").and_then(Value::as_str) {
         None | Some("") => String::new(),
@@ -368,28 +390,28 @@ fn validate(value: &Value, now: i64) -> EngineResult<Job> {
         }
     };
 
-    let repeat = text(value, "repeat", 200)?;
+    let repeat = Repeat::from_name(&text(value, "repeat", 200)?);
     let time = text(value, "time", 200)?;
-    if !["now", "daily", "once"].contains(&repeat.as_str()) || parse_hhmm(&time).is_none() {
+    let (Some(repeat), Some(_)) = (repeat, parse_hhmm(&time)) else {
         return Err(EngineError::bad_request(
             "choose now, daily or a one-shot time",
         ));
-    }
+    };
 
     let timezone = text(value, "timezone", 100)?;
     if timezone.parse::<Tz>().is_err() {
         return Err(EngineError::bad_request("unknown IANA timezone"));
     }
 
-    let date = match repeat.as_str() {
-        "once" => {
+    let date = match repeat {
+        Repeat::Once => {
             let raw = text(value, "date", 200)?;
             if NaiveDate::parse_from_str(&raw, "%Y-%m-%d").is_err() {
                 return Err(EngineError::bad_request("invalid date"));
             }
             raw
         }
-        _ => value
+        Repeat::Now | Repeat::Daily => value
             .get("date")
             .and_then(Value::as_str)
             .unwrap_or_default()
@@ -470,9 +492,9 @@ fn host_timezone() -> String {
 /// A schedule is a promise to run while the phone is elsewhere, so a host that cannot
 /// keep that promise says so here rather than accepting the schedule and missing it.
 fn probe() -> Value {
-    let agents: Vec<&str> = ["codex", "claude"]
+    let agents: Vec<AgentKind> = SCHEDULED_AGENTS
         .into_iter()
-        .filter(|agent| which(agent).is_some())
+        .filter(|agent| which(agent.name()).is_some())
         .collect();
 
     let (supported, reason) = if cfg!(target_os = "macos") {
@@ -662,15 +684,15 @@ fn write_private(path: &Path, body: &str) -> EngineResult<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    // Appended rather than substituted: the timer's two units differ only in their
-    // extension, and replacing it would give both the same temporary name.
-    let tmp = path.with_file_name(format!(
-        "{}.tmp",
-        path.file_name().unwrap_or_default().to_string_lossy()
-    ));
-    fs::write(&tmp, body)?;
-    fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600))?;
-    fs::rename(tmp, path)?;
+    write_atomic(
+        path,
+        body.as_bytes(),
+        &WritePolicy {
+            perms: Perms::Private,
+            durability: Durability::None,
+            tmp_suffix: ".tmp",
+        },
+    )?;
     Ok(())
 }
 
@@ -866,13 +888,13 @@ fn outcome(record: &RunRecord, state_root: &Path) -> Outcome {
     };
     let status = run::liveness_checked(&dir, status);
     let finished = status.finished.map(|value| (value / 1000) as i64);
-    let name = match status.state.as_str() {
-        "starting" | "running" => "running",
-        "lost" => "interrupted",
-        "exited" if status.timed_out => "timeout",
-        "exited" if status.cancelled => "canceled",
-        "exited" if status.code == Some(0) => "completed",
-        _ => "failed",
+    let name = match status.state {
+        run::JobState::Starting | run::JobState::Running => "running",
+        run::JobState::Lost => "interrupted",
+        run::JobState::Exited if status.timed_out => "timeout",
+        run::JobState::Exited if status.cancelled => "canceled",
+        run::JobState::Exited if status.code == Some(0) => "completed",
+        run::JobState::Exited => "failed",
     };
     Outcome {
         status: name.into(),
@@ -940,7 +962,7 @@ fn claim(
         ));
     }
     let missed = automatic
-        && entry.job.repeat == "daily"
+        && entry.job.repeat == Repeat::Daily
         && entry.next_due.is_some_and(|due| now - due > MISSED_AFTER);
     let run_id = run::new_id();
     store.state.runs.push(RunRecord {
@@ -956,7 +978,7 @@ fn claim(
     });
 
     if automatic {
-        let following = if entry.job.repeat == "now" {
+        let following = if entry.job.repeat == Repeat::Now {
             None
         } else {
             next_due(&entry.job, now)
@@ -989,11 +1011,16 @@ fn dispatch_run(store: &mut Store, run_id: &str) -> EngineResult<()> {
         .as_ref()
         .ok_or_else(|| EngineError::bad_request("run is not queued"))?;
 
-    let mut argv = if job.agent == "codex" {
-        vec!["codex".into(), "exec".into(), "--json".into(), "-".into()]
+    let mut argv = if job.agent == AgentKind::Codex {
+        vec![
+            job.agent.name().into(),
+            "exec".into(),
+            "--json".into(),
+            "-".into(),
+        ]
     } else {
         vec![
-            "claude".into(),
+            job.agent.name().into(),
             "--print".into(),
             "--output-format".into(),
             "json".into(),
@@ -1188,12 +1215,12 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
                     .ok_or_else(|| EngineError::bad_request("schedule is required"))?,
                 now,
             )?;
-            if job.repeat == "now" && store.state.paused {
+            if job.repeat == Repeat::Now && store.state.paused {
                 return Err(EngineError::denied(
                     "resume the host queue before starting a task",
                 ));
             }
-            if which(&job.agent).is_none() {
+            if which(job.agent.name()).is_none() {
                 return Err(EngineError::not_found(format!(
                     "agent executable is not installed: {}",
                     job.agent
@@ -1230,7 +1257,7 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
                 None => store.state.schedules.push(entry),
             }
             store.commit()?;
-            if store.entry(&id)?.job.repeat == "now" && store.entry(&id)?.enabled {
+            if store.entry(&id)?.job.repeat == Repeat::Now && store.entry(&id)?.enabled {
                 let due = store.entry(&id)?.next_due.unwrap_or(now);
                 claim(&mut store, &id, &due.to_string(), now, true)?;
                 store.commit()?;
@@ -1486,19 +1513,20 @@ pub fn tick(scope: &str) -> i32 {
 mod tests {
     use super::{
         agent_plist, dispatch_unit, next_due, parse_hhmm, remove_launchd_timers,
-        remove_systemd_timers, Job,
+        remove_systemd_timers, Job, Repeat,
     };
+    use crate::services::agents::AgentKind;
 
-    fn job(repeat: &str, time: &str, zone: &str, date: &str) -> Job {
+    fn job(repeat: Repeat, time: &str, zone: &str, date: &str) -> Job {
         Job {
             id: "one".into(),
             revision: 0,
             title: "One".into(),
             directory: "/tmp".into(),
-            agent: "claude".into(),
+            agent: AgentKind::Claude,
             model: String::new(),
             prompt: "hello".into(),
-            repeat: repeat.into(),
+            repeat,
             date: date.into(),
             time: time.into(),
             timezone: zone.into(),
@@ -1509,32 +1537,32 @@ mod tests {
     #[test]
     fn a_time_the_clock_skips_is_passed_over_rather_than_moved() {
         // 2026-03-08 02:30 does not exist in New York: the clock goes 01:59 to 03:00.
-        let spec = job("daily", "02:30", "America/New_York", "");
+        let spec = job(Repeat::Daily, "02:30", "America/New_York", "");
         let before = 1_772_949_600; // 2026-03-08T01:00-05:00
         let due = next_due(&spec, before).expect("a daily schedule always has a next day");
         assert!(due > before + 86_000, "the skipped day is not fired early");
 
-        let once = job("once", "02:30", "America/New_York", "2026-03-08");
+        let once = job(Repeat::Once, "02:30", "America/New_York", "2026-03-08");
         assert_eq!(next_due(&once, before), None);
     }
 
     #[test]
     fn an_hour_the_clock_repeats_fires_on_the_first_of_the_two() {
         // 2026-11-01 01:30 happens twice in New York, at -04:00 and again at -05:00.
-        let spec = job("once", "01:30", "America/New_York", "2026-11-01");
+        let spec = job(Repeat::Once, "01:30", "America/New_York", "2026-11-01");
         let due = next_due(&spec, 1_793_500_000).expect("the earlier of the two");
         assert_eq!(due, 1_793_511_000, "05:30Z is 01:30-04:00, not 01:30-05:00");
     }
 
     #[test]
     fn a_one_shot_in_the_past_has_no_next_time() {
-        let spec = job("once", "09:00", "UTC", "2020-01-01");
+        let spec = job(Repeat::Once, "09:00", "UTC", "2020-01-01");
         assert_eq!(next_due(&spec, 1_772_949_600), None);
     }
 
     #[test]
     fn a_daily_schedule_moves_to_tomorrow_once_today_is_gone() {
-        let spec = job("daily", "09:00", "UTC", "");
+        let spec = job(Repeat::Daily, "09:00", "UTC", "");
         let morning = 1_772_960_400; // 2026-03-08T09:00Z
         assert_eq!(next_due(&spec, morning), Some(morning + 86_400));
         assert_eq!(next_due(&spec, morning - 60), Some(morning));
@@ -1660,5 +1688,18 @@ mod tests {
         let _ = std::fs::remove_dir_all(&absent);
         assert!(remove_launchd_timers(&absent).is_empty());
         assert!(remove_systemd_timers(&absent).is_empty());
+    }
+
+    #[test]
+    fn state_json_agents_and_repeats_round_trip_unchanged() {
+        for (agent, repeat) in [("claude", "now"), ("codex", "daily"), ("claude", "once")] {
+            let json = format!(
+                r#"{{"id":"one","revision":3,"title":"One","directory":"/tmp","agent":"{agent}","model":"","prompt":"hello","repeat":"{repeat}","date":"2026-03-08","time":"02:30","timezone":"UTC","timeout":600}}"#
+            );
+            let job: Job = serde_json::from_str(&json).unwrap();
+            assert_eq!(job.agent, AgentKind::from_name(agent).unwrap());
+            assert_eq!(job.repeat, Repeat::from_name(repeat).unwrap());
+            assert_eq!(serde_json::to_string(&job).unwrap(), json);
+        }
     }
 }

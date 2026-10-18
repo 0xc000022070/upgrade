@@ -1,3 +1,7 @@
+use std::fs::{self, OpenOptions};
+use std::io::{self, Write};
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -55,6 +59,67 @@ pub fn now_millis() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|value| value.as_millis() as u64)
         .unwrap_or(0)
+}
+
+pub enum Perms {
+    Private,
+    Keep,
+    Default,
+}
+
+pub enum Durability {
+    None,
+    File,
+    FileAndDir,
+}
+
+pub struct WritePolicy {
+    pub perms: Perms,
+    pub durability: Durability,
+    pub tmp_suffix: &'static str,
+}
+
+pub const PLAIN_WRITE: WritePolicy = WritePolicy {
+    perms: Perms::Default,
+    durability: Durability::None,
+    tmp_suffix: ".tmp",
+};
+
+/// Appended rather than substituted: two files that differ only in their extension,
+/// like a timer's two units, would otherwise share one temporary name.
+pub fn tmp_path(path: &Path, suffix: &str) -> PathBuf {
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    name.push(suffix);
+    path.with_file_name(name)
+}
+
+pub fn write_atomic(path: &Path, bytes: &[u8], policy: &WritePolicy) -> io::Result<()> {
+    let tmp = tmp_path(path, policy.tmp_suffix);
+    let mut options = OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    if let Perms::Private = policy.perms {
+        options.mode(0o600);
+    }
+    let mut file = options.open(&tmp)?;
+    match policy.perms {
+        Perms::Private => fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600))?,
+        Perms::Keep => {
+            if let Ok(meta) = fs::metadata(path) {
+                fs::set_permissions(&tmp, meta.permissions())?;
+            }
+        }
+        Perms::Default => {}
+    }
+    file.write_all(bytes)?;
+    if !matches!(policy.durability, Durability::None) {
+        file.sync_all()?;
+    }
+    drop(file);
+    fs::rename(&tmp, path)?;
+    if let (Durability::FileAndDir, Some(dir)) = (&policy.durability, path.parent()) {
+        fs::File::open(dir)?.sync_all()?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

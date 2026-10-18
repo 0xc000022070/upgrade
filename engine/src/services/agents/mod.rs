@@ -4,14 +4,14 @@ mod transcript;
 use crate::owner;
 use crate::paths;
 use crate::protocol::{arg_str, arg_u64_opt, EngineError, EngineResult};
-use crate::util::now_millis;
+use crate::util::{now_millis, write_atomic, Durability, Perms, WritePolicy, PLAIN_WRITE};
 use nix::errno::Errno;
 use nix::sys::signal::kill;
 use nix::unistd::{getppid, Pid};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -20,7 +20,49 @@ pub use hooks::remove_all as remove_hooks;
 
 pub const SERVICE: &str = "agents/1";
 pub const OPS: &[&str] = &["watch", "answer", "transcript", "hooks", "install"];
-pub const KINDS: &[&str] = &["claude", "codex", "opencode"];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AgentKind {
+    Claude,
+    Codex,
+    OpenCode,
+}
+
+impl AgentKind {
+    pub const ALL: [Self; 3] = [Self::Claude, Self::Codex, Self::OpenCode];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+            Self::Codex => "codex",
+            Self::OpenCode => "opencode",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|kind| kind.name() == name)
+    }
+
+    pub fn parse(name: &str) -> EngineResult<Self> {
+        Self::from_name(name)
+            .ok_or_else(|| EngineError::bad_request(format!("no agent kind {name}")))
+    }
+
+    fn injected(self) -> &'static [&'static str] {
+        match self {
+            Self::Claude => CLAUDE_INJECTED,
+            Self::Codex => CODEX_INJECTED,
+            Self::OpenCode => &[],
+        }
+    }
+}
+
+impl std::fmt::Display for AgentKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.name())
+    }
+}
 
 const SCHEMA_VERSION: u32 = 1;
 const MAX_HOOK_INPUT: u64 = 64 * 1024 * 1024;
@@ -59,25 +101,24 @@ fn tagged<'a>(text: &'a str, tag: &str) -> Option<&'a str> {
     Some(text[start..end].trim())
 }
 
-fn typed(agent: &str, text: &str) -> Option<String> {
+fn typed(agent: AgentKind, text: &str) -> Option<String> {
     let trimmed = text.trim_start();
-    if agent == "claude" && trimmed.starts_with("<command-") {
+    if agent == AgentKind::Claude && trimmed.starts_with("<command-") {
         if let Some(name) = tagged(trimmed, "command-name") {
             let args = tagged(trimmed, "command-args").unwrap_or("");
             return Some(format!("{name} {args}").trim_end().to_owned());
         }
     }
-    if agent == "claude" && trimmed.starts_with("<bash-input>") {
+    if agent == AgentKind::Claude && trimmed.starts_with("<bash-input>") {
         if let Some(command) = tagged(trimmed, "bash-input") {
             return Some(format!("! {command}"));
         }
     }
-    let marks = match agent {
-        "claude" => CLAUDE_INJECTED,
-        "codex" => CODEX_INJECTED,
-        _ => &[],
-    };
-    let injected = trimmed.is_empty() || marks.iter().any(|mark| trimmed.starts_with(mark));
+    let injected = trimmed.is_empty()
+        || agent
+            .injected()
+            .iter()
+            .any(|mark| trimmed.starts_with(mark));
     (!injected).then(|| text.to_owned())
 }
 
@@ -94,7 +135,7 @@ struct Approval {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Session {
     key: String,
-    agent: String,
+    agent: AgentKind,
     session_id: String,
     state: String,
     started: u64,
@@ -191,14 +232,15 @@ impl Store {
         self.state.version = SCHEMA_VERSION;
         self.state.generation += 1;
 
-        let tmp = self.root.join("state.json.tmp");
-        let mut output = fs::File::create(&tmp)?;
-        fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600))?;
-        output.write_all(
+        write_atomic(
+            &self.root.join("state.json"),
             &serde_json::to_vec(&self.state).map_err(|err| EngineError::failed(err.to_string()))?,
+            &WritePolicy {
+                perms: Perms::Private,
+                durability: Durability::File,
+                tmp_suffix: ".tmp",
+            },
         )?;
-        output.sync_all()?;
-        fs::rename(tmp, self.root.join("state.json"))?;
         Ok(())
     }
 
@@ -214,16 +256,16 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
         "answer" => answer(args, &root),
         "transcript" => transcript::read(args, &read_state(&root)?.sessions_by_key()),
         "hooks" => hooks::describe(),
-        "install" => hooks::install(arg_str(args, "agent")?),
+        "install" => hooks::install(AgentKind::parse(arg_str(args, "agent")?)?),
         _ => Err(EngineError::unsupported(format!("{SERVICE} has no op {op}"))),
     }
 }
 
 impl State {
-    fn sessions_by_key(&self) -> Vec<(String, String, Option<String>)> {
+    fn sessions_by_key(&self) -> Vec<(String, AgentKind, Option<String>)> {
         self.sessions
             .iter()
-            .map(|session| (session.key.clone(), session.agent.clone(), session.transcript.clone()))
+            .map(|session| (session.key.clone(), session.agent, session.transcript.clone()))
             .collect()
     }
 }
@@ -317,9 +359,7 @@ fn answer(args: &Value, root: &Path) -> EngineResult<Value> {
     }
     let dir = answers_dir(root);
     fs::create_dir_all(&dir)?;
-    let tmp = dir.join(format!("{id}.tmp"));
-    fs::write(&tmp, decision)?;
-    fs::rename(tmp, dir.join(id))?;
+    write_atomic(&dir.join(id), decision.as_bytes(), &PLAIN_WRITE)?;
     Ok(json!({ "id": id, "decision": decision }))
 }
 
@@ -367,10 +407,10 @@ pub fn hook(agent: &str) -> i32 {
     0
 }
 
-fn new_session(key: &str, agent: &str, session_id: &str, now: u64) -> Session {
+fn new_session(key: &str, agent: AgentKind, session_id: &str, now: u64) -> Session {
     Session {
         key: key.to_owned(),
-        agent: agent.to_owned(),
+        agent,
         session_id: session_id.to_owned(),
         state: "idle".to_owned(),
         started: now,
@@ -461,7 +501,7 @@ fn apply_event(session: &mut Session, event: &str, input: &Value) -> Option<Opti
         "SessionStart" => settle_state(session, "idle"),
         "UserPromptSubmit" => {
             settle_state(session, "working");
-            if let Some(prompt) = text(input, "prompt").and_then(|prompt| typed(&session.agent, &prompt)) {
+            if let Some(prompt) = text(input, "prompt").and_then(|prompt| typed(session.agent, &prompt)) {
                 session.prompt = Some(cut(&prompt, LINE_CHARS));
             }
         }
@@ -521,9 +561,7 @@ fn read_hook_input() -> EngineResult<Value> {
 }
 
 fn run_hook(agent: &str) -> EngineResult<()> {
-    if !KINDS.contains(&agent) {
-        return Err(EngineError::bad_request(format!("no agent kind {agent}")));
-    }
+    let agent = AgentKind::parse(agent)?;
     let input = read_hook_input()?;
     if input.get("agent_id").is_some_and(|value| !value.is_null()) {
         return Ok(());
@@ -609,7 +647,7 @@ fn await_answer(root: &Path, key: &str, approval: &Approval) -> Option<&'static 
 mod tests {
     use super::{
         answers_dir, apply_event, close_approval, cut, new_session, request_approval, summarize, typed,
-        Store,
+        AgentKind, Store,
     };
     use crate::util::now_millis;
     use serde_json::json;
@@ -619,7 +657,7 @@ mod tests {
         let root = std::env::temp_dir().join(format!("striked-agents-close-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let mut store = Store::open(&root).unwrap();
-        let mut session = new_session("claude:s1", "claude", "s1", now_millis());
+        let mut session = new_session("claude:s1", AgentKind::Claude, "s1", now_millis());
         let approval = request_approval(&mut session, &json!({ "tool_name": "Bash" }));
         store.state.sessions.push(session);
         store.commit().unwrap();
@@ -647,7 +685,7 @@ mod tests {
 
     #[test]
     fn a_question_is_no_approval() {
-        let mut session = new_session("claude:s1", "claude", "s1", now_millis());
+        let mut session = new_session("claude:s1", AgentKind::Claude, "s1", now_millis());
         let input = json!({
             "tool_name": "AskUserQuestion",
             "tool_input": { "questions": [
@@ -678,7 +716,7 @@ mod tests {
 
     #[test]
     fn a_harness_turn_keeps_the_prompt_a_person_typed() {
-        let mut session = new_session("claude:s1", "claude", "s1", now_millis());
+        let mut session = new_session("claude:s1", AgentKind::Claude, "s1", now_millis());
         apply_event(&mut session, "UserPromptSubmit", &json!({ "prompt": "fix the tab strip" }));
         let notice = "<task-notification>\n<task-id>b1yu0brus</task-id>";
         apply_event(&mut session, "UserPromptSubmit", &json!({ "prompt": notice }));
@@ -689,18 +727,32 @@ mod tests {
 
     #[test]
     fn only_what_a_person_typed_is_their_turn() {
-        assert_eq!(typed("claude", "  <task-notification>x").as_deref(), None);
+        assert_eq!(typed(AgentKind::Claude, "  <task-notification>x").as_deref(), None);
         let teammate = "Another Claude session sent a message:\n<teammate-message>";
-        assert_eq!(typed("claude", teammate).as_deref(), None);
+        assert_eq!(typed(AgentKind::Claude, teammate).as_deref(), None);
         let command = "<command-message>commit</command-message>\n<command-name>/commit</command-name>\n\
             <command-args>only the engine</command-args>";
-        assert_eq!(typed("claude", command).as_deref(), Some("/commit only the engine"));
-        assert_eq!(typed("claude", "<command-name>/clear</command-name>").as_deref(), Some("/clear"));
-        assert_eq!(typed("claude", "<bash-input>ls</bash-input>").as_deref(), Some("! ls"));
+        assert_eq!(typed(AgentKind::Claude, command).as_deref(), Some("/commit only the engine"));
+        assert_eq!(typed(AgentKind::Claude, "<command-name>/clear</command-name>").as_deref(), Some("/clear"));
+        assert_eq!(typed(AgentKind::Claude, "<bash-input>ls</bash-input>").as_deref(), Some("! ls"));
         let lookalike = "<command-foo> why does this parse";
-        assert_eq!(typed("claude", lookalike).as_deref(), Some(lookalike));
-        assert_eq!(typed("codex", "<environment_context>").as_deref(), None);
+        assert_eq!(typed(AgentKind::Claude, lookalike).as_deref(), Some(lookalike));
+        assert_eq!(typed(AgentKind::Codex, "<environment_context>").as_deref(), None);
         let typed_tag = "<system-reminder> is a tag";
-        assert_eq!(typed("codex", typed_tag).as_deref(), Some(typed_tag));
+        assert_eq!(typed(AgentKind::Codex, typed_tag).as_deref(), Some(typed_tag));
+    }
+
+    #[test]
+    fn agent_kinds_keep_their_wire_names() {
+        let names = ["claude", "codex", "opencode"];
+        for (kind, name) in AgentKind::ALL.into_iter().zip(names) {
+            assert_eq!(kind.name(), name);
+            assert_eq!(serde_json::to_value(kind).unwrap(), json!(name));
+            let parsed: AgentKind = serde_json::from_value(json!(name)).unwrap();
+            assert_eq!(parsed, kind);
+            assert_eq!(AgentKind::parse(name).unwrap(), kind);
+        }
+        let unknown = AgentKind::parse("gemini").unwrap_err();
+        assert_eq!(unknown.message, "no agent kind gemini");
     }
 }
