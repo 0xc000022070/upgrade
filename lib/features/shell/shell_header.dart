@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:striked/data/repositories/host_repository.dart';
 import 'package:striked/design/tokens.dart';
 import 'package:striked/design/components/cell_divider.dart';
-import 'package:striked/design/components/connection_glyph.dart';
 import 'package:striked/design/components/key_cell.dart';
 import 'package:striked/design/components/list_row.dart';
 import 'package:striked/design/components/panel_sheet.dart';
@@ -349,7 +348,6 @@ class _ShellHeaderState extends State<ShellHeader> {
                       session: session,
                       grouped: true,
                       active: session == widget.active,
-                      rail: session == widget.active,
                       onTap: () => _tap(group, session),
                     ),
                   ),
@@ -655,7 +653,6 @@ class _TabCell extends StatelessWidget {
     this.grouped = false,
     this.dimmed = false,
     this.tint,
-    this.rail = false,
   }) : assert(label != null || icon != null, 'a word or a mark, not neither');
 
   final String? label;
@@ -675,24 +672,8 @@ class _TabCell extends StatelessWidget {
   /// than taking the ink of whether it is the tab on screen.
   final Color? tint;
 
-  final bool rail;
-
   @override
   Widget build(BuildContext context) {
-    final session = this.session;
-    final cell = _cell(context);
-    if (session == null || !rail) return cell;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        cell,
-        _FeatureRail(session: session),
-      ],
-    );
-  }
-
-  Widget _cell(BuildContext context) {
     final tint =
         this.tint ??
         switch ((active, dimmed)) {
@@ -756,53 +737,6 @@ class _TabCell extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _FeatureRail extends StatelessWidget {
-  const _FeatureRail({required this.session});
-
-  final ShellSession session;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Container(
-      key: const ValueKey('shell-tab-features'),
-      padding: const EdgeInsets.only(right: Spacing.sm),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: tokens.accent, width: Borders.hairline * 2),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-            child: VerticalDivider(
-              width: Spacing.sm,
-              thickness: Borders.hairline,
-              color: tokens.borderSubtle,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: Spacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ConnectionGlyph(
-                  key: const ValueKey('shell-tab-connection'),
-                  dedicated: session.ownConnection,
-                  traffic: session.output,
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

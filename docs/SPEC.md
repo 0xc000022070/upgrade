@@ -1255,13 +1255,11 @@ The header is one row of 44: the strip of host groups and a `+` inline, the acti
 
 **The tab in use is on the screen.** The strip scrolls, and a tab going active — by a tap, by being opened, or by the one beside it closing — is brought into view. A strip that scrolled the shell the user is typing in off its own edge is how a tab is lost. An end of the strip with tabs past it fades out over 24, so a tab cut by the edge reads as more that way and not as a sliver of a mark.
 
-### The tab on screen carries a rail of what it runs with
+### A shell is opened on a shared or a dedicated connection
 
-**The active tab grows a rail at its right edge**, after a `borderSubtle` hairline that stops short of the row's top and bottom, with the tab's accent underline carried under it so the rail reads as part of the tab and not a cell beside it. The rail is a list read from the top: one mark per feature, the first one level with the top of the hairline, so the room under it is where the next feature goes. It is read-only; a tap on it does nothing. Tabs not on screen carry no rail, because the strip is where every shell is found and nine rails would cost it the room.
+**The tab carries no mark of it.** The strip is where every shell is found, and it has no room for what a tab runs with.
 
-**The one feature today is the connection, drawn 12 wide on a 1 stroke, and the rail is no wider than the mark and its hairline.** Shared, two channels leave two hollow nodes and converge into one route to the host's node. Dedicated, one channel runs straight from its node to the host's. Routes are `textMuted`, nodes `textSecondary`.
-
-**Accent dots of 2 px run along it only while the tab has traffic**, the host's bytes or the app's: one traversal takes about 1.8s, stepped at the spinner's 80ms like every other effect, and a traversal that ends with no traffic since it began leaves the routes bare. On a shared mark B trails A, so the two alternate along the shared run and never merge. The dots are illustration and say nothing about volume. Under reduce-motion the mark is drawn still and bare.
+**The connection is drawn 12 wide on a 1 stroke.** Shared, two channels leave two hollow nodes and converge into one route to the host's node. Dedicated, one channel runs straight from its node to the host's. Routes are `textMuted`, nodes `textSecondary`.
 
 **The choice is made once, in `NEW SHELL ON`, behind `ADVANCED OPTIONS`.** The row stands under the menu's list, saying `SHARED` or `DEDICATED`, and opens the menu's second page: `ADVANCED OPTIONS` with `BACK` in the title bar, and under `CONNECTION` the two marks to pick from, `SHARED` checked by default. `BACK`, or the system back, returns to the first page with the choice kept, and whatever row is picked there opens on it. The choice holds for the life of the tab: nothing switches a tab already open, so the choice never redials one. Only the tab moves: the pickers, the send, the workspace and the files sheet stay on the shared connection.
 

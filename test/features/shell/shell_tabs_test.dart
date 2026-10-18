@@ -6,9 +6,7 @@ import 'package:striked/application/shell/launch_scan.dart';
 import 'package:striked/data/repositories/host_repository.dart';
 import 'package:striked/design/colors.dart';
 import 'package:striked/design/components/cell_divider.dart';
-import 'package:striked/design/components/connection_glyph.dart';
 import 'package:striked/design/components/dot_spinner.dart';
-import 'package:striked/design/components/panel_sheet.dart';
 import 'package:striked/design/components/scan_sweep.dart';
 import 'package:striked/design/motion.dart';
 import 'package:striked/design/spacing.dart';
@@ -206,36 +204,12 @@ void main() {
     await unmount(tester);
   });
 
-  ConnectionGlyphPainter railGlyph(WidgetTester tester) =>
-      tester
-              .widget<CustomPaint>(
-                find.descendant(
-                  of: find.byKey(const ValueKey('shell-tab-connection')),
-                  matching: find.byType(CustomPaint),
-                ),
-              )
-              .painter!
-          as ConnectionGlyphPainter;
-
-  testWidgets('the tab on screen draws its connection, dedicated when ADVANCED '
-      'OPTIONS said so, and a tap on it does nothing', (tester) async {
+  testWidgets('a shell opened DEDICATED from ADVANCED OPTIONS gets its own '
+      'connection', (tester) async {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
-
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('shell-tab-h1-1')),
-        matching: find.byKey(const ValueKey('shell-tab-features')),
-      ),
-      findsOneWidget,
-    );
-    expect(railGlyph(tester).dedicated, isFalse);
-
-    await tester.tap(find.byKey(const ValueKey('shell-tab-features')));
-    await ready(tester);
-    expect(find.byType(ConfirmSheetBody), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('shell-tab-new')));
     await ready(tester);
@@ -256,82 +230,6 @@ void main() {
 
     expect(sessions.activeFor('h1')!.ownConnection, isTrue);
     expect(transport.alone, [false, true]);
-    expect(railGlyph(tester).dedicated, isTrue);
-
-    await unmount(tester);
-  });
-
-  testWidgets('the connection glyph runs its dots only while the tab has '
-      'traffic', (tester) async {
-    final transport = FakeShellTransport();
-    final sessions = fakeShellSessions(transport);
-    await tester.pumpWidget(app(sessions));
-    await ready(tester);
-    await tester.pump(const Duration(seconds: 3));
-    expect(railGlyph(tester).step, isNull);
-
-    transport.opened.single.emit('x');
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(railGlyph(tester).step, isNotNull);
-
-    await tester.pump(const Duration(seconds: 3));
-    expect(railGlyph(tester).step, isNull);
-
-    await unmount(tester);
-  });
-
-  testWidgets('under reduce-motion the connection glyph stays still', (
-    tester,
-  ) async {
-    final transport = FakeShellTransport();
-    final sessions = fakeShellSessions(transport);
-    await tester.pumpWidget(
-      MediaQuery(
-        data: const MediaQueryData(disableAnimations: true),
-        child: app(sessions),
-      ),
-    );
-    await ready(tester);
-
-    transport.opened.single.emit('x');
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(railGlyph(tester).step, isNull);
-
-    await unmount(tester);
-  });
-
-  testWidgets('a tab behind the one on screen carries no rail', (tester) async {
-    const host = Host(
-      id: 'h1',
-      name: 'NYX',
-      address: '100.64.0.1',
-      port: 22,
-      user: 'luis',
-      keyId: 'key-1',
-    );
-    final transport = FakeShellTransport();
-    final sessions = fakeShellSessions(transport);
-    sessions.open(intent: testIntent(), host);
-    sessions.open(intent: testIntent(), host);
-    await tester.pumpWidget(
-      app(
-        sessions,
-        home: HostShellRoute(host: host, intent: testIntent()),
-      ),
-    );
-    await ready(tester);
-
-    final behind = sessions
-        .forHost('h1')
-        .firstWhere((session) => session != sessions.activeFor('h1'));
-    expect(find.byKey(const ValueKey('shell-tab-features')), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byKey(ValueKey('shell-tab-h1-${behind.number}')),
-        matching: find.byKey(const ValueKey('shell-tab-features')),
-      ),
-      findsNothing,
-    );
 
     await unmount(tester);
   });
@@ -636,12 +534,8 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      final rail = tester.getSize(
-        find.byKey(const ValueKey('shell-tab-features')),
-      );
       expect(
-        tester.getSize(find.byKey(const ValueKey('shell-tab-h1-1'))).width -
-            rail.width,
+        tester.getSize(find.byKey(const ValueKey('shell-tab-h1-1'))).width,
         lessThan(60),
       );
 
