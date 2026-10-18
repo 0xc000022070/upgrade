@@ -1745,7 +1745,9 @@ On Android a tap is `input tap`, a long press is a swipe that does not move for 
 
 **Minimizing is not closing.** The minimize dash, or a window dragged more than half past a side edge, folds it into the bubble, its row still in accent in the list. Nothing is seen there, so the stream pauses there the way it does with the app in the background. A tap on that row in the list opens the window again where it was and resumes it, unless the user had paused it first; any other row moves the stream there.
 
-**Closing is said on purpose, and a window closes only itself.** `END` at a window's overlay foot, or the window dropped on the close target that rises at the bottom of the screen while it is dragged, ends that window's stream and leaves the bubble and the other window. `END` in the list's footer, or the bubble or the list's handle dropped on the target, ends everything, empties the list and lets every host's connection go.
+**Closing is said on purpose, and a window closes only itself.** `END` at a window's overlay foot, or the window dropped on the close target that rises at the bottom of the screen while it is dragged, ends that window's stream and leaves the bubble and the other window. The bubble or the list's handle dropped on the target ends everything, empties the list and lets every host's connection go.
+
+**Struck:** `END` in the list's footer. It repeated the drop on the target, sat beside the harmless minimize dash, ended every stream and connection in one tap, and read as the key bar's `END` key.
 
 **The bubble tucks into the edge.** Dropped more than half past a side edge, the bubble leaves for the handle, folding every window and keeping every stream held and paused, so the handle stays in accent. A tap on the handle brings the bubble back with the list open, a held row in accent, one tap from its window.
 

@@ -841,12 +841,6 @@ void main() {
     expect(link.closed, isTrue);
 
     await reopen();
-    await _open(tester);
-    await _tapKey(tester, const ValueKey('device-list-close'));
-    expect(find.byKey(_barKey), findsNothing);
-    expect(link.closed, isTrue);
-
-    await reopen();
     await _pick(tester, _pixel);
     await _live(tester, link);
     await _tapKey(tester, _floatKey);
@@ -1660,7 +1654,7 @@ void main() {
       );
     });
 
-    testWidgets('END ends a boot in flight and shuts nothing down', (
+    testWidgets('ending the dock ends a boot in flight and shuts nothing down', (
       tester,
     ) async {
       final link = _hostLink(const [_pixel, _booted]);
@@ -1669,7 +1663,7 @@ void main() {
       await _openSheet(tester);
       await _tapKey(tester, const ValueKey('device-boot-Pixel_9'));
       await _settle(tester);
-      await _tapKey(tester, const ValueKey('device-list-close'));
+      _dock(tester).close();
       await _settle(tester);
 
       expect(link.closed, isTrue);

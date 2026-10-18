@@ -1205,26 +1205,6 @@ class _DeviceListState extends State<_DeviceList> {
               ),
             ),
           ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(
-                  color: tokens.borderNormal,
-                  width: Borders.hairline,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Spacer(),
-                _Word(
-                  key: const ValueKey('device-list-close'),
-                  label: 'END',
-                  onTap: dock.close,
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
