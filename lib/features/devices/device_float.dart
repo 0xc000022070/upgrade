@@ -813,6 +813,13 @@ class _FloatWindowState extends State<_FloatWindow> {
       widest,
     );
     final size = Size(width, width / aspect);
+    final start = widget.width(screen).clamp(deviceFloatMinWidth, widest);
+    final stops = [start, (start + widest) / 2, widest];
+    // Half a point of slack so a width already on a stop steps past it.
+    final next = stops.firstWhere(
+      (stop) => stop > width + 0.5,
+      orElse: () => stops.first,
+    );
     final right = _right ?? widget.right;
     final resting = Offset(
       right
@@ -897,6 +904,10 @@ class _FloatWindowState extends State<_FloatWindow> {
                   marks: widget.marks,
                   actions: widget.actions,
                   overlay: _overlay,
+                  onSize: () {
+                    setState(() => _width = next);
+                    widget.onSettled?.call(next, media.devicePixelRatio);
+                  },
                   onExpand: () => _hide(widget.onExpand),
                   onPip: widget.onPip == null
                       ? null
@@ -1475,6 +1486,7 @@ class _Tile extends StatelessWidget {
     required this.marks,
     required this.actions,
     required this.overlay,
+    required this.onSize,
     required this.onExpand,
     required this.onCollapse,
     required this.onClose,
@@ -1487,6 +1499,7 @@ class _Tile extends StatelessWidget {
   final List<Widget> marks;
   final List<Widget> Function(BuildContext context) actions;
   final bool overlay;
+  final VoidCallback onSize;
   final VoidCallback onExpand;
   final VoidCallback onCollapse;
   final VoidCallback onClose;
@@ -1509,7 +1522,7 @@ class _Tile extends StatelessWidget {
               color: context.tokens.scrim,
               child: LayoutBuilder(
                 builder: (context, box) {
-                  const tallest = TapTargets.minHeight * 3;
+                  const tallest = TapTargets.minHeight * 4;
                   final controls = Column(
                     children: [
                       Row(
@@ -1538,9 +1551,24 @@ class _Tile extends StatelessWidget {
                       ),
                       Expanded(
                         child: Center(
-                          child: Row(
+                          child: Column(
                             mainAxisSize: MainAxisSize.min,
-                            children: actions(context),
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: actions(context),
+                              ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _Word(
+                                    key: ValueKey('$id-size'),
+                                    label: 'SIZE',
+                                    onTap: onSize,
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ),

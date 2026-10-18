@@ -807,6 +807,7 @@ void main() {
       for (final key in const [
         'device-float-expand',
         'device-float-collapse',
+        'device-float-size',
         'device-float-close',
       ]) {
         final size = tester.getSize(find.byKey(ValueKey(key)));
@@ -816,6 +817,7 @@ void main() {
       expect(find.bySemanticsLabel('MINIMIZE'), findsOneWidget);
       expect(find.bySemanticsLabel('FULL SCREEN'), findsOneWidget);
       expect(find.bySemanticsLabel('END'), findsOneWidget);
+      expect(find.bySemanticsLabel('SIZE'), findsOneWidget);
 
       await _tapKey(tester, const ValueKey('device-float-collapse'));
       expect(find.byKey(_bubbleKey), findsOneWidget);
@@ -858,6 +860,35 @@ void main() {
     await pinch(-60);
     await pinch(-60);
     expect(tester.getSize(find.byKey(_floatKey)).width, deviceFloatMinWidth);
+  });
+
+  testWidgets('SIZE steps the float through its widths on the same stream', (
+    tester,
+  ) async {
+    final link = FakeDeviceLink(const [_pixel]);
+    await _pump(tester, _opener(link));
+    await _pick(tester, _pixel);
+    await _live(tester, link);
+    final controller = _dock(tester).session!.controller;
+
+    Future<Rect> size() async {
+      await _tapKey(tester, const ValueKey('device-float-size'));
+      expect(find.byKey(_overlayKey), findsOneWidget);
+      return tester.getRect(find.byKey(_floatKey));
+    }
+
+    await _tapKey(tester, _floatKey);
+    final middle = await size();
+    final widest = await size();
+    expect(middle.width, (deviceFloatWidth + widest.width) / 2);
+    expect(widest.width, lessThanOrEqualTo(800 * deviceFloatMaxShare));
+    expect(widest.bottom, lessThan(600 - deviceFloatClearance + 1));
+    expect(controller.decodeWidth, greaterThan(floatDecodeWidth));
+
+    expect((await size()).width, deviceFloatWidth);
+    expect(controller.decodeWidth, floatDecodeWidth);
+    expect(link.frameStreams.single.hasListener, isTrue);
+    expect(link.closed, isFalse);
   });
 
   testWidgets('a row says what it is, and what its hold is', (tester) async {
