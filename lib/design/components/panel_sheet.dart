@@ -4,12 +4,12 @@ import 'package:striked/application/plugins/native_plugins.dart';
 
 import 'package:striked/design/tokens.dart';
 import 'package:striked/design/layout.dart';
-import 'package:striked/design/motion.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/design/components/action_block.dart';
 import 'package:striked/design/components/keyboard_toolbar.dart';
 import 'package:striked/design/components/meta.dart';
 import 'package:striked/design/components/panel.dart';
+import 'package:striked/design/components/sheet_route.dart';
 
 Future<T?> showPanelSheet<T>(
   BuildContext context, {
@@ -26,26 +26,7 @@ Future<T?> showPanelSheet<T>(
       child: Builder(builder: builder),
     ),
   );
-  return showGeneralDialog<T>(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: 'DISMISS $title',
-    barrierColor: const Color(0xCC000000),
-    transitionDuration: Motion.fast,
-    pageBuilder: (context, animation, secondary) => content,
-    transitionBuilder: (context, animation, secondary, child) {
-      return FadeTransition(
-        opacity: animation,
-        child: SlideTransition(
-          position: Tween(
-            begin: const Offset(0, 0.04),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(parent: animation, curve: Motion.enter)),
-          child: child,
-        ),
-      );
-    },
-  );
+  return showSheetRoute<T>(context, title: title, child: content);
 }
 
 Future<bool> confirmSheet(

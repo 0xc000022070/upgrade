@@ -274,12 +274,7 @@ class _ToastStripState extends ConsumerState<_ToastStrip>
               const DotSpinner(),
               const SizedBox(width: Spacing.md),
             ],
-            Text(
-              toast.verb.toUpperCase(),
-              style: context.tokens.panelHeader.copyWith(
-                color: context.tokens.textMuted,
-              ),
-            ),
+            Text(toast.verb.toUpperCase(), style: context.tokens.panelHeader),
             if (toast.subject != null) ...[
               const SizedBox(width: Spacing.md),
               Expanded(
@@ -346,12 +341,7 @@ class _FoldStrip extends StatelessWidget {
           child: Row(
             children: [
               const SizedBox(width: Spacing.panelPadding),
-              Text(
-                label,
-                style: context.tokens.panelHeader.copyWith(
-                  color: context.tokens.textMuted,
-                ),
-              ),
+              Text(label, style: context.tokens.panelHeader),
             ],
           ),
         ),

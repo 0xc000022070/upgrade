@@ -885,12 +885,7 @@ class _TabCell extends StatelessWidget {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: onClose,
-                child: Text(
-                  cross,
-                  style: context.tokens.panelHeader.copyWith(
-                    color: context.tokens.textMuted,
-                  ),
-                ),
+                child: Text(cross, style: context.tokens.panelHeader),
               ),
             ],
           ],

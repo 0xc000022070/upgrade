@@ -315,10 +315,7 @@ class _SendingLine extends StatelessWidget {
         children: [
           const DotSpinner(),
           const SizedBox(width: Spacing.md),
-          Text(
-            'SENDING',
-            style: tokens.value.copyWith(color: tokens.textMuted),
-          ),
+          Text('SENDING', style: tokens.value),
           const SizedBox(width: Spacing.md),
           Expanded(
             child: Text(

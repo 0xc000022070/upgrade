@@ -1,0 +1,33 @@
+import 'package:flutter/widgets.dart';
+
+import 'package:striked/design/motion.dart';
+
+/// Deliberately deeper than `tokens.scrim`.
+const sheetScrim = Color(0xCC000000);
+
+Future<T?> showSheetRoute<T>(
+  BuildContext context, {
+  required String title,
+  required Widget child,
+}) {
+  return showGeneralDialog<T>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'DISMISS $title',
+    barrierColor: sheetScrim,
+    transitionDuration: Motion.fast,
+    pageBuilder: (context, animation, secondary) => child,
+    transitionBuilder: (context, animation, secondary, child) {
+      return FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween(
+            begin: const Offset(0, 0.04),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: animation, curve: Motion.enter)),
+          child: child,
+        ),
+      );
+    },
+  );
+}

@@ -308,11 +308,7 @@ class _BranchCell extends StatelessWidget {
             ],
             if (tracking case final tracking?) ...[
               const SizedBox(width: Spacing.sm),
-              Text(
-                tracking,
-                style: tokens.value.copyWith(color: tokens.textMuted),
-                maxLines: 1,
-              ),
+              Text(tracking, style: tokens.value, maxLines: 1),
             ],
           ],
         ),
@@ -337,13 +333,7 @@ class _Cell extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
         height: double.infinity,
         alignment: Alignment.center,
-        child: Text(
-          label,
-          style: context.tokens.panelHeader.copyWith(
-            color: context.tokens.textMuted,
-          ),
-          maxLines: 1,
-        ),
+        child: Text(label, style: context.tokens.panelHeader, maxLines: 1),
       ),
     );
   }

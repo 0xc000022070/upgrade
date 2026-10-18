@@ -62,6 +62,20 @@ class Panel extends StatelessWidget {
   Widget build(BuildContext context) {
     final glitch = headerGlitch;
     final border = this.border ?? context.tokens.borderNormal;
+    final title = this.title;
+    final header = title == null
+        ? null
+        : _HeaderStrip(
+            title: title,
+            literalTitle: literalTitle,
+            leading: leading,
+            affordance: affordance,
+            onTap: onHeaderTap,
+            onLongPress: onHeaderLongPress,
+            onFlick: onHeaderFlick,
+            onAim: onHeaderAim,
+            ruled: child != null,
+          );
     return Container(
       decoration: BoxDecoration(
         color: context.tokens.surfacePrimary,
@@ -73,34 +87,11 @@ class Panel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (title != null)
+          if (header != null)
             if (glitch == null)
-              _HeaderStrip(
-                title: title!,
-                literalTitle: literalTitle,
-                leading: leading,
-                affordance: affordance,
-                onTap: onHeaderTap,
-                onLongPress: onHeaderLongPress,
-                onFlick: onHeaderFlick,
-                onAim: onHeaderAim,
-                ruled: child != null,
-              )
+              header
             else
-              GlitchPanel(
-                controller: glitch,
-                child: _HeaderStrip(
-                  title: title!,
-                  literalTitle: literalTitle,
-                  leading: leading,
-                  affordance: affordance,
-                  onTap: onHeaderTap,
-                  onLongPress: onHeaderLongPress,
-                  onFlick: onHeaderFlick,
-                  onAim: onHeaderAim,
-                  ruled: child != null,
-                ),
-              ),
+              GlitchPanel(controller: glitch, child: header),
           if (child != null)
             if (bodyFlexible)
               Flexible(

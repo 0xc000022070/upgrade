@@ -22,10 +22,7 @@ class LineCount extends StatelessWidget {
     if (more <= 0) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(left: Spacing.md),
-      child: Text(
-        '+$more',
-        style: context.tokens.value.copyWith(color: context.tokens.textMuted),
-      ),
+      child: Text('+$more', style: context.tokens.value),
     );
   }
 }

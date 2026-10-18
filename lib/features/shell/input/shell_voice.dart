@@ -906,7 +906,7 @@ class _VoicePanel extends StatelessWidget {
                       if (partial.isNotEmpty)
                         TextSpan(
                           text: settled.isEmpty ? partial : ' $partial',
-                          style: tokens.value.copyWith(color: tokens.textMuted),
+                          style: tokens.value,
                         ),
                     ],
                   ),

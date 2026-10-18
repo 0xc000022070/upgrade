@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:striked/design/tokens.dart';
-import 'package:striked/design/motion.dart';
 import 'package:striked/design/spacing.dart';
-import 'package:striked/design/components/solid_action_bar.dart';
-import 'package:striked/design/components/striked_field.dart';
+import 'package:striked/design/components/sheet_route.dart';
 
 class SheetAction {
   const SheetAction(
@@ -27,121 +25,18 @@ Future<void> showActionSheet(
   required List<SheetAction> actions,
   bool recommendFirst = true,
 }) {
-  return showGeneralDialog<void>(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: 'DISMISS $title',
-    barrierColor: const Color(0xCC000000),
-    transitionDuration: Motion.fast,
-    pageBuilder: (context, animation, secondary) {
-      return Align(
-        alignment: Alignment.bottomCenter,
-        child: _Sheet(
-          title: title,
-          actions: actions,
-          recommendFirst: recommendFirst,
-        ),
-      );
-    },
-    transitionBuilder: (context, animation, secondary, child) {
-      return FadeTransition(
-        opacity: animation,
-        child: SlideTransition(
-          position: Tween(
-            begin: const Offset(0, 0.04),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(parent: animation, curve: Motion.enter)),
-          child: child,
-        ),
-      );
-    },
-  );
-}
-
-Future<String?> promptForText(
-  BuildContext context, {
-  required String title,
-  required String hint,
-  required String confirmLabel,
-}) {
-  return showGeneralDialog<String>(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: 'DISMISS $title',
-    barrierColor: const Color(0xCC000000),
-    transitionDuration: Motion.fast,
-    pageBuilder: (context, animation, secondary) => Padding(
-      // A dialog route does not resize for the IME the way a scaffold does.
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: _Prompt(title: title, hint: hint, confirmLabel: confirmLabel),
+  return showSheetRoute<void>(
+    context,
+    title: title,
+    child: Align(
+      alignment: Alignment.bottomCenter,
+      child: _Sheet(
+        title: title,
+        actions: actions,
+        recommendFirst: recommendFirst,
       ),
     ),
-    transitionBuilder: (context, animation, secondary, child) =>
-        FadeTransition(opacity: animation, child: child),
   );
-}
-
-class _Prompt extends StatefulWidget {
-  const _Prompt({
-    required this.title,
-    required this.hint,
-    required this.confirmLabel,
-  });
-
-  final String title;
-  final String hint;
-  final String confirmLabel;
-
-  @override
-  State<_Prompt> createState() => _PromptState();
-}
-
-class _PromptState extends State<_Prompt> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final value = _controller.text.trim();
-    if (value.isEmpty) return;
-    Navigator.of(context).pop(value);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _Panel(
-      title: widget.title,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-            child: StrikedField(
-              controller: _controller,
-              autofocus: true,
-              hint: widget.hint,
-              contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
-              onSubmitted: (_) => _submit(),
-            ),
-          ),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _controller,
-            builder: (context, value, _) => value.text.trim().isEmpty
-                ? const SizedBox(height: TapTargets.minHeight)
-                : SolidActionBar(label: widget.confirmLabel, onTap: _submit),
-          ),
-          _PlainRow(label: 'Cancel', onTap: () => Navigator.of(context).pop()),
-        ],
-      ),
-    );
-  }
 }
 
 class _Sheet extends StatelessWidget {

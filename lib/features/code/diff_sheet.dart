@@ -729,12 +729,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
               : context.tokens.textDisabled,
         ),
         if (at >= 0)
-          Text(
-            'FILE ${at + 1} / ${files.length}',
-            style: context.tokens.value.copyWith(
-              color: context.tokens.textMuted,
-            ),
-          ),
+          Text('FILE ${at + 1} / ${files.length}', style: context.tokens.value),
       ],
     );
   }
@@ -772,9 +767,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
             line.kind == DiffLineKind.removed
                 ? 'WAS LINE $number'
                 : 'LINE $number',
-            style: context.tokens.value.copyWith(
-              color: context.tokens.textMuted,
-            ),
+            style: context.tokens.value,
           ),
       ],
     );
@@ -949,24 +942,18 @@ class _Stat extends StatelessWidget {
         if (files case final count?) ...[
           Text(
             '$count ${count == 1 ? 'FILE' : 'FILES'}',
-            style: context.tokens.panelHeader.copyWith(
-              color: context.tokens.textMuted,
-            ),
+            style: context.tokens.panelHeader,
           ),
           const SizedBox(width: Spacing.lg),
         ],
         Text.rich(
           _countSpan('+$added', context.tokens.accent, added),
-          style: context.tokens.panelHeader.copyWith(
-            color: context.tokens.textMuted,
-          ),
+          style: context.tokens.panelHeader,
         ),
         const SizedBox(width: Spacing.md),
         Text.rich(
           _countSpan('−$removed', context.tokens.warning, removed),
-          style: context.tokens.panelHeader.copyWith(
-            color: context.tokens.textMuted,
-          ),
+          style: context.tokens.panelHeader,
         ),
       ],
     );
