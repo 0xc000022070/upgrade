@@ -14,8 +14,18 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 jobs=$(getconf _NPROCESSORS_ONLN)
 
+# A testWidgets teardown that never completes ignores --timeout and hangs the run.
 run() {
-  flutter test --reporter json "$@" 2>&1 | testfmt
+  local limit=${STRIKED_TEST_TIMEOUT:-600}
+  local codes
+  {
+    timeout --kill-after=10 "$limit" flutter test --reporter json "$@" 2>&1 | testfmt
+    codes=("${PIPESTATUS[@]}")
+  } || true
+  if [ "${codes[0]}" -eq 124 ]; then
+    echo "flutter test passed ${limit}s and was killed; set STRIKED_TEST_TIMEOUT to allow more" >&2
+  fi
+  [ "${codes[0]}" -eq 0 ] && [ "${codes[1]}" -eq 0 ]
 }
 
 unit() {
