@@ -98,6 +98,7 @@ class NixPackage(tool: String, json: JSONObject) {
     val unfree = json.optBoolean("unfree")
     val program: String = checked(json.getString("program"), NAME, "$tool nix program")
     val links = strings(json.optJSONArray("links")).map { checked(it, NAME, "$tool nix links") }
+    val readsLdd = json.optBoolean("reads_ldd")
 }
 
 class Tool(json: JSONObject, private val nixpkgs: String) {
@@ -128,7 +129,7 @@ class Tool(json: JSONObject, private val nixpkgs: String) {
     fun script(distro: Distro, nix: Boolean): String {
         if (!native(distro)) {
             val built = this.nix.takeIf { nix } ?: throw IllegalStateException("$id has no way onto ${distro.id}")
-            return nixScript(built)
+            return nixScript(built, distro)
         }
         packages[distro.id]?.let { return "set -eu\n" + distro.manager.ensure(listOf(it)) }
         val installer = installer ?: throw IllegalStateException("$id has no way onto ${distro.id}")
@@ -142,17 +143,27 @@ class Tool(json: JSONObject, private val nixpkgs: String) {
             links
     }
 
-    private fun nixScript(built: NixPackage): String {
+    private fun nixScript(built: NixPackage, distro: Distro): String {
         val root = "$NIX_ROOTS/$id"
         val unfree = if (built.unfree) "NIXPKGS_ALLOW_UNFREE=1 " else ""
-        val impure = if (built.unfree) " --impure" else ""
         val links = built.links.joinToString("") { "ln -sf ${quote("$root/bin/${built.program}")} ${quote("/usr/local/bin/$it")}\n" }
+        val build = if (built.readsLdd && distro.libc == "musl") {
+            "--impure --out-link ${quote(root)} --expr ${quote(unprobed(built.attribute))}"
+        } else {
+            val impure = if (built.unfree) "--impure " else ""
+            "$impure--out-link ${quote(root)} ${quote("github:NixOS/nixpkgs/$nixpkgs#${built.attribute}")}"
+        }
         return ". /etc/profile.d/nix.sh\n" +
             "set -eu\n" +
             "mkdir -p $NIX_ROOTS\n" +
-            "${unfree}nix build$impure --out-link ${quote(root)} ${quote("github:NixOS/nixpkgs/$nixpkgs#${built.attribute}")}\n" +
+            "${unfree}nix build $build\n" +
             links
     }
+
+    private fun unprobed(attribute: String) =
+        "(builtins.getFlake \"github:NixOS/nixpkgs/$nixpkgs\").legacyPackages.\${builtins.currentSystem}.$attribute" +
+            ".overrideAttrs (old: { postInstall = (old.postInstall or \"\") + " +
+            "\"\\ngrep -rlF /usr/bin/ldd \$out | xargs -r sed -i s,/usr/bin/ldd,/dev/null/ld,g\\n\"; })"
 
     private fun <T> byDistro(json: JSONObject, name: String, read: (JSONObject, String, String) -> T): Map<String, T> {
         val field = json.optJSONObject(name) ?: return emptyMap()

@@ -126,7 +126,8 @@
         "attribute": "cursor-cli",
         "unfree": true,
         "program": "cursor-agent",
-        "links": ["cursor-agent", "agent"]
+        "links": ["cursor-agent", "agent"],
+        "reads_ldd": true
       }
     },
     {

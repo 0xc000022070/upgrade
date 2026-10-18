@@ -54,8 +54,10 @@ class CatalogTest {
         assertTrue(
             script,
             script.contains(
-                "NIXPKGS_ALLOW_UNFREE=1 nix build --impure --out-link '/nix/var/nix/gcroots/striked/cursor' " +
-                    "'github:NixOS/nixpkgs/${catalog.nixpkgs}#cursor-cli'\n",
+                "NIXPKGS_ALLOW_UNFREE=1 nix build --impure --out-link '/nix/var/nix/gcroots/striked/cursor' --expr " +
+                    "'(builtins.getFlake \"github:NixOS/nixpkgs/${catalog.nixpkgs}\").legacyPackages.\${builtins.currentSystem}" +
+                    ".cursor-cli.overrideAttrs (old: { postInstall = (old.postInstall or \"\") + " +
+                    "\"\\ngrep -rlF /usr/bin/ldd \$out | xargs -r sed -i s,/usr/bin/ldd,/dev/null/ld,g\\n\"; })'\n",
             ),
         )
         assertTrue(script, script.contains("ln -sf '/nix/var/nix/gcroots/striked/cursor/bin/cursor-agent' '/usr/local/bin/cursor-agent'"))
@@ -63,6 +65,20 @@ class CatalogTest {
         assertFalse(script, script.contains("apk"))
         val ubuntu = catalog.distro("ubuntu")!!
         assertEquals(cursor.script(ubuntu, false), cursor.script(ubuntu, true))
+    }
+
+    @Test
+    fun buildsFromTheFlakeWhereTheProgramTrustsTheSystemsLdd() {
+        val json = json().also { it.tool("cursor").getJSONObject("nix").remove("reads_ldd") }
+        val catalog = Catalog(json)
+        val script = catalog.tool("cursor")!!.script(catalog.distro("alpine")!!, true)
+        assertTrue(
+            script,
+            script.contains(
+                "NIXPKGS_ALLOW_UNFREE=1 nix build --impure --out-link '/nix/var/nix/gcroots/striked/cursor' " +
+                    "'github:NixOS/nixpkgs/${catalog.nixpkgs}#cursor-cli'\n",
+            ),
+        )
     }
 
     @Test
