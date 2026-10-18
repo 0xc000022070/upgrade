@@ -179,13 +179,22 @@ Future<void> _pump(
   bool show = true,
   ThemeData? theme,
   FakePip? pip,
+  String? remembered,
+  List<String>? remembers,
 }) async {
   stubDeviceChannels();
+  final saved = StreamController<String?>()..add(remembered);
+  addTearDown(() => unawaited(saved.close()));
   final store = MemoryPrivateKeyStore();
   await store.write(_rose.keyId, 'PRIVATE');
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        screensHostProvider.overrideWith((ref) => saved.stream),
+        rememberScreensHostProvider.overrideWithValue((hostId) async {
+          remembers?.add(hostId);
+          saved.add(hostId);
+        }),
         privateKeyStoreProvider.overrideWithValue(store),
         staticEnabledProvider.overrideWith((ref) => Stream.value(false)),
         deviceLinkOpenerProvider.overrideWithValue(open),
@@ -488,6 +497,12 @@ void main() {
     await _settle(tester);
     expect(find.text('NONE'), findsOneWidget);
 
+    link.devices = const [_pixel];
+    await tester.tap(find.text('NONE'));
+    await _settle(tester);
+    expect(find.text('NONE'), findsNothing);
+    link.devices = const [];
+
     await tester.pumpWidget(const SizedBox());
     expect(link.closed, isTrue);
   });
@@ -511,7 +526,7 @@ void main() {
     expect(find.text('rose unreachable'), findsOneWidget);
     expect(link.frameStreams, isEmpty);
 
-    await tester.tap(find.text('ROSE'));
+    await tester.tap(find.text('rose unreachable'));
     await _settle(tester);
     expect(find.text('rose unreachable'), findsNothing);
     await _pick(tester, _pixel);
@@ -531,6 +546,10 @@ void main() {
     }) async => address == _nyx.address ? nyx : rose;
 
     await _pump(tester, open, hosts: const [_rose, _nyx]);
+    await _open(tester);
+    await _settle(tester);
+    await tester.tap(find.text('ROSE'));
+    await tester.pump();
     await _pick(tester, _pixel);
     await _live(tester, rose);
     await _fold(tester);
@@ -538,15 +557,27 @@ void main() {
     await _settle(tester);
 
     expect(find.text('NYX'), findsOneWidget);
-    expect(find.text('DESKTOP'), findsNothing);
+    expect(find.byKey(ValueKey('device-tab-h2-${_iphone.id}')), findsNothing);
     expect(nyx.frameStreams, isEmpty);
 
+    await tester.tap(find.text('NYX'));
+    await tester.pump();
     await _pick(tester, _iphone, host: 'h2');
     expect(rose.frameStreams.single.hasListener, isFalse);
     expect(nyx.frameStreams.single.hasListener, isTrue);
     expect(rose.closed, isFalse);
 
     await _fold(tester);
+    await _open(tester);
+    await tester.tap(find.text('ROSE'));
+    await tester.pump();
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('device-group-h2')),
+        matching: find.text('HELD'),
+      ),
+      findsOneWidget,
+    );
     await _pick(tester, _pixel);
     expect(rose.frameStreams, hasLength(2));
     expect(rose.frameStreams.last.hasListener, isTrue);
@@ -556,6 +587,52 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     expect(rose.closed, isTrue);
     expect(nyx.closed, isTrue);
+  });
+
+  testWidgets('the host last opened from is the one the list opens on', (
+    tester,
+  ) async {
+    final rose = FakeDeviceLink(const [_pixel]);
+    final nyx = FakeDeviceLink(const [_iphone]);
+    Future<DeviceLink> open({
+      required String address,
+      required int port,
+      required String user,
+      required String privateKey,
+      HostKeyVerifier? verifier,
+    }) async => address == _nyx.address ? nyx : rose;
+    final remembers = <String>[];
+
+    await _pump(
+      tester,
+      open,
+      hosts: const [_rose, _nyx],
+      remembered: 'h2',
+      remembers: remembers,
+    );
+    await _open(tester);
+    await _settle(tester);
+    final iphone = find.byKey(ValueKey('device-tab-h2-${_iphone.id}'));
+    final pixel = find.byKey(ValueKey('device-tab-h1-${_pixel.id}'));
+    expect(iphone, findsOneWidget);
+    expect(pixel, findsNothing);
+    expect(
+      tester.getTopLeft(find.text('NYX')).dy,
+      lessThan(tester.getTopLeft(find.text('ROSE')).dy),
+    );
+
+    await tester.tap(find.text('ROSE'));
+    await tester.pump();
+    expect(pixel, findsOneWidget);
+    expect(iphone, findsNothing);
+    expect(remembers, isEmpty);
+
+    await _pick(tester, _pixel);
+    expect(remembers, ['h1']);
+    await _fold(tester);
+    await _open(tester);
+    expect(pixel, findsOneWidget);
+    expect(iphone, findsNothing);
   });
 
   testWidgets('a tap on the picture lands in device pixels', (tester) async {
@@ -905,7 +982,7 @@ void main() {
     expect(tag(_iphone, 'SIMULATOR'), findsOneWidget);
     expect(
       find.descendant(of: find.byKey(_barKey), matching: find.text('DEVICES')),
-      findsOneWidget,
+      findsNothing,
     );
 
     await _pick(tester, _pixel);

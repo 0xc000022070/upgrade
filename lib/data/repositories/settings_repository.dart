@@ -25,6 +25,8 @@ class SettingsRepository {
 
   static const promptTarget = 'prompt_target';
 
+  static const screensHost = 'screens_host';
+
   Stream<bool> watchFlag(String key, {required bool orElse}) {
     return (_db.select(_db.settings)..where((s) => s.key.equals(key)))
         .watchSingleOrNull()

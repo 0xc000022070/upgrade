@@ -9,7 +9,9 @@ import 'package:striked/application/agents/agents.dart';
 import 'package:striked/application/home/compose_window.dart';
 import 'package:striked/application/navigation.dart';
 import 'package:striked/application/pip.dart';
+import 'package:striked/application/providers.dart';
 import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/data/repositories/settings_repository.dart';
 import 'package:striked/design/components/close_target.dart';
 import 'package:striked/design/components/inline_confirm.dart';
 import 'package:striked/design/components/panel.dart';
@@ -42,6 +44,19 @@ const desktopFloatShare = 0.6;
 const screensHandleWidth = 28.0;
 const screensHandleHeight = deviceBubbleSize;
 const _handleReach = 40.0;
+
+final screensHostProvider = StreamProvider<String?>(
+  (ref) => ref
+      .watch(settingsRepositoryProvider)
+      .watchRaw(SettingsRepository.screensHost),
+);
+
+final rememberScreensHostProvider = Provider<Future<void> Function(String)>(
+  (ref) =>
+      (hostId) => ref
+          .read(settingsRepositoryProvider)
+          .setText(SettingsRepository.screensHost, hostId),
+);
 
 class DeviceFloat extends ConsumerStatefulWidget {
   const DeviceFloat({super.key, required this.child});
@@ -405,6 +420,9 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     );
   }
 
+  void _remember(Host host) =>
+      unawaited(ref.read(rememberScreensHostProvider)(host.id));
+
   Widget _placeRest(BuildContext context, List<ScreenHost> screens) {
     final media = MediaQuery.of(context);
     final screen = media.size;
@@ -430,12 +448,15 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
               key: _barKey,
               dock: _dock,
               screens: screens,
+              remembered: ref.watch(screensHostProvider).valueOrNull,
               onSelect: (group, device) {
                 setState(() => _menu = false);
+                _remember(group.host);
                 _dock.select(group, device);
               },
               onDesktop: (host) {
                 setState(() => _menu = false);
+                _remember(host);
                 _dock.watchDesktop(host);
               },
               onFold: () => setState(() => _menu = false),
@@ -929,6 +950,7 @@ class _DeviceList extends StatefulWidget {
     super.key,
     required this.dock,
     required this.screens,
+    required this.remembered,
     required this.onSelect,
     required this.onDesktop,
     required this.onFold,
@@ -938,6 +960,7 @@ class _DeviceList extends StatefulWidget {
 
   final DeviceDock dock;
   final List<ScreenHost> screens;
+  final String? remembered;
   final void Function(DevicesController, HostDevice) onSelect;
   final void Function(Host) onDesktop;
   final VoidCallback onFold;
@@ -950,6 +973,17 @@ class _DeviceList extends StatefulWidget {
 
 class _DeviceListState extends State<_DeviceList> {
   String? _opened;
+  ({String? id})? _picked;
+
+  String? get _expanded {
+    if (_picked case (:final id)) return id;
+    final screens = widget.screens;
+    final remembered = widget.remembered;
+    if (screens.any((screen) => screen.host.id == remembered)) {
+      return remembered;
+    }
+    return screens.isEmpty ? null : screens.first.host.id;
+  }
 
   List<Widget> _rows(BuildContext context, DevicesController group) {
     final tokens = context.tokens;
@@ -961,10 +995,18 @@ class _DeviceListState extends State<_DeviceList> {
     return switch (phase) {
       DevicesLoading() => [const _ListRow(label: '…')],
       DevicesFailed(:final reason) => [
-        _ListRow(label: reason, color: tokens.warning),
+        _ListRow(
+          label: reason,
+          color: tokens.warning,
+          onTap: () => unawaited(group.refresh()),
+        ),
       ],
       DevicesListed() when shown.isEmpty && boots.isEmpty => [
-        const _ListRow(label: 'NONE'),
+        _ListRow(
+          label: 'NONE',
+          color: tokens.textDisabled,
+          onTap: () => unawaited(group.refresh()),
+        ),
       ],
       DevicesListed() => [
         for (final device in shown)
@@ -1096,52 +1138,66 @@ class _DeviceListState extends State<_DeviceList> {
                     ...() {
                       final host = screen.host;
                       final group = groups[host.id];
+                      final open =
+                          widget.screens.length == 1 || _expanded == host.id;
+                      final heldDesktop = desktop?.host.id == host.id;
+                      final session = dock.session;
+                      final held = heldDesktop
+                          ? _heldTag(
+                              away: dock.desktopCollapsed,
+                              paused: dock.desktopPaused,
+                            )
+                          : session?.host.id == host.id
+                          ? _heldTag(
+                              away: dock.collapsed,
+                              paused: session!.controller.phase is DevicePaused,
+                            )
+                          : null;
                       return [
                         _HostRow(
                           key: ValueKey('device-group-${host.id}'),
                           host: host,
                           first: index == 0,
                           failed: group?.phase is DevicesFailed,
-                          onTap: group == null
+                          held: open ? null : held,
+                          onTap: () {
+                            if (widget.screens.length > 1) {
+                              setState(
+                                () => _picked = (id: open ? null : host.id),
+                              );
+                            }
+                            if (!open || widget.screens.length == 1) {
+                              unawaited(group?.refresh());
+                            }
+                          },
+                          plus: !screen.devices
                               ? null
-                              : () => unawaited(group.refresh()),
+                              : group == null
+                              ? const SizedBox.square(
+                                  dimension: TapTargets.minHeight,
+                                )
+                              : _Glyph(
+                                  key: ValueKey('device-group-plus-${host.id}'),
+                                  icon: StrikedIcons.add,
+                                  label: '${host.name.toUpperCase()} DEVICES',
+                                  onTap: () => widget.onSheet(group),
+                                ),
                         ),
-                        if (screen.desktop) ...[
-                          const _Caption(label: 'DESKTOP'),
-                          _ListRow(
-                            key: ValueKey('desktop-tab-${host.id}'),
-                            icon: StrikedIcons.monitor,
-                            tag: desktop?.host.id == host.id
-                                ? _heldTag(
-                                    away: dock.desktopCollapsed,
-                                    paused: dock.desktopPaused,
-                                  )
-                                : 'VNC',
-                            label: 'REMOTE DESKTOP',
-                            active: desktop?.host.id == host.id,
-                            onTap: () => widget.onDesktop(host),
-                          ),
-                        ],
-                        if (screen.devices) ...[
-                          _Caption(
-                            label: 'DEVICES',
-                            plus: group == null
-                                ? const SizedBox.square(
-                                    dimension: TapTargets.minHeight,
-                                  )
-                                : _Glyph(
-                                    key: ValueKey(
-                                      'device-group-plus-${host.id}',
-                                    ),
-                                    icon: StrikedIcons.add,
-                                    label: '${host.name.toUpperCase()} DEVICES',
-                                    onTap: () => widget.onSheet(group),
-                                  ),
-                          ),
-                          if (group == null)
-                            const _ListRow(label: '…')
-                          else
-                            ..._rows(context, group),
+                        if (open) ...[
+                          if (screen.desktop)
+                            _ListRow(
+                              key: ValueKey('desktop-tab-${host.id}'),
+                              icon: StrikedIcons.monitor,
+                              tag: heldDesktop ? held : 'VNC',
+                              label: 'REMOTE DESKTOP',
+                              active: heldDesktop,
+                              onTap: () => widget.onDesktop(host),
+                            ),
+                          if (screen.devices)
+                            if (group == null)
+                              const _ListRow(label: '…')
+                            else
+                              ..._rows(context, group),
                         ],
                       ];
                     }(),
@@ -1192,34 +1248,47 @@ class _HostRow extends StatelessWidget {
     required this.host,
     required this.first,
     required this.failed,
+    required this.held,
     required this.onTap,
+    required this.plus,
   });
 
   final Host host;
   final bool first;
   final bool failed;
+  final String? held;
   final VoidCallback? onTap;
+  final Widget? plus;
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final ink = failed ? tokens.warning : tokens.textPrimary;
+    final held = this.held;
+    final plus = this.plus;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
         constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+        padding: EdgeInsets.only(
+          left: Spacing.md,
+          right: plus == null ? Spacing.md : 0,
+        ),
         decoration: BoxDecoration(
           color: tokens.surfaceSecondary,
-          border: first
-              ? null
-              : Border(
-                  top: BorderSide(
+          border: Border(
+            top: first
+                ? BorderSide.none
+                : BorderSide(
                     color: tokens.borderNormal,
                     width: Borders.hairline,
                   ),
-                ),
+            left: BorderSide(
+              color: held != null ? tokens.accent : Colors.transparent,
+              width: Borders.hairline * 2,
+            ),
+          ),
         ),
         child: Row(
           children: [
@@ -1241,52 +1310,24 @@ class _HostRow extends StatelessWidget {
             const SizedBox(width: Spacing.sm),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: deviceListWidth / 2),
-              child: Text(
-                host.address,
-                style: tokens.rowSubtitle.copyWith(color: tokens.textMuted),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: held != null
+                  ? Text(
+                      held,
+                      style: tokens.rowKicker.copyWith(color: tokens.accent),
+                      maxLines: 1,
+                    )
+                  : Text(
+                      host.address,
+                      style: tokens.rowSubtitle.copyWith(
+                        color: tokens.textMuted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
             ),
+            ?plus,
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Caption extends StatelessWidget {
-  const _Caption({required this.label, this.plus});
-
-  final String label;
-  final Widget? plus;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Padding(
-      padding: EdgeInsets.only(
-        left: Spacing.md,
-        top: plus == null ? Spacing.sm : 0,
-      ),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: tokens.rowKicker.copyWith(color: tokens.textMuted),
-          ),
-          const SizedBox(width: Spacing.sm),
-          Expanded(
-            child: Container(
-              height: Borders.hairline,
-              color: tokens.borderNormal,
-            ),
-          ),
-          if (plus case final plus?)
-            plus
-          else
-            const SizedBox(width: Spacing.md),
-        ],
       ),
     );
   }
