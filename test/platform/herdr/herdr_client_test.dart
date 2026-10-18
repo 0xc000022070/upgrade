@@ -13,6 +13,7 @@ import 'package:striked/platform/ssh/host_keys.dart';
 import 'package:striked/platform/ssh/keys.dart';
 
 import '../../support/herdr_link.dart';
+import '../../support/ssh_exec.dart';
 import '../../support/tarpit.dart';
 
 void main() {
@@ -568,6 +569,35 @@ void main() {
       expect((tilde.stdout as String).trim(), directory.path);
     },
   );
+
+  test('a directory check that printed no path is no directory, whatever it exited with', () async {
+    final client = FakeRunClient(
+      (command) => command.contains('herdr session list')
+          ? (
+              exitCode: 0,
+              stdout:
+                  '{"sessions":[{"name":"default","running":true,"default":true,'
+                  '"socket_path":"/run/herdr.sock"}]}',
+              stderr: '',
+            )
+          : (exitCode: 0, stdout: ' \n', stderr: ''),
+    );
+    final spawned = await HerdrSession.over(FakeExecSocket(), client).spawn(
+      kind: AgentKind.of('claude'),
+      directory: '~/nowhere',
+      prompt: 'hello',
+    );
+
+    expect(
+      spawned,
+      isA<SpawnRefused>().having(
+        (refused) => refused.refusal,
+        'refusal',
+        SpawnRefusal.noDirectory,
+      ),
+    );
+    expect(client.commands, hasLength(2));
+  });
 
   test(
     'an exchange that stops moving is given up on and then let go',

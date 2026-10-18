@@ -626,10 +626,12 @@ class HerdrSession {
             utf8.decode(resolved.output).trim(),
           );
         }
+        final cwd = utf8.decode(resolved.stdout).trim();
+        if (cwd.isEmpty) return const SpawnRefused(SpawnRefusal.noDirectory);
         final created = await _call(
           name,
           HerdrRequests.workspaceCreate(
-            cwd: utf8.decode(resolved.stdout).trim(),
+            cwd: cwd,
             label: _directoryLabel(directory),
           ),
         );
