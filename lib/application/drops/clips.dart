@@ -6,10 +6,6 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
-/// A phone camera is four thousand pixels across; the agents downscale past about half
-/// this before they look at it.
-const photoAttachEdge = 2048.0;
-
 enum ClipSource { screen, photo }
 
 class Clip {

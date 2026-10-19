@@ -1,11 +1,9 @@
 import 'dart:io';
 
-import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:striked/application/drops/clips.dart';
 import 'package:striked/features/photos/photo_cut.dart';
 
 /// An image attachment is a copy: the gallery entry can be deleted, moved or re-encoded
@@ -36,14 +34,7 @@ abstract final class ImageAttachments {
     return p.isWithin(p.join(root, _dir), resolved) ? resolved : null;
   }
 
-  static Future<List<String>> pick(PhotoReview review) async {
-    final picked = await ImagePicker().pickMultiImage(
-      maxWidth: photoAttachEdge,
-      maxHeight: photoAttachEdge,
-    );
-    if (picked.isEmpty) return const [];
-    final kept = await review([for (final file in picked) file.path]);
-    if (kept == null) return const [];
+  static Future<List<String>> store(List<ReviewedPhoto> kept) async {
     if (_root == null) await init();
     final stored = <String>[];
     for (final photo in kept) {

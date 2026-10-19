@@ -4,8 +4,8 @@ import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:striked/application/drops/clips.dart';
 import 'package:striked/features/photos/photo_cut.dart';
+import 'package:striked/features/photos/photo_pick.dart';
 import 'package:striked/features/screen/screen_preview.dart';
 import 'package:striked/features/tasks/image_input.dart';
 
@@ -42,13 +42,16 @@ void main() {
 
   tearDown(() => support.deleteSync(recursive: true));
 
+  Future<List<String>> pick(PhotoReview review) async =>
+      ImageAttachments.store(await pickReviewed(review));
+
   PhotoReview keeping(List<Rect?> keeps) =>
       (paths) async => [
         for (var i = 0; i < keeps.length; i++) (path: paths[i], keep: keeps[i]),
       ];
 
   test('every picked photo is asked for at the size a host is sent', () async {
-    final stored = await ImageAttachments.pick(keeping([null, null]));
+    final stored = await pick(keeping([null, null]));
 
     expect(asked['maxWidth'], photoAttachEdge);
     expect(asked['maxHeight'], photoAttachEdge);
@@ -62,7 +65,7 @@ void main() {
   });
 
   test('a cropped photo keeps only the part inside the box', () async {
-    final stored = await ImageAttachments.pick(
+    final stored = await pick(
       keeping([const Rect.fromLTRB(0.25, 0, 0.75, 1)]),
     );
 
@@ -76,7 +79,7 @@ void main() {
   });
 
   test('backing out of the review attaches nothing', () async {
-    final stored = await ImageAttachments.pick((_) async => null);
+    final stored = await pick((_) async => null);
 
     expect(stored, isEmpty);
     expect(Directory(p.join(support.path, 'attachments')).listSync(), isEmpty);
