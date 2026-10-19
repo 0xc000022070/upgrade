@@ -102,18 +102,26 @@ pub fn tmp_path(path: &Path, suffix: &str) -> PathBuf {
 }
 
 pub fn write_atomic(path: &Path, bytes: &[u8], policy: &WritePolicy) -> io::Result<()> {
-    let tmp = tmp_path(path, policy.tmp_suffix);
+    write_through(path, &tmp_path(path, policy.tmp_suffix), bytes, policy)
+}
+
+pub fn write_atomic_unique(path: &Path, bytes: &[u8], policy: &WritePolicy) -> io::Result<()> {
+    let suffix = format!("{}.{}", policy.tmp_suffix, std::process::id());
+    write_through(path, &tmp_path(path, &suffix), bytes, policy)
+}
+
+fn write_through(path: &Path, tmp: &Path, bytes: &[u8], policy: &WritePolicy) -> io::Result<()> {
     let mut options = OpenOptions::new();
     options.write(true).create(true).truncate(true);
     if let Perms::Private = policy.perms {
         options.mode(0o600);
     }
-    let mut file = options.open(&tmp)?;
+    let mut file = options.open(tmp)?;
     match policy.perms {
-        Perms::Private => fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600))?,
+        Perms::Private => fs::set_permissions(tmp, fs::Permissions::from_mode(0o600))?,
         Perms::Keep => {
             if let Ok(meta) = fs::metadata(path) {
-                fs::set_permissions(&tmp, meta.permissions())?;
+                fs::set_permissions(tmp, meta.permissions())?;
             }
         }
         Perms::Default => {}
@@ -123,7 +131,7 @@ pub fn write_atomic(path: &Path, bytes: &[u8], policy: &WritePolicy) -> io::Resu
         file.sync_all()?;
     }
     drop(file);
-    fs::rename(&tmp, path)?;
+    fs::rename(tmp, path)?;
     if let (Durability::FileAndDir, Some(dir)) = (&policy.durability, path.parent()) {
         fs::File::open(dir)?.sync_all()?;
     }

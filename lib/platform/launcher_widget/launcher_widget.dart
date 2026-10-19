@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 
 enum LauncherOpen {
+  home,
   agents,
   inputBar,
   plugins,
@@ -125,6 +126,9 @@ abstract final class LauncherWidget {
             key: {'state': value.state, 'line': value.line, 'dim': value.dim},
         },
       });
+
+  static Future<void> setUsage(List<Map<String, Object?>> accounts) =>
+      _quiet('usage', {'accounts': accounts});
 
   static Future<void> composeShown() => _quiet('composeShown', const {});
 

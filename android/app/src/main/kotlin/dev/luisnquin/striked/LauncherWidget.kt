@@ -73,6 +73,7 @@ class LauncherWidget : AppWidgetProvider() {
         const val OPEN = "dev.luisnquin.striked.LAUNCHER"
         const val TARGET = "target"
         private const val SEND = "send"
+        private const val HOME = "home"
         private const val AGENTS = "agents"
         const val INPUT_BAR = "inputBar"
         private const val PLUGINS = "plugins"
@@ -91,9 +92,13 @@ class LauncherWidget : AppWidgetProvider() {
         private const val KEY_SENDS = "sends"
         private const val KEY_LIVE = "live"
         private const val KEY_LIVE_BOOT = "live_boot"
+        private const val KEY_USAGE = "usage"
 
         private const val KEPT_SENDS = 10
         private const val SEND_LIST_HEIGHT = 160f
+        private const val USAGE_CARD_HEIGHT = 110f
+        private const val USAGE_COMPACT_ROWS = 2
+        private const val BAR_CELLS = 10
 
         private var waiting: Map<String, String?>? = null
 
@@ -130,6 +135,12 @@ class LauncherWidget : AppWidgetProvider() {
                 "sends" -> result.success(openSends(context))
                 "live" -> {
                     writeLive(context, call.argument<Map<String, Any?>>("states")?.let { JSONObject(it) })
+                    result.success(null)
+                }
+                "usage" -> {
+                    val accounts = call.argument<List<Any?>>("accounts")?.let { JSONArray(it).toString() }
+                    prefs(context).edit().putString(KEY_USAGE, accounts).apply()
+                    redraw(context)
                     result.success(null)
                 }
                 "take" -> result.success(waiting.also { waiting = null })
@@ -250,6 +261,9 @@ class LauncherWidget : AppWidgetProvider() {
             val manager = AppWidgetManager.getInstance(context) ?: return
             val bars = manager.getAppWidgetIds(ComponentName(context, LauncherWidget::class.java))
             if (bars.isNotEmpty()) manager.updateAppWidget(bars, barViews(context))
+            for (id in manager.getAppWidgetIds(ComponentName(context, UsageWidget::class.java))) {
+                manager.updateAppWidget(id, usageViews(context, id))
+            }
             val sends = manager.getAppWidgetIds(ComponentName(context, SendWidget::class.java))
             if (sends.isEmpty()) return
             for (id in sends) manager.updateAppWidget(id, sendViews(context, id))
@@ -271,10 +285,10 @@ class LauncherWidget : AppWidgetProvider() {
         }
 
         fun sendViews(context: Context, widgetId: Int): RemoteViews =
-            sendViews(context, widgetId, sendHeight(context, widgetId) >= SEND_LIST_HEIGHT)
+            sendViews(context, widgetId, widgetHeight(context, widgetId) >= SEND_LIST_HEIGHT)
 
         // Some launchers report these sizes in pixels; a width past the screen's is taken as one.
-        private fun sendHeight(context: Context, widgetId: Int): Float {
+        private fun widgetHeight(context: Context, widgetId: Int): Float {
             val options = AppWidgetManager.getInstance(context).getAppWidgetOptions(widgetId)
             val config = context.resources.configuration
             val landscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -392,6 +406,129 @@ class LauncherWidget : AppWidgetProvider() {
             else -> R.color.launcher_dim
         }
 
+        fun usageViews(context: Context, widgetId: Int): RemoteViews {
+            val cards = widgetHeight(context, widgetId) >= USAGE_CARD_HEIGHT
+            val accounts = usage(context)
+            val now = System.currentTimeMillis()
+            return RemoteViews(
+                context.packageName,
+                if (cards) R.layout.usage_widget_tall else R.layout.usage_widget,
+            ).apply {
+                removeAllViews(R.id.usage_rows)
+                setViewVisibility(R.id.usage_empty, if (accounts.isEmpty()) View.VISIBLE else View.GONE)
+                setViewVisibility(R.id.usage_rows, if (accounts.isEmpty()) View.GONE else View.VISIBLE)
+                for (account in if (cards) accounts else accounts.take(USAGE_COMPACT_ROWS)) {
+                    if (cards) {
+                        addView(R.id.usage_rows, usageHead(context, account))
+                        for (window in usageWindows(account)) {
+                            addView(R.id.usage_rows, usageLine(context, windowLine(context, window, now)))
+                        }
+                    } else {
+                        addView(R.id.usage_rows, usageLine(context, accountLine(context, account, now)))
+                    }
+                }
+                setOnClickPendingIntent(R.id.usage_field, open(context, HOME))
+            }
+        }
+
+        private fun usage(context: Context): List<JSONObject> {
+            val array = try {
+                JSONArray(prefs(context).getString(KEY_USAGE, null) ?: return emptyList())
+            } catch (_: org.json.JSONException) {
+                // ignored: the app rewrites usage on its next read; until then none is drawn.
+                return emptyList()
+            }
+            return (0 until array.length()).mapNotNull { array.optJSONObject(it) }
+        }
+
+        private fun usageWindows(account: JSONObject): List<JSONObject> {
+            val windows = account.optJSONArray("windows") ?: return emptyList()
+            return (0 until windows.length()).mapNotNull { windows.optJSONObject(it) }
+        }
+
+        private fun usageHead(context: Context, account: JSONObject): RemoteViews {
+            val captured = account.optLong("captured", 0L)
+            val host = account.optString("host")
+            return RemoteViews(context.packageName, R.layout.usage_head).apply {
+                setTextViewText(R.id.usage_head_name, account.optString("name"))
+                setTextViewText(R.id.usage_head_meta, if (captured > 0) "$host · ${clock(captured)}" else host)
+            }
+        }
+
+        private fun usageLine(context: Context, text: CharSequence): RemoteViews =
+            RemoteViews(context.packageName, R.layout.usage_line).apply {
+                setTextViewText(R.id.usage_line, text)
+            }
+
+        private fun accountLine(context: Context, account: JSONObject, now: Long): CharSequence {
+            val line = android.text.SpannableStringBuilder(account.optString("name"))
+            for (window in usageWindows(account)) {
+                line.append("  ${window.optString("label")} ")
+                val start = line.length
+                line.append("${window.optInt("used")}%")
+                line.setSpan(
+                    ForegroundColorSpan(context.getColor(windowColour(window, now))),
+                    start,
+                    line.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+            }
+            return line
+        }
+
+        private fun windowLine(context: Context, window: JSONObject, now: Long): CharSequence {
+            val used = window.optInt("used").coerceIn(0, 100)
+            val colour = context.getColor(windowColour(window, now))
+            val lit = (used * BAR_CELLS + 50) / 100
+            val tick = pace(window, now)?.let { (it * BAR_CELLS).toInt().coerceAtMost(BAR_CELLS - 1) }
+            val resets = window.optLong("resets", 0L)
+            val line = android.text.SpannableStringBuilder(window.optString("label").padEnd(5))
+            val bar = line.length
+            line.append("━".repeat(BAR_CELLS))
+            line.setSpan(
+                ForegroundColorSpan(context.getColor(R.color.launcher_border)),
+                bar,
+                bar + BAR_CELLS,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+            if (lit > 0) {
+                line.setSpan(ForegroundColorSpan(colour), bar, bar + lit, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            if (tick != null) {
+                line.setSpan(
+                    ForegroundColorSpan(context.getColor(R.color.launcher_ink)),
+                    bar + tick,
+                    bar + tick + 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+            }
+            val share = "${window.optInt("used")}%".padStart(5)
+            val start = line.length
+            line.append(share)
+            line.setSpan(ForegroundColorSpan(colour), start, line.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            if (resets > 0) line.append(" ↻ ${clock(resets)}")
+            return line
+        }
+
+        private fun pace(window: JSONObject, now: Long): Float? {
+            val resets = window.optLong("resets", 0L)
+            val minutes = window.optLong("minutes", 0L)
+            if (resets <= 0 || minutes <= 0) return null
+            return (1f - (resets - now) / (minutes * 60_000f)).coerceIn(0f, 1f)
+        }
+
+        private fun windowColour(window: JSONObject, now: Long): Int {
+            val resets = window.optLong("resets", 0L)
+            val used = window.optInt("used")
+            val pace = pace(window, now)
+            return when {
+                resets in 1 until now -> R.color.launcher_disabled
+                window.optBoolean("hit") || used >= 90 -> R.color.launcher_danger
+                pace != null && window.optDouble("share", used.toDouble()) / 100 > pace + 0.1 -> R.color.launcher_warning
+                else -> R.color.launcher_accent
+            }
+        }
+
         private fun clock(at: Long): String {
             val then = Calendar.getInstance().apply { timeInMillis = at }
             val now = Calendar.getInstance()
@@ -437,6 +574,16 @@ class SendWidget : AppWidgetProvider() {
 
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) {
         manager.updateAppWidget(id, LauncherWidget.sendViews(context, id))
+    }
+}
+
+class UsageWidget : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        for (id in ids) manager.updateAppWidget(id, LauncherWidget.usageViews(context, id))
+    }
+
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) {
+        manager.updateAppWidget(id, LauncherWidget.usageViews(context, id))
     }
 }
 

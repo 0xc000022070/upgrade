@@ -164,9 +164,10 @@ void main() {
     test('an unknown target opens nothing', () {
       expect(parseLauncherOpen('agents'), LauncherOpen.agents);
       expect(parseLauncherOpen('sent'), LauncherOpen.sent);
-      expect(parseLauncherOpen('home'), isNull);
+      expect(parseLauncherOpen('home'), LauncherOpen.home);
+      expect(parseLauncherOpen('hosts'), isNull);
       expect(parseLauncherOpen(null), isNull);
-      expect(parseLauncherTap({'target': 'home'}), isNull);
+      expect(parseLauncherTap({'target': 'hosts'}), isNull);
     });
   });
 

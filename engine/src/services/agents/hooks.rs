@@ -11,6 +11,7 @@ use super::AgentKind;
 
 const MARK: &str = "strikedddd hook";
 const PLUGIN_MARK: &str = "// strikedddd agents plugin";
+const STATUS_LINE: &str = "strikedddd statusline";
 const EVENT_TIMEOUT_S: u64 = 10;
 const APPROVAL_TIMEOUT_S: u64 = 90;
 
@@ -81,6 +82,89 @@ fn entries(agent: AgentKind) -> Value {
         );
     }
     json!({ "hooks": hooks })
+}
+
+fn is_our_status_line(value: &Value) -> bool {
+    value
+        .get("command")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .is_some_and(|command| {
+            command == STATUS_LINE || command.strip_prefix(STATUS_LINE).is_some_and(|rest| rest.starts_with(' '))
+        })
+}
+
+fn shell_quoted(text: &str) -> String {
+    format!("'{}'", text.replace('\'', "'\\''"))
+}
+
+fn shell_unquoted(word: &str) -> Option<String> {
+    let mut rest = word.strip_prefix('\'')?;
+    let mut text = String::new();
+    loop {
+        let close = rest.find('\'')?;
+        text.push_str(&rest[..close]);
+        rest = &rest[close + 1..];
+        if rest.is_empty() {
+            return Some(text);
+        }
+        rest = rest.strip_prefix("\\''")?;
+        text.push('\'');
+    }
+}
+
+fn user_command(status_line: &Value) -> Option<String> {
+    let command = status_line.get("command")?.as_str()?.trim();
+    let typed = status_line.get("type").and_then(Value::as_str).unwrap_or("command") == "command";
+    (!command.is_empty() && typed && !is_our_status_line(status_line)).then(|| command.to_owned())
+}
+
+fn ours_over(current: Option<&Value>) -> Value {
+    let current = current.filter(|value| value.is_object());
+    if let Some(current) = current.filter(|value| is_our_status_line(value)) {
+        return current.clone();
+    }
+    let mut ours = current.cloned().unwrap_or(json!({}));
+    ours["type"] = json!("command");
+    ours["command"] = json!(match current.and_then(user_command) {
+        Some(command) => format!("{STATUS_LINE} {}", shell_quoted(&command)),
+        None => STATUS_LINE.to_owned(),
+    });
+    ours
+}
+
+fn status_line_for(path: &Path) -> Value {
+    let config = read_json(path).unwrap_or_default();
+    ours_over(config.get("statusLine"))
+}
+
+fn with_status_line(mut config: Value) -> EngineResult<Value> {
+    let Value::Object(settings) = &mut config else {
+        return Err(EngineError::failed("the config is not a JSON object"));
+    };
+    let ours = ours_over(settings.get("statusLine"));
+    settings.insert("statusLine".to_owned(), ours);
+    Ok(config)
+}
+
+fn without_status_line(mut config: Value) -> Value {
+    let Some(settings) = config.as_object_mut() else {
+        return config;
+    };
+    let Some(command) = settings
+        .get("statusLine")
+        .filter(|value| is_our_status_line(value))
+        .and_then(|value| value["command"].as_str())
+        .map(|command| command.trim()[STATUS_LINE.len()..].trim_start().to_owned())
+    else {
+        return config;
+    };
+    if command.is_empty() {
+        settings.retain(|key, _| key != "statusLine");
+    } else if let Some(previous) = shell_unquoted(&command) {
+        settings["statusLine"]["command"] = json!(previous);
+    }
+    config
 }
 
 fn plugin() -> String {
@@ -219,6 +303,9 @@ fn installed(agent: AgentKind, path: &Path) -> bool {
     let Ok(config) = read_json(path) else {
         return false;
     };
+    if agent == AgentKind::Claude && !config.get("statusLine").is_some_and(is_our_status_line) {
+        return false;
+    }
     events(agent).iter().all(|event| {
         config
             .pointer(&format!("/hooks/{event}"))
@@ -242,10 +329,15 @@ fn writable(path: &Path) -> bool {
     access(&target, AccessFlags::W_OK).is_ok()
 }
 
-fn manual(agent: AgentKind) -> Value {
+fn manual(agent: AgentKind, path: &Path) -> Value {
     match agent {
         AgentKind::OpenCode => json!(plugin()),
-        AgentKind::Claude | AgentKind::Codex => entries(agent),
+        AgentKind::Claude => {
+            let mut entries = entries(agent);
+            entries["statusLine"] = status_line_for(path);
+            entries
+        }
+        AgentKind::Codex => entries(agent),
     }
 }
 
@@ -259,7 +351,7 @@ pub fn describe() -> EngineResult<Value> {
                 "config_path": paths::display(&path),
                 "installed": installed(agent, &path),
                 "writable": claim(agent, &path).is_ok(),
-                "entries": manual(agent),
+                "entries": manual(agent, &path),
             }))
         })
         .collect();
@@ -307,7 +399,12 @@ pub fn install(agent: AgentKind) -> EngineResult<Value> {
     claim(agent, &path)?;
     let contents = match agent {
         AgentKind::OpenCode => plugin(),
-        AgentKind::Claude | AgentKind::Codex => {
+        AgentKind::Claude => {
+            let raw = read_raw(&path)?;
+            let config = with_status_line(merged(agent, parse(&raw, &path)?)?)?;
+            render(&config, &raw)?
+        }
+        AgentKind::Codex => {
             let raw = read_raw(&path)?;
             render(&merged(agent, parse(&raw, &path)?)?, &raw)?
         }
@@ -336,6 +433,10 @@ pub fn remove_all() -> Vec<String> {
                 parse(&raw, &path)
                     .ok()
                     .and_then(|config| stripped(agent, config))
+                    .map(|config| match agent {
+                        AgentKind::Claude => without_status_line(config),
+                        AgentKind::Codex | AgentKind::OpenCode => config,
+                    })
                     .and_then(|config| render(&config, &raw).ok())
                     .is_some_and(|contents| write_atomic(&path, &contents).is_ok())
             })
@@ -352,18 +453,22 @@ fn installed_any(agent: AgentKind, path: &Path) -> bool {
         return installed(agent, path);
     }
     read_json(path).is_ok_and(|config| {
-        config
-            .get("hooks")
-            .and_then(Value::as_object)
-            .is_some_and(|hooks| {
-                hooks.values().filter_map(Value::as_array).flatten().any(|entry| is_ours(entry, agent))
-            })
+        let status_line = agent == AgentKind::Claude && config.get("statusLine").is_some_and(is_our_status_line);
+        status_line
+            || config
+                .get("hooks")
+                .and_then(Value::as_object)
+                .is_some_and(|hooks| {
+                    hooks.values().filter_map(Value::as_array).flatten().any(|entry| is_ours(entry, agent))
+                })
     })
 }
 
 fn stripped(agent: AgentKind, mut config: Value) -> Option<Value> {
     let root = config.as_object_mut()?;
-    let hooks = root.get_mut("hooks")?.as_object_mut()?;
+    let Some(hooks) = root.get_mut("hooks").and_then(Value::as_object_mut) else {
+        return Some(config);
+    };
     let before = hooks.len();
     hooks.retain(|_, list| match list {
         Value::Array(list) if list.iter().any(|entry| is_ours(entry, agent)) => {
@@ -380,7 +485,10 @@ fn stripped(agent: AgentKind, mut config: Value) -> Option<Value> {
 
 #[cfg(test)]
 mod tests {
-    use super::{claim, merged, parse, plugin, render, stripped, AgentKind, PLUGIN_MARK};
+    use super::{
+        claim, merged, ours_over, parse, plugin, render, shell_quoted, shell_unquoted, stripped, with_status_line,
+        without_status_line, AgentKind, PLUGIN_MARK,
+    };
     use crate::protocol::ErrorKind;
     use serde_json::{json, Value};
     use std::path::{Path, PathBuf};
@@ -398,6 +506,33 @@ mod tests {
         let installed = render(&merged(agent, parse(original, path).unwrap()).unwrap(), original).unwrap();
         let removed = render(&stripped(agent, parse(&installed, path).unwrap()).unwrap(), &installed).unwrap();
         (installed, removed)
+    }
+
+    #[test]
+    fn a_quoted_command_reads_back_as_itself_and_nothing_else_does() {
+        for text in ["", "my-status", r#"printf '%s' "a b""#, "'", "''", r"a'\''b", r"\'"] {
+            assert_eq!(shell_unquoted(&shell_quoted(text)).as_deref(), Some(text), "{text}");
+        }
+        for word in ["", "plain", "'open", "'a' 'b'", "'a'b", r"'a'\'", r#""a""#, r"'a'\'''x"] {
+            assert_eq!(shell_unquoted(word), None, "{word}");
+        }
+    }
+
+    #[test]
+    fn the_status_line_rides_in_the_engine_and_comes_back_out() {
+        let mine = json!({ "statusLine": { "type": "command", "command": "echo 'hi'", "padding": 2 }, "model": "opus" });
+        let installed = with_status_line(mine.clone()).unwrap();
+        assert_eq!(installed["statusLine"]["command"], json!(r"strikedddd statusline 'echo '\''hi'\'''"));
+        assert_eq!(with_status_line(installed.clone()).unwrap(), installed);
+        assert_eq!(ours_over(installed.get("statusLine")), installed["statusLine"]);
+        assert_eq!(without_status_line(installed), mine);
+
+        let bare = with_status_line(json!({ "model": "opus" })).unwrap();
+        assert_eq!(bare["statusLine"], json!({ "type": "command", "command": "strikedddd statusline" }));
+        assert_eq!(without_status_line(bare), json!({ "model": "opus" }));
+
+        let theirs = json!({ "statusLine": { "type": "command", "command": "strikedddd-statusline" } });
+        assert_eq!(without_status_line(theirs.clone()), theirs);
     }
 
     #[test]

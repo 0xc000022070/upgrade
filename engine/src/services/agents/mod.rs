@@ -1,5 +1,6 @@
 mod hooks;
 mod transcript;
+mod usage;
 
 use crate::owner;
 use crate::paths;
@@ -17,9 +18,10 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 pub use hooks::remove_all as remove_hooks;
+pub use usage::statusline;
 
 pub const SERVICE: &str = "agents/1";
-pub const OPS: &[&str] = &["watch", "answer", "transcript", "hooks", "install"];
+pub const OPS: &[&str] = &["watch", "answer", "transcript", "hooks", "install", "usage"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -257,6 +259,7 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
         "transcript" => transcript::read(args, &read_state(&root)?.sessions_by_key()),
         "hooks" => hooks::describe(),
         "install" => hooks::install(AgentKind::parse(arg_str(args, "agent")?)?),
+        "usage" => usage::read(args, &root),
         _ => Err(EngineError::unsupported(format!("{SERVICE} has no op {op}"))),
     }
 }

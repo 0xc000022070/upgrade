@@ -83,6 +83,9 @@ class _Engine implements EngineAgents {
 
   @override
   Future<void> install(String agent) async {}
+
+  @override
+  Future<List<AgentUsage>> usage({bool fresh = false}) async => const [];
 }
 
 void main() {

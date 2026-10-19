@@ -27,6 +27,10 @@ it listens on UDP for its own tab until the shell ends or is stopped.
 
   hook <agent>  report an agent's hook event (claude, codex, opencode); the
                 agent runs this, not a person
+  statusline [command]
+                Claude Code's status line: keep its plan windows, then run
+                the command, the status line the user had before, with
+                sh -c; give it as one quoted argument
   --version   print the engine and protocol version as JSON
   --help      print this
 
@@ -86,6 +90,11 @@ fn main() {
                 std::process::exit(0);
             };
             std::process::exit(services::agents::hook(agent));
+        }
+        Some("statusline") => {
+            let command = args[1..].join(" ");
+            let command = Some(command.as_str()).filter(|command| !command.trim().is_empty());
+            std::process::exit(services::agents::statusline(command));
         }
         Some("--help" | "-h") => {
             let _ = std::io::stdout().write_all(USAGE.as_bytes());

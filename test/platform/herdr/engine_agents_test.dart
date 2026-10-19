@@ -126,6 +126,57 @@ void main() {
     expect(page.items[2].error, isTrue);
   });
 
+  test('a usage answer keeps each limit and its windows in order', () {
+    final usage = EngineAgents.parseUsage({
+      'accounts': [
+        {
+          'agent': 'codex',
+          'account': 'fixture@localhost',
+          'plan': 'pro',
+          'captured': 1792372164640,
+          'limits': [
+            {
+              'id': 'codex',
+              'name': null,
+              'reached': false,
+              'windows': [
+                {
+                  'used_percent': 12,
+                  'window_minutes': 300,
+                  'resets_at': 1792386604,
+                },
+                {
+                  'used_percent': 34.5,
+                  'window_minutes': 10080,
+                  'resets_at': null,
+                },
+                {'used_percent': 3, 'window_minutes': null},
+              ],
+            },
+          ],
+          'error': null,
+        },
+        {'agent': 'codex', 'limits': 'nonsense', 'error': 'HTTP 401'},
+        {'plan': 'pro'},
+      ],
+    });
+
+    expect(usage, hasLength(2));
+    final first = usage.first;
+    expect(first.plan, 'pro');
+    expect(first.captured, DateTime.fromMillisecondsSinceEpoch(1792372164640));
+    final windows = first.limits.single.windows;
+    expect(windows.map((window) => window.minutes), [300, 10080, null]);
+    expect(windows.first.usedPercent, 12.0);
+    expect(
+      windows.first.resetsAt,
+      DateTime.fromMillisecondsSinceEpoch(1792386604 * 1000),
+    );
+    expect(windows[1].resetsAt, isNull);
+    expect(usage.last.limits, isEmpty);
+    expect(usage.last.error, 'HTTP 401');
+  });
+
   test('hook entries given as json are shown pretty', () {
     final hooks = EngineAgents.parseHooks({
       'agents': [

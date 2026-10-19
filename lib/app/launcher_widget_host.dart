@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:striked/application/agents/agent_usage.dart';
 import 'package:striked/application/agents/send_queue.dart';
 import 'package:striked/application/home/compose_window.dart';
 import 'package:striked/application/home/composer_focus.dart';
@@ -12,9 +14,11 @@ import 'package:striked/application/navigation.dart';
 import 'package:striked/application/prompt/prompt_target.dart';
 import 'package:striked/features/agents/agents_screen.dart';
 import 'package:striked/features/agents/sent_screen.dart';
+import 'package:striked/features/home/agent_mark.dart';
 import 'package:striked/features/home/bar_window.dart';
 import 'package:striked/features/home/compose_sheet.dart';
 import 'package:striked/features/home/home_screen.dart';
+import 'package:striked/features/home/usage_panel.dart';
 import 'package:striked/features/plugins/plugin_management_screen.dart';
 import 'package:striked/features/settings/settings_screen.dart';
 import 'package:striked/platform/launcher_widget/launcher_widget.dart';
@@ -31,6 +35,7 @@ class LauncherWidgetHost extends ConsumerStatefulWidget {
 class _LauncherWidgetHostState extends ConsumerState<LauncherWidgetHost> {
   final _started = <String, DateTime>{};
   Route<void>? _window;
+  String? _usage;
 
   @override
   void initState() {
@@ -61,6 +66,13 @@ class _LauncherWidgetHostState extends ConsumerState<LauncherWidgetHost> {
         ref.read(sendQueueProvider).map(launcherSendId),
       ),
     );
+    ref.listenManual<List<HostUsage>>(usageFeedProvider, (_, next) {
+      final accounts = launcherUsage(next);
+      final written = jsonEncode(accounts);
+      if (written == _usage) return;
+      _usage = written;
+      unawaited(LauncherWidget.setUsage(accounts));
+    });
     LauncherWidget.onOpened((
       opened: () => unawaited(_take()),
       app: _dropWindow,
@@ -118,6 +130,8 @@ class _LauncherWidgetHostState extends ConsumerState<LauncherWidgetHost> {
     });
     if (guarded) return;
     switch (tap.open) {
+      case LauncherOpen.home:
+        ref.read(navIndexProvider.notifier).state = HomeScreen.navIndex;
       case LauncherOpen.agents:
         openAgents(context);
       case LauncherOpen.plugins:
@@ -146,3 +160,26 @@ class _LauncherWidgetHostState extends ConsumerState<LauncherWidgetHost> {
   @override
   Widget build(BuildContext context) => widget.child;
 }
+
+List<Map<String, Object?>> launcherUsage(List<HostUsage> usages) => [
+  for (final (:host, :usage) in usages)
+    {
+      'name': usage.plan == null
+          ? agentMarkName(usage.agent)
+          : '${agentMarkName(usage.agent)} · ${usage.plan!.toUpperCase()}',
+      'host': host.name.toUpperCase(),
+      'captured': ?usage.captured?.millisecondsSinceEpoch,
+      'windows': [
+        if (usage.limits.firstOrNull case final limit?)
+          for (final window in limit.windows)
+            {
+              'label': windowLabel(window.minutes),
+              'used': window.usedPercent.round(),
+              'share': window.usedPercent,
+              'minutes': ?window.minutes,
+              'resets': ?window.resetsAt?.millisecondsSinceEpoch,
+              'hit': limitHit(limit, window),
+            },
+      ],
+    },
+];

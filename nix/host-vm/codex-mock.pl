@@ -9,42 +9,50 @@ $SIG{CHLD} = 'IGNORE';
 my $json = JSON::PP->new->canonical;
 my $text = 'Mock Codex response streamed from the isolated host.';
 
-my @rate_limit_headers = (
-    'x-codex-primary-used-percent: 12',
-    'x-codex-primary-window-minutes: 5',
-    'x-codex-primary-reset-at: 4102444800',
-    'x-codex-secondary-used-percent: 34',
-    'x-codex-secondary-window-minutes: 10080',
-    'x-codex-secondary-reset-at: 4102444800',
-    'x-codex-credits-has-credits: true',
-    'x-codex-credits-unlimited: false',
-    'x-codex-credits-balance: 1000',
-);
+# Windows reset relative to the request, as a real account's do: Codex reads `reset_at`
+# as an i32, so a far-future constant fails the whole read.
+sub rate_limit_headers {
+    my $now = int(time);
+    return (
+        'x-codex-primary-used-percent: 12',
+        'x-codex-primary-window-minutes: 300',
+        'x-codex-primary-reset-at: ' . ($now + 14400),
+        'x-codex-secondary-used-percent: 34',
+        'x-codex-secondary-window-minutes: 10080',
+        'x-codex-secondary-reset-at: ' . ($now + 86400),
+        'x-codex-credits-has-credits: true',
+        'x-codex-credits-unlimited: false',
+        'x-codex-credits-balance: 1000',
+    );
+}
 
-my $usage = {
-    plan_type  => 'pro',
-    rate_limit => {
-        allowed        => JSON::PP::true,
-        limit_reached  => JSON::PP::false,
-        primary_window => {
-            used_percent         => 12,
-            limit_window_seconds => 300,
-            reset_after_seconds  => 240,
-            reset_at             => 4102444800,
+sub usage {
+    my $now = int(time);
+    return {
+        plan_type  => 'pro',
+        rate_limit => {
+            allowed        => JSON::PP::true,
+            limit_reached  => JSON::PP::false,
+            primary_window => {
+                used_percent         => 12,
+                limit_window_seconds => 18000,
+                reset_after_seconds  => 14400,
+                reset_at             => $now + 14400,
+            },
+            secondary_window => {
+                used_percent         => 34,
+                limit_window_seconds => 604800,
+                reset_after_seconds  => 86400,
+                reset_at             => $now + 86400,
+            },
         },
-        secondary_window => {
-            used_percent         => 34,
-            limit_window_seconds => 604800,
-            reset_after_seconds  => 86400,
-            reset_at             => 4102444800,
+        credits => {
+            has_credits => JSON::PP::true,
+            unlimited   => JSON::PP::false,
+            balance     => '1000',
         },
-    },
-    credits => {
-        has_credits => JSON::PP::true,
-        unlimited   => JSON::PP::false,
-        balance     => '1000',
-    },
-};
+    };
+}
 
 sub write_json {
     my ($client, $status, $payload) = @_;
@@ -97,7 +105,7 @@ sub stream_response {
       . "Content-Type: text/event-stream\r\n"
       . "Cache-Control: no-cache\r\n"
       . "Connection: close\r\n"
-      . join('', map { "$_\r\n" } @rate_limit_headers)
+      . join('', map { "$_\r\n" } rate_limit_headers())
       . "\r\n";
     for my $event (@events) {
         print $client "event: $event->{type}\ndata: " . $json->encode($event) . "\n\n";
@@ -120,7 +128,7 @@ sub handle {
     print STDERR "$method $target\n";
 
     return stream_response($client) if $method eq 'POST' && $path =~ m{/responses$};
-    return write_json($client, 200, $usage) if $method eq 'GET' && $path =~ m{/wham/usage$};
+    return write_json($client, 200, usage()) if $method eq 'GET' && $path =~ m{/wham/usage$};
     return write_json($client, 200, { credits => [], available_count => 0, total_earned_count => 0 })
       if $method eq 'GET' && $path =~ m{/wham/rate-limit-reset-credits$};
     return write_json($client, 200, { models => [] }) if $method eq 'GET' && $path =~ m{/models$};

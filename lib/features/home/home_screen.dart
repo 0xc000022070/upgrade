@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:striked/application/agents/agent_usage.dart';
 import 'package:striked/application/agents/agents.dart';
 import 'package:striked/application/drops/drop_selection.dart';
 import 'package:striked/application/drops/fresh_drops.dart';
@@ -27,6 +28,7 @@ import 'package:striked/features/plugins/plugin_card.dart';
 import 'package:striked/features/plugins/plugin_management_screen.dart';
 import 'package:striked/features/plugins/plugin_promise.dart';
 import 'package:striked/features/home/agents_panel.dart';
+import 'package:striked/features/home/usage_panel.dart';
 import 'package:striked/features/home/home_card_viewport.dart';
 import 'package:striked/features/home/home_actions.dart';
 
@@ -45,6 +47,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final _visible = ref.read(homeAgentsVisibleProvider.notifier);
+  late final _usageVisible = ref.read(homeUsageVisibleProvider.notifier);
   final _agentsKey = GlobalKey();
   final _cardsKey = GlobalKey();
 
@@ -67,7 +70,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _syncVisible() {
     if (mounted) {
-      _visible.state =
+      _visible.state = _usageVisible.state =
           _onStage && ref.read(navIndexProvider) == HomeScreen.navIndex;
     }
   }
@@ -80,6 +83,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void dispose() {
     if (_visible.mounted) _visible.state = false;
+    if (_usageVisible.mounted) _usageVisible.state = false;
     super.dispose();
   }
 
@@ -231,7 +235,14 @@ class _HomeColumns extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final agents = KeyedSubtree(key: agentsKey, child: const AgentsPanel());
+    final agents = KeyedSubtree(
+      key: agentsKey,
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [AgentsPanel(), UsagePanel()],
+      ),
+    );
     Widget cards([double? viewport]) => KeyedSubtree(
       key: cardsKey,
       child: _CardColumn(

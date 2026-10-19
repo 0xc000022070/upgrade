@@ -1678,3 +1678,376 @@ fn a_config_a_declaration_owns_is_shown_rather_than_written() {
     assert_eq!(refused["error"]["kind"], json!("denied"));
     assert_eq!(fs::read_to_string(&store).unwrap(), "{}");
 }
+
+fn codex_app_server(sandbox: &Sandbox, limits: &str) -> PathBuf {
+    let calls = sandbox.work().join("codex-calls");
+    sandbox.stub(
+        "codex",
+        &format!(
+            r#"echo "$@" >> '{calls}'
+while read -r line; do
+  case "$line" in
+    *'"id":1,'*) echo '{{"id":1,"result":{{"userAgent":"codex"}}}}' ;;
+    *'"id":2,'*)
+      echo '{{"method":"account/updated","params":{{}}}}'
+      echo '{{"id":2,"result":{{"account":{{"type":"chatgpt","email":"fixture@localhost","planType":"pro"}},"requiresOpenaiAuth":true}}}}' ;;
+    *'"id":3,'*) IFS= read -r reply < '{limits}'; echo "$reply" ;;
+  esac
+done"#,
+            calls = calls.display(),
+            limits = sandbox.work().join("limits.json").display(),
+        ),
+    );
+    fs::write(sandbox.work().join("limits.json"), format!("{limits}\n")).unwrap();
+    calls
+}
+
+const CODEX_LIMITS: &str = r#"{"id":3,"result":{"rateLimits":{"limitId":"codex","limitName":null,"primary":{"usedPercent":12,"windowDurationMins":300,"resetsAt":1792386604},"secondary":{"usedPercent":34,"windowDurationMins":10080,"resetsAt":1792458604},"credits":{"hasCredits":true,"unlimited":false,"balance":"1000"},"individualLimit":null,"spendControlReached":null,"planType":"pro","rateLimitReachedType":null},"rateLimitsByLimitId":{"codex":{"limitId":"codex","limitName":null,"primary":{"usedPercent":12,"windowDurationMins":300,"resetsAt":1792386604},"secondary":{"usedPercent":34,"windowDurationMins":10080,"resetsAt":1792458604},"credits":{"hasCredits":true,"unlimited":false,"balance":"1000"},"individualLimit":null,"spendControlReached":null,"planType":"pro","rateLimitReachedType":null}},"rateLimitResetCredits":{"availableCount":0,"credits":[]}}}"#;
+
+#[test]
+fn codex_usage_is_read_from_its_app_server_once_a_minute() {
+    let sandbox = Sandbox::isolated("agents-usage");
+    let owner = sandbox.owner();
+    let calls = codex_app_server(&sandbox, CODEX_LIMITS);
+
+    let usage = sandbox.agents(&owner, "usage", json!({}));
+    let account = &usage["result"]["accounts"][0];
+    assert_eq!(account["agent"], json!("codex"));
+    assert_eq!(account["account"], json!("fixture@localhost"));
+    assert_eq!(account["plan"], json!("pro"));
+    assert!(account["captured"].as_u64().is_some());
+    assert_eq!(
+        account["limits"],
+        json!([{ "id": "codex", "name": null, "reached": false, "windows": [
+            { "used_percent": 12.0, "window_minutes": 300, "resets_at": 1792386604u64 },
+            { "used_percent": 34.0, "window_minutes": 10080, "resets_at": 1792458604u64 },
+        ] }])
+    );
+    assert_eq!(
+        account["credits"],
+        json!({ "unlimited": false, "balance": "1000" })
+    );
+    assert_eq!(account["error"], Value::Null);
+
+    assert_eq!(sandbox.agents(&owner, "usage", json!({})), usage);
+    assert_eq!(fs::read_to_string(&calls).unwrap(), "app-server\n");
+
+    fs::write(
+        sandbox.work().join("limits.json"),
+        r#"{"error":{"code":-32603,"message":"failed to fetch codex rate limits: 502"},"id":3}"#,
+    )
+    .unwrap();
+    let failed = sandbox.agents(&owner, "usage", json!({ "fresh": true }));
+    let entry = &failed["result"]["accounts"][0];
+    assert_eq!(
+        entry["error"],
+        json!("failed to fetch codex rate limits: 502")
+    );
+    assert_eq!(entry["captured"], account["captured"]);
+    assert_eq!(entry["limits"], account["limits"]);
+    assert_eq!(fs::read_to_string(&calls).unwrap().lines().count(), 2);
+}
+
+#[test]
+fn a_host_without_codex_has_no_usage() {
+    let sandbox = Sandbox::isolated("agents-usage-none");
+    let owner = sandbox.owner();
+    let usage = sandbox.agents(&owner, "usage", json!({ "fresh": true }));
+    assert_eq!(usage["result"], json!({ "accounts": [] }));
+}
+
+impl Sandbox {
+    fn status_line(&self, command: &str, input: &str) -> std::process::Output {
+        let engine = self.bin().join("strikedddd");
+        if !engine.exists() {
+            std::os::unix::fs::symlink(BINARY, &engine).unwrap();
+        }
+        let path = format!("{}:{}", self.bin().display(), std::env::var("PATH").unwrap_or_default());
+        let mut child = Command::new("/bin/sh")
+            .args(["-c", command])
+            .env("STRIKEDDDD_STATE", self.state())
+            .env("HOME", self.home())
+            .env("XDG_CONFIG_HOME", self.home().join("config"))
+            .env("PATH", path)
+            .env_remove("CLAUDE_CONFIG_DIR")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child.stdin.take().unwrap().write_all(input.as_bytes()).unwrap();
+        let output = child.wait_with_output().unwrap();
+        assert!(output.status.success(), "the status line failed its agent");
+        assert!(output.stderr.is_empty(), "{}", String::from_utf8_lossy(&output.stderr));
+        output
+    }
+
+    fn claude_card(&self, owner: &str) -> Option<Value> {
+        let usage = self.agents(owner, "usage", json!({}));
+        usage["result"]["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|account| account["agent"] == json!("claude"))
+            .cloned()
+    }
+}
+
+fn read_settings(path: &Path) -> Value {
+    serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap()
+}
+
+fn status_input(five_hour_resets: u64) -> String {
+    json!({
+        "session_id": "s1",
+        "rate_limits": {
+            "five_hour": { "used_percentage": 23.5, "resets_at": five_hour_resets },
+            "seven_day": { "used_percentage": 41.2, "resets_at": 4_102_444_800u64 },
+        },
+    })
+    .to_string()
+}
+
+#[test]
+fn the_claude_status_line_keeps_its_windows_and_still_prints_the_user_own() {
+    let sandbox = Sandbox::isolated("agents-statusline");
+    let owner = sandbox.owner();
+    let seen = sandbox.work().join("seen");
+    sandbox.stub("my-status", &format!("cat > '{}'; echo mine", seen.display()));
+    let settings = sandbox.home().join(".claude/settings.json");
+    fs::create_dir_all(settings.parent().unwrap()).unwrap();
+    let mine = json!({ "type": "command", "command": "my-status", "padding": 2 });
+    fs::write(&settings, json!({ "statusLine": mine }).to_string()).unwrap();
+    fs::write(
+        sandbox.home().join(".claude.json"),
+        json!({ "oauthAccount": { "emailAddress": "fixture@localhost", "organizationType": "claude_pro" } })
+            .to_string(),
+    )
+    .unwrap();
+
+    assert_eq!(sandbox.agents(&owner, "install", json!({ "agent": "claude" }))["ok"], json!(true));
+    assert_eq!(sandbox.agents(&owner, "install", json!({ "agent": "claude" }))["ok"], json!(true));
+    let written = read_settings(&settings);
+    assert_eq!(
+        written["statusLine"],
+        json!({ "type": "command", "command": "strikedddd statusline 'my-status'", "padding": 2 })
+    );
+    let command = written["statusLine"]["command"].as_str().unwrap();
+    assert_eq!(sandbox.agents(&owner, "hooks", json!({}))["result"]["agents"][0]["installed"], json!(true));
+    assert_eq!(sandbox.claude_card(&owner), None);
+
+    let input = status_input(now_ms() / 1000 + 3600);
+    let output = sandbox.status_line(command, &input);
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), "mine\n");
+    assert_eq!(fs::read_to_string(&seen).unwrap(), input);
+    let capture = sandbox.state().join(&owner).join("agents/claude-usage.json");
+    assert_eq!(fs::metadata(&capture).unwrap().permissions().mode() & 0o777, 0o600);
+
+    let card = sandbox.claude_card(&owner).unwrap();
+    assert_eq!(card["account"], json!("fixture@localhost"));
+    assert_eq!(card["plan"], json!("pro"));
+    assert_eq!(card["error"], Value::Null);
+    let captured = card["captured"].as_u64().unwrap();
+    assert!(captured <= now_ms());
+    assert_eq!(card["limits"][0]["id"], json!("claude"));
+    assert_eq!(card["limits"][0]["reached"], json!(false));
+    assert_eq!(card["limits"][0]["windows"].as_array().unwrap().len(), 2);
+
+    sandbox.status_line(command, &json!({ "session_id": "s1" }).to_string());
+    assert_eq!(sandbox.claude_card(&owner).unwrap()["captured"], json!(captured));
+
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    let stale = json!({
+        "session_id": "s0",
+        "rate_limits": {
+            "five_hour": { "used_percentage": 90.0, "resets_at": now_ms() / 1000 - 1 },
+            "seven_day": { "used_percentage": 10.0, "resets_at": 4_102_444_800u64 },
+        },
+    });
+    sandbox.status_line(command, &stale.to_string());
+    let kept = sandbox.claude_card(&owner).unwrap();
+    assert_eq!(kept["captured"], json!(captured));
+    assert_eq!(kept["limits"], card["limits"]);
+
+    assert!(!sandbox.state().join(&owner).join("agents/statusline.json").exists());
+    let teardown = sandbox.call(json!({ "service": "lifecycle", "op": "teardown", "owner": owner }));
+    assert_eq!(teardown["result"]["hooks_removed"].as_array().unwrap().len(), 1);
+    assert_eq!(read_settings(&settings), json!({ "statusLine": mine }));
+}
+
+#[test]
+fn a_window_whose_reset_has_passed_leaves_the_claude_card() {
+    let sandbox = Sandbox::isolated("agents-statusline-stale");
+    let owner = sandbox.owner();
+    let agents = sandbox.state().join(&owner).join("agents");
+    fs::create_dir_all(&agents).unwrap();
+    let past = now_ms() / 1000 - 1;
+    fs::write(
+        agents.join("claude-usage.json"),
+        json!({
+            "captured": now_ms(),
+            "five_hour": { "used_percentage": 23.5, "resets_at": past },
+            "seven_day": { "used_percentage": 41.2, "resets_at": 4_102_444_800u64 },
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let card = sandbox.claude_card(&owner).unwrap();
+    assert_eq!(
+        card["limits"][0]["windows"],
+        json!([{ "used_percent": 41.2, "window_minutes": 10080, "resets_at": 4_102_444_800u64 }])
+    );
+}
+
+#[test]
+fn a_claude_without_a_status_line_gets_one_that_prints_nothing_and_loses_it_at_teardown() {
+    let sandbox = Sandbox::isolated("agents-statusline-none");
+    let owner = sandbox.owner();
+    let settings = sandbox.home().join(".claude/settings.json");
+    fs::create_dir_all(settings.parent().unwrap()).unwrap();
+    fs::write(&settings, json!({ "model": "opus" }).to_string()).unwrap();
+
+    sandbox.agents(&owner, "install", json!({ "agent": "claude" }));
+    let written = read_settings(&settings);
+    assert_eq!(written["statusLine"], json!({ "type": "command", "command": "strikedddd statusline" }));
+    let command = written["statusLine"]["command"].as_str().unwrap();
+    assert!(sandbox.status_line(command, &status_input(now_ms() / 1000 + 3600)).stdout.is_empty());
+    assert!(sandbox.claude_card(&owner).is_some());
+
+    fs::remove_dir_all(sandbox.state().join(&owner).join("agents")).unwrap();
+    sandbox.call(json!({ "service": "lifecycle", "op": "teardown", "owner": owner }));
+    assert_eq!(read_settings(&settings), json!({ "model": "opus" }));
+}
+
+#[test]
+fn teardown_unquotes_a_carried_status_line_and_leaves_one_it_cannot_read() {
+    let sandbox = Sandbox::isolated("agents-statusline-embedded");
+    let owner = sandbox.owner();
+    let settings = sandbox.home().join(".claude/settings.json");
+    fs::create_dir_all(settings.parent().unwrap()).unwrap();
+    let carried = json!({
+        "type": "command",
+        "command": r#"strikedddd statusline 'printf "%s" '\''it is'\'''"#,
+        "padding": 1,
+    });
+    fs::write(&settings, json!({ "model": "opus", "statusLine": carried }).to_string()).unwrap();
+
+    sandbox.call(json!({ "service": "lifecycle", "op": "teardown", "owner": owner }));
+    assert_eq!(
+        read_settings(&settings),
+        json!({ "model": "opus", "statusLine": {
+            "type": "command", "command": r#"printf "%s" 'it is'"#, "padding": 1,
+        } })
+    );
+
+    let unreadable = json!({ "type": "command", "command": "strikedddd statusline 'a' 'b'" });
+    fs::write(&settings, json!({ "statusLine": unreadable }).to_string()).unwrap();
+    sandbox.call(json!({ "service": "lifecycle", "op": "teardown", "owner": owner }));
+    assert_eq!(read_settings(&settings), json!({ "statusLine": unreadable }));
+}
+
+#[test]
+fn a_declared_claude_config_shows_the_status_line_with_the_hooks() {
+    let sandbox = Sandbox::new("agents-statusline-declared");
+    let owner = sandbox.owner();
+    let store = sandbox.work().join("settings.json");
+    fs::write(&store, "{}").unwrap();
+    fs::create_dir_all(sandbox.home().join(".claude")).unwrap();
+    std::os::unix::fs::symlink(&store, sandbox.home().join(".claude/settings.json")).unwrap();
+
+    let hooks = sandbox.agents(&owner, "hooks", json!({}));
+    let claude = &hooks["result"]["agents"][0];
+    assert_eq!(claude["writable"], json!(false));
+    assert_eq!(
+        claude["entries"]["statusLine"],
+        json!({ "type": "command", "command": "strikedddd statusline" })
+    );
+    assert!(claude["entries"]["hooks"]["Stop"].is_array());
+
+    let ours = json!({ "type": "command", "command": "strikedddd statusline 'my-status'", "padding": 3 });
+    fs::write(&store, json!({ "statusLine": ours }).to_string()).unwrap();
+    let hooks = sandbox.agents(&owner, "hooks", json!({}));
+    assert_eq!(hooks["result"]["agents"][0]["entries"]["statusLine"], ours);
+}
+
+fn gone(pid: &str) -> bool {
+    let output = Command::new("ps").args(["-o", "stat=", "-p", pid]).output().unwrap();
+    let stat = String::from_utf8_lossy(&output.stdout);
+    stat.trim().is_empty() || stat.trim().starts_with('Z')
+}
+
+#[test]
+fn a_declared_claude_config_carries_the_user_status_line_in_the_engine_entry() {
+    let sandbox = Sandbox::new("agents-statusline-carried");
+    let owner = sandbox.owner();
+    let seen = sandbox.work().join("seen");
+    let mine = format!(r#"printf '%s|' "a b" 'c"d'; cat > '{}'"#, seen.display());
+    let store = sandbox.work().join("settings.json");
+    fs::write(
+        &store,
+        json!({ "statusLine": { "type": "command", "command": mine, "refreshInterval": 5 } }).to_string(),
+    )
+    .unwrap();
+    fs::create_dir_all(sandbox.home().join(".claude")).unwrap();
+    std::os::unix::fs::symlink(&store, sandbox.home().join(".claude/settings.json")).unwrap();
+
+    let hooks = sandbox.agents(&owner, "hooks", json!({}));
+    let entry = &hooks["result"]["agents"][0]["entries"]["statusLine"];
+    assert_eq!(entry["type"], json!("command"));
+    assert_eq!(entry["refreshInterval"], json!(5));
+    let command = entry["command"].as_str().unwrap();
+    assert!(command.starts_with("strikedddd statusline '"), "{command}");
+
+    let input = status_input(now_ms() / 1000 + 3600);
+    let output = sandbox.status_line(command, &input);
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), r#"a b|c"d|"#);
+    assert_eq!(fs::read_to_string(&seen).unwrap(), input);
+    assert!(sandbox.claude_card(&owner).is_some());
+}
+
+#[test]
+fn a_cancelled_status_line_takes_the_chained_command_with_it() {
+    let sandbox = Sandbox::new("agents-statusline-cancel");
+    let pids = sandbox.work().join("pids");
+    sandbox.stub(
+        "slow-status",
+        &format!("echo $$ > '{0}'; sleep 30 & echo $! >> '{0}'; wait", pids.display()),
+    );
+    let path = format!("{}:{}", sandbox.bin().display(), std::env::var("PATH").unwrap_or_default());
+    let mut engine = sandbox
+        .command(&path)
+        .args(["statusline", "slow-status"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    engine.stdin.take().unwrap().write_all(b"{}").unwrap();
+
+    let started = std::time::Instant::now();
+    let running: Vec<String> = loop {
+        let lines: Vec<String> = fs::read_to_string(&pids)
+            .unwrap_or_default()
+            .lines()
+            .map(str::to_owned)
+            .collect();
+        if lines.len() == 2 {
+            break lines;
+        }
+        assert!(started.elapsed().as_secs() < 3, "the chained command never started");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    };
+    assert!(!gone(&running[0]) && !gone(&running[1]));
+
+    let signalled = std::time::Instant::now();
+    let kill = Command::new("kill").args(["-TERM", &engine.id().to_string()]).status().unwrap();
+    assert!(kill.success());
+    let output = engine.wait_with_output().unwrap();
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.is_empty(), "{}", String::from_utf8_lossy(&output.stderr));
+    while !running.iter().all(|pid| gone(pid)) {
+        assert!(signalled.elapsed().as_secs() < 2, "the chained command outlived its status line");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}

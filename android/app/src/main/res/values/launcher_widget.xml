@@ -13,4 +13,6 @@
     <string name="launcher_widget_description">A door to the input bar.</string>
     <string name="send_widget_label">STRIKED · SEND</string>
     <string name="send_widget_description">Hands an agent a sentence and shows what the last sends are doing.</string>
+    <string name="usage_widget_label">STRIKED · AGENT USAGE</string>
+    <string name="usage_widget_description">Codex and Claude plan usage, as Home last read it.</string>
 </resources>

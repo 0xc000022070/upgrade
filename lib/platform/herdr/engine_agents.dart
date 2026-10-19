@@ -57,6 +57,56 @@ class HookStatus {
   final String entries;
 }
 
+class UsageWindow {
+  const UsageWindow({required this.usedPercent, this.minutes, this.resetsAt});
+
+  final double usedPercent;
+  final int? minutes;
+  final DateTime? resetsAt;
+}
+
+class UsageLimit {
+  const UsageLimit({
+    required this.id,
+    required this.windows,
+    this.name,
+    this.reached = false,
+  });
+
+  final String id;
+  final String? name;
+  final bool reached;
+  final List<UsageWindow> windows;
+}
+
+class AgentUsage {
+  const AgentUsage({
+    required this.agent,
+    required this.limits,
+    this.account,
+    this.plan,
+    this.captured,
+    this.error,
+  });
+
+  final String agent;
+  final String? account;
+  final String? plan;
+
+  final DateTime? captured;
+  final List<UsageLimit> limits;
+  final String? error;
+
+  AgentUsage failing(String reason) => AgentUsage(
+    agent: agent,
+    limits: limits,
+    account: account,
+    plan: plan,
+    captured: captured,
+    error: reason,
+  );
+}
+
 class EngineAgents {
   const EngineAgents(this.session, {required this.owner});
 
@@ -123,6 +173,9 @@ class EngineAgents {
       parseHooks(await _call('hooks', {}));
 
   Future<void> install(String agent) => _call('install', {'agent': agent});
+
+  Future<List<AgentUsage>> usage({bool fresh = false}) async =>
+      parseUsage(await _call('usage', {'fresh': fresh}));
 
   static EngineWatch parseWatch(Map<String, Object?> result) {
     final generation = result['generation'];
@@ -196,6 +249,52 @@ class EngineAgents {
       ],
       last: last is int ? last : null,
     );
+  }
+
+  static List<AgentUsage> parseUsage(Map<String, Object?> result) {
+    final accounts = result['accounts'];
+    if (accounts is! List<Object?>) return const [];
+    String? text(Object? value) =>
+        value is String && value.trim().isNotEmpty ? value : null;
+    DateTime? seconds(Object? value) =>
+        value is int ? DateTime.fromMillisecondsSinceEpoch(value * 1000) : null;
+    return [
+      for (final account in accounts)
+        if (account case {'agent': final String agent})
+          AgentUsage(
+            agent: agent,
+            account: text(account['account']),
+            plan: text(account['plan']),
+            captured: switch (account['captured']) {
+              final int ms => DateTime.fromMillisecondsSinceEpoch(ms),
+              _ => null,
+            },
+            error: text(account['error']),
+            limits: [
+              if (account['limits'] case final List<Object?> limits)
+                for (final limit in limits)
+                  if (limit case {'id': final String id})
+                    UsageLimit(
+                      id: id,
+                      name: text(limit['name']),
+                      reached: limit['reached'] == true,
+                      windows: [
+                        if (limit['windows'] case final List<Object?> windows)
+                          for (final window in windows)
+                            if (window case {'used_percent': final num used})
+                              UsageWindow(
+                                usedPercent: used.toDouble(),
+                                minutes: switch (window['window_minutes']) {
+                                  final int minutes when minutes > 0 => minutes,
+                                  _ => null,
+                                },
+                                resetsAt: seconds(window['resets_at']),
+                              ),
+                      ],
+                    ),
+            ],
+          ),
+    ];
   }
 
   static List<HookStatus> parseHooks(Map<String, Object?> result) {
