@@ -117,9 +117,11 @@ String cappedDiff(String head) {
 }
 
 class FakeRunner implements WorkspaceRunner {
-  FakeRunner({this.overview, this.fail});
+  FakeRunner({this.overview, this.fail, this.texts = const {}});
 
   final String? overview;
+
+  final Map<String, (String, String)> texts;
 
   final HerdrFailure? fail;
 
@@ -129,12 +131,30 @@ class FakeRunner implements WorkspaceRunner {
   /// Per-command overrides, keyed by a fragment of the command.
   final answers = <String, WorkspaceReply>{};
 
+  final failures = <String, HerdrFailure>{};
+
   @override
   Future<WorkspaceReply> run(String command) async {
     commands.add(command);
     if (fail != null) throw fail!;
+    for (final entry in failures.entries) {
+      if (command.contains(entry.key)) throw entry.value;
+    }
     for (final entry in answers.entries) {
       if (command.contains(entry.key)) return entry.value;
+    }
+    if (command.contains('strikedddd') && texts.isNotEmpty) {
+      final reply = StringBuffer('S\n');
+      for (final match in RegExp(
+        r"^tree (\d+) '\\''([^']+)'\\''$",
+        multiLine: true,
+      ).allMatches(command)) {
+        final (old, now) = texts[match[2]] ?? ('', '');
+        reply
+          ..write('${workspaceFrame}o ${match[1]} T\n$old')
+          ..write('${workspaceFrame}n ${match[1]} T\n$now');
+      }
+      return WorkspaceReply(exitCode: 0, stdout: reply.toString(), stderr: '');
     }
     if (command.contains('git --no-pager log')) {
       return WorkspaceReply(exitCode: 0, stdout: _log, stderr: '');
@@ -977,7 +997,6 @@ void main() {
     Future<FakeRunner> panes(WidgetTester tester) async {
       final runner = await viewer(tester);
       await tapText(tester, 'CLOSE');
-      await unfold(tester, 'CHANGES');
       await unfold(tester, 'COMMITS');
       return runner;
     }
@@ -1061,8 +1080,14 @@ void main() {
 
       await tapText(tester, 'fix(shell): the font');
 
-      expect(runner.commands.last, contains('--numstat --format='));
-      expect(runner.commands.last, contains('1a2b3c4d5e'));
+      expect(
+        runner.commands.where(
+          (command) =>
+              command.contains('--numstat --format=') &&
+              command.contains('1a2b3c4d5e'),
+        ),
+        hasLength(1),
+      );
       expect(fileRow('lib/shell/shell_header.dart'), findsOneWidget);
       expect(fileRow('lib/main.dart'), findsNothing);
       expect(onSheet(find.text('uncommitted changes')), findsNothing);
@@ -1078,6 +1103,7 @@ void main() {
       await tapText(tester, 'fix(shell): the font');
       expect(fileRow('lib/main.dart'), findsNothing);
 
+      await unfold(tester, 'COMMITS');
       await tapText(tester, 'WORKING TREE');
 
       expect(fileRow('lib/main.dart'), findsOneWidget);
@@ -1114,7 +1140,6 @@ void main() {
       );
       await ready(tester);
 
-      expect(find.text('loading…'), findsOneWidget);
       expect(find.text('reading the checkout'), findsOneWidget);
       expect(find.text('LOADING'), findsNWidgets(2));
       expect(find.text('CHANGES'), findsOneWidget);
@@ -1123,7 +1148,7 @@ void main() {
       answering.complete(FakeRunner());
       await ready(tester);
 
-      expect(find.text('loading…'), findsNothing);
+      expect(find.text('reading the checkout'), findsNothing);
       expect(find.text('LOADING'), findsNothing);
 
       await unmount(tester);
@@ -1132,13 +1157,22 @@ void main() {
     testWidgets('both lists come up folded', (tester) async {
       await viewer(tester);
       expect(find.text('const port = 357;'), findsOneWidget);
-
-      await tapText(tester, 'CLOSE');
-
       expect(onSheet(find.text('CHANGES')), findsOneWidget);
       expect(onSheet(find.text('COMMITS')), findsOneWidget);
       expect(onSheet(find.text('fix(shell): the font')), findsNothing);
       expect(onSheet(find.text('scratch.txt')), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('closing a file steps out to the list it came from', (
+      tester,
+    ) async {
+      await viewer(tester);
+      await tapText(tester, 'CLOSE');
+
+      expect(find.text('const port = 357;'), findsNothing);
+      expect(onSheet(find.text('scratch.txt')), findsOneWidget);
 
       await unfold(tester, 'COMMITS');
 
@@ -1151,7 +1185,6 @@ void main() {
     testWidgets('an unfolded list is as tall as its rows', (tester) async {
       await viewer(tester);
       await tapText(tester, 'CLOSE');
-      await unfold(tester, 'CHANGES');
 
       final panel = find
           .ancestor(
@@ -1185,7 +1218,6 @@ void main() {
       );
 
       await tapText(tester, 'CLOSE');
-      await unfold(tester, 'CHANGES');
       expect(
         tester.widget<ListRow>(fileRow('lib/main.dart')).literalTitle,
         isTrue,
@@ -1194,41 +1226,30 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('folded over a file, the strips keep only their own width', (
+    testWidgets('folded over a file, the file has the whole width', (
       tester,
     ) async {
       await viewer(tester, size: Size(Layout.columnMax * 2, 1600));
 
-      final panel = find
+      final head = find
           .ancestor(
             of: onSheet(find.text('CHANGES')),
             matching: find.byType(Panel),
           )
           .first;
-      final code = find
+      Finder code() => find
           .ancestor(
             of: onSheet(find.text('lib/main.dart')),
             matching: find.byType(Panel),
           )
           .first;
-      final foldedList = tester.getSize(panel).width;
-      final foldedCode = tester.getSize(code).width;
-      expect(foldedCode, greaterThan(foldedList * 3));
-
-      final affordance = find.descendant(
-        of: panel,
-        matching: find.byType(PanelAffordance),
-      );
-      expect(
-        tester.getRect(affordance).left -
-            tester.getRect(onSheet(find.text('CHANGES'))).right,
-        greaterThanOrEqualTo(Spacing.md),
-      );
+      final folded = tester.getSize(code()).width;
+      expect(folded, tester.getSize(head).width);
 
       await unfold(tester, 'CHANGES');
 
-      expect(tester.getSize(panel).width, greaterThan(foldedList));
-      expect(tester.getSize(code).width, lessThan(foldedCode));
+      expect(fileRow('lib/main.dart'), findsOneWidget);
+      expect(tester.getSize(code()).width, lessThan(folded));
 
       await unmount(tester);
     });
@@ -1236,8 +1257,9 @@ void main() {
     testWidgets('picking a file folds the list it was picked from', (
       tester,
     ) async {
-      await panes(tester);
-      expect(onSheet(find.text('fix(shell): the font')), findsOneWidget);
+      await viewer(tester);
+      await tapText(tester, 'CLOSE');
+      expect(fileRow('lib/main.dart'), findsOneWidget);
 
       await tapText(tester, 'scratch.txt');
 
@@ -1345,7 +1367,8 @@ void main() {
     testWidgets('a file the one answer did not carry is asked for by name', (
       tester,
     ) async {
-      final runner = await panes(tester);
+      final runner = await viewer(tester);
+      await tapText(tester, 'CLOSE');
 
       await tapText(tester, 'scratch.txt');
 
@@ -1507,7 +1530,6 @@ void main() {
       await tester.longPressAt(onRow(tester, held));
       await ready(tester);
       await tapText(tester, 'CLOSE');
-      await unfold(tester, 'CHANGES');
       await tapFile(tester, 'lib/main.dart');
 
       expect(find.byKey(const ValueKey('diff-copy-line')), findsNothing);
@@ -1802,7 +1824,6 @@ new file mode 100644
       await bare(tester, runner: runner);
 
       expect(onSheet(find.text('+6', findRichText: true)), findsOneWidget);
-      await unfold(tester, 'CHANGES');
       expect(
         tester.widget<ListRow>(fileRow('notes.md')).valueSpans!.first.text,
         '+3',
@@ -1823,7 +1844,6 @@ new file mode 100644
         ),
       );
       await bare(tester, runner: runner);
-      await unfold(tester, 'CHANGES');
 
       expect(fileRow(names.first), findsOneWidget);
       expect(fileRow(names.last), findsNothing);
@@ -1852,6 +1872,7 @@ new file mode 100644
       await bare(tester, runner: FakeRunner());
 
       expect(find.text('const port = 357;'), findsNothing);
+      expect(fileRow('lib/main.dart'), findsOneWidget);
 
       await unmount(tester);
     });
@@ -1863,6 +1884,21 @@ new file mode 100644
 
       expect(find.text('const port = 357;'), findsOneWidget);
       expect(onSheet(find.text('pick a file')), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('unfolding the phone over an open file keeps the file', (
+      tester,
+    ) async {
+      await viewer(tester);
+      expect(find.text('const port = 357;'), findsOneWidget);
+
+      tester.view.physicalSize = const Size(1200, 1600);
+      await ready(tester);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('const port = 357;'), findsOneWidget);
 
       await unmount(tester);
     });
@@ -2022,6 +2058,157 @@ new file mode 100644
         findsNothing,
       );
 
+      await unmount(tester);
+    });
+
+    FakeRunner withTexts() {
+      final old = [for (var i = 1; i <= 30; i++) 'const v$i = $i;'].join('\n');
+      final now = old.replaceFirst('const v20 = 20;', 'const v20 = 21;');
+      return FakeRunner(texts: {'lib/main.dart': ('$old\n', '$now\n')});
+    }
+
+    testWidgets('the texts read in tokens and fold what did not change', (
+      tester,
+    ) async {
+      await viewer(tester, runner: withTexts());
+
+      expect(
+        tester
+            .widget<Text>(onSheet(find.byKey(const ValueKey('diff-reader'))))
+            .data,
+        'TOKENS',
+      );
+      expect(litRuns(tester, onSheet(find.text('const v20 = 21;'))), ['21']);
+      expect(onSheet(find.text('const v1 = 1;')), findsNothing);
+      final fold = onSheet(
+        find.textContaining('⋯ 16 unchanged lines', findRichText: true),
+      );
+      expect(fold, findsOneWidget);
+
+      await tester.tap(fold);
+      await ready(tester);
+
+      expect(onSheet(find.text('const v1 = 1;')), findsOneWidget);
+      expect(onSheet(find.text('const v20 = 21;')), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a held line stays held when a fold above it opens', (
+      tester,
+    ) async {
+      await viewer(tester, runner: withTexts());
+      await tester.longPressAt(onRow(tester, 'const v20 = 21;'));
+      await ready(tester);
+      expect(onSheet(find.text('LINE 20')), findsOneWidget);
+
+      await tester.tap(
+        onSheet(
+          find.textContaining('⋯ 16 unchanged lines', findRichText: true),
+        ),
+      );
+      await ready(tester);
+
+      expect(onSheet(find.text('LINE 20')), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testWidgets(
+      'an untracked file read again after a refresh whose texts fail',
+      (tester) async {
+        final old = [for (var i = 1; i <= 30; i++) 'const v$i = $i;']
+            .join('\n');
+        final now = old.replaceFirst('const v20 = 20;', 'const v20 = 21;');
+        final runner = await viewer(
+          tester,
+          runner: FakeRunner(
+            overview:
+                '$_overview$workspaceRecord\nscratch.txt:1\n$workspaceRecord\n',
+            texts: {
+              'lib/main.dart': ('$old\n', '$now\n'),
+              'scratch.txt': ('', 'hello scratch\n'),
+            },
+          ),
+        );
+        await tapText(tester, 'CLOSE');
+        await tapText(tester, 'scratch.txt');
+        await tapText(tester, 'CLOSE');
+        await tapText(tester, 'lib/main.dart');
+        await tapText(tester, 'CLOSE');
+        await tapText(tester, 'scratch.txt');
+        expect(onSheet(find.text('hello scratch')), findsOneWidget);
+
+        runner.failures['strikedddd'] = const HerdrUnreachable('timeout');
+        final asked = runner.commands.length;
+        await tester
+            .widget<DiffSheet>(find.byType(DiffSheet))
+            .controller!
+            .refresh();
+        await ready(tester);
+        await ready(tester);
+
+        expect(
+          runner.commands
+              .skip(asked)
+              .where(
+                (c) => c.contains('scratch.txt') && !c.contains('strikedddd'),
+              ),
+          isNotEmpty,
+        );
+        expect(onSheet(find.text('loading…')), findsNothing);
+        await unmount(tester);
+      },
+    );
+
+    testWidgets('texts that time out leave the hunks and the connection', (
+      tester,
+    ) async {
+      await viewer(
+        tester,
+        runner: withTexts()
+          ..failures['strikedddd'] = const HerdrUnreachable('timeout'),
+      );
+
+      expect(
+        tester
+            .widget<Text>(onSheet(find.byKey(const ValueKey('diff-reader'))))
+            .data,
+        'LINES',
+      );
+      expect(find.text('nyx unreachable'), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets(
+      'split draws a removed line opposite its partner until unified',
+      (tester) async {
+        await viewer(tester, runner: withTexts(), size: const Size(3600, 1600));
+        final removed = onSheet(find.text('const v20 = 20;'));
+        final added = onSheet(find.text('const v20 = 21;'));
+
+        expect(tester.getRect(removed).top, tester.getRect(added).top);
+        expect(
+          tester.getRect(removed).left,
+          lessThan(tester.getRect(added).left),
+        );
+
+        await tester.tap(onSheet(find.byKey(const ValueKey('diff-split'))));
+        await ready(tester);
+
+        expect(
+          tester.getRect(removed).top,
+          lessThan(tester.getRect(added).top),
+        );
+        expect(tester.getRect(removed).left, tester.getRect(added).left);
+
+        await unmount(tester);
+      },
+    );
+
+    testWidgets('a phone held closed has no split to offer', (tester) async {
+      await viewer(tester, runner: withTexts());
+      expect(onSheet(find.byKey(const ValueKey('diff-split'))), findsNothing);
       await unmount(tester);
     });
 

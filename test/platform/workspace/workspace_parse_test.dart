@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -313,6 +314,125 @@ void main() {
       expect(files.map((f) => f.path), unorderedEquals(['a.txt', 'new.txt']));
       expect(files.singleWhere((f) => f.path == 'a.txt').added, 1);
       expect(files.singleWhere((f) => f.path == 'new.txt').added, 2);
+    });
+  });
+
+  group('both texts from inside the checkout', () {
+    test(
+      'the shell frames each side, absent and large ones included',
+      () async {
+        final root = await Directory.systemTemp.createTemp('striked-ws');
+        addTearDown(() => root.delete(recursive: true));
+        Future<ProcessResult> git(List<String> args) => Process.run(
+          'git',
+          ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args],
+          workingDirectory: root.path,
+          environment: _isolatedGit,
+        );
+        await git(['init', '-q']);
+        await File('${root.path}/a.txt').writeAsString('one\n');
+        await File('${root.path}/gone.txt').writeAsString('bye');
+        await git(['add', '.']);
+        await git(['commit', '-q', '-m', 'init']);
+        await File('${root.path}/a.txt').writeAsString('one\ntwo\n');
+        await File('${root.path}/gone.txt').delete();
+        await File('${root.path}/new.txt').writeAsString('x\n');
+        await File('${root.path}/big.txt')
+            .writeAsString('z' * (WorkspaceCommands.textBytes + 1));
+        final paths = ['a.txt', 'gone.txt', 'new.txt', 'big.txt'];
+
+        final run = await Process.run(
+          'sh',
+          [
+            '-c',
+            _script(
+              WorkspaceCommands.texts(root.path, [
+                for (final path in paths) (path, null),
+              ]),
+            ),
+          ],
+          environment: {..._isolatedGit, 'PATH': _withoutEngine()},
+        );
+        final texts = parseFileTexts(run.stdout as String, paths)!;
+
+        expect(texts['a.txt']!.old, 'one\n');
+        expect(texts['a.txt']!.now, 'one\ntwo\n');
+        expect(texts['gone.txt']!.old, 'bye');
+        expect(texts['gone.txt']!.now, isNull);
+        expect(texts['new.txt']!.old, isNull);
+        expect(texts['new.txt']!.now, 'x\n');
+        expect(texts['big.txt']!.skipped, 'large');
+      },
+    );
+
+    test(
+      'a commit reads its parent, and a root commit has no old side',
+      () async {
+        final root = await Directory.systemTemp.createTemp('striked-ws');
+        addTearDown(() => root.delete(recursive: true));
+        Future<ProcessResult> git(List<String> args) => Process.run(
+          'git',
+          ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args],
+          workingDirectory: root.path,
+          environment: _isolatedGit,
+        );
+        await git(['init', '-q']);
+        await File('${root.path}/a.txt').writeAsString('one\n');
+        await git(['add', '.']);
+        await git(['commit', '-q', '-m', 'init']);
+        final first = ((await git(['rev-parse', 'HEAD'])).stdout as String)
+            .trim();
+        await File('${root.path}/a.txt').writeAsString('two\n');
+        await git(['commit', '-q', '-am', 'two']);
+
+        Future<FileTexts?> at(String sha) async {
+          final run = await Process.run(
+            'sh',
+            [
+              '-c',
+              _script(
+                WorkspaceCommands.texts(root.path, [('a.txt', null)], sha: sha),
+              ),
+            ],
+            environment: {..._isolatedGit, 'PATH': _withoutEngine()},
+          );
+          return parseFileTexts(run.stdout as String, ['a.txt'])!['a.txt'];
+        }
+
+        final second = await at('HEAD');
+        expect(second!.old, 'one\n');
+        expect(second.now, 'two\n');
+        final root0 = await at(first);
+        expect(root0!.old, isNull);
+        expect(root0.now, 'one\n');
+      },
+    );
+
+    test('a source too long for one argument names the files that fit', () {
+      for (final name in ['module', "it's a '5' day ''''''''''"]) {
+        final files = [
+          for (var i = 0; i < 2000; i++)
+            ('lib/src/generated/${name}_${'$i'.padLeft(6, '0')}.dart', null),
+        ];
+        final carried = WorkspaceCommands.textsCarried(files);
+        expect(carried.length, inInclusiveRange(1, files.length - 1));
+        expect(carried, files.take(carried.length));
+        final command = WorkspaceCommands.texts('/w', carried, sha: 'f' * 40);
+        expect(utf8.encode(command).length, lessThan(131072));
+      }
+    });
+
+    test('an engine answer is read as is', () {
+      final texts = parseFileTexts(
+        'E\n{"ok":true,"result":{"files":[{"path":"a.dart","old":"a","new":"b",'
+        '"skipped":null,"changed":{"old":[[0,1]],"new":[[0,1]]},'
+        '"scopes":{"old":[],"new":[{"line":1,"end":3,"name":"f","kind":"function"}]}}],'
+        '"capped":false}}',
+        ['a.dart'],
+      )!;
+      final file = texts['a.dart']!;
+      expect(file.changedNew, [(start: 0, end: 1)]);
+      expect(file.scopesNew.single.name, 'f');
     });
   });
 
@@ -780,3 +900,8 @@ String _script(String command) {
   expect(command, endsWith("'"));
   return command.substring(7, command.length - 1).replaceAll(r"'\''", "'");
 }
+
+String _withoutEngine() => [
+  for (final dir in Platform.environment['PATH']!.split(':'))
+    if (!File('$dir/strikedddd').existsSync()) dir,
+].join(':');

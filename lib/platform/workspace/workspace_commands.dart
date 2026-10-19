@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:striked/platform/shell/remote_shell.dart';
 
 /// `RS`, which git never writes: a marker made of ordinary characters would eventually
@@ -7,6 +9,8 @@ const workspaceRecord = '\u001e';
 /// `US`, for the reason [workspaceRecord] is `RS`: a subject holds whatever a person
 /// typed into it, tabs and pipes included.
 const workspaceField = '\u001f';
+
+const workspaceFrame = '\u0000\u001e';
 
 const workspaceNoDirectory = 20;
 
@@ -98,6 +102,85 @@ abstract final class WorkspaceCommands {
     '${shellQuote(path)} | head -c $diffBytes\n'
     'exit 0\n',
   );
+
+  static const textBytes = 524288;
+
+  static const textBudget = 1048576;
+
+  /// Linux refuses an argument past 128 KiB, and the texts command names every file in
+  /// one: the files past this many bytes of it are left to their hunks.
+  static const textsArgument = 98304;
+
+  static List<(String, String?)> textsCarried(List<(String, String?)> files) {
+    var spent = 0;
+    for (var index = 0; index < files.length; index++) {
+      final (path, origin) = files[index];
+      spent += _argumentCost(path) + _argumentCost(origin ?? '') + 160;
+      if (spent > textsArgument) return files.sublist(0, index);
+    }
+    return files;
+  }
+
+  static int _argumentCost(String path) {
+    var cost = 0;
+    for (final byte in utf8.encode(path)) {
+      cost += byte == 0x27 ? 40 : (byte < 0x20 ? 10 : 4);
+    }
+    return cost;
+  }
+
+  static String texts(
+    String directory,
+    List<(String, String?)> files, {
+    String? sha,
+  }) {
+    final request = jsonEncode({
+      'commit': sha,
+      'files': [
+        for (final (path, origin) in files) {'path': path, 'origin': origin},
+      ],
+      'max_bytes': textBudget,
+    });
+    final sides = StringBuffer();
+    for (var index = 0; index < files.length; index++) {
+      final (path, origin) = files[index];
+      final before = shellQuote(
+        '${sha == null ? 'HEAD' : '$sha^'}:${origin ?? path}',
+      );
+      sides.write('blob o $index $before\n');
+      if (sha == null) {
+        sides.write('tree $index ${shellQuote(path)}\n');
+      } else {
+        sides.write('blob n $index ${shellQuote('$sha:$path')}\n');
+      }
+    }
+    return underSh(
+      '${_enter(directory)}'
+      'if command -v strikedddd >/dev/null 2>&1 && '
+      'case \$PWD in *\'"\'*|*\'\\\'*) false;; esac; then\n'
+      '  a=${shellQuote(request)}\n'
+      '  r=\$(printf \'{"service":"git/1","op":"diff","owner":"%s","args":{"directory":"%s",%s}\' '
+      '"\$(id -un)" "\$PWD" "\${a#\\{}" | strikedddd 2>/dev/null)\n'
+      '  case \$r in \'{"ok":true\'*) printf \'E\\n%s\' "\$r"; exit 0;; esac\n'
+      'fi\n'
+      "printf 'S\\n'\n"
+      'total=0\n'
+      'put() {\n'
+      '  if [ -z "\$3" ]; then printf \'\\0\\036%s %s -\\n\' "\$1" "\$2"; return 1; fi\n'
+      '  if [ "\$((\$3))" -gt $textBytes ]; then printf \'\\0\\036%s %s L\\n\' "\$1" "\$2"; return 1; fi\n'
+      '  total=\$((total + \$3))\n'
+      '  if [ "\$total" -gt $textBudget ]; then printf \'\\0\\036%s %s B\\n\' "\$1" "\$2"; return 1; fi\n'
+      '  printf \'\\0\\036%s %s T\\n\' "\$1" "\$2"\n'
+      '}\n'
+      'blob() { put "\$1" "\$2" "\$(git cat-file -s "\$3" 2>/dev/null)" && git cat-file blob "\$3"; }\n'
+      'tree() {\n'
+      '  if [ -f "\$2" ]; then put n "\$1" "\$(wc -c < "\$2")" && cat -- "\$2"\n'
+      '  else put n "\$1" ""; fi\n'
+      '}\n'
+      '$sides'
+      'exit 0\n',
+    );
+  }
 
   /// [path] is relative to the workspace root, and the empty string is the root itself.
   static String listing(String directory, String path) {

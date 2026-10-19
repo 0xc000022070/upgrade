@@ -1,5 +1,6 @@
 pub mod agents;
 pub mod fs;
+pub mod git;
 pub mod lifecycle;
 pub mod run;
 pub mod schedule;
@@ -27,6 +28,7 @@ pub fn dispatch(request: &Request, policy: &Policy) -> EngineResult<Value> {
     match request.service.as_str() {
         lifecycle::SERVICE => lifecycle::dispatch(&request.op, &state_root, &account, policy),
         fs::SERVICE => fs::dispatch(&request.op, &request.args),
+        git::SERVICE => git::dispatch(&request.op, &request.args, policy),
         run::SERVICE => {
             std::fs::create_dir_all(run::jobs_root(&state_root))?;
             run::dispatch(&request.op, &request.args, &state_root, policy)

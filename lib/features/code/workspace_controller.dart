@@ -167,6 +167,25 @@ class WorkspaceController extends ChangeNotifier {
     return parseDiff(reply.stdout, complete: _whole(reply.stdout));
   }
 
+  Future<Map<String, FileTexts>?> texts(
+    List<WorkspaceFile> files, {
+    String? sha,
+  }) async {
+    final readable = WorkspaceCommands.textsCarried([
+      for (final file in files)
+        if (!file.binary) (file.path, file.origin),
+    ]);
+    if (readable.isEmpty) return const {};
+    final reply = await _run(
+      WorkspaceCommands.texts(_directory, readable, sha: sha),
+      quiet: true,
+    );
+    if (reply == null || !reply.ok) return null;
+    return parseFileTexts(reply.stdout, [
+      for (final (path, _) in readable) path,
+    ]);
+  }
+
   Future<List<Commit>?> commits() async {
     final reply = await _run(WorkspaceCommands.commits(_directory));
     if (reply == null || !reply.ok) return null;
@@ -228,15 +247,15 @@ class WorkspaceController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Null when the connection is gone. The reason is put on the screen on the way past.
-  Future<WorkspaceReply?> _run(String command) async {
+  /// Null when the connection is gone. The reason is shown on the way past, unless [quiet].
+  Future<WorkspaceReply?> _run(String command, {bool quiet = false}) async {
     final runner = _runner;
     if (runner == null) return null;
     try {
       return await runner.run(command);
     } on HerdrFailure catch (error) {
       debugPrint('striked.workspace ${host.name}: ${error.detail ?? error}');
-      if (_disposed) return null;
+      if (_disposed || quiet) return null;
       if (error is! HerdrBusy && identical(_runner, runner)) {
         _runner = null;
         unawaited(runner.close());

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:striked/platform/workspace/workspace_commands.dart';
 
 class WorkspaceStatus {
@@ -132,7 +134,7 @@ class DirEntry {
   bool get isDirectory => kind == DirEntryKind.directory;
 }
 
-enum DiffLineKind { meta, hunk, added, removed, context, capped }
+enum DiffLineKind { meta, hunk, added, removed, context, capped, fold }
 
 class DiffLine {
   const DiffLine(this.kind, this.text, {this.oldLine, this.newLine});
@@ -649,5 +651,143 @@ List<String> _lines(String output, {bool keepEmpty = false}) {
   return [
     for (final line in lines)
       if (line.isNotEmpty) line,
+  ];
+}
+
+typedef TextRun = ({int start, int end});
+
+class DiffScope {
+  const DiffScope({
+    required this.line,
+    required this.end,
+    required this.name,
+    required this.kind,
+  });
+
+  final int line;
+  final int end;
+  final String name;
+  final String kind;
+}
+
+class FileTexts {
+  const FileTexts({
+    required this.path,
+    this.old,
+    this.now,
+    this.skipped,
+    this.changedOld,
+    this.changedNew,
+    this.scopesOld = const [],
+    this.scopesNew = const [],
+  });
+
+  final String path;
+  final String? old;
+  final String? now;
+  final String? skipped;
+
+  final List<TextRun>? changedOld;
+  final List<TextRun>? changedNew;
+
+  final List<DiffScope> scopesOld;
+  final List<DiffScope> scopesNew;
+
+  bool get readable => skipped == null && (old != null || now != null);
+}
+
+Map<String, FileTexts>? parseFileTexts(String stdout, List<String> paths) {
+  if (stdout.startsWith('E\n')) return _engineTexts(stdout.substring(2));
+  if (!stdout.startsWith('S\n')) return null;
+  final old = <int, String?>{};
+  final now = <int, String?>{};
+  final skipped = <int, String>{};
+  for (final part in stdout.substring(2).split(workspaceFrame).skip(1)) {
+    final head = part.indexOf('\n');
+    if (head < 0) continue;
+    final fields = part.substring(0, head).split(' ');
+    final index = fields.length == 3 ? int.tryParse(fields[1]) : null;
+    if (index == null || index < 0 || index >= paths.length) continue;
+    final side = fields[0] == 'o' ? old : now;
+    switch (fields[2]) {
+      case 'T':
+        side[index] = part.substring(head + 1);
+      case '-':
+        side[index] = null;
+      case 'L':
+        skipped[index] = 'large';
+      case 'B':
+        skipped[index] = 'budget';
+    }
+  }
+  return {
+    for (var index = 0; index < paths.length; index++)
+      if (old.containsKey(index) ||
+          now.containsKey(index) ||
+          skipped.containsKey(index))
+        paths[index]: FileTexts(
+          path: paths[index],
+          old: old[index],
+          now: now[index],
+          skipped: skipped[index],
+        ),
+  };
+}
+
+Map<String, FileTexts>? _engineTexts(String body) {
+  final Object? reply;
+  try {
+    reply = jsonDecode(body);
+  } on FormatException {
+    // ignored: a garbled engine reply leaves every file to its hunks, as no reply would.
+    return null;
+  }
+  if (reply case {'ok': true, 'result': {'files': final List<Object?> files}}) {
+    return {
+      for (final file in files)
+        if (file case {'path': final String path})
+          path: _engineFile(path, file),
+    };
+  }
+  return null;
+}
+
+FileTexts _engineFile(String path, Map<Object?, Object?> file) {
+  final changed = file['changed'];
+  final scopes = file['scopes'];
+  return FileTexts(
+    path: path,
+    old: file['old'] is String ? file['old']! as String : null,
+    now: file['new'] is String ? file['new']! as String : null,
+    skipped: file['skipped'] is String ? file['skipped']! as String : null,
+    changedOld: changed is Map ? _runsOf(changed['old']) : null,
+    changedNew: changed is Map ? _runsOf(changed['new']) : null,
+    scopesOld: scopes is Map ? _scopesOf(scopes['old']) : const [],
+    scopesNew: scopes is Map ? _scopesOf(scopes['new']) : const [],
+  );
+}
+
+List<TextRun>? _runsOf(Object? runs) {
+  if (runs is! List) return null;
+  return [
+    for (final run in runs)
+      if (run case [final int start, final int end] when end > start)
+        (start: start, end: end),
+  ];
+}
+
+List<DiffScope> _scopesOf(Object? scopes) {
+  if (scopes is! List) return const [];
+  return [
+    for (final scope in scopes)
+      if (scope
+          case {
+            'line': final int line,
+            'end': final int end,
+            'name': final String name,
+            'kind': final String kind,
+          }
+          when end >= line && line > 0)
+        DiffScope(line: line, end: end, name: name, kind: kind),
   ];
 }

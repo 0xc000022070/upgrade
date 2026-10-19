@@ -2,7 +2,8 @@ use crate::paths;
 use crate::policy::Policy;
 use crate::protocol::{EngineError, EngineResult, ENGINE_VERSION, PROTOCOL_VERSION};
 use crate::services::{
-    agents as agents_service, fs as fs_service, run as run_service, schedule as schedule_service,
+    agents as agents_service, fs as fs_service, git as git_service, run as run_service,
+    schedule as schedule_service,
 };
 use nix::sys::signal::{killpg, Signal};
 use nix::unistd::Pid;
@@ -43,6 +44,7 @@ fn probe(state_root: &Path, owner: &str, policy: &Policy) -> Value {
         (schedule_service::SERVICE, schedule_service::OPS),
         (agents_service::SERVICE, agents_service::OPS),
         (crate::shell::SERVICE, crate::shell::OPS),
+        (git_service::SERVICE, git_service::OPS),
     ]
     .iter()
     .map(|(name, ops)| {

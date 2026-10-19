@@ -40,7 +40,7 @@ Map<int, LineMark> changeMarks(List<DiffLine> lines) {
         next = at;
         settle();
         next = at + 1;
-      case DiffLineKind.meta || DiffLineKind.capped:
+      case DiffLineKind.meta || DiffLineKind.capped || DiffLineKind.fold:
         settle();
     }
   }
