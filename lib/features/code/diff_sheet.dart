@@ -373,12 +373,15 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
       if (_autoPicked) return;
       if (_session.file != null) {
         _autoPicked = true;
+        if (_beside) setState(() => _changesOpen = _keptBeside = true);
         return;
       }
       if (files == null || files.isEmpty) return;
       _autoPicked = true;
-      if (files.length == 1 || _beside) {
-        _pick(_order(files).first, auto: true);
+      final first = _order(files).where((file) => !file.path.endsWith('/'));
+      if (first.isNotEmpty && (files.length == 1 || _beside)) {
+        _pick(first.first, auto: true);
+        if (_beside) setState(() => _changesOpen = _keptBeside = true);
       } else if (!_historyOpen) {
         setState(() {
           _changesOpen = true;
@@ -447,12 +450,20 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
     });
   }
 
-  void _back() {
-    if (_session.file != null && !_fileAuto) {
-      _close();
-      return;
+  VoidCallback? get _backStep {
+    final file = _session.file;
+    if (_held != null) return () => setState(() => _held = null);
+    if (_query != null) return _openSearch;
+    if (_logOpen) return () => setState(() => _logOpen = false);
+    if (_historyOpen) {
+      return () => setState(() {
+        _historyOpen = false;
+        if (file == null) _changesOpen = true;
+      });
     }
-    Navigator.of(context).pop();
+    if (file == null || _beside) return null;
+    if (_changesShown) return () => setState(() => _changesOpen = false);
+    return _fileAuto ? null : _close;
   }
 
   void _unfold({required bool changes}) {
@@ -487,35 +498,6 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
     unawaited(
       _settings?.setText(SettingsRepository.diffWrap, wrap ? 'on' : 'off'),
     );
-  }
-
-  void _toggleStage(WorkspaceFile file) => unawaited(
-    file.hasUnstaged ? _session.stage([file]) : _session.unstage([file]),
-  );
-
-  void _toggleDir(ChangeDir dir) {
-    final files = dir.every.toList();
-    unawaited(
-      dir.share == StagedShare.all
-          ? _session.unstage(files)
-          : _session.stage([
-              for (final file in files)
-                if (file.hasUnstaged) file,
-            ]),
-    );
-  }
-
-  Future<void> _discard(List<WorkspaceFile> files, String what) async {
-    final sure = await confirmSheet(
-      context,
-      title: 'DISCARD',
-      confirmLabel: 'DISCARD',
-      message: files.every((file) => file.untracked)
-          ? '$what is deleted. This is not undone.'
-          : '$what goes back to how the index has it. This is not undone.',
-    );
-    if (!sure || !mounted) return;
-    await _session.discard(files);
   }
 
   void _toggleViewed(WorkspaceFile file) {
@@ -565,9 +547,9 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
         : null;
     final file = _session.file;
     return PopScope(
-      canPop: file == null || _fileAuto,
+      canPop: _backStep == null,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _back();
+        if (!didPop) _backStep?.call();
       },
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -777,8 +759,6 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
 
   Widget _listTools(List<WorkspaceFile>? files, {required bool working}) {
     final against = _session.against;
-    final unstaged = files?.where((file) => file.hasUnstaged).toList() ?? [];
-    final staged = files?.where((file) => file.hasStaged).toList() ?? [];
     final total = files?.length ?? 0;
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
@@ -803,24 +783,6 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
           on: _tree,
           onTap: () => _setTree(!_tree),
         ),
-        if (working && unstaged.isNotEmpty && against != DiffAgainst.staged)
-          DiffKey(
-            key: const ValueKey('diff-stage-all'),
-            says: 'STAGE ALL',
-            icon: StrikedIcons.stage,
-            onTap: _session.writing
-                ? null
-                : () => unawaited(_session.stage(unstaged)),
-          ),
-        if (working && staged.isNotEmpty && against != DiffAgainst.unstaged)
-          DiffKey(
-            key: const ValueKey('diff-unstage-all'),
-            says: 'UNSTAGE ALL',
-            icon: StrikedIcons.unstage,
-            onTap: _session.writing
-                ? null
-                : () => unawaited(_session.unstage(staged)),
-          ),
         if (working && total > 0)
           Semantics(
             label: '${_session.viewedCount} / $total VIEWED',
@@ -859,7 +821,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
         }),
       );
     }
-    final rows = changeListRows(
+    final slivers = changeListSlivers(
       context,
       ChangeRowsData(
         files: files,
@@ -868,15 +830,13 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
         picked: _session.file?.path,
         outlineOf: _session.outline,
         viewed: _session.viewed,
-        writable: working,
+        working: working,
       ),
       onPick: _pick,
-      onToggleStage: _toggleStage,
       onToggleViewed: _toggleViewed,
       onFoldDir: (dir) => setState(() {
         if (!_closed.remove(dir.path)) _closed.add(dir.path);
       }),
-      onToggleDir: _toggleDir,
       peekable: (file, row) => Peekable(
         title: file.path,
         onStart: () => _session.peek(file),
@@ -888,18 +848,17 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
         child: row,
       ),
     );
-    return ListView.separated(
+    return CustomScrollView(
       shrinkWrap: true,
-      padding: const EdgeInsets.symmetric(
-        vertical: Spacing.sm,
-        horizontal: Spacing.panelPadding,
-      ),
-      itemCount: rows.length,
-      separatorBuilder: (context, _) => Container(
-        height: Borders.hairline,
-        color: context.tokens.borderSubtle,
-      ),
-      itemBuilder: (context, index) => rows[index],
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(
+            vertical: Spacing.sm,
+            horizontal: Spacing.panelPadding,
+          ),
+          sliver: SliverMainAxisGroup(slivers: slivers),
+        ),
+      ],
     );
   }
 
@@ -1142,7 +1101,9 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
     final images = read?.images;
     if (images != null) return DiffImages(images: images);
     String? empty;
-    if (doc == null) {
+    if (file.path.endsWith('/')) {
+      empty = 'nested repository';
+    } else if (doc == null) {
       empty = _session.diffFailed ? 'could not read it' : 'loading…';
     } else if (read?.whitespace ?? false) {
       empty = 'only whitespace changed';
@@ -1212,13 +1173,11 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
 
   static const _splitColumns = 80;
 
-  Widget _tool(_Tool tool, {bool bare = false}) => DiffKey(
+  Widget _tool(_Tool tool) => DiffKey(
     key: ValueKey('diff-${tool.key}'),
     says: tool.says,
     icon: tool.icon,
-    label: bare ? null : tool.label,
     on: tool.on,
-    tone: tool.tone,
     onTap: tool.onTap,
   );
 
@@ -1230,7 +1189,6 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
     required bool single,
   }) {
     final working = _session.source == null;
-    final busy = _session.writing;
     final folds = _foldKeys(doc);
     final viewed = _session.viewed(file);
     final tools = <_Tool>[
@@ -1238,8 +1196,6 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
         key: 'search',
         says: 'SEARCH',
         icon: StrikedIcons.search,
-        label: null,
-        tone: null,
         onTap: _openSearch,
         on: _query != null,
         spare: false,
@@ -1249,32 +1205,8 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
           key: 'wrap',
           says: 'WRAP',
           icon: StrikedIcons.wrap,
-          label: null,
-          tone: null,
           onTap: () => _setWrap(!_wrap),
           on: _wrap,
-          spare: false,
-        ),
-      if (working && file.hasUnstaged)
-        (
-          key: 'stage',
-          says: 'STAGE',
-          icon: StrikedIcons.stage,
-          label: 'STAGE',
-          tone: null,
-          onTap: busy ? null : () => unawaited(_session.stage([file])),
-          on: false,
-          spare: false,
-        ),
-      if (working && file.hasStaged)
-        (
-          key: 'unstage',
-          says: 'UNSTAGE',
-          icon: StrikedIcons.unstage,
-          label: 'UNSTAGE',
-          tone: null,
-          onTap: busy ? null : () => unawaited(_session.unstage([file])),
-          on: false,
           spare: false,
         ),
       if (working)
@@ -1282,8 +1214,6 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
           key: 'viewed',
           says: 'VIEWED',
           icon: StrikedIcons.viewed,
-          label: null,
-          tone: null,
           onTap: () => _toggleViewed(file),
           on: viewed,
           spare: false,
@@ -1293,8 +1223,6 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
           key: 'split',
           says: 'SPLIT',
           icon: StrikedIcons.split,
-          label: null,
-          tone: null,
           onTap: () => setState(() {
             _split = !split;
             _held = null;
@@ -1307,8 +1235,6 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
           key: 'open-all',
           says: 'OPEN ALL',
           icon: StrikedIcons.expand,
-          label: null,
-          tone: null,
           onTap: () => setState(() => _opened = {..._opened, ...folds}),
           on: false,
           spare: true,
@@ -1318,8 +1244,6 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
           key: 'fold-all',
           says: 'FOLD ALL',
           icon: StrikedIcons.collapse,
-          label: null,
-          tone: null,
           onTap: () => setState(() => _opened = {}),
           on: false,
           spare: true,
@@ -1328,23 +1252,10 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
         key: 'history',
         says: 'LOG',
         icon: StrikedIcons.log,
-        label: null,
-        tone: null,
         onTap: () => _toggleLog(file),
         on: _logOpen,
         spare: true,
       ),
-      if (working && file.hasUnstaged)
-        (
-          key: 'discard',
-          says: 'DISCARD',
-          icon: StrikedIcons.discard,
-          label: null,
-          tone: busy ? null : context.tokens.danger,
-          onTap: busy ? null : () => unawaited(_discard([file], file.path)),
-          on: false,
-          spare: true,
-        ),
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
@@ -1359,8 +1270,6 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
             key: 'more',
             says: 'MORE',
             icon: StrikedIcons.more,
-            label: null,
-            tone: null,
             onTap: () => _moreTools(spares),
             on: spares.any((tool) => tool.on),
             spare: false,
@@ -1370,10 +1279,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
               if (!folded || !tool.spare) tool,
             if (folded) more,
           ];
-          final bare = _toolsWidth(row) > box.maxWidth;
-          return Wrap(
-            children: [for (final tool in row) _tool(tool, bare: bare)],
-          );
+          return Wrap(children: [for (final tool in row) _tool(tool)]);
         },
       ),
     );
@@ -1381,8 +1287,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
 
   double _toolsWidth(List<_Tool> tools) => tools.fold(
     0,
-    (width, tool) =>
-        width + DiffKey.widthOf(context, icon: tool.icon, label: tool.label),
+    (width, tool) => width + DiffKey.widthOf(context, icon: tool.icon),
   );
 
   Future<void> _moreTools(List<_Tool> spares) {
@@ -1402,7 +1307,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
                       ? context.tokens.textDisabled
                       : tool.on
                       ? context.tokens.accent
-                      : tool.tone,
+                      : null,
                   onTap: tool.onTap == null
                       ? null
                       : () {
@@ -1869,42 +1774,11 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
     );
   }
 
-  Future<void> _hunkWrite(
-    WorkspaceFile file,
-    HunkWrite write,
-    int anchor,
-    DiffLine held, {
-    DiffLine? only,
-  }) async {
-    if (write == HunkWrite.discard) {
-      final sure = await confirmSheet(
-        context,
-        title: 'DISCARD',
-        confirmLabel: 'DISCARD',
-        message: file.untracked && only == null
-            ? '${file.path} is deleted. This is not undone.'
-            : only == null
-            ? 'The hunk goes back to how the index has it. This is not undone.'
-            : 'The line goes back to how the index has it. This is not undone.',
-      );
-      if (!sure || !mounted) return;
-    }
-    setState(() => _held = null);
-    await _session.writeHunk(file, write, anchor, only: only, held: held);
-  }
-
   Widget _holdBar(WorkspaceFile file, DiffDoc doc, DiffLine held) {
     final number = held.newLine ?? held.oldLine;
     final anchor = _anchor(doc, held);
     final ref = '${file.path}:${number ?? anchor}';
-    final change =
-        held.kind == DiffLineKind.added || held.kind == DiffLineKind.removed;
     final working = _session.source == null;
-    final staged = _session.against == DiffAgainst.staged;
-    final busy = _session.writing;
-    void write(HunkWrite how, {bool line = false}) => unawaited(
-      _hunkWrite(file, how, anchor, held, only: line ? held : null),
-    );
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
@@ -1936,56 +1810,6 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
           icon: StrikedIcons.submit,
           bare: true,
         ),
-        if (working && staged) ...[
-          _block(
-            'unstage-hunk',
-            'UNSTAGE HUNK',
-            busy ? null : () => write(HunkWrite.unstage),
-            icon: StrikedIcons.unstage,
-            word: 'HUNK',
-          ),
-          if (change)
-            _block(
-              'unstage-line',
-              'UNSTAGE LINE',
-              busy ? null : () => write(HunkWrite.unstage, line: true),
-              icon: StrikedIcons.unstage,
-              word: 'LINE',
-            ),
-        ] else if (working) ...[
-          _block(
-            'stage-hunk',
-            'STAGE HUNK',
-            busy ? null : () => write(HunkWrite.stage),
-            icon: StrikedIcons.stage,
-            word: 'HUNK',
-          ),
-          if (change)
-            _block(
-              'stage-line',
-              'STAGE LINE',
-              busy ? null : () => write(HunkWrite.stage, line: true),
-              icon: StrikedIcons.stage,
-              word: 'LINE',
-            ),
-          _block(
-            'discard-hunk',
-            'DISCARD HUNK',
-            busy ? null : () => write(HunkWrite.discard),
-            icon: StrikedIcons.discard,
-            word: 'HUNK',
-            tone: context.tokens.danger,
-          ),
-          if (change)
-            _block(
-              'discard-line',
-              'DISCARD LINE',
-              busy ? null : () => write(HunkWrite.discard, line: true),
-              icon: StrikedIcons.discard,
-              word: 'LINE',
-              tone: context.tokens.danger,
-            ),
-        ],
         _block(
           'drop-line',
           'LET GO',
@@ -2011,8 +1835,6 @@ typedef _Tool = ({
   String key,
   String says,
   StrikedIcons icon,
-  String? label,
-  Color? tone,
   VoidCallback? onTap,
   bool on,
   bool spare,

@@ -46,24 +46,14 @@ void main() {
     expect(src.count, 2);
     expect(src.added, 5);
     expect(src.removed, 5);
-    expect(src.share, StagedShare.some);
     expect(root.count, 3);
   });
 
-  test('a directory is wholly staged only when nothing beneath it waits', () {
-    final root = changeTree([
-      file('a/x', staged: 'M', unstaged: '.'),
-      file('a/y', staged: 'A', unstaged: '.'),
-      file('b/z'),
-    ]);
-    expect(root.dirs['a']!.share, StagedShare.all);
-    expect(root.dirs['b']!.share, StagedShare.none);
-  });
-
-  test('an untracked file is not counted as staged', () {
-    final root = changeTree([file('n/new', staged: '?', unstaged: '?')]);
-    expect(root.dirs['n']!.share, StagedShare.none);
-    expect(root.dirs['n']!.unstaged, 1);
+  test('a nested repository is a row under its parent, not a directory', () {
+    final root = changeTree([file('artifacts/run/site/'), file('artifacts/x')]);
+    final artifacts = root.dirs['artifacts']!;
+    expect(artifacts.dirs['run']!.files.single.path, 'artifacts/run/site/');
+    expect(baseName('artifacts/run/site/'), 'site/');
   });
 
   test('directories come before files and a closed one hides its files', () {

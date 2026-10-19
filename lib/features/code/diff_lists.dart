@@ -52,22 +52,6 @@ class StatusLetters extends StatelessWidget {
   }
 }
 
-class _ShareMark extends StatelessWidget {
-  const _ShareMark(this.share);
-
-  final StagedShare share;
-
-  @override
-  Widget build(BuildContext context) {
-    final (text, color) = switch (share) {
-      StagedShare.none => ('○', context.tokens.textDisabled),
-      StagedShare.some => ('◐', context.tokens.accentMuted),
-      StagedShare.all => ('●', context.tokens.accent),
-    };
-    return Text(text, style: context.tokens.noteBody.copyWith(color: color));
-  }
-}
-
 String? outlineLine(List<SymbolChange> outline) {
   if (outline.isEmpty) return null;
   const shown = 3;
@@ -86,7 +70,7 @@ class ChangeRowsData {
     required this.picked,
     required this.outlineOf,
     required this.viewed,
-    required this.writable,
+    required this.working,
   });
 
   final List<WorkspaceFile> files;
@@ -96,96 +80,122 @@ class ChangeRowsData {
   final List<SymbolChange> Function(WorkspaceFile file) outlineOf;
   final bool Function(WorkspaceFile file) viewed;
 
-  final bool writable;
+  final bool working;
 }
 
-List<Widget> changeListRows(
+String wrappablePath(String path) => path.replaceAll('/', '/\u200B');
+
+List<Widget> changeListSlivers(
   BuildContext context,
   ChangeRowsData data, {
   required ValueChanged<WorkspaceFile> onPick,
-  required ValueChanged<WorkspaceFile> onToggleStage,
   required ValueChanged<WorkspaceFile> onToggleViewed,
   required ValueChanged<ChangeDir> onFoldDir,
-  required ValueChanged<ChangeDir> onToggleDir,
   required Widget Function(WorkspaceFile file, Widget row) peekable,
 }) {
   final letters = StatusLetters.width(context);
-  final entries = data.tree
-      ? changeRows(changeTree(data.files), data.closed)
-      : [for (final file in data.files) (depth: 0, dir: null, file: file)];
-  Widget indented(int depth, Widget row) => depth == 0
-      ? row
-      : Padding(
-          padding: EdgeInsets.only(left: depth * Spacing.lg),
-          child: row,
-        );
-  return [
-    for (final entry in entries)
-      if (entry.dir case final dir?)
-        indented(
-          entry.depth,
-          ListRow(
-            key: ValueKey('diff-dir-${dir.path}'),
-            title: '${data.closed.contains(dir.path) ? '▸' : '▾'} ${dir.name}/',
-            literalTitle: true,
-            titleColor: context.tokens.textSecondary,
-            leading: data.writable ? _ShareMark(dir.share) : null,
-            leadingWidth: letters,
-            onLeadingTap: data.writable ? () => onToggleDir(dir) : null,
-            valueSpans: [
-              TextSpan(text: '${dir.count}  '),
-              countSpan('+${dir.added}', context.tokens.accent, dir.added),
-              const TextSpan(text: ' '),
-              countSpan('−${dir.removed}', context.tokens.warning, dir.removed),
-            ],
-            onTap: () => onFoldDir(dir),
-          ),
-        )
-      else if (entry.file case final file?)
-        indented(
-          entry.depth,
-          peekable(
-            file,
-            ListRow(
-              key: ValueKey('diff-file-${file.path}'),
-              title: data.tree ? baseName(file.path) : file.path,
-              titleMaxLines: 2,
-              literalTitle: true,
-              subtitle:
-                  outlineLine(data.outlineOf(file)) ??
-                  (file.origin == null ? null : 'from ${file.origin}'),
-              subtitleMaxLines: 2,
-              subtitleColor: context.tokens.textMuted,
-              titleColor: file.path == data.picked
-                  ? context.tokens.accent
-                  : data.viewed(file)
-                  ? context.tokens.textMuted
-                  : null,
-              leading: StatusLetters.of(file),
-              leadingWidth: letters,
-              onLeadingTap: data.writable ? () => onToggleStage(file) : null,
-              valueSpans: fileCountSpans(context, file),
-              trailing: data.writable
-                  ? GestureDetector(
-                      key: ValueKey('diff-viewed-${file.path}'),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => onToggleViewed(file),
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: Spacing.md),
-                        child: Text(
-                          data.viewed(file) ? '✓' : '·',
-                          style: context.tokens.noteBody.copyWith(
-                            color: data.viewed(file)
-                                ? context.tokens.accent
-                                : context.tokens.textDisabled,
-                          ),
-                        ),
-                      ),
-                    )
-                  : null,
-              onTap: () => onPick(file),
-            ),
-          ),
+  Widget ruled(int depth, Widget row) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: context.tokens.surfacePrimary,
+      border: Border(
+        bottom: BorderSide(
+          color: context.tokens.borderSubtle,
+          width: Borders.hairline,
         ),
+      ),
+    ),
+    child: Padding(
+      padding: EdgeInsets.only(left: depth * Spacing.lg),
+      child: row,
+    ),
+  );
+  Widget dirRow(ChangeDir dir, int depth) => ruled(
+    depth,
+    ListRow(
+      key: ValueKey('diff-dir-${dir.path}'),
+      title: wrappablePath('${dir.name}/'),
+      titleMaxLines: 4,
+      titleColor: context.tokens.textSecondary,
+      leading: Text(
+        data.closed.contains(dir.path) ? '▸' : '▾',
+        style: context.tokens.noteBody.copyWith(
+          color: context.tokens.textMuted,
+        ),
+      ),
+      leadingWidth: letters,
+      valueSpans: [
+        TextSpan(text: '${dir.count}  '),
+        countSpan('+${dir.added}', context.tokens.accent, dir.added),
+        const TextSpan(text: ' '),
+        countSpan('−${dir.removed}', context.tokens.warning, dir.removed),
+      ],
+      onTap: () => onFoldDir(dir),
+    ),
+  );
+  Widget fileRow(WorkspaceFile file, int depth) => ruled(
+    depth,
+    peekable(
+      file,
+      ListRow(
+        key: ValueKey('diff-file-${file.path}'),
+        title: wrappablePath(data.tree ? baseName(file.path) : file.path),
+        titleMaxLines: 4,
+        subtitle:
+            outlineLine(data.outlineOf(file)) ??
+            (file.origin == null ? null : 'from ${file.origin}'),
+        subtitleMaxLines: 2,
+        subtitleColor: context.tokens.textMuted,
+        titleColor: file.path == data.picked
+            ? context.tokens.accent
+            : data.viewed(file)
+            ? context.tokens.textMuted
+            : null,
+        leading: StatusLetters.of(file),
+        leadingWidth: letters,
+        valueSpans: fileCountSpans(context, file),
+        trailing: data.working
+            ? GestureDetector(
+                key: ValueKey('diff-viewed-${file.path}'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onToggleViewed(file),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: Spacing.md),
+                  child: Text(
+                    data.viewed(file) ? '✓' : '·',
+                    style: context.tokens.noteBody.copyWith(
+                      color: data.viewed(file)
+                          ? context.tokens.accent
+                          : context.tokens.textDisabled,
+                    ),
+                  ),
+                ),
+              )
+            : null,
+        onTap: () => onPick(file),
+      ),
+    ),
+  );
+  List<Widget> level(ChangeDir dir, int depth) {
+    final files = sortedFiles(dir);
+    return [
+      for (final child in sortedDirs(dir))
+        SliverMainAxisGroup(
+          slivers: [
+            PinnedHeaderSliver(child: dirRow(child, depth)),
+            if (!data.closed.contains(child.path)) ...level(child, depth + 1),
+          ],
+        ),
+      if (files.isNotEmpty)
+        SliverList.list(
+          children: [for (final file in files) fileRow(file, depth)],
+        ),
+    ];
+  }
+
+  if (data.tree) return level(changeTree(data.files), 0);
+  return [
+    SliverList.list(
+      children: [for (final file in data.files) fileRow(file, 0)],
+    ),
   ];
 }

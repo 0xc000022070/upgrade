@@ -13,7 +13,6 @@ import 'package:striked/data/database.dart';
 import 'package:striked/data/repositories/settings_repository.dart';
 import 'package:striked/data/repositories/host_repository.dart';
 import 'package:striked/data/repositories/path_repository.dart';
-import 'package:striked/design/components/action_block.dart';
 import 'package:striked/design/components/list_row.dart';
 import 'package:striked/design/components/panel.dart';
 import 'package:striked/design/components/path_line.dart';
@@ -1207,7 +1206,7 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('a file is titled by a path in both places it is named', (
+    testWidgets('a file is titled by its path, wrapped in the list, not cut', (
       tester,
     ) async {
       await viewer(tester);
@@ -1224,10 +1223,11 @@ void main() {
       );
 
       await tapText(tester, 'CLOSE');
-      expect(
-        tester.widget<ListRow>(fileRow('lib/main.dart')).literalTitle,
-        isTrue,
+      final dir = tester.widget<ListRow>(
+        onSheet(find.byKey(const ValueKey('diff-dir-lib'))),
       );
+      expect(dir.title, 'lib/\u200B');
+      expect(dir.titleMaxLines, greaterThan(1));
 
       await unmount(tester);
     });
@@ -1249,13 +1249,14 @@ void main() {
             matching: find.byType(Panel),
           )
           .first;
-      final folded = tester.getSize(code()).width;
-      expect(folded, tester.getSize(head).width);
+      expect(fileRow('lib/main.dart'), findsOneWidget);
+      final beside = tester.getSize(code()).width;
+      expect(beside, lessThan(tester.getSize(head).width));
 
       await unfold(tester, 'CHANGES');
 
-      expect(fileRow('lib/main.dart'), findsOneWidget);
-      expect(tester.getSize(code()).width, lessThan(folded));
+      expect(fileRow('lib/main.dart'), findsNothing);
+      expect(tester.getSize(code()).width, tester.getSize(head).width);
 
       await unmount(tester);
     });
@@ -1770,8 +1771,15 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('a file\'s letters stage it', (tester) async {
+    testWidgets('nothing on the sheet writes the index or the tree', (
+      tester,
+    ) async {
       final runner = await viewer(tester);
+      await tester.longPressAt(onRow(tester, 'const port = 357;'));
+      await ready(tester);
+      for (final key in ['stage-hunk', 'stage-line', 'discard-hunk']) {
+        expect(onSheet(find.byKey(ValueKey('diff-$key'))), findsNothing);
+      }
       await tapText(tester, 'CLOSE');
 
       final asked = runner.commands.length;
@@ -1784,12 +1792,14 @@ void main() {
       await ready(tester);
 
       expect(
+        onSheet(find.byKey(const ValueKey('diff-stage-all'))),
+        findsNothing,
+      );
+      expect(
         runner.commands
             .skip(asked)
-            .where(
-              (c) => c.contains('git add -A --') && c.contains('lib/main.dart'),
-            ),
-        hasLength(1),
+            .where((c) => c.contains('git add') || c.contains('git apply')),
+        isEmpty,
       );
 
       await unmount(tester);
@@ -1902,92 +1912,6 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('a held line stages its hunk to the index', (tester) async {
-      final runner = await viewer(tester);
-
-      await tester.longPressAt(onRow(tester, 'const port = 357;'));
-      await ready(tester);
-      final asked = runner.commands.length;
-      await tester.tap(onSheet(find.byKey(const ValueKey('diff-stage-hunk'))));
-      await ready(tester);
-
-      final applied = runner.commands
-          .skip(asked)
-          .where((c) => c.contains('git apply --recount'))
-          .toList();
-      expect(applied, hasLength(1));
-      expect(applied.single, contains('--cached'));
-      expect(applied.single, contains('+const port = 357;'));
-      expect(
-        onSheet(find.byKey(const ValueKey('diff-stage-hunk'))),
-        findsNothing,
-      );
-
-      await unmount(tester);
-    });
-
-    testWidgets('a held line discards its hunk from the tree once asked', (
-      tester,
-    ) async {
-      final runner = await viewer(tester);
-
-      await tester.longPressAt(onRow(tester, 'const port = 357;'));
-      await ready(tester);
-      final asked = runner.commands.length;
-      await tester.tap(
-        onSheet(find.byKey(const ValueKey('diff-discard-hunk'))),
-      );
-      await ready(tester);
-      expect(find.textContaining('This is not undone.'), findsOneWidget);
-      await tester.tap(
-        find.widgetWithText(ActionBlock, 'DISCARD').hitTestable().last,
-      );
-      await ready(tester);
-
-      final applied = runner.commands
-          .skip(asked)
-          .where((c) => c.contains('git apply --recount'))
-          .toList();
-      expect(applied, hasLength(1));
-      expect(applied.single, contains('-R'));
-      expect(applied.single, isNot(contains('--cached')));
-
-      await unmount(tester);
-    });
-
-    testWidgets('a held change git no longer has unstaged is not written', (
-      tester,
-    ) async {
-      final runner = await viewer(tester);
-
-      await tester.longPressAt(onRow(tester, 'const port = 357;'));
-      await ready(tester);
-      runner.answers['diff'] = const WorkspaceReply(
-        exitCode: 0,
-        stdout:
-            'diff --git a/lib/main.dart b/lib/main.dart\n'
-            '@@ -1,3 +1,3 @@\n'
-            ' const port = 357;\n'
-            '-const host = 1;\n'
-            '+const host = 2;\n',
-        stderr: '',
-      );
-      final asked = runner.commands.length;
-      await tester.tap(onSheet(find.byKey(const ValueKey('diff-stage-hunk'))));
-      await ready(tester);
-
-      expect(
-        runner.commands.skip(asked).where((c) => c.contains('git apply')),
-        isEmpty,
-      );
-      expect(
-        onSheet(find.textContaining('already in the index')),
-        findsWidgets,
-      );
-
-      await unmount(tester);
-    });
-
     Future<FakeRunner> bare(
       WidgetTester tester, {
       required FakeRunner runner,
@@ -2070,8 +1994,7 @@ new file mode 100644
           ),
         );
         await bare(tester, runner: runner, size: const Size(900, 900));
-        await tester.tap(onSheet(find.byKey(const ValueKey('diff-changes'))));
-        await ready(tester);
+        expect(fileRow('lib/main.dart'), findsOneWidget);
         await tester.tap(fileRow('lib/other.dart'));
         await ready(tester);
 
@@ -2489,7 +2412,7 @@ new file mode 100644
     testWidgets('a narrow pane puts the rarer tools behind MORE', (
       tester,
     ) async {
-      await viewer(tester, size: const Size(340, 1600));
+      await viewer(tester, runner: withTexts(), size: const Size(260, 1600));
       Finder tool(String key) => onSheet(find.byKey(ValueKey('diff-$key')));
       expect(tool('search'), findsOneWidget);
       expect(tool('history'), findsNothing);
@@ -2520,7 +2443,6 @@ new file mode 100644
       tester.platformDispatcher.textScaleFactorTestValue = 1.3;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await viewer(tester, runner: withTexts(), size: const Size(320, 760));
-      expect(onSheet(find.byKey(const ValueKey('diff-more'))), findsOneWidget);
       expect(tester.takeException(), isNull);
       await unmount(tester);
     });
@@ -2555,27 +2477,101 @@ new file mode 100644
       await unmount(tester);
     });
 
+    bool canPop(WidgetTester tester) => tester
+        .widgetList<PopScope<dynamic>>(
+          find.descendant(
+            of: find.byType(DiffSheet),
+            matching: find.byWidgetPredicate((w) => w is PopScope),
+          ),
+        )
+        .first
+        .canPop;
+
+    Future<void> back(WidgetTester tester) async {
+      await tester.binding.handlePopRoute();
+      await ready(tester);
+    }
+
     testWidgets('back leaves a file the sheet opened by itself', (
       tester,
     ) async {
       await bare(tester, runner: FakeRunner(), size: const Size(1200, 1600));
-      bool canPop() => tester
-          .widgetList<PopScope<dynamic>>(
-            find.descendant(
-              of: find.byType(DiffSheet),
-              matching: find.byWidgetPredicate((w) => w is PopScope),
-            ),
-          )
-          .first
-          .canPop;
 
       expect(find.text('const port = 357;'), findsOneWidget);
-      expect(canPop(), isTrue);
+      expect(fileRow('lib/main.dart'), findsOneWidget);
+      expect(canPop(tester), isTrue);
 
-      await unfold(tester, 'CHANGES');
-      await tester.tap(fileRow('lib/main.dart'));
+      await unmount(tester);
+    });
+
+    testWidgets('back steps out of a held line, search and a file in turn', (
+      tester,
+    ) async {
+      await viewer(tester);
+      await tapText(tester, 'CLOSE');
+      await tapFile(tester, 'lib/main.dart');
+      await tester.tap(onSheet(find.byKey(const ValueKey('diff-search'))));
       await ready(tester);
-      expect(canPop(), isFalse);
+      await tester.longPressAt(onRow(tester, 'const port = 357;'));
+      await ready(tester);
+      Finder key(String name) => onSheet(find.byKey(ValueKey('diff-$name')));
+      expect(key('drop-line'), findsOneWidget);
+
+      await back(tester);
+      expect(key('drop-line'), findsNothing);
+      expect(key('search-field'), findsOneWidget);
+
+      await back(tester);
+      expect(key('search-field'), findsNothing);
+      expect(key('close-file'), findsOneWidget);
+
+      await back(tester);
+      expect(key('close-file'), findsNothing);
+      expect(fileRow('lib/main.dart'), findsOneWidget);
+      expect(canPop(tester), isTrue);
+
+      await unmount(tester);
+    });
+
+    testWidgets('unfolded, a nested repository is never the first file', (
+      tester,
+    ) async {
+      final runner = FakeRunner(
+        overview: overviewOf(
+          '? art/site/\n1 .M N... 100644 100644 100644 aaa bbb lib/main.dart\n',
+          '3\t1\tlib/main.dart\n',
+        ),
+      );
+      await bare(tester, runner: runner, size: const Size(1200, 1600));
+      expect(fileRow('art/site/'), findsOneWidget);
+      expect(find.text('const port = 357;'), findsOneWidget);
+
+      await tapFile(tester, 'art/site/');
+      expect(onSheet(find.text('NESTED REPOSITORY')), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a directory stays pinned over the rows it holds', (
+      tester,
+    ) async {
+      final names = [for (var i = 0; i < 60; i++) 'lib/deep/f$i.dart'];
+      final runner = FakeRunner(
+        overview: overviewOf(
+          names.map((name) => '? $name\n').join(),
+          '',
+          names.map((name) => '$name:1\n').join(),
+        ),
+      );
+      await bare(tester, runner: runner, size: const Size(400, 900));
+      final dir = onSheet(find.byKey(const ValueKey('diff-dir-lib/deep')));
+      final top = tester.getRect(dir).top;
+      await tester.drag(fileRow(names[1]), const Offset(0, -300));
+      await ready(tester);
+
+      expect(dir.hitTestable(), findsOneWidget);
+      expect(tester.getRect(dir).top, closeTo(top, Spacing.sm + 1));
+      expect(fileRow(names.first).hitTestable(), findsNothing);
 
       await unmount(tester);
     });
