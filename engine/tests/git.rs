@@ -402,3 +402,185 @@ fn diff_refuses_what_it_cannot_resolve_and_writes_nothing() {
     assert_eq!(sandbox.git(&["status", "--porcelain"]), status_before);
     assert_eq!(sandbox.git(&["rev-parse", "HEAD"]), head_before);
 }
+
+#[test]
+fn against_picks_the_index_or_the_staged_side() {
+    let sandbox = Sandbox::new("against");
+    sandbox.write("a.py", "x = 1\n");
+    sandbox.commit("one");
+    sandbox.write("a.py", "x = 2\n");
+    sandbox.git(&["add", "a.py"]);
+    sandbox.write("a.py", "x = 3\n");
+    let files = json!([{ "path": "a.py", "origin": null }]);
+    let call = |against: Value| {
+        let result = sandbox.diff(json!({
+            "directory": sandbox.repo.to_str().unwrap(),
+            "commit": null,
+            "against": against,
+            "files": files,
+        }));
+        let file = &result["files"][0];
+        (file["old"].clone(), file["new"].clone())
+    };
+
+    assert_eq!(call(json!(null)), (json!("x = 1\n"), json!("x = 3\n")));
+    assert_eq!(call(json!("head")), (json!("x = 1\n"), json!("x = 3\n")));
+    assert_eq!(call(json!("index")), (json!("x = 2\n"), json!("x = 3\n")));
+    assert_eq!(call(json!("staged")), (json!("x = 1\n"), json!("x = 2\n")));
+
+    let sha = sandbox.commit("two");
+    let pinned = sandbox.diff(json!({
+        "directory": sandbox.repo.to_str().unwrap(),
+        "commit": sha,
+        "against": "index",
+        "files": files,
+    }));
+    assert_eq!(pinned["files"][0]["old"], json!("x = 1\n"));
+    assert_eq!(pinned["files"][0]["new"], json!("x = 3\n"));
+
+    let refused = sandbox.raw(json!({
+        "service": "git/1",
+        "op": "diff",
+        "owner": sandbox.owner,
+        "args": { "directory": sandbox.repo.to_str().unwrap(), "against": "theirs", "files": files },
+    }));
+    assert_eq!(refused["error"]["kind"], json!("bad_request"), "{refused}");
+}
+
+#[test]
+fn each_side_carries_its_blob_id() {
+    let sandbox = Sandbox::new("oids");
+    sandbox.write("kept.rs", "fn a() {}\n");
+    sandbox.write("gone.rs", "fn b() {}\n");
+    sandbox.write("\"quoted\".txt", "q\n");
+    sandbox.commit("base");
+    sandbox.write("kept.rs", "fn a() { 1 }\n");
+    sandbox.write("\"quoted\".txt", "r\n");
+    sandbox.write("big.json", format!("[{}0]", "0,".repeat(300 * 1024)));
+    fs::remove_file(sandbox.repo.join("gone.rs")).unwrap();
+    std::os::unix::fs::symlink("kept.rs", sandbox.repo.join("link")).unwrap();
+
+    let result = sandbox.worktree(json!([
+        { "path": "kept.rs", "origin": null },
+        { "path": "gone.rs", "origin": null },
+        { "path": "\"quoted\".txt", "origin": null },
+        { "path": "big.json", "origin": null },
+        { "path": "link", "origin": null },
+    ]));
+    let files = result["files"].as_array().unwrap();
+    let head = |path: &str| json!(sandbox.git(&["rev-parse", &format!("HEAD:{path}")]));
+    let hashed = |path: &str| json!(sandbox.git(&["hash-object", "--", path]));
+
+    assert_eq!(files[0]["old_oid"], head("kept.rs"));
+    assert_eq!(files[0]["new_oid"], hashed("kept.rs"));
+    assert_ne!(files[0]["old_oid"], files[0]["new_oid"]);
+    assert_eq!(files[1]["old_oid"], head("gone.rs"));
+    assert_eq!(files[1]["new_oid"], json!(null));
+    assert_eq!(files[2]["new_oid"], hashed("\"quoted\".txt"));
+    assert_eq!(files[3]["skipped"], json!("large"));
+    assert_eq!(files[3]["old_oid"], json!(null));
+    assert_eq!(files[3]["new_oid"], hashed("big.json"));
+    assert_eq!(files[4]["new"], json!("kept.rs"));
+    sandbox.git(&["add", "link"]);
+    assert_eq!(
+        files[4]["new_oid"],
+        json!(sandbox.git(&["rev-parse", ":link"]))
+    );
+}
+
+#[test]
+fn an_image_comes_back_as_base64_on_each_side() {
+    let sandbox = Sandbox::new("images");
+    let png = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR".to_vec();
+    sandbox.write("icon.png", &png);
+    sandbox.commit("icon");
+    let mut grown = png.clone();
+    grown.extend_from_slice(&[0, 1, 2, 3]);
+    sandbox.write("icon.png", &grown);
+
+    let result = sandbox.worktree(json!([{ "path": "icon.png", "origin": null }]));
+    let icon = &result["files"][0];
+    assert_eq!(icon["old"], json!(null));
+    assert_eq!(icon["new"], json!(null));
+    assert_eq!(icon["skipped"], json!(null));
+    assert_eq!(icon["language"], json!(null));
+    assert!(icon.get("changed").is_none());
+    assert_eq!(
+        icon["image"],
+        json!({
+            "old": "iVBORw0KGgoAAAANSUhEUg==",
+            "new": "iVBORw0KGgoAAAANSUhEUgABAgM=",
+            "mime": "image/png",
+        })
+    );
+}
+
+#[test]
+fn images_have_their_own_size_limit_and_svg_stays_text() {
+    let sandbox = Sandbox::new("image-limits");
+    sandbox.write("huge.jpg", vec![0xffu8; 3 * 1024 * 1024]);
+    sandbox.commit("huge");
+    sandbox.write("fresh.webp", vec![0x52u8; 600 * 1024]);
+    sandbox.write("logo.svg", "<svg><path d=\"M0 0\"/></svg>\n");
+
+    let result = sandbox.diff(json!({
+        "directory": sandbox.repo.to_str().unwrap(),
+        "commit": null,
+        "max_bytes": 8 * 1024 * 1024,
+        "files": [
+            { "path": "huge.jpg", "origin": null },
+            { "path": "fresh.webp", "origin": null },
+            { "path": "logo.svg", "origin": null },
+        ],
+    }));
+    let files = result["files"].as_array().unwrap();
+    assert_eq!(files[0]["skipped"], json!("large"));
+    assert!(files[0].get("image").is_none());
+
+    let fresh = &files[1]["image"];
+    assert_eq!(
+        (&fresh["old"], &fresh["mime"]),
+        (&json!(null), &json!("image/webp"))
+    );
+    let encoded = fresh["new"].as_str().unwrap().len();
+    assert_eq!(encoded, (600 * 1024usize).div_ceil(3) * 4);
+
+    assert_eq!(files[2]["new"], json!("<svg><path d=\"M0 0\"/></svg>\n"));
+    assert!(files[2].get("image").is_none());
+}
+
+#[test]
+fn a_script_without_an_extension_is_read_by_its_shebang_and_highlighted() {
+    let sandbox = Sandbox::new("shebang");
+    sandbox.commit("empty");
+    let script = "#!/usr/bin/env python3\ndef main():\n    return 'ok'  # done\n";
+    sandbox.write("bin/tool", script);
+    sandbox.write("notes", "just words\n");
+
+    let result = sandbox.worktree(json!([
+        { "path": "bin/tool", "origin": null },
+        { "path": "notes", "origin": null },
+    ]));
+    let tool = &result["files"][0];
+    assert_eq!(tool["language"], json!("python"));
+    assert_eq!(
+        tool["scopes"]["new"],
+        json!([{ "line": 2, "end": 3, "name": "main", "kind": "function" }])
+    );
+    assert_eq!(tool["highlight"]["old"], json!([]));
+    let runs = tool["highlight"]["new"].as_array().unwrap();
+    let kind_of = |token: &str| {
+        let span = utf16_span(script, token);
+        runs.iter()
+            .find(|run| run[0] == span[0] && run[1] == span[1])
+            .map(|run| run[2].clone())
+    };
+    assert_eq!(kind_of("def"), Some(json!("keyword")));
+    assert_eq!(kind_of("main"), Some(json!("function")));
+    assert_eq!(kind_of("'ok'"), Some(json!("string")));
+    assert_eq!(kind_of("# done"), Some(json!("comment")));
+
+    let notes = &result["files"][1];
+    assert_eq!(notes["language"], json!(null));
+    assert!(notes.get("highlight").is_none());
+}

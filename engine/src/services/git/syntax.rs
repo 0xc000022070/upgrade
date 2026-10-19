@@ -1,81 +1,23 @@
+use super::declared;
+use super::grammar::Grammar;
+use super::highlight::Highlighter;
 use imara_diff::{Algorithm, Diff, InternedInput};
 use serde_json::{json, Value};
-use std::path::Path;
-use tree_sitter::{Language, Node, Parser, Tree, TreeCursor};
-
-pub struct Grammar {
-    pub name: &'static str,
-    language: Language,
-}
-
-pub fn grammar_for(path: &str) -> Option<Grammar> {
-    let path = Path::new(path);
-    let file_name = path.file_name()?.to_str()?;
-    let by_name = match file_name {
-        "flake.lock" => Some("json"),
-        "Cargo.lock" => Some("toml"),
-        ".bashrc" | ".bash_profile" | ".profile" | ".envrc" => Some("bash"),
-        _ => None,
-    };
-    let name = match by_name {
-        Some(name) => name,
-        None => match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
-            "dart" => "dart",
-            "rs" => "rust",
-            "ts" | "mts" | "cts" => "typescript",
-            "tsx" => "tsx",
-            "js" | "mjs" | "cjs" | "jsx" => "javascript",
-            "py" | "pyi" => "python",
-            "go" => "go",
-            "nix" => "nix",
-            "sh" | "bash" => "bash",
-            "json" | "jsonc" => "json",
-            "yaml" | "yml" => "yaml",
-            "toml" => "toml",
-            "c" | "h" => "c",
-            "cc" | "cpp" | "cxx" | "c++" | "hh" | "hpp" | "hxx" | "h++" => "cpp",
-            "java" => "java",
-            "kt" | "kts" => "kotlin",
-            "lua" => "lua",
-            "css" => "css",
-            "html" | "htm" => "html",
-            _ => return None,
-        },
-    };
-    let language = match name {
-        "dart" => tree_sitter_dart::LANGUAGE,
-        "rust" => tree_sitter_rust::LANGUAGE,
-        "typescript" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT,
-        "tsx" => tree_sitter_typescript::LANGUAGE_TSX,
-        "javascript" => tree_sitter_javascript::LANGUAGE,
-        "python" => tree_sitter_python::LANGUAGE,
-        "go" => tree_sitter_go::LANGUAGE,
-        "nix" => tree_sitter_nix::LANGUAGE,
-        "bash" => tree_sitter_bash::LANGUAGE,
-        "json" => tree_sitter_json::LANGUAGE,
-        "yaml" => tree_sitter_yaml::LANGUAGE,
-        "toml" => tree_sitter_toml_ng::LANGUAGE,
-        "c" => tree_sitter_c::LANGUAGE,
-        "cpp" => tree_sitter_cpp::LANGUAGE,
-        "java" => tree_sitter_java::LANGUAGE,
-        "kotlin" => tree_sitter_kotlin_ng::LANGUAGE,
-        "lua" => tree_sitter_lua::LANGUAGE,
-        "css" => tree_sitter_css::LANGUAGE,
-        "html" => tree_sitter_html::LANGUAGE,
-        _ => return None,
-    };
-    Some(Grammar {
-        name,
-        language: Language::new(language),
-    })
-}
+use std::collections::HashMap;
+use tree_sitter::{Node, Parser, Point, Tree, TreeCursor};
 
 pub struct Analysis {
     pub changed: Value,
     pub scopes: Value,
+    pub highlight: Value,
 }
 
-pub fn analyze(grammar: &Grammar, old: &str, new: &str) -> Option<Analysis> {
+pub fn analyze(
+    grammar: &Grammar,
+    highlighter: &Highlighter,
+    old: &str,
+    new: &str,
+) -> Option<Analysis> {
     let mut parser = Parser::new();
     parser.set_language(&grammar.language).ok()?;
     let old_tree = parser.parse(old, None)?;
@@ -84,12 +26,13 @@ pub fn analyze(grammar: &Grammar, old: &str, new: &str) -> Option<Analysis> {
     let old_atoms = atoms(&old_tree, old);
     let new_atoms = atoms(&new_tree, new);
     let mut input = InternedInput::default();
-    input.update_before(old_atoms.iter().map(|atom| (atom.atomic, atom.text)));
-    input.update_after(new_atoms.iter().map(|atom| (atom.atomic, atom.text)));
+    input.update_before(old_atoms.iter().map(Atom::key));
+    input.update_after(new_atoms.iter().map(Atom::key));
     let diff = Diff::compute(Algorithm::Histogram, &input);
 
-    let old_changed = unmatched(&old_atoms, |index| diff.is_removed(index));
-    let new_changed = unmatched(&new_atoms, |index| diff.is_added(index));
+    let (old_words, new_words) = paired_words(&diff, &old_atoms, &new_atoms);
+    let old_changed = unmatched(&old_atoms, &old_words, |index| diff.is_removed(index));
+    let new_changed = unmatched(&new_atoms, &new_words, |index| diff.is_added(index));
     Some(Analysis {
         changed: json!({
             "old": utf16_ranges(old, &old_changed),
@@ -99,25 +42,50 @@ pub fn analyze(grammar: &Grammar, old: &str, new: &str) -> Option<Analysis> {
             "old": scopes(grammar.name, &old_tree, old),
             "new": scopes(grammar.name, &new_tree, new),
         }),
+        highlight: json!({
+            "old": highlighter.runs(&old_tree, old),
+            "new": highlighter.runs(&new_tree, new),
+        }),
     })
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Class {
+    Code,
+    String,
+    Comment,
+}
+
 struct Atom<'a> {
-    atomic: bool,
+    class: Class,
     text: &'a str,
     start: usize,
     end: usize,
 }
 
-fn is_atomic(node: Node) -> bool {
+impl<'a> Atom<'a> {
+    fn key(&self) -> (bool, &'a str) {
+        (self.class != Class::Code, self.text)
+    }
+}
+
+fn atomic_class(node: Node) -> Option<Class> {
+    if !(node.is_named() || node.is_extra()) {
+        return None;
+    }
     let kind = node.kind();
-    (node.is_named() || node.is_extra())
-        && (kind.contains("string")
-            || kind.contains("comment")
-            || kind.contains("heredoc")
-            || kind.ends_with("quote_scalar")
-            || kind == "block_scalar"
-            || kind == "text_block")
+    if kind.contains("string")
+        || kind.contains("heredoc")
+        || kind.ends_with("quote_scalar")
+        || kind == "block_scalar"
+        || kind == "text_block"
+    {
+        Some(Class::String)
+    } else if kind.contains("comment") {
+        Some(Class::Comment)
+    } else {
+        None
+    }
 }
 
 fn atoms<'a>(tree: &Tree, text: &'a str) -> Vec<Atom<'a>> {
@@ -126,15 +94,15 @@ fn atoms<'a>(tree: &Tree, text: &'a str) -> Vec<Atom<'a>> {
     let mut cursor = tree.walk();
     loop {
         let node = cursor.node();
-        let atomic = is_atomic(node);
-        if !atomic && cursor.goto_first_child() {
+        let class = atomic_class(node);
+        if class.is_none() && cursor.goto_first_child() {
             continue;
         }
         let (start, end) = (node.start_byte(), node.end_byte().min(text.len()));
         push_gap(&mut found, text, covered, start);
         covered = covered.max(end);
         if let Some(slice) = text.get(start..end) {
-            push_leaf(&mut found, slice, start, atomic);
+            push_leaf(&mut found, slice, start, class);
         }
         if !next_node(&mut cursor) {
             push_gap(&mut found, text, covered, text.len());
@@ -144,15 +112,18 @@ fn atoms<'a>(tree: &Tree, text: &'a str) -> Vec<Atom<'a>> {
 }
 
 fn push_gap<'a>(found: &mut Vec<Atom<'a>>, text: &'a str, from: usize, to: usize) {
-    let Some(gap) = text.get(from..to) else {
-        return;
-    };
+    if let Some(gap) = text.get(from..to) {
+        push_code(found, gap, from);
+    }
+}
+
+fn push_code<'a>(found: &mut Vec<Atom<'a>>, slice: &'a str, base: usize) {
     let before = found.len();
-    push_words(found, gap, from);
+    push_words(found, slice, base);
     let mut index = before;
     while index < found.len() {
         let atom = &found[index];
-        let rest = &text[atom.end..];
+        let rest = &slice[atom.end - base..];
         if atom.text == "\\" && (rest.starts_with('\n') || rest.starts_with("\r\n")) {
             found.remove(index);
         } else {
@@ -161,25 +132,25 @@ fn push_gap<'a>(found: &mut Vec<Atom<'a>>, text: &'a str, from: usize, to: usize
     }
 }
 
-fn push_leaf<'a>(found: &mut Vec<Atom<'a>>, slice: &'a str, start: usize, atomic: bool) {
-    if !atomic {
-        push_words(found, slice, start);
+fn push_leaf<'a>(found: &mut Vec<Atom<'a>>, slice: &'a str, start: usize, class: Option<Class>) {
+    let Some(class) = class else {
+        push_code(found, slice, start);
         return;
-    }
+    };
     let trimmed = slice.trim();
     if trimmed.is_empty() {
         return;
     }
     let offset = start + (slice.len() - slice.trim_start().len());
     found.push(Atom {
-        atomic: true,
+        class,
         text: trimmed,
         start: offset,
         end: offset + trimmed.len(),
     });
 }
 
-fn next_node(cursor: &mut TreeCursor) -> bool {
+pub(super) fn next_node(cursor: &mut TreeCursor) -> bool {
     loop {
         if cursor.goto_next_sibling() {
             return true;
@@ -196,7 +167,7 @@ fn push_words<'a>(found: &mut Vec<Atom<'a>>, slice: &'a str, base: usize) {
         match (character.is_whitespace(), word_start) {
             (true, Some(start)) => {
                 found.push(Atom {
-                    atomic: false,
+                    class: Class::Code,
                     text: &slice[start..index],
                     start: base + start,
                     end: base + index,
@@ -209,7 +180,7 @@ fn push_words<'a>(found: &mut Vec<Atom<'a>>, slice: &'a str, base: usize) {
     }
     if let Some(start) = word_start {
         found.push(Atom {
-            atomic: false,
+            class: Class::Code,
             text: &slice[start..],
             start: base + start,
             end: base + slice.len(),
@@ -217,36 +188,138 @@ fn push_words<'a>(found: &mut Vec<Atom<'a>>, slice: &'a str, base: usize) {
     }
 }
 
-fn unmatched(atoms: &[Atom], is_changed: impl Fn(u32) -> bool) -> Vec<(usize, usize)> {
+type Spans = Vec<(usize, usize)>;
+type Words = HashMap<usize, Spans>;
+
+fn paired_words(diff: &Diff, old: &[Atom], new: &[Atom]) -> (Words, Words) {
+    let mut old_words = Words::new();
+    let mut new_words = Words::new();
+    for hunk in diff.hunks() {
+        let removed = pairable(old, hunk.before.start..hunk.before.end);
+        let added = pairable(new, hunk.after.start..hunk.after.end);
+        for (old_index, new_index) in removed.into_iter().zip(added) {
+            let (before, after) = (&old[old_index], &new[new_index]);
+            if before.class != after.class {
+                continue;
+            }
+            if let Some((removed, added)) = changed_words(before, after) {
+                old_words.insert(old_index, removed);
+                new_words.insert(new_index, added);
+            }
+        }
+    }
+    (old_words, new_words)
+}
+
+fn pairable(atoms: &[Atom], range: std::ops::Range<u32>) -> Vec<usize> {
+    (range.start as usize..range.end as usize)
+        .filter(|index| atoms[*index].class != Class::Code)
+        .collect()
+}
+
+type Token<'a> = (&'a str, usize, usize);
+
+fn changed_words(before: &Atom, after: &Atom) -> Option<(Spans, Spans)> {
+    let old_tokens = tokens(before.text, before.start);
+    let new_tokens = tokens(after.text, after.start);
+    let mut input = InternedInput::default();
+    input.update_before(old_tokens.iter().map(|token| token.0));
+    input.update_after(new_tokens.iter().map(|token| token.0));
+    let diff = Diff::compute(Algorithm::Myers, &input);
+    let shared = old_tokens.len() - diff.count_removals() as usize;
+    if shared * 2 < old_tokens.len().max(new_tokens.len()) {
+        return None;
+    }
+    let spans = |tokens: &[Token], changed: &dyn Fn(u32) -> bool| {
+        let mut spans = Spans::new();
+        for (index, token) in tokens.iter().enumerate() {
+            if changed(index as u32) {
+                extend(&mut spans, token.1, token.2);
+            }
+        }
+        spans
+    };
+    Some((
+        spans(&old_tokens, &|index| diff.is_removed(index)),
+        spans(&new_tokens, &|index| diff.is_added(index)),
+    ))
+}
+
+fn tokens(text: &str, base: usize) -> Vec<Token<'_>> {
+    let mut found = Vec::new();
+    let mut word: Option<usize> = None;
+    for (index, character) in text.char_indices() {
+        let wordy = character.is_alphanumeric() || character == '_';
+        if let (Some(start), false) = (word, wordy) {
+            found.push((&text[start..index], base + start, base + index));
+            word = None;
+        }
+        if wordy {
+            word.get_or_insert(index);
+        } else if !character.is_whitespace() {
+            let end = index + character.len_utf8();
+            found.push((&text[index..end], base + index, base + end));
+        }
+    }
+    if let Some(start) = word {
+        found.push((&text[start..], base + start, base + text.len()));
+    }
+    found
+}
+
+fn extend(ranges: &mut Vec<(usize, usize)>, start: usize, end: usize) {
+    match ranges.last_mut() {
+        Some(last) if last.1 >= start => last.1 = last.1.max(end),
+        _ => ranges.push((start, end)),
+    }
+}
+
+fn unmatched(
+    atoms: &[Atom],
+    words: &Words,
+    is_changed: impl Fn(u32) -> bool,
+) -> Vec<(usize, usize)> {
     let mut ranges: Vec<(usize, usize)> = Vec::new();
     for (index, atom) in atoms.iter().enumerate() {
         if !is_changed(index as u32) {
             continue;
         }
-        match ranges.last_mut() {
-            Some(last) if last.1 >= atom.start => last.1 = last.1.max(atom.end),
-            _ => ranges.push((atom.start, atom.end)),
+        match words.get(&index) {
+            Some(spans) => spans
+                .iter()
+                .for_each(|&(start, end)| extend(&mut ranges, start, end)),
+            None => extend(&mut ranges, atom.start, atom.end),
         }
     }
     ranges
 }
 
-fn utf16_ranges(text: &str, ranges: &[(usize, usize)]) -> Vec<[usize; 2]> {
+pub(super) fn utf16_offsets(text: &str, offsets: &[usize]) -> Vec<usize> {
     let mut byte = 0usize;
     let mut unit = 0usize;
-    let mut advance = |target: usize| {
-        for character in text[byte..].chars() {
-            if byte >= target {
-                break;
-            }
-            byte += character.len_utf8();
-            unit += character.len_utf16();
-        }
-        unit
-    };
-    ranges
+    offsets
         .iter()
-        .map(|&(start, end)| [advance(start), advance(end)])
+        .map(|&target| {
+            for character in text[byte..].chars() {
+                if byte >= target {
+                    break;
+                }
+                byte += character.len_utf8();
+                unit += character.len_utf16();
+            }
+            unit
+        })
+        .collect()
+}
+
+fn utf16_ranges(text: &str, ranges: &[(usize, usize)]) -> Vec<[usize; 2]> {
+    let bounds: Vec<usize> = ranges
+        .iter()
+        .flat_map(|&(start, end)| [start, end])
+        .collect();
+    utf16_offsets(text, &bounds)
+        .chunks(2)
+        .map(|pair| [pair[0], pair[1]])
         .collect()
 }
 
@@ -316,7 +389,7 @@ fn is_container(kind: &str) -> bool {
     )
 }
 
-fn slice<'a>(node: Node, text: &'a str) -> Option<&'a str> {
+pub(super) fn slice<'a>(node: Node, text: &'a str) -> Option<&'a str> {
     text.get(node.start_byte()..node.end_byte())
 }
 
@@ -388,8 +461,12 @@ fn dart_scope(node: Node, text: &str) -> Option<(&'static str, String)> {
 }
 
 fn scope_of(language: &str, node: Node, text: &str) -> Option<(&'static str, String)> {
-    if language == "dart" {
-        return dart_scope(node, text);
+    match language {
+        "dart" => return dart_scope(node, text),
+        "markdown" | "sql" | "proto" | "graphql" | "make" | "scss" => {
+            return declared::scope(node, text)
+        }
+        _ => {}
     }
     let kind = scope_kind(language, node)?;
     match scope_name(node, text) {
@@ -402,6 +479,9 @@ fn scope_of(language: &str, node: Node, text: &str) -> Option<(&'static str, Str
 type Open = Vec<(usize, &'static str, String)>;
 
 fn scopes(language: &str, tree: &Tree, text: &str) -> Vec<Value> {
+    if language == "dockerfile" {
+        return declared::stages(tree, text);
+    }
     let mut found = Vec::new();
     let mut open: Open = Vec::new();
     let mut cursor = tree.walk();
@@ -415,7 +495,12 @@ fn scopes(language: &str, tree: &Tree, text: &str) -> Vec<Value> {
         }
         if let Some((kind, name)) = scope_of(language, node, text) {
             let (kind, name) = placed(node, kind, name, &open);
-            found.push(scope_json(node, kind, &name));
+            found.push(scope_json(
+                node.start_position(),
+                trimmed_end(node, text),
+                kind,
+                &name,
+            ));
             open.push((node.end_byte(), kind, name));
         }
         if !cursor.goto_first_child() && !next_node(&mut cursor) {
@@ -443,9 +528,25 @@ fn placed(
     (kind, name.split_whitespace().collect::<Vec<_>>().join(" "))
 }
 
-fn scope_json(node: Node, kind: &str, name: &str) -> Value {
+pub(super) fn trimmed_end(node: Node, text: &str) -> Point {
+    let Some(body) = slice(node, text) else {
+        return node.end_position();
+    };
+    let kept = &body[..body.trim_end().len()];
     let start = node.start_position();
-    let end = node.end_position();
+    match kept.rfind('\n') {
+        Some(newline) => Point {
+            row: start.row + kept.matches('\n').count(),
+            column: kept.len() - newline - 1,
+        },
+        None => Point {
+            row: start.row,
+            column: start.column + kept.len(),
+        },
+    }
+}
+
+pub(super) fn scope_json(start: Point, end: Point, kind: &str, name: &str) -> Value {
     let end_line = if end.column == 0 && end.row > start.row {
         end.row
     } else {
@@ -461,7 +562,26 @@ fn scope_json(node: Node, kind: &str, name: &str) -> Value {
 
 #[cfg(test)]
 mod tests {
+    use super::super::grammar::grammar_for;
     use super::*;
+
+    fn analyzed(path: &str, old: &str, new: &str) -> Analysis {
+        let grammar = grammar_for(path, None).unwrap_or_else(|| panic!("no grammar for {path}"));
+        let highlighter = Highlighter::new(&grammar);
+        analyze(&grammar, &highlighter, old, new)
+            .unwrap_or_else(|| panic!("{} did not load", grammar.name))
+    }
+
+    fn spans<'a>(text: &'a str, ranges: &Value) -> Vec<&'a str> {
+        let units: Vec<u16> = text.encode_utf16().collect();
+        let byte = |unit: u64| String::from_utf16(&units[..unit as usize]).unwrap().len();
+        ranges
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|range| &text[byte(range[0].as_u64().unwrap())..byte(range[1].as_u64().unwrap())])
+            .collect()
+    }
 
     #[test]
     fn utf16_offsets_count_a_surrogate_pair_as_two() {
@@ -503,16 +623,314 @@ mod tests {
             ("a.lua", "f(a, b)\n", "f(a,\n  b)\n"),
             ("a.css", "a { color: red; }", "a {\n  color: red;\n}"),
             ("a.html", "<p>some words</p>", "<p>\n  some\n  words\n</p>"),
+            (
+                "a.scss",
+                "a { b { color: red; } }",
+                "a {\n  b { color: red; }\n}",
+            ),
+            (
+                "a.md",
+                "# Title\n\nsome words\n",
+                "# Title\n\nsome\nwords\n",
+            ),
+            ("Dockerfile", "FROM a\nRUN b c\n", "FROM a\nRUN b \\\n  c\n"),
+            ("Makefile", "all: a b\n", "all: a  b\n"),
+            ("a.sql", "SELECT a, b FROM t;", "SELECT a,\n  b\nFROM t;"),
+            ("a.xml", "<a><b/></a>", "<a>\n  <b/>\n</a>"),
+            (
+                "a.proto",
+                "message A { int32 x = 1; }",
+                "message A {\n  int32 x = 1;\n}",
+            ),
+            ("a.graphql", "type A { b: C }", "type A {\n  b: C\n}"),
         ] {
-            let grammar = grammar_for(path).unwrap_or_else(|| panic!("no grammar for {path}"));
-            let analysis = analyze(&grammar, old, new)
-                .unwrap_or_else(|| panic!("{} did not load", grammar.name));
+            let analysis = analyzed(path, old, new);
             assert_eq!(
                 analysis.changed,
                 json!({ "old": [], "new": [] }),
-                "{} saw a change in layout alone",
-                grammar.name
+                "{path} saw a change in layout alone",
             );
         }
+    }
+
+    #[test]
+    fn every_highlights_query_compiles_and_runs_never_overlap() {
+        for (path, text) in [
+            (
+                "a.rs",
+                "#[derive(Debug)]\nstruct A;\n// note\nfn f() -> u8 { g(\"s\", 1) }\n",
+            ),
+            ("a.dart", "@override\nint f() => g('s', 1); // note\n"),
+            ("a.ts", "const a: number = f(\"s\", 1); // note\n"),
+            ("a.tsx", "const a = <A b=\"s\" />; // note\n"),
+            ("a.js", "const a = f(`s${b}`, 1); // note\n"),
+            ("a.py", "@d\ndef f():\n    return 'a' # note\n"),
+            ("a.go", "package a\nfunc f() int { return 1 } // note\n"),
+            ("a.nix", "{ a = \"s\"; b = 1; } # note\n"),
+            ("a.sh", "f() { echo \"s\" 1; } # note\n"),
+            ("a.json", "{\"a\": 1}"),
+            ("a.yaml", "a: 's' # note\n"),
+            ("a.toml", "a = 1 # note\n"),
+            ("a.c", "int f(void) { return 1; } // note\n"),
+            ("a.cpp", "class A { int f() { return 1; } }; // note\n"),
+            ("A.java", "@A class B { int f() { return 1; } } // note\n"),
+            ("a.kt", "fun f(): Int = 1 // note\n"),
+            ("a.lua", "local function f() return 'a' end -- note\n"),
+            ("a.css", "a { color: red; } /* note */"),
+            ("a.scss", "@mixin a { color: red; } // note\n"),
+            ("a.html", "<p class=\"a\">b</p><!-- note -->"),
+            ("a.md", "# Title\n\n- item\n\n```sh\nls\n```\n"),
+            ("Dockerfile", "# note\nFROM a AS b\nRUN c\n"),
+            ("Makefile", "# note\nall: a\n\tcc a\n"),
+            ("a.sql", "-- note\nSELECT 1 FROM t WHERE a = 'b';\n"),
+            (
+                "a.xml",
+                "<?xml version=\"1.0\"?><a b=\"c\"><!-- note --></a>",
+            ),
+            ("a.proto", "// note\nmessage A { string b = 1; }\n"),
+            ("a.graphql", "# note\ntype A { b(c: Int = 1): String }\n"),
+        ] {
+            let grammar = grammar_for(path, None).unwrap();
+            let highlighter = Highlighter::new(&grammar);
+            assert_eq!(
+                highlighter.has_query(),
+                !grammar.highlights.is_empty(),
+                "{path}: the shipped highlights query did not compile"
+            );
+            let highlight = analyzed(path, "", text).highlight;
+            let runs = highlight["new"].as_array().unwrap();
+            assert!(!runs.is_empty(), "{path} highlighted nothing");
+            let mut last = 0;
+            for run in runs {
+                let (start, end) = (run[0].as_u64().unwrap(), run[1].as_u64().unwrap());
+                assert!(
+                    start >= last && end > start,
+                    "{path}: {run} overlaps or is empty"
+                );
+                assert!(
+                    KINDS_FOR_TEST.contains(&run[2].as_str().unwrap()),
+                    "{path}: {run}"
+                );
+                last = end;
+            }
+            let kinds: Vec<&str> = runs.iter().map(|run| run[2].as_str().unwrap()).collect();
+            if !matches!(path, "a.json" | "a.md") {
+                assert!(
+                    kinds.contains(&"comment"),
+                    "{path} has no comment in {kinds:?}"
+                );
+            }
+        }
+    }
+
+    const KINDS_FOR_TEST: [&str; 8] = [
+        "keyword",
+        "type",
+        "string",
+        "number",
+        "comment",
+        "annotation",
+        "punctuation",
+        "function",
+    ];
+
+    fn kinds_of<'a>(text: &'a str, runs: &Value) -> Vec<(&'a str, String)> {
+        let units: Vec<u16> = text.encode_utf16().collect();
+        let byte = |unit: u64| String::from_utf16(&units[..unit as usize]).unwrap().len();
+        runs.as_array()
+            .unwrap()
+            .iter()
+            .map(|run| {
+                let (start, end) = (
+                    byte(run[0].as_u64().unwrap()),
+                    byte(run[1].as_u64().unwrap()),
+                );
+                (&text[start..end], run[2].as_str().unwrap().to_owned())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn rust_highlights_name_each_kind_in_utf16() {
+        let text = "#[inline]\nfn grow(n: u32) -> u32 {\n    // 😀 note\n    n + 1\n}\nconst S: &str = \"é\";\n";
+        let found = kinds_of(text, &analyzed("a.rs", "", text).highlight["new"]);
+        for expected in [
+            ("fn", "keyword"),
+            ("grow", "function"),
+            ("u32", "type"),
+            ("// 😀 note", "comment"),
+            ("1", "number"),
+            ("\"é\"", "string"),
+            ("{", "punctuation"),
+        ] {
+            assert!(
+                found.contains(&(expected.0, expected.1.to_owned())),
+                "{expected:?} not in {found:?}"
+            );
+        }
+        assert!(found
+            .iter()
+            .any(|(text, kind)| kind == "annotation" && text.contains("inline")));
+    }
+
+    #[test]
+    fn grammars_without_a_query_fall_back_to_node_kinds() {
+        let text =
+            "// note\nservice S {\n  rpc Get(A) returns (B);\n}\nmessage A { string b = 1; }\n";
+        let found = kinds_of(text, &analyzed("a.proto", "", text).highlight["new"]);
+        for expected in [
+            ("// note", "comment"),
+            ("service", "keyword"),
+            ("message", "keyword"),
+            ("1", "number"),
+            ("{", "punctuation"),
+        ] {
+            assert!(
+                found.contains(&(expected.0, expected.1.to_owned())),
+                "{expected:?} not in {found:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_shebang_names_the_grammar_when_the_path_does_not() {
+        for (line, name) in [
+            ("#!/usr/bin/env python3", Some("python")),
+            ("#!/usr/bin/python3.11 -u", Some("python")),
+            ("#!/bin/bash", Some("bash")),
+            ("#!/bin/sh -e", Some("bash")),
+            ("#!/usr/bin/env zsh", Some("bash")),
+            ("#!/usr/bin/env -S node --flag", Some("javascript")),
+            ("#!/usr/bin/env FOO=1 lua", Some("lua")),
+            ("#!/usr/bin/make -f", Some("make")),
+            ("#!/usr/bin/perl", None),
+            ("echo hi", None),
+        ] {
+            assert_eq!(
+                grammar_for("bin/tool", Some(line)).map(|grammar| grammar.name),
+                name,
+                "{line}"
+            );
+        }
+        assert_eq!(
+            grammar_for("tool.rs", Some("#!/bin/bash")).map(|grammar| grammar.name),
+            Some("rust")
+        );
+    }
+
+    #[test]
+    fn a_paired_string_or_comment_changes_by_word() {
+        let old = "fn f() {\n    // keep the old wording here\n    g(\"hello brave world\");\n}\n";
+        let new = "fn f() {\n    // keep the new wording here\n    g(\"hello bold world\");\n}\n";
+        let changed = analyzed("a.rs", old, new).changed;
+        assert_eq!(spans(old, &changed["old"]), vec!["old", "brave"]);
+        assert_eq!(spans(new, &changed["new"]), vec!["new", "bold"]);
+    }
+
+    #[test]
+    fn a_rewritten_string_changes_as_a_whole() {
+        let old = "g(\"one two three four\");\n";
+        let new = "g(\"five six seven\");\n";
+        let changed = analyzed("a.rs", old, new).changed;
+        assert_eq!(spans(old, &changed["old"]), vec!["\"one two three four\""]);
+        assert_eq!(spans(new, &changed["new"]), vec!["\"five six seven\""]);
+    }
+
+    #[test]
+    fn a_string_paired_with_a_comment_changes_as_a_whole() {
+        let old = "a(\"note here\");\n";
+        let new = "a(); // note here\n";
+        let changed = analyzed("a.rs", old, new).changed;
+        assert_eq!(spans(old, &changed["old"]), vec!["\"note here\""]);
+        assert_eq!(spans(new, &changed["new"]), vec!["// note here"]);
+    }
+
+    fn scope_names(path: &str, text: &str) -> Vec<(String, String, u64, u64)> {
+        analyzed(path, "", text).scopes["new"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|scope| {
+                (
+                    scope["kind"].as_str().unwrap().to_owned(),
+                    scope["name"].as_str().unwrap().to_owned(),
+                    scope["line"].as_u64().unwrap(),
+                    scope["end"].as_u64().unwrap(),
+                )
+            })
+            .collect()
+    }
+
+    fn scope(kind: &str, name: &str, line: u64, end: u64) -> (String, String, u64, u64) {
+        (kind.to_owned(), name.to_owned(), line, end)
+    }
+
+    #[test]
+    fn new_grammars_declare_their_scopes() {
+        assert_eq!(
+            scope_names(
+                "a.md",
+                "# Title\n\nintro\n\n## Sub one\n\ntext\n\n## Sub two\n\nmore\n"
+            ),
+            vec![
+                scope("heading", "Title", 1, 11),
+                scope("heading", "Sub one", 5, 7),
+                scope("heading", "Sub two", 9, 11),
+            ]
+        );
+        assert_eq!(
+            scope_names(
+                "a.sql",
+                "CREATE TABLE users (id INT);\nCREATE VIEW v AS SELECT id FROM users;\nCREATE INDEX idx ON users (id);\n"
+            ),
+            vec![
+                scope("table", "users", 1, 1),
+                scope("view", "v", 2, 2),
+                scope("index", "idx", 3, 3),
+            ]
+        );
+        assert_eq!(
+            scope_names(
+                "a.proto",
+                "message User {\n  message Inner { int32 x = 1; }\n}\nenum Kind { A = 0; }\nservice Users {\n  rpc Get(User) returns (User);\n}\n"
+            ),
+            vec![
+                scope("message", "User", 1, 3),
+                scope("message", "Inner", 2, 2),
+                scope("enum", "Kind", 4, 4),
+                scope("service", "Users", 5, 7),
+                scope("method", "Get", 6, 6),
+            ]
+        );
+        assert_eq!(
+            scope_names(
+                "a.graphql",
+                "type Query {\n  a: Int\n}\ninterface Node { id: ID! }\nmutation Add { a }\nfragment F on Query { a }\n"
+            ),
+            vec![
+                scope("type", "Query", 1, 3),
+                scope("interface", "Node", 4, 4),
+                scope("mutation", "Add", 5, 5),
+                scope("fragment", "F", 6, 6),
+            ]
+        );
+        assert_eq!(
+            scope_names(
+                "Makefile",
+                "all: build\n\nbuild: main.c\n\tcc main.c\n\n.PHONY: all\n"
+            ),
+            vec![scope("target", "all", 1, 1), scope("target", "build", 3, 4)]
+        );
+        assert_eq!(
+            scope_names(
+                "Dockerfile",
+                "FROM rust:1 AS build\nRUN cargo build\n\n# runtime\nFROM debian\nCOPY --from=build /a /b\n"
+            ),
+            vec![scope("stage", "build", 1, 2), scope("stage", "debian", 5, 6)]
+        );
+        assert_eq!(
+            scope_names("a.scss", "@mixin pad($x) {\n  padding: $x;\n}\n@function twice($n) {\n  @return $n * 2;\n}\n"),
+            vec![scope("mixin", "pad", 1, 3), scope("function", "twice", 4, 6)]
+        );
     }
 }
