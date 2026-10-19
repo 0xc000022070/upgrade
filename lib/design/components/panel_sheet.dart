@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'package:striked/application/plugins/native_plugins.dart';
@@ -115,29 +117,36 @@ class _SheetFrame extends StatelessWidget {
     final media = MediaQuery.of(context);
     return ValueListenableBuilder<double>(
       valueListenable: KeyboardAccessory.reservedHeight,
-      builder: (context, accessory, child) => Align(
-        alignment: Alignment.bottomCenter,
-        child: Padding(
-          // A dialog route does not resize for the IME the way a scaffold does, and the accessory
-          // strip is an overlay on top of both.
-          padding: EdgeInsets.only(
-            left: Spacing.screenEdge,
-            right: Spacing.screenEdge,
-            bottom:
-                media.viewInsets.bottom +
-                media.padding.bottom +
-                accessory +
-                Spacing.md,
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: maxWidth,
-              maxHeight: media.size.height * maxHeightFraction,
+      builder: (context, accessory, child) {
+        final bottom =
+            media.viewInsets.bottom +
+            media.padding.bottom +
+            accessory +
+            Spacing.md;
+        final room = media.size.height - bottom - media.padding.top;
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            // A dialog route does not resize for the IME the way a scaffold does, and the accessory
+            // strip is an overlay on top of both.
+            padding: EdgeInsets.only(
+              left: Spacing.screenEdge,
+              right: Spacing.screenEdge,
+              bottom: bottom,
             ),
-            child: Material(color: const Color(0x00000000), child: child),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: maxWidth,
+                maxHeight: math.max(
+                  0,
+                  math.min(media.size.height * maxHeightFraction, room),
+                ),
+              ),
+              child: Material(color: const Color(0x00000000), child: child),
+            ),
           ),
-        ),
-      ),
+        );
+      },
       child: child,
     );
   }

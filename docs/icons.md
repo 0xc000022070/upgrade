@@ -100,6 +100,18 @@ The variant is drawn only inside the icon-glitch event. It is not a static icon 
 | resume | Carry on from a hold: an open play triangle | None | None | 16 px |
 | minimize | Fold a window down to its bar: one floor rule | None | None | 16 px |
 
+## The diff
+
+| Name | Meaning | Node class | Modifier | Min size |
+|---|---|---|---|---:|
+| stage | A change routed down into the index: a node landed in an open tray | Square change node | None | 16 px |
+| unstage | A change routed up out of the index: the tray left empty | None | None | 16 px |
+| discard | A change struck off its route | Diamond change node | None | 16 px |
+| wrap | A line too long for the row, routed back to the margin | Square line-start node | None | 16 px |
+| split | The two sides read beside each other | None | Container is the meaning | 16 px |
+| viewed | Lines read through to the end and ticked | None | None | 16 px |
+| log | A file's history: commits down one route, each with its entry | Diamond commit nodes | None | 16 px |
+
 ## The screen surface
 
 | Name | Meaning | Node class | Modifier | Min size |

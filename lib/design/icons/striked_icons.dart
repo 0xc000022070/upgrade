@@ -26,6 +26,7 @@ enum StrikedIcons {
   crop('crop'),
   device('device'),
   diff('diff'),
+  discard('discard'),
   done('done'),
   edit('edit'),
   encrypted('encrypted'),
@@ -37,11 +38,12 @@ enum StrikedIcons {
   forward('forward'),
   goal('goal'),
   home('home'),
-  image('image'),
   hosts('hosts'),
+  image('image'),
   inbox('inbox'),
   keyboard('keyboard'),
   keys('keys'),
+  log('log'),
   message('message'),
   minimize('minimize'),
   monitor('monitor'),
@@ -64,8 +66,10 @@ enum StrikedIcons {
   search('search'),
   settings('settings'),
   shell('shell'),
-  submit('submit'),
+  split('split'),
   sshKey('ssh-key'),
+  stage('stage'),
+  submit('submit'),
   superKey('super'),
   sync('sync'),
   systemAlpine('system-alpine'),
@@ -76,10 +80,13 @@ enum StrikedIcons {
   systemUbuntu('system-ubuntu'),
   task('task'),
   tools('tools'),
+  unstage('unstage'),
   vault('vault'),
   verified('verified'),
+  viewed('viewed'),
   voice('voice'),
-  warning('warning');
+  warning('warning'),
+  wrap('wrap');
 
   const StrikedIcons(this.slug);
 
