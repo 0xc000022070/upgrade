@@ -31,6 +31,8 @@ const _tabMaxWidth = 88.0;
 
 const _fadeWidth = Spacing.xxl;
 
+const _labelDrop = Spacing.lg;
+
 /// A login shell's title is who and where (`luis@nyx: ~/Projects/striked`), and the where
 /// is the half that tells two tabs apart. A title with a space in it is a sentence the
 /// program wrote and is kept as it stands, slashes included: `vim design/SPEC.md` is not
@@ -301,60 +303,67 @@ class _ShellHeaderState extends State<ShellHeader> {
       for (final session in sessions)
         if (!folded || (front && session == widget.active)) session,
     ];
+    final rule = BorderSide(
+      color: context.tokens.borderNormal,
+      width: Borders.hairline * 2,
+    );
     return Padding(
       key: ValueKey('shell-group-${group.id}'),
       padding: const EdgeInsets.only(right: Spacing.sm),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ReorderableDelayedDragStartListener(
-            index: index,
-            child: HostGroupCell(
-              key: ValueKey('shell-group-label-${group.id}'),
-              name: group.name,
-              system: group.system,
-              hostId: group.id,
-              front: front,
-              hidden: sessions.length - shown.length,
-              onTap: () => widget.onFold(group),
-            ),
-          ),
-          ReorderableListView(
-            scrollDirection: Axis.horizontal,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            buildDefaultDragHandles: false,
-            proxyDecorator: _lifted,
-            // Folded, the list holds only what is shown, so a move among it would not
-            // say where the tab goes among the ones that are not.
-            onReorderItem: (from, to) {
-              if (folded) return;
-              widget.onMoveTab(group, from, to);
-            },
-            children: [
-              for (final (slot, session) in shown.indexed)
-                ReorderableDelayedDragStartListener(
-                  key: ValueKey('shell-tab-${group.id}-${session.number}'),
-                  index: slot,
-                  enabled: !folded,
-                  child: KeyedSubtree(
-                    key: session == widget.active ? _activeTab : null,
-                    child: _TabCell(
-                      key: session == widget.active
-                          ? const ValueKey('shell-tab-active')
-                          : null,
-                      label: shellSessionLabel(session),
-                      session: session,
-                      grouped: true,
-                      active: session == widget.active,
-                      onTap: () => _tap(group, session),
+      child: DecoratedBox(
+        decoration: BoxDecoration(border: Border(bottom: rule)),
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: _labelDrop),
+              child: ReorderableListView(
+                scrollDirection: Axis.horizontal,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                buildDefaultDragHandles: false,
+                proxyDecorator: _lifted,
+                // Folded, the list holds only what is shown, so a move among it would
+                // not say where the tab goes among the ones that are not.
+                onReorderItem: (from, to) {
+                  if (folded) return;
+                  widget.onMoveTab(group, from, to);
+                },
+                children: [
+                  for (final (slot, session) in shown.indexed)
+                    ReorderableDelayedDragStartListener(
+                      key: ValueKey('shell-tab-${group.id}-${session.number}'),
+                      index: slot,
+                      enabled: !folded,
+                      child: KeyedSubtree(
+                        key: session == widget.active ? _activeTab : null,
+                        child: _TabCell(
+                          key: session == widget.active
+                              ? const ValueKey('shell-tab-active')
+                              : null,
+                          label: shellSessionLabel(session),
+                          session: session,
+                          active: session == widget.active,
+                          onTap: () => _tap(group, session),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-            ],
-          ),
-        ],
+                ],
+              ),
+            ),
+            ReorderableDelayedDragStartListener(
+              index: index,
+              child: HostGroupCell(
+                key: ValueKey('shell-group-label-${group.id}'),
+                name: group.name,
+                system: group.system,
+                hostId: group.id,
+                front: front,
+                hidden: sessions.length - shown.length,
+                onTap: () => widget.onFold(group),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -650,7 +659,6 @@ class _TabCell extends StatelessWidget {
     required this.onTap,
     this.session,
     this.active = false,
-    this.grouped = false,
     this.dimmed = false,
     this.tint,
   }) : assert(label != null || icon != null, 'a word or a mark, not neither');
@@ -664,7 +672,6 @@ class _TabCell extends StatelessWidget {
   final ShellSession? session;
 
   final bool active;
-  final bool grouped;
   final VoidCallback? onTap;
 
   /// What the cell is drawn in, when what it is drawn in is not the cell's own business:
@@ -695,11 +702,9 @@ class _TabCell extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           border: Border(
-            bottom: active || grouped
+            bottom: active
                 ? BorderSide(
-                    color: active
-                        ? context.tokens.accent
-                        : context.tokens.borderNormal,
+                    color: context.tokens.accent,
                     width: Borders.hairline * 2,
                   )
                 : BorderSide.none,

@@ -1239,7 +1239,7 @@ The cost is one row on the tabs, for as long as a host is registered. The termin
 
 ### The tab strip holds every host's shells, grouped by host
 
-The strip is every session on every host, one group per host with a shell, the way a browser groups its tabs. A group is its label — the host's system mark and its name in the label face on a `surfaceSecondary` block, primary for the host in front and muted for the rest — followed by its tabs, and a `borderNormal` rule two hairlines thick runs under the label and every tab in it, with the active tab's accent drawn over it. **A host's shells are never apart**: a group holds all of them and nothing else.
+The strip is every session on every host, one group per host with a shell, the way a browser groups its tabs. A group is its label — the host's system mark and its name in the label face on a `surfaceSecondary` block, primary for the host in front and muted for the rest — hung on the header's top edge over the group's first tab, and its tabs set low enough under it that the label covers their top and never their words. The label takes no width of its own: the group is as wide as its tabs, or as the label when that is wider. A `borderNormal` rule two hairlines thick runs under the whole group, with the active tab's accent drawn over it. **A host's shells are never apart**: a group holds all of them and nothing else.
 
 Groups come on demand. There is no host cell at the head of the header: a host gets its group when its first shell opens, at the end of the strip, and loses it when its last one closes. The `+` after the last group is how a shell is opened on any host, the one in front or any other.
 

@@ -199,7 +199,7 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    expect(headerWords(tester), ['ROSE', '1', '+', '×']);
+    expect(headerWords(tester), ['1', 'ROSE', '+', '×']);
 
     await unmount(tester);
   });
