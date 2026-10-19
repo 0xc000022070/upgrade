@@ -13,6 +13,12 @@ import 'package:striked/design/typography.dart';
 /// because a kind whose file is missing renders an empty box rather than falling back.
 String? agentMarkAsset(String agent) => AgentKind.lookup(agent)?.markAsset;
 
+Color? agentBrandColor(String agent) => switch (agent) {
+  'codex' => const Color(0xFF10A37F),
+  'claude' => const Color(0xFFD97757),
+  _ => null,
+};
+
 String agentMarkName(String agent) => agent.isEmpty ? '?' : agent.toUpperCase();
 
 String agentMarkLetter(String agent) {
@@ -29,13 +35,15 @@ Color agentStateColor(BuildContext context, AgentState state) =>
     };
 
 class AgentMark extends StatelessWidget {
-  const AgentMark(this.agent, {this.size = markBox, super.key});
+  const AgentMark(this.agent, {this.size = markBox, this.tint, super.key});
 
   static const markBox = 24.0;
 
   final String agent;
 
   final double size;
+
+  final Color? tint;
 
   @override
   Widget build(BuildContext context) {
@@ -47,10 +55,12 @@ class AgentMark extends StatelessWidget {
         alignment: Alignment.center,
         // A foreground decoration rather than a background one: `decoration` insets the child by
         // the border, which would land the mark at 22/24 of the size it asks for.
-        foregroundDecoration: BoxDecoration(
-          border: Border.all(color: context.tokens.borderNormal),
-          borderRadius: BorderRadius.circular(Radii.sharp),
-        ),
+        foregroundDecoration: tint != null
+            ? null
+            : BoxDecoration(
+                border: Border.all(color: context.tokens.borderNormal),
+                borderRadius: BorderRadius.circular(Radii.sharp),
+              ),
         // Drawn at the full side of the box rather than inset: the mark files carry their fit
         // themselves — `translate(4 4) scale(.6666667)` on the path — and insetting here would
         // shrink that again.
@@ -65,14 +75,16 @@ class AgentMark extends StatelessWidget {
                   fontSize: size * _letter,
                   height: 1,
                   fontWeight: FontWeight.w500,
-                  color: context.tokens.textSecondary,
+                  color: tint ?? context.tokens.textSecondary,
                 ),
               )
             : SvgPicture.asset(
                 asset,
                 width: size,
                 height: size,
-                theme: SvgTheme(currentColor: context.tokens.textPrimary),
+                theme: SvgTheme(
+                  currentColor: tint ?? context.tokens.textPrimary,
+                ),
               ),
       ),
     );

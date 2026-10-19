@@ -9,6 +9,8 @@
     <color name="launcher_accent">#FFB7FF2A</color>
     <color name="launcher_warning">#FFD6A34B</color>
     <color name="launcher_danger">#FFB84A4A</color>
+    <color name="launcher_codex">#FF10A37F</color>
+    <color name="launcher_claude">#FFD97757</color>
     <string name="launcher_widget_label">STRIKED · BAR</string>
     <string name="launcher_widget_description">A door to the input bar.</string>
     <string name="send_widget_label">STRIKED · SEND</string>

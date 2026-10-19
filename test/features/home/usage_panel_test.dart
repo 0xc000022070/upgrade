@@ -78,7 +78,8 @@ void main() {
 
     expect(find.byType(Panel), findsOneWidget);
     expect(find.text('CODEX · PRO'), findsOneWidget);
-    expect(find.text('NYX · 2m ago'), findsOneWidget);
+    expect(find.text('NYX'), findsOneWidget);
+    expect(find.text('2m ago'), findsOneWidget);
     expect(find.text('fixture@localhost'), findsOneWidget);
     expect(find.byType(AgentMark), findsOneWidget);
     expect(find.text('5H'), findsOneWidget);
@@ -86,11 +87,8 @@ void main() {
     expect(find.text('↻ 4H'), findsOneWidget);
     expect(find.text('WEEK'), findsOneWidget);
     expect(find.text('↻ 1D'), findsOneWidget);
-    expect(
-      find.descendant(of: find.byType(UsageRing), matching: find.text('34%')),
-      findsOneWidget,
-    );
-    expect(find.text('34%'), findsNWidgets(2));
+    expect(find.text('34%'), findsOneWidget);
+    expect(find.text('TODAY'), findsNothing);
   });
 
   testWidgets('accounts pair up only when two columns fit', (tester) async {
@@ -99,7 +97,7 @@ void main() {
       (host: _nyx, usage: _codex(fiveHour: 50)),
     ];
     double top(int index) =>
-        tester.getTopLeft(find.byType(UsageRing).at(index)).dy;
+        tester.getTopLeft(find.byType(AgentMark).at(index)).dy;
 
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1;
@@ -123,14 +121,87 @@ void main() {
     expect(find.text('failed to fetch codex rate limits'), findsOneWidget);
   });
 
-  testWidgets('a window that reads 90% is in danger', (tester) async {
+  testWidgets('a window is in its agent\'s colour until it reads 90%', (
+    tester,
+  ) async {
     await _pump(tester, [(host: _nyx, usage: _codex(fiveHour: 89.6))]);
     final tokens = tester.element(find.byType(UsagePanel)).tokens;
     Color? colour(String text) =>
         tester.widget<Text>(find.text(text).last).style?.color;
 
     expect(colour('90%'), tokens.danger);
-    expect(colour('34%'), isNot(tokens.danger));
+    expect(colour('34%'), agentBrandColor('codex'));
+  });
+
+  testWidgets('the days are what the host saw the week rise by', (
+    tester,
+  ) async {
+    final week = _now.add(const Duration(days: 1));
+    final usage = _codex();
+    await _pump(tester, [
+      (
+        host: _nyx,
+        usage: AgentUsage(
+          agent: usage.agent,
+          plan: usage.plan,
+          captured: usage.captured,
+          limits: usage.limits,
+          history: [
+            UsageSample(
+              at: _now.subtract(const Duration(days: 2)),
+              usedPercent: 10,
+              resetsAt: week,
+            ),
+            UsageSample(
+              at: _now.subtract(const Duration(hours: 20)),
+              usedPercent: 30,
+              resetsAt: week,
+            ),
+            UsageSample(
+              at: _now.subtract(const Duration(hours: 1)),
+              usedPercent: 34,
+              resetsAt: week,
+            ),
+          ],
+        ),
+      ),
+    ]);
+
+    expect(find.text('TODAY'), findsOneWidget);
+    expect(find.text('4%'), findsOneWidget);
+    expect(find.text('YESTERDAY'), findsOneWidget);
+    expect(find.text('20%'), findsOneWidget);
+    final tokens = tester.element(find.byType(UsagePanel)).tokens;
+    expect(tester.widget<Text>(find.text('20%')).style?.color, tokens.warning);
+  });
+
+  test('a day rises by its own samples and starts over at a reset', () {
+    final from = DateTime(2026, 10, 18);
+    final to = DateTime(2026, 10, 19);
+    final first = DateTime(2026, 10, 20);
+    final second = DateTime(2026, 10, 27);
+    UsageSample at(int hour, double used, DateTime resets) => UsageSample(
+      at: from.add(Duration(hours: hour)),
+      usedPercent: used,
+      resetsAt: resets,
+    );
+
+    expect(usageRise(const [], from, to), isNull);
+    expect(usageRise([at(30, 5, first)], from, to), isNull);
+    expect(
+      usageRise(
+        [
+          at(-3, 80, first),
+          at(2, 90, first),
+          at(5, 3, second),
+          at(9, 7, second),
+          at(26, 20, second),
+        ],
+        from,
+        to,
+      ),
+      closeTo(10 + 3 + 4, 1e-9),
+    );
   });
 
   test('a reached limit lands on the window that is full', () {

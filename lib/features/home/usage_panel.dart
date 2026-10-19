@@ -1,14 +1,12 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/agent_kind.dart';
 import 'package:striked/application/agents/agent_usage.dart';
 import 'package:striked/application/agents/agents.dart';
+import 'package:striked/data/repositories/host_repository.dart';
 import 'package:striked/design/components/panel.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/design/tokens.dart';
@@ -48,6 +46,10 @@ class _UsagePanelState extends ConsumerState<UsagePanel> {
         widget.usages ?? ref.watch(usageFeedProvider);
     if (usages.isEmpty) return const SizedBox.shrink();
     final at = widget.now ?? DateTime.now();
+    final byHost = <String, (Host, List<AgentUsage>)>{};
+    for (final (:host, :usage) in usages) {
+      byHost.putIfAbsent(host.id, () => (host, [])).$2.add(usage);
+    }
     return Padding(
       padding: const EdgeInsets.only(top: Spacing.panelGap),
       child: Panel(
@@ -63,20 +65,49 @@ class _UsagePanelState extends ConsumerState<UsagePanel> {
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final paired =
-                constraints.maxWidth >= usageColumn * 2 + Spacing.xxl;
-            final width = paired
-                ? (constraints.maxWidth - Spacing.xxl) / 2
-                : constraints.maxWidth;
-            return Wrap(
-              spacing: Spacing.xxl,
-              runSpacing: Spacing.lg,
+            final columns =
+                constraints.maxWidth >= usageColumn * 2 + Spacing.xxl + 1
+                ? 2
+                : 1;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                for (final entry in usages)
-                  SizedBox(
-                    width: width,
-                    child: _Account(entry, now: at),
-                  ),
+                for (final (host, accounts) in byHost.values) ...[
+                  _HostLine(host),
+                  for (var i = 0; i < accounts.length; i += columns)
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        top: Spacing.md,
+                        bottom: Spacing.md,
+                      ),
+                      child: IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (var j = i; j < i + columns; j++) ...[
+                              if (j > i)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: Spacing.lg,
+                                  ),
+                                  child: VerticalDivider(
+                                    width: 1,
+                                    thickness: 1,
+                                    color: context.tokens.borderSubtle,
+                                  ),
+                                ),
+                              Expanded(
+                                child: j < accounts.length
+                                    ? _Account(accounts[j], now: at)
+                                    : const SizedBox.shrink(),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ],
             );
           },
@@ -86,18 +117,37 @@ class _UsagePanelState extends ConsumerState<UsagePanel> {
   }
 }
 
-const usageColumn = 240.0;
+const usageColumn = 220.0;
+
+class _HostLine extends StatelessWidget {
+  const _HostLine(this.host);
+
+  final Host host;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Row(
+      children: [
+        Text('>', style: tokens.valueStrong.copyWith(color: tokens.accent)),
+        const SizedBox(width: Spacing.md),
+        Text(host.name.toUpperCase(), style: tokens.label),
+        const SizedBox(width: Spacing.md),
+        Expanded(child: Divider(height: 1, color: tokens.borderSubtle)),
+      ],
+    );
+  }
+}
 
 class _Account extends StatelessWidget {
-  const _Account(this.entry, {required this.now});
+  const _Account(this.usage, {required this.now});
 
-  final HostUsage entry;
+  final AgentUsage usage;
   final DateTime now;
 
   @override
   Widget build(BuildContext context) {
-    final usage = entry.usage;
-    final known = AgentKind.lookup(usage.agent) != null;
+    final tokens = context.tokens;
     final captured = usage.captured;
     final plan = usage.plan;
     final named = plan == null
@@ -105,39 +155,47 @@ class _Account extends StatelessWidget {
         : '${agentMarkName(usage.agent)} · ${plan.toUpperCase()}';
     final error = usage.error;
     final several = usage.limits.length > 1;
+    final days = usageDays(usage, now);
+    final brand = agentBrandColor(usage.agent) ?? tokens.accent;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           children: [
-            if (known) ...[
-              AgentMark(usage.agent),
-              const SizedBox(width: Spacing.md),
-            ],
+            AgentMark(usage.agent, size: _markSide, tint: brand),
+            const SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(
                 named,
-                style: context.tokens.rowSubtitle,
+                style: tokens.rowSubtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Text(
-              captured == null
-                  ? entry.host.name.toUpperCase()
-                  : '${entry.host.name.toUpperCase()} · '
-                        '${agentSnapshotAge(now, captured)}',
-              style: context.tokens.value,
-            ),
+            if (captured != null)
+              Text(agentSnapshotAge(now, captured), style: tokens.value),
           ],
         ),
         if (usage.account case final account?)
           Text(
             account,
-            style: context.tokens.value,
+            style: tokens.value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+          ),
+        if (days.today != null || days.yesterday != null)
+          Padding(
+            padding: const EdgeInsets.only(top: Spacing.md),
+            child: Row(
+              children: [
+                Expanded(child: _Day('TODAY', days.today, brand: brand)),
+                const SizedBox(width: Spacing.lg),
+                Expanded(
+                  child: _Day('YESTERDAY', days.yesterday, brand: brand),
+                ),
+              ],
+            ),
           ),
         for (final limit in usage.limits) ...[
           if (several)
@@ -145,37 +203,25 @@ class _Account extends StatelessWidget {
               padding: const EdgeInsets.only(top: Spacing.md),
               child: Text(
                 (limit.name ?? limit.id).toUpperCase(),
-                style: context.tokens.label,
+                style: tokens.label,
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.only(top: Spacing.md),
-            child: Row(
-              children: [
-                UsageRing(limit, now: now),
-                const SizedBox(width: Spacing.lg),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (final window in limit.windows.take(ringCount))
-                        _Window(window, limit: limit, now: now),
-                    ],
-                  ),
-                ),
-              ],
+          for (final window in limit.windows)
+            Padding(
+              padding: const EdgeInsets.only(top: Spacing.sm),
+              child: _Window(
+                window,
+                color: windowColor(tokens, usage.agent, limit, window, now),
+                now: now,
+              ),
             ),
-          ),
         ],
         if (error != null)
           Padding(
             padding: const EdgeInsets.only(top: Spacing.sm),
             child: Text(
               error,
-              style: context.tokens.value.copyWith(
-                color: context.tokens.danger,
-              ),
+              style: tokens.value.copyWith(color: tokens.danger),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -185,11 +231,65 @@ class _Account extends StatelessWidget {
   }
 }
 
+const _markSide = 20.0;
+
+const evenDay = 100 / 7;
+
+class _Day extends StatelessWidget {
+  const _Day(this.label, this.rise, {required this.brand});
+
+  final String label;
+  final double? rise;
+  final Color brand;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final rise = this.rise;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Text(label, style: tokens.value),
+            const SizedBox(width: Spacing.md),
+            Text(
+              rise == null ? '—' : '${rise.round()}%',
+              style: tokens.valueStrong.copyWith(
+                color: rise == null
+                    ? tokens.textMuted
+                    : rise > evenDay
+                    ? tokens.warning
+                    : brand,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: Spacing.xs),
+        SizedBox(
+          height: _cellHeight,
+          child: CustomPaint(
+            painter: UsageCells(
+              cells: 6,
+              filled: rise == null ? 0 : rise / evenDay,
+              fill: brand,
+              empty: tokens.borderSubtle,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+const _cellHeight = 8.0;
+
 class _Window extends StatelessWidget {
-  const _Window(this.window, {required this.limit, required this.now});
+  const _Window(this.window, {required this.color, required this.now});
 
   final UsageWindow window;
-  final UsageLimit limit;
+  final Color color;
   final DateTime now;
 
   @override
@@ -199,20 +299,34 @@ class _Window extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 44,
+          width: 40,
           child: Text(windowLabel(window.minutes), style: tokens.value),
+        ),
+        Expanded(
+          child: SizedBox(
+            height: _cellHeight,
+            child: CustomPaint(
+              painter: UsageCells(
+                cells: 10,
+                filled: window.usedPercent / 100,
+                pace: windowPace(window, now),
+                fill: color,
+                empty: tokens.borderSubtle,
+                tick: tokens.textSecondary,
+              ),
+            ),
+          ),
         ),
         SizedBox(
           width: 40,
           child: Text(
             '${window.usedPercent.round()}%',
-            style: tokens.valueStrong.copyWith(
-              color: windowColor(tokens, limit, window, now),
-            ),
+            style: tokens.valueStrong.copyWith(color: color),
             textAlign: TextAlign.right,
           ),
         ),
-        Expanded(
+        SizedBox(
+          width: 44,
           child: Text(
             resetsAt == null ? '' : '↻ ${resetIn(now, resetsAt)}',
             style: tokens.value,
@@ -224,117 +338,72 @@ class _Window extends StatelessWidget {
   }
 }
 
-const ringCount = 3;
+class UsageCells extends CustomPainter {
+  const UsageCells({
+    required this.cells,
+    required this.filled,
+    required this.fill,
+    required this.empty,
+    this.pace,
+    this.tick,
+  });
 
-class UsageRing extends StatelessWidget {
-  const UsageRing(this.limit, {required this.now, super.key});
+  static const gap = 2.0;
 
-  static const side = 72.0;
-
-  final UsageLimit limit;
-  final DateTime now;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final windows = limit.windows.take(ringCount).toList();
-    final tightest = windows.fold<UsageWindow?>(
-      null,
-      (most, each) =>
-          most == null || each.usedPercent > most.usedPercent ? each : most,
-    );
-    return SizedBox.square(
-      dimension: side,
-      child: CustomPaint(
-        painter: _Rings(
-          [
-            for (final window in windows)
-              (
-                used: (window.usedPercent / 100).clamp(0.0, 1.0),
-                pace: windowPace(window, now),
-                fill: windowColor(tokens, limit, window, now),
-              ),
-          ],
-          track: tokens.borderSubtle,
-          tick: tokens.textSecondary,
-        ),
-        child: Center(
-          child: tightest == null
-              ? null
-              : Text(
-                  '${tightest.usedPercent.round()}%',
-                  textScaler: TextScaler.noScaling,
-                  style: tokens.heroPercent.copyWith(
-                    fontSize: 20,
-                    color: windowColor(tokens, limit, tightest, now),
-                  ),
-                ),
-        ),
-      ),
-    );
-  }
-}
-
-typedef _Ring = ({double used, double? pace, Color fill});
-
-class _Rings extends CustomPainter {
-  const _Rings(this.rings, {required this.track, required this.tick});
-
-  static const stroke = 6.0;
-  static const gap = 3.0;
-
-  final List<_Ring> rings;
-  final Color track;
-  final Color tick;
+  final int cells;
+  final double filled;
+  final double? pace;
+  final Color fill;
+  final Color empty;
+  final Color? tick;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final centre = size.center(Offset.zero);
-    var radius = size.shortestSide / 2 - stroke / 2;
-    for (final ring in rings) {
-      final bounds = Rect.fromCircle(center: centre, radius: radius);
-      final line = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke;
-      canvas
-        ..drawCircle(centre, radius, line..color = track)
-        ..drawArc(
-          bounds,
-          -math.pi / 2,
-          math.pi * 2 * ring.used,
-          false,
-          line..color = ring.fill,
-        );
-      if (ring.pace case final pace?) {
-        final angle = -math.pi / 2 + math.pi * 2 * pace;
-        final along = Offset(math.cos(angle), math.sin(angle));
-        canvas.drawLine(
-          centre + along * (radius - stroke / 2 - 1),
-          centre + along * (radius + stroke / 2 + 1),
+    final width = (size.width - gap * (cells - 1)) / cells;
+    final lit = filled.clamp(0.0, 1.0) * cells;
+    for (var i = 0; i < cells; i++) {
+      final cell = Rect.fromLTWH(i * (width + gap), 0, width, size.height);
+      canvas.drawRect(cell, Paint()..color = empty);
+      final share = (lit - i).clamp(0.0, 1.0);
+      if (share > 0) {
+        canvas.drawRect(
+          cell,
           Paint()
-            ..color = tick
-            ..strokeWidth = 2,
+            ..color = fill.withValues(alpha: fill.a * math.max(share, .35)),
         );
       }
-      radius -= stroke + gap;
+    }
+    if ((pace, tick) case (final pace?, final tick?)) {
+      final x = (size.width * pace).clamp(1.0, size.width - 1);
+      canvas.drawRect(
+        Rect.fromLTWH(x - 1, -2, 2, size.height + 4),
+        Paint()..color = tick,
+      );
     }
   }
 
   @override
-  bool shouldRepaint(_Rings old) =>
-      !listEquals(old.rings, rings) || old.track != track || old.tick != tick;
+  bool shouldRepaint(UsageCells old) =>
+      old.cells != cells ||
+      old.filled != filled ||
+      old.pace != pace ||
+      old.fill != fill ||
+      old.empty != empty ||
+      old.tick != tick;
 }
 
 Color windowColor(
   StrikedTokens tokens,
+  String agent,
   UsageLimit limit,
   UsageWindow window,
   DateTime now,
 ) {
-  final pace = windowPace(window, now);
   if (limitHit(limit, window) || window.usedPercent.round() >= 90) {
     return tokens.danger;
   }
+  if (agentBrandColor(agent) case final brand?) return brand;
+  final pace = windowPace(window, now);
   if (pace != null && window.usedPercent / 100 > pace + 0.1) {
     return tokens.warning;
   }

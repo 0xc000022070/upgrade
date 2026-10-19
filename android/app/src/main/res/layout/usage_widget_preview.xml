@@ -19,15 +19,42 @@
         android:paddingBottom="0dp">
 
 
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/agent_codex"
+            android:tint="@color/launcher_codex"
+            android:importantForAccessibility="no"/>
+
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:layout_marginStart="4dp"
             android:fontFamily="monospace"
             android:textSize="12sp"
-            android:textColor="@color/launcher_ink"
+            android:textColor="@color/launcher_codex"
             android:maxLines="1"
             android:ellipsize="end"
-            android:text="CODEX · PRO  5H 12%  WEEK 34%"/>
+            android:text="5H 12%  WEEK 34%"/>
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/agent_claude"
+            android:tint="@color/launcher_claude"
+            android:importantForAccessibility="no"/>
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:fontFamily="monospace"
+            android:textSize="12sp"
+            android:textColor="@color/launcher_claude"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:text="5H 3%  WEEK 11%"/>
     </LinearLayout>
 </LinearLayout>

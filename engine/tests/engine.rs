@@ -1728,6 +1728,10 @@ fn codex_usage_is_read_from_its_app_server_once_a_minute() {
         json!({ "unlimited": false, "balance": "1000" })
     );
     assert_eq!(account["error"], Value::Null);
+    assert_eq!(
+        account["history"],
+        json!([{ "at": account["captured"], "used": 34.0, "resets": 1792458604u64 }])
+    );
 
     assert_eq!(sandbox.agents(&owner, "usage", json!({})), usage);
     assert_eq!(fs::read_to_string(&calls).unwrap(), "app-server\n");
@@ -1746,6 +1750,7 @@ fn codex_usage_is_read_from_its_app_server_once_a_minute() {
     assert_eq!(entry["captured"], account["captured"]);
     assert_eq!(entry["limits"], account["limits"]);
     assert_eq!(fs::read_to_string(&calls).unwrap().lines().count(), 2);
+    assert_eq!(entry["history"], account["history"], "a failed read notes nothing");
 }
 
 #[test]

@@ -67,7 +67,7 @@ class _LauncherWidgetHostState extends ConsumerState<LauncherWidgetHost> {
       ),
     );
     ref.listenManual<List<HostUsage>>(usageFeedProvider, (_, next) {
-      final accounts = launcherUsage(next);
+      final accounts = launcherUsage(next, DateTime.now());
       final written = jsonEncode(accounts);
       if (written == _usage) return;
       _usage = written;
@@ -161,25 +161,33 @@ class _LauncherWidgetHostState extends ConsumerState<LauncherWidgetHost> {
   Widget build(BuildContext context) => widget.child;
 }
 
-List<Map<String, Object?>> launcherUsage(List<HostUsage> usages) => [
+List<Map<String, Object?>> launcherUsage(
+  List<HostUsage> usages,
+  DateTime now,
+) => [
   for (final (:host, :usage) in usages)
-    {
-      'name': usage.plan == null
-          ? agentMarkName(usage.agent)
-          : '${agentMarkName(usage.agent)} · ${usage.plan!.toUpperCase()}',
-      'host': host.name.toUpperCase(),
-      'captured': ?usage.captured?.millisecondsSinceEpoch,
-      'windows': [
-        if (usage.limits.firstOrNull case final limit?)
-          for (final window in limit.windows)
-            {
-              'label': windowLabel(window.minutes),
-              'used': window.usedPercent.round(),
-              'share': window.usedPercent,
-              'minutes': ?window.minutes,
-              'resets': ?window.resetsAt?.millisecondsSinceEpoch,
-              'hit': limitHit(limit, window),
-            },
-      ],
-    },
+    if (usageDays(usage, now) case (:final day, :final today, :final yesterday))
+      {
+        'agent': usage.agent,
+        'name': usage.plan == null
+            ? agentMarkName(usage.agent)
+            : '${agentMarkName(usage.agent)} · ${usage.plan!.toUpperCase()}',
+        'host': host.name.toUpperCase(),
+        'captured': ?usage.captured?.millisecondsSinceEpoch,
+        'day': day.millisecondsSinceEpoch,
+        'today': ?today?.round(),
+        'yesterday': ?yesterday?.round(),
+        'windows': [
+          if (usage.limits.firstOrNull case final limit?)
+            for (final window in limit.windows)
+              {
+                'label': windowLabel(window.minutes),
+                'used': window.usedPercent.round(),
+                'share': window.usedPercent,
+                'minutes': ?window.minutes,
+                'resets': ?window.resetsAt?.millisecondsSinceEpoch,
+                'hit': limitHit(limit, window),
+              },
+        ],
+      },
 ];

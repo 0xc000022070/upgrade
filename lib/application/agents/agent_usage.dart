@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -127,3 +128,29 @@ const _tickSlack = Duration(seconds: 5);
 
 final usageFeedProvider =
     AutoDisposeNotifierProvider<UsageFeed, List<HostUsage>>(UsageFeed.new);
+
+typedef UsageDays = ({DateTime day, double? today, double? yesterday});
+
+double? usageRise(List<UsageSample> history, DateTime from, DateTime to) {
+  if (history.isEmpty || !history.first.at.isBefore(to)) return null;
+  var rise = 0.0;
+  for (var i = 1; i < history.length; i++) {
+    final (before, after) = (history[i - 1], history[i]);
+    if (after.at.isBefore(from) || !after.at.isBefore(to)) continue;
+    rise += after.resetsAt == before.resetsAt
+        ? math.max(0, after.usedPercent - before.usedPercent)
+        : after.usedPercent;
+  }
+  return rise;
+}
+
+UsageDays usageDays(AgentUsage usage, DateTime now) {
+  final day = DateTime(now.year, now.month, now.day);
+  final before = DateTime(now.year, now.month, now.day - 1);
+  final tomorrow = DateTime(now.year, now.month, now.day + 1);
+  return (
+    day: day,
+    today: usageRise(usage.history, day, tomorrow),
+    yesterday: usageRise(usage.history, before, day),
+  );
+}

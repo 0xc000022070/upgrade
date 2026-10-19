@@ -16,6 +16,8 @@ void main() {
   test('the launcher gets each account with its first limit only', () {
     final resets = DateTime.utc(2026, 10, 18, 15);
     final captured = DateTime.utc(2026, 10, 18, 12);
+    final now = DateTime(2026, 10, 18, 13);
+    final day = DateTime(2026, 10, 18).millisecondsSinceEpoch;
     final rows = launcherUsage([
       (
         host: _nyx,
@@ -41,20 +43,32 @@ void main() {
       ),
       (
         host: _nyx,
-        usage: const AgentUsage(
+        usage: AgentUsage(
           agent: 'claude',
-          limits: [
+          limits: const [
             UsageLimit(id: 'claude', windows: [UsageWindow(usedPercent: 12)]),
+          ],
+          history: [
+            UsageSample(
+              at: now.subtract(const Duration(days: 2)),
+              usedPercent: 30,
+            ),
+            UsageSample(
+              at: now.subtract(const Duration(hours: 2)),
+              usedPercent: 40.4,
+            ),
           ],
         ),
       ),
-    ]);
+    ], now);
 
     expect(rows, [
       {
+        'agent': 'codex',
         'name': 'CODEX · PRO',
         'host': 'NYX',
         'captured': captured.millisecondsSinceEpoch,
+        'day': day,
         'windows': [
           {
             'label': '5H',
@@ -64,12 +78,22 @@ void main() {
             'resets': resets.millisecondsSinceEpoch,
             'hit': true,
           },
-          {'label': 'WEEK', 'used': 40, 'share': 40.0, 'minutes': 10080, 'hit': false},
+          {
+            'label': 'WEEK',
+            'used': 40,
+            'share': 40.0,
+            'minutes': 10080,
+            'hit': false,
+          },
         ],
       },
       {
+        'agent': 'claude',
         'name': 'CLAUDE',
         'host': 'NYX',
+        'day': day,
+        'today': 10,
+        'yesterday': 0,
         'windows': [
           {'label': '', 'used': 12, 'share': 12.0, 'hit': false},
         ],

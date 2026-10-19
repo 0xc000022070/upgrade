@@ -12,8 +12,6 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.RectF
-import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -37,9 +35,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import kotlin.math.cos
 import kotlin.math.roundToInt
-import kotlin.math.sin
 
 class StrikedApplication : Application() {
     override fun onCreate() {
@@ -105,14 +101,16 @@ class LauncherWidget : AppWidgetProvider() {
         private const val KEPT_SENDS = 10
         private const val SEND_LIST_HEIGHT = 160f
         private const val USAGE_CARD_HEIGHT = 110f
-        private const val USAGE_CARD_ROW = 72f
+        private const val USAGE_CARD_ROW = 76f
+        private const val USAGE_HOST_ROW = 20f
         private const val USAGE_FRAME = 32f
         private const val USAGE_PAIR_WIDTH = 400f
         private const val USAGE_COMPACT_PAIR_WIDTH = 300f
-        private const val USAGE_RING = 56f
-        private const val USAGE_COMPACT_RING = 32f
-        private const val USAGE_RING_STROKES = 12f
-        private const val USAGE_RINGS = 3
+        private const val USAGE_WINDOWS = 3
+        private const val USAGE_CELLS = 10
+        private const val USAGE_BAR_WIDTH = 100f
+        private const val USAGE_BAR_HEIGHT = 8f
+        private const val USAGE_EVEN_DAY = 100 / 7.0
 
         private var waiting: Map<String, String?>? = null
 
@@ -425,8 +423,7 @@ class LauncherWidget : AppWidgetProvider() {
             val size = widgetSize(context, widgetId)
             val cards = size.height >= USAGE_CARD_HEIGHT
             val columns = if (size.width >= if (cards) USAGE_PAIR_WIDTH else USAGE_COMPACT_PAIR_WIDTH) 2 else 1
-            val rows = if (cards) ((size.height - USAGE_FRAME) / USAGE_CARD_ROW).toInt().coerceAtLeast(1) else 1
-            val accounts = usage(context).take(rows * columns)
+            val accounts = usage(context)
             val now = System.currentTimeMillis()
             return RemoteViews(
                 context.packageName,
@@ -435,10 +432,25 @@ class LauncherWidget : AppWidgetProvider() {
                 removeAllViews(R.id.usage_rows)
                 setViewVisibility(R.id.usage_empty, if (accounts.isEmpty()) View.VISIBLE else View.GONE)
                 setViewVisibility(R.id.usage_rows, if (accounts.isEmpty()) View.GONE else View.VISIBLE)
-                for (pair in accounts.chunked(columns)) {
-                    val row = RemoteViews(context.packageName, R.layout.usage_pair)
-                    for (account in pair) row.addView(R.id.usage_pair, usageAccount(context, account, now, cards))
-                    addView(R.id.usage_rows, row)
+                if (cards) {
+                    var room = size.height - USAGE_FRAME
+                    for ((host, own) in accounts.groupBy { it.optString("host") }) {
+                        if (room < USAGE_HOST_ROW + USAGE_CARD_ROW) break
+                        room -= USAGE_HOST_ROW
+                        addView(
+                            R.id.usage_rows,
+                            RemoteViews(context.packageName, R.layout.usage_host).apply {
+                                setTextViewText(R.id.usage_host, hostLine(context, host))
+                            },
+                        )
+                        for (pair in own.chunked(columns)) {
+                            if (room < USAGE_CARD_ROW) break
+                            room -= USAGE_CARD_ROW
+                            addView(R.id.usage_rows, usagePair(context, pair, now, true))
+                        }
+                    }
+                } else {
+                    addView(R.id.usage_rows, usagePair(context, accounts.take(columns), now, false))
                 }
                 setOnClickPendingIntent(R.id.usage_field, open(context, HOME))
             }
@@ -456,37 +468,93 @@ class LauncherWidget : AppWidgetProvider() {
 
         private fun usageWindows(account: JSONObject): List<JSONObject> {
             val windows = account.optJSONArray("windows") ?: return emptyList()
-            return (0 until windows.length()).mapNotNull { windows.optJSONObject(it) }.take(USAGE_RINGS)
+            return (0 until windows.length()).mapNotNull { windows.optJSONObject(it) }.take(USAGE_WINDOWS)
         }
+
+        private fun hostLine(context: Context, host: String): CharSequence =
+            android.text.SpannableStringBuilder("> $host").apply {
+                setSpan(ForegroundColorSpan(context.getColor(R.color.launcher_accent)), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+
+        private fun usagePair(context: Context, accounts: List<JSONObject>, now: Long, card: Boolean): RemoteViews =
+            RemoteViews(context.packageName, R.layout.usage_pair).apply {
+                for ((index, account) in accounts.withIndex()) {
+                    if (index > 0) addView(R.id.usage_pair, RemoteViews(context.packageName, R.layout.usage_divider))
+                    addView(R.id.usage_pair, usageAccount(context, account, now, card))
+                }
+            }
 
         private fun usageAccount(context: Context, account: JSONObject, now: Long, card: Boolean): RemoteViews {
             val windows = usageWindows(account)
             val captured = account.optLong("captured", 0L)
-            val host = account.optString("host")
+            val brand = brandColour(account.optString("agent"))
+            val mark = when (account.optString("agent")) {
+                "codex" -> R.drawable.agent_codex
+                "claude" -> R.drawable.agent_claude
+                else -> null
+            }
             return RemoteViews(context.packageName, R.layout.usage_account).apply {
-                setImageViewBitmap(
-                    R.id.usage_ring,
-                    ringBitmap(context, windows, now, if (card) USAGE_RING else USAGE_COMPACT_RING, card),
-                )
-                setTextViewText(R.id.usage_name, account.optString("name"))
-                if (card) {
-                    setViewVisibility(R.id.usage_meta, View.VISIBLE)
-                    setTextViewText(R.id.usage_meta, if (captured > 0) "$host · ${clock(captured)}" else host)
-                    for (window in windows) {
-                        addView(R.id.usage_lines, usageLine(context, windowLine(context, window, now)))
-                    }
+                if (mark == null) {
+                    setViewVisibility(R.id.usage_mark, View.GONE)
                 } else {
-                    addView(R.id.usage_lines, usageLine(context, sharesLine(context, windows, now)))
+                    setImageViewResource(R.id.usage_mark, mark)
+                    setInt(R.id.usage_mark, "setColorFilter", context.getColor(brand ?: R.color.launcher_ink))
                 }
+                if (!card) {
+                    setTextViewText(R.id.usage_name, sharesLine(context, windows, now, brand))
+                    return@apply
+                }
+                setTextViewText(R.id.usage_name, account.optString("name"))
+                if (captured > 0) {
+                    setViewVisibility(R.id.usage_age, View.VISIBLE)
+                    setTextViewText(R.id.usage_age, clock(captured))
+                }
+                daysLine(context, account, brand)?.let { line ->
+                    addView(
+                        R.id.usage_lines,
+                        RemoteViews(context.packageName, R.layout.usage_line).apply {
+                            setTextViewText(R.id.usage_line, line)
+                        },
+                    )
+                }
+                for (window in windows) addView(R.id.usage_lines, windowRow(context, window, now, brand))
             }
         }
 
-        private fun usageLine(context: Context, text: CharSequence): RemoteViews =
-            RemoteViews(context.packageName, R.layout.usage_line).apply {
-                setTextViewText(R.id.usage_line, text)
+        /** The app counts the days at a midnight it stamps; past the next one its today is yesterday. */
+        private fun daysLine(context: Context, account: JSONObject, brand: Int?): CharSequence? {
+            val midnight = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
             }
+            val day = account.optLong("day", 0L)
+            val today = if (account.has("today")) account.optInt("today") else null
+            val yesterday = if (account.has("yesterday")) account.optInt("yesterday") else null
+            val (shown, before) = when (day) {
+                midnight.timeInMillis -> today to yesterday
+                midnight.apply { add(Calendar.DAY_OF_YEAR, -1) }.timeInMillis -> null to today
+                else -> return null
+            }
+            if (shown == null && before == null) return null
+            val line = android.text.SpannableStringBuilder()
+            for ((label, share) in listOf("TODAY" to shown, "YDAY" to before)) {
+                if (line.isNotEmpty()) line.append("  ")
+                line.append("$label ")
+                val start = line.length
+                line.append(share?.let { "$it%" } ?: "—")
+                val colour = when {
+                    share == null -> R.color.launcher_disabled
+                    share > USAGE_EVEN_DAY -> R.color.launcher_warning
+                    else -> brand ?: R.color.launcher_accent
+                }
+                line.setSpan(ForegroundColorSpan(context.getColor(colour)), start, line.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            return line
+        }
 
-        private fun sharesLine(context: Context, windows: List<JSONObject>, now: Long): CharSequence {
+        private fun sharesLine(context: Context, windows: List<JSONObject>, now: Long, brand: Int?): CharSequence {
             val line = android.text.SpannableStringBuilder()
             for (window in windows) {
                 if (line.isNotEmpty()) line.append("  ")
@@ -494,7 +562,7 @@ class LauncherWidget : AppWidgetProvider() {
                 val start = line.length
                 line.append("${window.optInt("used")}%")
                 line.setSpan(
-                    ForegroundColorSpan(context.getColor(windowColour(window, now))),
+                    ForegroundColorSpan(context.getColor(windowColour(window, now, brand))),
                     start,
                     line.length,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
@@ -503,64 +571,51 @@ class LauncherWidget : AppWidgetProvider() {
             return line
         }
 
-        private fun windowLine(context: Context, window: JSONObject, now: Long): CharSequence {
+        private fun windowRow(context: Context, window: JSONObject, now: Long, brand: Int?): RemoteViews {
+            val colour = context.getColor(windowColour(window, now, brand))
             val resets = window.optLong("resets", 0L)
-            val line = android.text.SpannableStringBuilder(window.optString("label").padEnd(5))
-            val start = line.length
-            line.append("${window.optInt("used")}%".padStart(4))
-            line.setSpan(
-                ForegroundColorSpan(context.getColor(windowColour(window, now))),
-                start,
-                line.length,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-            )
-            if (resets > 0) line.append(" ↻ ${clock(resets)}")
-            return line
+            return RemoteViews(context.packageName, R.layout.usage_window).apply {
+                setTextViewText(R.id.usage_window_label, window.optString("label"))
+                setImageViewBitmap(R.id.usage_window_bar, cellsBitmap(context, window, now, colour))
+                setTextViewText(R.id.usage_window_share, "${window.optInt("used")}%")
+                setTextColor(R.id.usage_window_share, colour)
+                setTextViewText(R.id.usage_window_reset, if (resets > 0) "↻ ${clock(resets)}" else "")
+            }
         }
 
-        private fun ringBitmap(context: Context, windows: List<JSONObject>, now: Long, sideDp: Float, label: Boolean): Bitmap {
+        private fun cellsBitmap(context: Context, window: JSONObject, now: Long, colour: Int): Bitmap {
             val density = context.resources.displayMetrics.density
-            val side = (sideDp * density).roundToInt()
-            val stroke = sideDp / USAGE_RING_STROKES * density
-            val bitmap = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
+            val width = (USAGE_BAR_WIDTH * density).roundToInt()
+            val height = (USAGE_BAR_HEIGHT * density).roundToInt()
+            val gap = 2 * density
+            val cell = (width - gap * (USAGE_CELLS - 1)) / USAGE_CELLS
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
-            val centre = side / 2f
-            val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                strokeWidth = stroke
-            }
-            val tick = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = context.getColor(R.color.launcher_ink)
-                strokeWidth = 1.5f * density
-            }
-            var radius = centre - stroke / 2
-            for (window in windows) {
-                val bounds = RectF(centre - radius, centre - radius, centre + radius, centre + radius)
-                line.color = context.getColor(R.color.launcher_border)
-                canvas.drawCircle(centre, centre, radius, line)
-                line.color = context.getColor(windowColour(window, now))
-                canvas.drawArc(bounds, -90f, 360f * window.optInt("used").coerceIn(0, 100) / 100, false, line)
-                pace(window, now)?.let { pace ->
-                    val angle = Math.toRadians(-90.0 + 360.0 * pace)
-                    val dx = cos(angle).toFloat()
-                    val dy = sin(angle).toFloat()
-                    val inner = radius - stroke / 2 - density
-                    val outer = radius + stroke / 2 + density
-                    canvas.drawLine(centre + dx * inner, centre + dy * inner, centre + dx * outer, centre + dy * outer, tick)
+            val paint = Paint()
+            val lit = window.optDouble("share", window.optInt("used").toDouble()).coerceIn(0.0, 100.0) / 100 * USAGE_CELLS
+            for (i in 0 until USAGE_CELLS) {
+                val left = i * (cell + gap)
+                paint.color = context.getColor(R.color.launcher_border)
+                canvas.drawRect(left, 0f, left + cell, height.toFloat(), paint)
+                val share = (lit - i).coerceIn(0.0, 1.0)
+                if (share > 0) {
+                    paint.color = colour
+                    paint.alpha = (255 * maxOf(share, 0.35)).roundToInt()
+                    canvas.drawRect(left, 0f, left + cell, height.toFloat(), paint)
                 }
-                radius -= stroke * 1.5f
             }
-            val tightest = windows.maxByOrNull { it.optDouble("share", it.optInt("used").toDouble()) }
-            if (label && tightest != null) {
-                val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = context.getColor(windowColour(tightest, now))
-                    typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-                    textSize = side * 0.2f
-                    textAlign = Paint.Align.CENTER
-                }
-                canvas.drawText("${tightest.optInt("used")}%", centre, centre - (text.ascent() + text.descent()) / 2, text)
+            pace(window, now)?.let { pace ->
+                val x = (width * pace).coerceIn(density, width - density)
+                paint.color = context.getColor(R.color.launcher_ink)
+                canvas.drawRect(x - density, 0f, x + density, height.toFloat(), paint)
             }
             return bitmap
+        }
+
+        private fun brandColour(agent: String): Int? = when (agent) {
+            "codex" -> R.color.launcher_codex
+            "claude" -> R.color.launcher_claude
+            else -> null
         }
 
         private fun pace(window: JSONObject, now: Long): Float? {
@@ -570,13 +625,14 @@ class LauncherWidget : AppWidgetProvider() {
             return (1f - (resets - now) / (minutes * 60_000f)).coerceIn(0f, 1f)
         }
 
-        private fun windowColour(window: JSONObject, now: Long): Int {
+        private fun windowColour(window: JSONObject, now: Long, brand: Int?): Int {
             val resets = window.optLong("resets", 0L)
             val used = window.optInt("used")
             val pace = pace(window, now)
             return when {
                 resets in 1 until now -> R.color.launcher_disabled
                 window.optBoolean("hit") || used >= 90 -> R.color.launcher_danger
+                brand != null -> brand
                 pace != null && window.optDouble("share", used.toDouble()) / 100 > pace + 0.1 -> R.color.launcher_warning
                 else -> R.color.launcher_accent
             }

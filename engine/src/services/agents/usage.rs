@@ -27,6 +27,8 @@ const STATUS_OUTPUT_BYTES: u64 = 1 << 20;
 const STATUS_DEADLINE: Duration = Duration::from_secs(5);
 const FIVE_HOURS_MIN: u64 = 300;
 const SEVEN_DAYS_MIN: u64 = 10_080;
+const HISTORY_MS: u64 = 9 * 24 * 3_600_000;
+const HISTORY_SAMPLES: usize = 2_000;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct Window {
@@ -58,6 +60,15 @@ struct Account {
     limits: Vec<Limit>,
     credits: Option<Credits>,
     error: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    history: Vec<Sample>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct Sample {
+    at: u64,
+    used: f64,
+    resets: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -125,6 +136,7 @@ pub fn read(args: &Value, root: &Path) -> EngineResult<Value> {
             .find(|account| account.agent == AgentKind::Codex)
     });
     let accounts: Vec<Account> = codex(previous.as_ref()).into_iter().collect();
+    note_accounts(root, &accounts)?;
     let cache = Cache {
         checked: now_millis(),
         accounts,
@@ -143,7 +155,70 @@ pub fn read(args: &Value, root: &Path) -> EngineResult<Value> {
 
 fn answer(mut accounts: Vec<Account>, root: &Path) -> Value {
     accounts.extend(claude(read_capture(root), &claude_sign_in(), now_millis()));
+    for account in &mut accounts {
+        account.history = read_history(root, account.agent);
+    }
     json!({ "accounts": accounts })
+}
+
+fn note_accounts(root: &Path, accounts: &[Account]) -> EngineResult<()> {
+    for account in accounts.iter().filter(|account| account.error.is_none()) {
+        if let (Some(at), Some(window)) = (account.captured, weekly(&account.limits)) {
+            note(root, account.agent, sample(at, window.used_percent, window.resets_at))?;
+        }
+    }
+    Ok(())
+}
+
+fn weekly(limits: &[Limit]) -> Option<&Window> {
+    limits.first()?.windows.iter().max_by_key(|window| window.window_minutes)
+}
+
+fn sample(at: u64, used: f64, resets: Option<u64>) -> Sample {
+    Sample { at, used, resets }
+}
+
+fn history_path(root: &Path, agent: AgentKind) -> PathBuf {
+    root.join(format!("{}-history.json", agent.name()))
+}
+
+fn read_history(root: &Path, agent: AgentKind) -> Vec<Sample> {
+    fs::read(history_path(root, agent))
+        .ok()
+        .and_then(|raw| serde_json::from_slice(&raw).ok())
+        .unwrap_or_default()
+}
+
+fn noted(mut history: Vec<Sample>, sample: Sample) -> Option<Vec<Sample>> {
+    if history
+        .last()
+        .is_some_and(|last| last.at >= sample.at || (last.used == sample.used && last.resets == sample.resets))
+    {
+        return None;
+    }
+    let cutoff = sample.at.saturating_sub(HISTORY_MS);
+    let old = history.iter().take_while(|kept| kept.at < cutoff).count();
+    history.drain(..old.saturating_sub(1));
+    history.push(sample);
+    let over = history.len().saturating_sub(HISTORY_SAMPLES);
+    history.drain(..over);
+    Some(history)
+}
+
+fn note(root: &Path, agent: AgentKind, sample: Sample) -> EngineResult<()> {
+    let Some(history) = noted(read_history(root, agent), sample) else {
+        return Ok(());
+    };
+    write_atomic_unique(
+        &history_path(root, agent),
+        &serde_json::to_vec(&history).map_err(|err| EngineError::failed(err.to_string()))?,
+        &WritePolicy {
+            perms: Perms::Private,
+            durability: Durability::None,
+            tmp_suffix: ".tmp",
+        },
+    )?;
+    Ok(())
 }
 
 fn cache_path(root: &Path) -> PathBuf {
@@ -225,6 +300,13 @@ fn keep_capture(root: &Path, capture: Capture) -> EngineResult<()> {
             tmp_suffix: ".tmp",
         },
     )?;
+    if let Some(week) = &capture.seven_day {
+        note(
+            root,
+            AgentKind::Claude,
+            sample(capture.captured, week.used_percentage, Some(week.resets_at)),
+        )?;
+    }
     Ok(())
 }
 
@@ -287,6 +369,7 @@ fn claude(capture: Option<Capture>, sign_in: &Value, now: u64) -> Option<Account
         limits,
         credits: None,
         error: None,
+        history: Vec::new(),
     })
 }
 
@@ -548,6 +631,7 @@ fn failed(previous: Option<&Account>, message: &str) -> Account {
         limits: Vec::new(),
         credits: None,
         error: None,
+        history: Vec::new(),
     });
     entry.error = Some(cut(message, ERROR_CHARS));
     entry
@@ -576,6 +660,7 @@ fn entry(account: &Value, limits: &Value, previous: Option<&Account>, now: u64) 
                 .or_else(|| result.pointer("/rateLimitsByLimitId/codex/credits"))
                 .and_then(parse_credits),
             error: None,
+            history: Vec::new(),
         });
     };
     let mut entry = failed(previous, &message);
@@ -650,8 +735,8 @@ fn parse_credits(credits: &Value) -> Option<Credits> {
 #[cfg(test)]
 mod tests {
     use super::{
-        bounded_line, capture, chain, claude, entry, is_fresh, merged_capture, Account, Cache, Capture, Captured,
-        FRESH_MS, LINE_BYTES,
+        bounded_line, capture, chain, claude, entry, is_fresh, merged_capture, noted, sample, Account, Cache,
+        Capture, Captured, FRESH_MS, HISTORY_MS, LINE_BYTES,
     };
     use serde_json::{json, Value};
 
@@ -866,6 +951,21 @@ mod tests {
         assert!(gone.limits.is_empty());
         assert_eq!(gone.captured, Some(7));
         assert_eq!(gone.error, None);
+    }
+
+    #[test]
+    fn history_notes_each_change_and_forgets_past_nine_days() {
+        let day = HISTORY_MS / 9;
+        let first = noted(Vec::new(), sample(day, 1.0, Some(5))).unwrap();
+        assert_eq!(noted(first.clone(), sample(2 * day, 1.0, Some(5))), None);
+        assert_eq!(noted(first.clone(), sample(day, 4.0, Some(5))), None, "a sample from the past");
+
+        let mut history = first;
+        for at in 2..=12 {
+            history = noted(history, sample(at * day, at as f64, Some(5))).unwrap();
+        }
+        let kept: Vec<u64> = history.iter().map(|kept| kept.at / day).collect();
+        assert_eq!(kept, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "the last one past the cutoff is the baseline");
     }
 
     #[test]

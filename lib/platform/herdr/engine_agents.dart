@@ -65,6 +65,18 @@ class UsageWindow {
   final DateTime? resetsAt;
 }
 
+class UsageSample {
+  const UsageSample({
+    required this.at,
+    required this.usedPercent,
+    this.resetsAt,
+  });
+
+  final DateTime at;
+  final double usedPercent;
+  final DateTime? resetsAt;
+}
+
 class UsageLimit {
   const UsageLimit({
     required this.id,
@@ -87,6 +99,7 @@ class AgentUsage {
     this.plan,
     this.captured,
     this.error,
+    this.history = const [],
   });
 
   final String agent;
@@ -97,6 +110,8 @@ class AgentUsage {
   final List<UsageLimit> limits;
   final String? error;
 
+  final List<UsageSample> history;
+
   AgentUsage failing(String reason) => AgentUsage(
     agent: agent,
     limits: limits,
@@ -104,6 +119,7 @@ class AgentUsage {
     plan: plan,
     captured: captured,
     error: reason,
+    history: history,
   );
 }
 
@@ -270,6 +286,16 @@ class EngineAgents {
               _ => null,
             },
             error: text(account['error']),
+            history: [
+              if (account['history'] case final List<Object?> samples)
+                for (final sample in samples)
+                  if (sample case {'at': final int at, 'used': final num used})
+                    UsageSample(
+                      at: DateTime.fromMillisecondsSinceEpoch(at),
+                      usedPercent: used.toDouble(),
+                      resetsAt: seconds(sample['resets']),
+                    ),
+            ],
             limits: [
               if (account['limits'] case final List<Object?> limits)
                 for (final limit in limits)
