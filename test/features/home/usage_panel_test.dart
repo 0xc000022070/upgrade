@@ -85,8 +85,31 @@ void main() {
     expect(find.text('12%'), findsOneWidget);
     expect(find.text('↻ 4H'), findsOneWidget);
     expect(find.text('WEEK'), findsOneWidget);
-    expect(find.text('34%'), findsOneWidget);
     expect(find.text('↻ 1D'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(UsageRing), matching: find.text('34%')),
+      findsOneWidget,
+    );
+    expect(find.text('34%'), findsNWidgets(2));
+  });
+
+  testWidgets('accounts pair up only when two columns fit', (tester) async {
+    final both = [
+      (host: _nyx, usage: _codex()),
+      (host: _nyx, usage: _codex(fiveHour: 50)),
+    ];
+    double top(int index) =>
+        tester.getTopLeft(find.byType(UsageRing).at(index)).dy;
+
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pump(tester, both);
+    expect(top(1), greaterThan(top(0)));
+
+    tester.view.physicalSize = const Size(900, 900);
+    await _pump(tester, both);
+    expect(top(1), top(0));
   });
 
   testWidgets('a failed read keeps the last windows and says why', (
@@ -104,7 +127,7 @@ void main() {
     await _pump(tester, [(host: _nyx, usage: _codex(fiveHour: 89.6))]);
     final tokens = tester.element(find.byType(UsagePanel)).tokens;
     Color? colour(String text) =>
-        tester.widget<Text>(find.text(text)).style?.color;
+        tester.widget<Text>(find.text(text).last).style?.color;
 
     expect(colour('90%'), tokens.danger);
     expect(colour('34%'), isNot(tokens.danger));

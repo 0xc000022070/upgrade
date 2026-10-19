@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,20 +61,32 @@ class _UsagePanelState extends ConsumerState<UsagePanel> {
           horizontal: Spacing.panelPadding,
           vertical: Spacing.md,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var i = 0; i < usages.length; i++) ...[
-              if (i > 0) const SizedBox(height: Spacing.lg),
-              _Account(usages[i], now: at),
-            ],
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final paired =
+                constraints.maxWidth >= usageColumn * 2 + Spacing.xxl;
+            final width = paired
+                ? (constraints.maxWidth - Spacing.xxl) / 2
+                : constraints.maxWidth;
+            return Wrap(
+              spacing: Spacing.xxl,
+              runSpacing: Spacing.lg,
+              children: [
+                for (final entry in usages)
+                  SizedBox(
+                    width: width,
+                    child: _Account(entry, now: at),
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 }
+
+const usageColumn = 240.0;
 
 class _Account extends StatelessWidget {
   const _Account(this.entry, {required this.now});
@@ -133,8 +148,25 @@ class _Account extends StatelessWidget {
                 style: context.tokens.label,
               ),
             ),
-          for (final window in limit.windows)
-            _Window(window, reached: limitHit(limit, window), now: now),
+          Padding(
+            padding: const EdgeInsets.only(top: Spacing.md),
+            child: Row(
+              children: [
+                UsageRing(limit, now: now),
+                const SizedBox(width: Spacing.lg),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final window in limit.windows.take(ringCount))
+                        _Window(window, limit: limit, now: now),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
         if (error != null)
           Padding(
@@ -154,108 +186,159 @@ class _Account extends StatelessWidget {
 }
 
 class _Window extends StatelessWidget {
-  const _Window(this.window, {required this.reached, required this.now});
+  const _Window(this.window, {required this.limit, required this.now});
 
   final UsageWindow window;
-  final bool reached;
+  final UsageLimit limit;
   final DateTime now;
 
   @override
   Widget build(BuildContext context) {
-    final used = (window.usedPercent / 100).clamp(0.0, 1.0);
-    final pace = windowPace(window, now);
     final tokens = context.tokens;
-    final color = reached || window.usedPercent.round() >= 90
-        ? tokens.danger
-        : pace != null && used > pace + 0.1
-        ? tokens.warning
-        : tokens.accent;
     final resetsAt = window.resetsAt;
-    return Padding(
-      padding: const EdgeInsets.only(top: Spacing.md),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 44,
-            child: Text(windowLabel(window.minutes), style: tokens.value),
+    return Row(
+      children: [
+        SizedBox(
+          width: 44,
+          child: Text(windowLabel(window.minutes), style: tokens.value),
+        ),
+        SizedBox(
+          width: 40,
+          child: Text(
+            '${window.usedPercent.round()}%',
+            style: tokens.valueStrong.copyWith(
+              color: windowColor(tokens, limit, window, now),
+            ),
+            textAlign: TextAlign.right,
           ),
-          Expanded(
-            child: SizedBox(
-              height: 8,
-              child: CustomPaint(
-                painter: _Bar(
-                  used: used,
-                  pace: pace,
-                  fill: color,
-                  track: tokens.borderSubtle,
-                  tick: tokens.textSecondary,
-                ),
+        ),
+        Expanded(
+          child: Text(
+            resetsAt == null ? '' : '↻ ${resetIn(now, resetsAt)}',
+            style: tokens.value,
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+const ringCount = 3;
+
+class UsageRing extends StatelessWidget {
+  const UsageRing(this.limit, {required this.now, super.key});
+
+  static const side = 72.0;
+
+  final UsageLimit limit;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final windows = limit.windows.take(ringCount).toList();
+    final tightest = windows.fold<UsageWindow?>(
+      null,
+      (most, each) =>
+          most == null || each.usedPercent > most.usedPercent ? each : most,
+    );
+    return SizedBox.square(
+      dimension: side,
+      child: CustomPaint(
+        painter: _Rings(
+          [
+            for (final window in windows)
+              (
+                used: (window.usedPercent / 100).clamp(0.0, 1.0),
+                pace: windowPace(window, now),
+                fill: windowColor(tokens, limit, window, now),
               ),
-            ),
-          ),
-          const SizedBox(width: Spacing.md),
-          SizedBox(
-            width: 40,
-            child: Text(
-              '${window.usedPercent.round()}%',
-              style: tokens.valueStrong.copyWith(color: color),
-              textAlign: TextAlign.right,
-            ),
-          ),
-          SizedBox(
-            width: 52,
-            child: Text(
-              resetsAt == null ? '' : '↻ ${resetIn(now, resetsAt)}',
-              style: tokens.value,
-              textAlign: TextAlign.right,
-            ),
-          ),
-        ],
+          ],
+          track: tokens.borderSubtle,
+          tick: tokens.textSecondary,
+        ),
+        child: Center(
+          child: tightest == null
+              ? null
+              : Text(
+                  '${tightest.usedPercent.round()}%',
+                  textScaler: TextScaler.noScaling,
+                  style: tokens.heroPercent.copyWith(
+                    fontSize: 20,
+                    color: windowColor(tokens, limit, tightest, now),
+                  ),
+                ),
+        ),
       ),
     );
   }
 }
 
-class _Bar extends CustomPainter {
-  const _Bar({
-    required this.used,
-    required this.pace,
-    required this.fill,
-    required this.track,
-    required this.tick,
-  });
+typedef _Ring = ({double used, double? pace, Color fill});
 
-  final double used;
-  final double? pace;
-  final Color fill;
+class _Rings extends CustomPainter {
+  const _Rings(this.rings, {required this.track, required this.tick});
+
+  static const stroke = 6.0;
+  static const gap = 3.0;
+
+  final List<_Ring> rings;
   final Color track;
   final Color tick;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final bar = Rect.fromLTWH(0, size.height / 4, size.width, size.height / 2);
-    canvas
-      ..drawRect(bar, Paint()..color = track)
-      ..drawRect(
-        Rect.fromLTWH(bar.left, bar.top, bar.width * used, bar.height),
-        Paint()..color = fill,
-      );
-    if (pace case final pace?) {
-      final x = size.width * pace;
-      canvas.drawRect(
-        Rect.fromLTWH(x - 1, 0, 2, size.height),
-        Paint()..color = tick,
-      );
+    final centre = size.center(Offset.zero);
+    var radius = size.shortestSide / 2 - stroke / 2;
+    for (final ring in rings) {
+      final bounds = Rect.fromCircle(center: centre, radius: radius);
+      final line = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke;
+      canvas
+        ..drawCircle(centre, radius, line..color = track)
+        ..drawArc(
+          bounds,
+          -math.pi / 2,
+          math.pi * 2 * ring.used,
+          false,
+          line..color = ring.fill,
+        );
+      if (ring.pace case final pace?) {
+        final angle = -math.pi / 2 + math.pi * 2 * pace;
+        final along = Offset(math.cos(angle), math.sin(angle));
+        canvas.drawLine(
+          centre + along * (radius - stroke / 2 - 1),
+          centre + along * (radius + stroke / 2 + 1),
+          Paint()
+            ..color = tick
+            ..strokeWidth = 2,
+        );
+      }
+      radius -= stroke + gap;
     }
   }
 
   @override
-  bool shouldRepaint(_Bar old) =>
-      old.used != used ||
-      old.pace != pace ||
-      old.fill != fill ||
-      old.track != track ||
-      old.tick != tick;
+  bool shouldRepaint(_Rings old) =>
+      !listEquals(old.rings, rings) || old.track != track || old.tick != tick;
+}
+
+Color windowColor(
+  StrikedTokens tokens,
+  UsageLimit limit,
+  UsageWindow window,
+  DateTime now,
+) {
+  final pace = windowPace(window, now);
+  if (limitHit(limit, window) || window.usedPercent.round() >= 90) {
+    return tokens.danger;
+  }
+  if (pace != null && window.usedPercent / 100 > pace + 0.1) {
+    return tokens.warning;
+  }
+  return tokens.accent;
 }
 
 bool limitHit(UsageLimit limit, UsageWindow window) {
