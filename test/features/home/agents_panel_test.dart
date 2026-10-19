@@ -24,6 +24,8 @@ import 'package:striked/platform/herdr/herdr_client.dart';
 import 'package:striked/platform/ssh/keys.dart';
 import 'package:striked/platform/ssh/host_keys.dart';
 
+import '../../support/fake_shell.dart';
+import '../../support/reasons.dart';
 import '../../support/themed_app.dart';
 
 const hostA = Host(
@@ -803,6 +805,108 @@ void main() {
 
     expect(find.text('a · key rejected'), findsOneWidget);
     expect(find.text('b · protocol 9'), findsOneWidget);
+  });
+
+  testWidgets('a tab whose program reports itself is a row with no host on', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.runAsync(() async {
+      sessions.open(intent: testIntent(), hostA);
+      await Future<void>.delayed(Duration.zero);
+      transport.opened.single
+        ..emit(
+          '\x1b]7501;state=blocked:kind=permission:app=claude-code'
+          ':msg=QWxsb3cgcm0/\x07',
+        )
+        ..emit('\x1b]7501;state=done:id=old:app=cargo\x07');
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: testTheme,
+          home: Scaffold(
+            body: AgentsPanel(
+              state: const AgentPanelState.noHost(),
+              programs: sessions.programs,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('TURN AGENTS ON IN A HOST'), findsNothing);
+    expect(find.text('Allow rm?'), findsOneWidget);
+    expect(find.text('CLAUDE · A 1'), findsOneWidget);
+    expect(find.text('BLOCKED'), findsOneWidget);
+    expect(markAsset(tester), AgentKind.of('claude').markAsset);
+    expect(find.textContaining('idle', findRichText: true), findsNothing);
+    expect(find.text('VIEW ALL'), findsNothing);
+  });
+
+  testWidgets('a program the app has no mark for is named, not marked', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.runAsync(() async {
+      sessions.open(intent: testIntent(), hostA);
+      await Future<void>.delayed(Duration.zero);
+      transport.opened.single.emit(
+        '\x1b]7501;state=working:app=cargo:title=YnVpbGQ=\x07',
+      );
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: testTheme,
+          home: Scaffold(
+            body: AgentsPanel(
+              state: const AgentPanelState.noHost(),
+              programs: sessions.programs,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('build'), findsOneWidget);
+    expect(find.text('CARGO · A 1'), findsOneWidget);
+    expect(find.byType(AgentMark), findsNothing);
+  });
+
+  testWidgets('a finished record alone leaves the way to a host', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.runAsync(() async {
+      sessions.open(intent: testIntent(), hostA);
+      await Future<void>.delayed(Duration.zero);
+      transport.opened.single.emit('\x1b]7501;state=done:app=cargo\x07');
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: testTheme,
+          home: Scaffold(
+            body: AgentsPanel(
+              state: const AgentPanelState.noHost(),
+              programs: sessions.programs,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('TURN AGENTS ON IN A HOST'), findsOneWidget);
   });
 
   testWidgets('no host points to the host that must enable herdr', (

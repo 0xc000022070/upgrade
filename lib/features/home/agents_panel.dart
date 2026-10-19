@@ -11,13 +11,15 @@ import 'package:striked/design/components/action_block.dart';
 import 'package:striked/design/components/dot_spinner.dart';
 import 'package:striked/design/components/panel.dart';
 import 'package:striked/design/spacing.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
 import 'package:striked/platform/shell/shell_connection.dart';
 import 'package:striked/features/agents/agent_shell.dart';
 import 'package:striked/features/agents/agents_screen.dart';
 import 'package:striked/features/agents/pip_action.dart';
 import 'package:striked/features/agents/sent_screen.dart';
 import 'package:striked/features/hosts/hosts_screen.dart';
+import 'package:striked/features/shell/session/program_status.dart';
+import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:striked/features/shell/sheets/shell_sheet.dart';
 import 'package:striked/features/home/agent_mark.dart';
 import 'package:striked/features/tasks/item_sheet.dart';
 
@@ -28,9 +30,11 @@ class AgentsPanel extends ConsumerWidget {
     this.onViewAll,
     this.onOpen,
     this.now,
+    this.programs,
   });
 
   final AgentPanelState? state;
+  final List<TabProgram>? programs;
   final VoidCallback? onViewAll;
 
   final AgentOpen? onOpen;
@@ -43,6 +47,7 @@ class AgentsPanel extends ConsumerWidget {
         ? ref.watch(agentsFeedProvider)
         : AsyncValue<AgentPanelState>.data(supplied);
     final current = value.valueOrNull;
+    final List<TabProgram> tabs = programs ?? ref.watch(tabProgramsProvider);
     final agents = !(current?.noHost ?? false);
     final header = <Widget>[
       if (agents)
@@ -55,6 +60,7 @@ class AgentsPanel extends ConsumerWidget {
           onTap: onViewAll ?? () => openAgents(context),
         ),
     ];
+    Widget body(AgentPanelState? data) => _body(context, ref, data, tabs);
     return Panel(
       title: 'AGENTS',
       affordance: header.isEmpty
@@ -77,42 +83,86 @@ class AgentsPanel extends ConsumerWidget {
       // spinner's 12px for a frame on every poll.
       child: value.when(
         skipLoadingOnReload: true,
-        loading: () => const DelayedSpinner(),
-        error: (error, _) => _DimLine('error: $error'),
-        data: (data) => _AgentsBody(
-          data: data,
-          sends: ref.watch(sendQueueProvider),
-          now: now ?? DateTime.now(),
-          onConfigureHosts: () =>
-              ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex,
-          onOpen:
-              onOpen ??
-              (intent, host, agent) =>
-                  openAgentShell(context, ref, host, agent, intent),
+        loading: () =>
+            _active(tabs).isEmpty ? const DelayedSpinner() : body(null),
+        error: (error, _) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [_DimLine('error: $error'), body(null)],
         ),
+        data: body,
       ),
     );
   }
+
+  Widget _body(
+    BuildContext context,
+    WidgetRef ref,
+    AgentPanelState? data,
+    List<TabProgram> tabs,
+  ) => _AgentsBody(
+    data: data,
+    programs: tabs,
+    sends: ref.watch(sendQueueProvider),
+    now: now ?? DateTime.now(),
+    onConfigureHosts: () =>
+        ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex,
+    onOpen:
+        onOpen ??
+        (intent, host, agent) =>
+            openAgentShell(context, ref, host, agent, intent),
+    onOpenTab: (intent, program) {
+      ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex;
+      openHostShell(
+        context,
+        program.host,
+        intent: intent,
+        session: program.session,
+      );
+    },
+  );
 }
+
+List<TabProgram> _active(List<TabProgram> programs) => [
+  for (final program in programs)
+    if (program.record.state.active) program,
+]..sort((a, b) => b.record.seq.compareTo(a.record.seq));
 
 class _AgentsBody extends StatelessWidget {
   const _AgentsBody({
     required this.data,
+    required this.programs,
     required this.sends,
     required this.now,
     required this.onConfigureHosts,
     required this.onOpen,
+    required this.onOpenTab,
   });
 
-  final AgentPanelState data;
+  final AgentPanelState? data;
+  final List<TabProgram> programs;
   final List<PendingSend> sends;
   final DateTime now;
   final VoidCallback onConfigureHosts;
   final AgentOpen onOpen;
+  final void Function(UserIntent intent, TabProgram program) onOpenTab;
 
   @override
   Widget build(BuildContext context) {
-    if (data.noHost) return _SetupLine(onTap: onConfigureHosts);
+    final data = this.data;
+    final tabs = _active(programs);
+    if (data == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final program in tabs.take(_rowLimit)) _tabRow(context, program),
+        ],
+      );
+    }
+    if (data.noHost && tabs.isEmpty) {
+      return _SetupLine(onTap: onConfigureHosts);
+    }
 
     final failures = data.failures;
     // Rows keep their host: a tap needs the machine the agent was read from, and the merged
@@ -122,14 +172,20 @@ class _AgentsBody extends StatelessWidget {
         for (final agent in outcome.agents)
           if (agent.state.active) (host: outcome.host, agent: agent),
     ]..sort((a, b) => b.agent.stateChangeSeq.compareTo(a.agent.stateChangeSeq));
-    // Resting and not idle: an agent whose work finished unwatched is idle with something to
-    // read, and it is counted here rather than nowhere.
-    final idle = data.agents.where((agent) => agent.state.resting).length;
-    final blocked = data.agents.where((agent) => agent.blocked).length;
+    final idle =
+        data.agents.where((agent) => agent.state.resting).length +
+        programs.where((program) => !program.record.state.active).length;
+    final blocked =
+        data.agents.where((agent) => agent.blocked).length +
+        programs
+            .where((program) => program.record.state == ProgramState.blocked)
+            .length;
     // Every host failed, so there is no snapshot behind the panel and a `0 idle · 0 blocked`
     // footer would read as "nothing is running" rather than "nobody answered".
     final answered = data.answered;
     final shown = sends.take(_rowLimit).toList();
+    final hosted = active.take(_rowLimit - shown.length).toList();
+    final tabbed = tabs.take(_rowLimit - shown.length - hosted.length);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -142,17 +198,25 @@ class _AgentsBody extends StatelessWidget {
             now: now,
           ),
         if (failures.isNotEmpty &&
-            (shown.isNotEmpty || active.isNotEmpty || answered))
+            (shown.isNotEmpty ||
+                active.isNotEmpty ||
+                tabs.isNotEmpty ||
+                answered))
           const SizedBox(height: Spacing.md),
-        if (shown.isNotEmpty || active.isNotEmpty) ...[
+        if (shown.isNotEmpty || active.isNotEmpty || tabs.isNotEmpty) ...[
           for (final send in shown) _SendRow(send),
-          for (final row in active.take(_rowLimit - shown.length))
+          for (final row in hosted)
             _AgentRow(
-              row.agent,
+              line: inboxLine(row.agent),
+              agent: row.agent.agent,
+              name: agentMarkName(row.agent.agent),
+              status: row.agent.state.label,
+              statusColor: agentStateColor(context, row.agent.state),
               onTap: UserIntent.onGesture(
                 (intent) => onOpen(intent, row.host, row.agent),
               ),
             ),
+          for (final program in tabbed) _tabRow(context, program),
           const SizedBox(height: Spacing.md),
         ],
         if (answered) _Footer(idle: idle, blocked: blocked),
@@ -161,6 +225,22 @@ class _AgentsBody extends StatelessWidget {
   }
 
   static const _rowLimit = 3;
+
+  Widget _tabRow(BuildContext context, TabProgram program) {
+    final app = program.record.app;
+    final kind = agentKindOfApp(app)?.name;
+    final named = kind == null ? app.toUpperCase() : agentMarkName(kind);
+    return _AgentRow(
+      line: program.line,
+      agent: kind,
+      name: named.isEmpty ? program.origin : '$named · ${program.origin}',
+      status: program.record.state.label,
+      statusColor: program.record.state == ProgramState.blocked
+          ? context.tokens.danger
+          : context.tokens.warning,
+      onTap: UserIntent.onGesture((intent) => onOpenTab(intent, program)),
+    );
+  }
 
   String _failureLine(HostOutcome outcome, bool disambiguate) =>
       disambiguate ? outcome.namedReason : outcome.reason;
@@ -189,14 +269,25 @@ class _SetupLine extends StatelessWidget {
 }
 
 class _AgentRow extends StatelessWidget {
-  const _AgentRow(this.agent, {required this.onTap});
+  const _AgentRow({
+    required this.line,
+    required this.agent,
+    required this.name,
+    required this.status,
+    required this.statusColor,
+    required this.onTap,
+  });
 
-  final AgentSnapshot agent;
+  final String line;
+
+  final String? agent;
+  final String name;
+  final String status;
+  final Color statusColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = agentStateColor(context, agent.state);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -208,7 +299,7 @@ class _AgentRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                inboxLine(agent),
+                line,
                 style: context.tokens.rowTitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -216,11 +307,13 @@ class _AgentRow extends StatelessWidget {
               const SizedBox(height: Spacing.sm),
               Row(
                 children: [
-                  AgentMark(agent.agent),
-                  const SizedBox(width: Spacing.md),
+                  if (agent case final agent?) ...[
+                    AgentMark(agent),
+                    const SizedBox(width: Spacing.md),
+                  ],
                   Expanded(
                     child: Text(
-                      agentMarkName(agent.agent),
+                      name,
                       style: context.tokens.rowSubtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -236,7 +329,7 @@ class _AgentRow extends StatelessWidget {
                   ),
                   const SizedBox(width: Spacing.sm),
                   Text(
-                    agent.state.label,
+                    status,
                     style: context.tokens.value.copyWith(color: statusColor),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

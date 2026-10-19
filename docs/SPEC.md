@@ -844,7 +844,7 @@ Header `AGENTS`, a count, `VIEW ALL >`. Column labels `AGENT`, `STATUS`, `WORK`.
 
 **A send on its way is a row before it is an agent.** Until herdr has a pane to report, a send the user made from an item sheet heads the rows: the item's title as the work, the agent's mark and name, and `STARTING` beside a spinner in `--fg-dim`. One that failed reads `FAILED` beside a dot in `danger` until it is retried or dismissed. A tap opens the item's sheet, where both are. These rows come first and share the three; `STARTING` is the app's word for a pane it is waiting on, not a state herdr gives, so it takes no herdr hue and the header count stays herdr's.
 
-**The panel never assumes a host.** Until some host has an agent integration switched on — `HERDR`, `AGENTS`, or both — the panel is blocked: one dim line, `NO HOST · SET IN SYS`, no rows, no footer, and not a single connection opened. Every host with it on is polled concurrently, rows merge across hosts, and a host that fails contributes its own dim line while the others still draw rows.
+**The panel never assumes a host.** Until some host has an agent integration switched on — `HERDR`, `AGENTS`, or both — the panel is blocked: one dim line, `NO HOST · SET IN SYS`, no rows, no footer, and not a single connection opened — unless a program in one of the app's own tabs is reporting work, whose rows need no host. Every host with it on is polled concurrently, rows merge across hosts, and a host that fails contributes its own dim line while the others still draw rows.
 
 A host that is unreachable, has no key installed, or answers a protocol the app does not speak shows one dim line with the reason — `nyx unreachable`, `key rejected`, `protocol N` — and keeps the last good snapshot's age on the right, `12s ago`. It never blocks the rest of Home.
 
@@ -951,6 +951,20 @@ herdr reads a pane and guesses what the agent in it is doing from the screen. It
 **A session is the agent's, not the pane's.** Its key is the agent and the id the agent gave it, and it carries the directory, the first prompt of the turn, the last thing the agent said when it stopped, and the herdr pane or tmux pane the hook ran in when its environment says so. A subagent's events are its parent's business and never end the parent's turn. A session the agent has said nothing about for a day is gone from the host, ended or not; one that ended stays readable until then and is not drawn.
 
 **Struck:** the engine deciding what an agent's state is from anything but the agent's own event. herdr already does the reading from the screen; a second reader would be a second guess.
+
+### A tab says what its program is doing, with no herdr and no engine
+
+A program in one of the app's own tabs can tell the terminal what it is doing, and the app is that terminal. It speaks OSC 7501, the program status protocol: a report names a state — `idle`, `working`, `done`, `blocked`, `error` — and, when blocked, whether it wants a permission, an answer or a credential, with the program's `app`, a `title` and a `msg`. The app answers the protocol's `?` so a program can ask before it reports. Nothing on the host is installed for it and no integration is switched on in the host form: the tab is the connection, and the program is the source.
+
+**The method is the one the program speaks.** OSC 7501 when it reports; otherwise the OSC 9;4 progress a program already sends reads as `working` while it shows, `idle` when paused, `error` when it fails, and nothing once it is removed. The first OSC 7501 report retires progress until the terminal is fully reset, so one program is never read two ways at once.
+
+**A record is the program's, kept the way the protocol keeps it.** One per id, each report replacing its record whole; an id under another, `build/test` under `build`, takes the `app` of the nearest one above it that named one, and `clear` takes a record and everything beneath it. A new prompt, an exited shell and a reconnect that lands in a fresh shell end every `working` and `blocked` record; `done`, `error` and `idle` stay until they are replaced, and a full reset of the terminal forgets them all. A percentage ticking over moves nothing on Home.
+
+**On Home a working or blocked record is a row like an agent's.** It follows the hosts' rows within the three: the message when it is blocked and the title otherwise, the terminal's title when the program gave neither; the agent's mark when `app` names a kind the app knows, `claude-code` being Claude, and the program's name with no mark when it does not, `CARGO`; and under it always the tab it came from, `CLAUDE · NYX 2`, so no program can pass for one in another tab. A tap lands in the tab. The rows need no host: with none on they stand where `NO HOST · SET IN SYS` would, and a feed that failed or has yet to answer still draws them under its line. The count, `VIEW ALL` and the footer stay the hosts' — the AGENTS screen lists what the hosts report — though once a host has answered, the footer counts the tab records with it, resting ones idle and blocked ones blocked. A record that has stopped working is not a row, so a tab holding only finished ones leaves the setup line where it is.
+
+**What a row can do is what its source can carry.** OSC 7501 travels one way: the terminal never writes a report back, so a blocked record carries no `ALLOW` or `DENY` and is answered in the tab. The engine's approval keeps its buttons because the engine holds the agent's question open; a record holds nothing.
+
+**Struck:** reading a record from anything but the program's own report. The terminal title and the screen are herdr's to read, and a second reader would be a second guess.
 
 ### A request for permission is answered from the phone with the command on it
 

@@ -34,6 +34,7 @@ import 'package:striked/platform/workspace/workspace_commands.dart';
 import 'package:striked/platform/vnc/keysyms.dart';
 import 'package:striked/features/shell/session/host_copy.dart';
 import 'package:striked/features/shell/session/private_osc.dart';
+import 'package:striked/features/shell/session/program_status.dart';
 import 'package:striked/features/shell/session/shell_engine.dart';
 
 /// A build log on the remote is the case this is sized for.
@@ -336,6 +337,8 @@ class ShellSession extends ChangeNotifier {
 
   /// Null until it says, which a bare `sh` never does.
   String? title;
+
+  final programs = ProgramBoard();
 
   VoiceDraft? voiceDraft;
   bool voiceSendSuggested = false;
@@ -725,6 +728,19 @@ class ShellSessions extends ChangeNotifier {
 
   final _byHost = <String, List<ShellSession>>{};
 
+  final programsMoved = ValueNotifier(0);
+
+  List<TabProgram> get programs => [
+    for (final sessions in _byHost.values)
+      for (final session in sessions)
+        for (final record in session.programs.records)
+          TabProgram(session, record),
+  ];
+
+  void _programs(bool moved) {
+    if (moved) programsMoved.value++;
+  }
+
   /// Separate from the session list because closing every tab must not restart the
   /// numbering while the user is still on the route.
   final _nextNumber = <String, int>{};
@@ -790,6 +806,7 @@ class ShellSessions extends ChangeNotifier {
         if (_sameHost(session.host, host)) continue;
         session.host = host;
         session.changed();
+        _programs(!session.programs.isEmpty);
         moved = true;
       }
     }
@@ -1138,6 +1155,10 @@ class ShellSessions extends ChangeNotifier {
       ..onBell = null
       ..onClipboardWrite = null
       ..onPwdChanged = null
+      ..onProgramStatus = null
+      ..onProgressReport = null
+      ..onSemanticPrompt = null
+      ..onReset = null
       ..onResize = null;
     answerInColours(next, StrikedTokens.house.terminal);
     session._terminal.value = next;
@@ -1415,6 +1436,7 @@ class ShellSessions extends ChangeNotifier {
     session._stopAsking();
     session.disarm();
     _byHost[hostId]?.remove(session);
+    _programs(!session.programs.isEmpty);
     if (_byHost[hostId]?.isEmpty ?? false) {
       _byHost.remove(hostId);
       _folded.remove(hostId);
@@ -1493,8 +1515,22 @@ class ShellSessions extends ChangeNotifier {
       if (title == session.title) return;
       session.title = title;
       session.changed();
+      _programs(
+        session.programs.records.any(
+          (record) => record.state.active && record.line.isEmpty,
+        ),
+      );
     };
     terminal.onBell = () => unawaited(_askHost(session));
+    terminal.onProgramStatus = (status) =>
+        _programs(session.programs.report(status));
+    terminal.onProgressReport = (report) =>
+        _programs(session.programs.progress(report));
+    terminal.onSemanticPrompt = (event) {
+      if (event.kind != SemanticPromptKind.promptStart) return;
+      _programs(session.programs.ended());
+    };
+    terminal.onReset = () => _programs(session.programs.reset());
     terminal.onClipboardWrite = copyFromHost;
     terminal.onPwdChanged = () {
       final cwd = cwdFromOsc(terminal.pwd);
@@ -1935,6 +1971,9 @@ class ShellSessions extends ChangeNotifier {
       session._columns = settledColumns;
       session._rows = settledRows;
       session.state = ShellLive(connection.transport);
+      if (connection.continuity != ShellContinuity.resumed) {
+        _programs(session.programs.ended());
+      }
       _learnSystem(host, connection);
       session._health = connection.health.listen(
         (health) => _onHealth(session, connection, attempt, health),
@@ -2096,6 +2135,7 @@ class ShellSessions extends ChangeNotifier {
       session._unwatch();
       session.disarm();
       session.state = ShellExited(code);
+      _programs(session.programs.ended());
       session.voiceSendSuggested = false;
       session.clearAgentInput();
       session.clearEngineForeground();
@@ -2417,6 +2457,39 @@ class ShellSessions extends ChangeNotifier {
 
 final shellSnapshotStoreProvider = Provider<ShellSnapshotStore?>((ref) => null);
 
+class TabProgram {
+  const TabProgram(this.session, this.record);
+
+  final ShellSession session;
+  final ProgramRecord record;
+
+  Host get host => session.host;
+
+  String get origin => '${host.name.toUpperCase()} ${session.number}';
+
+  String get line {
+    final line = record.line;
+    if (line.isNotEmpty) return line;
+    return session.title ?? '';
+  }
+}
+
+final tabProgramsBoardProvider = Provider<ValueNotifier<List<TabProgram>>>((
+  ref,
+) {
+  final board = ValueNotifier<List<TabProgram>>(const []);
+  ref.onDispose(board.dispose);
+  return board;
+});
+
+final tabProgramsProvider = Provider<List<TabProgram>>((ref) {
+  final board = ref.watch(tabProgramsBoardProvider);
+  void moved() => ref.invalidateSelf();
+  board.addListener(moved);
+  ref.onDispose(() => board.removeListener(moved));
+  return board.value;
+});
+
 /// Nothing disposes it: a session is meant to outlive the route that opened it, and a
 /// provider that let go when its last reader did would close every shell on the way out
 /// of the screen.
@@ -2432,6 +2505,10 @@ final shellSessionsProvider = Provider<ShellSessions>((ref) {
     notifier: const PinNotifications(),
     links: ref.read(hostLinksProvider),
   );
+  final programs = ref.read(tabProgramsBoardProvider);
+  void publish() => programs.value = sessions.programs;
+  sessions.programsMoved.addListener(publish);
+  ref.onDispose(() => sessions.programsMoved.removeListener(publish));
   ref.listen(hostsProvider, fireImmediately: true, (_, next) {
     final hosts = next.valueOrNull;
     if (hosts != null) sessions.syncHosts(hosts);
