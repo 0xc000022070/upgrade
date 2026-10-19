@@ -682,6 +682,14 @@ class SplitRow {
   final ShownRow? right;
   final ShownRow? across;
 
+  /// Added or removed, lit or not: a reflowed line is still a line git counts.
+  bool get changed => [across, left, right].any(
+    (row) =>
+        row != null &&
+        (row.line.kind == DiffLineKind.added ||
+            row.line.kind == DiffLineKind.removed),
+  );
+
   DiffLine get line {
     if (across case final row?) {
       if (!row.moved) return row.line;

@@ -1575,15 +1575,10 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
 
   List<int> _blockStarts(DiffDoc? doc) {
     if (doc == null) return const [];
-    bool changed(SplitRow row) {
-      final kind = row.line.kind;
-      return kind == DiffLineKind.added || kind == DiffLineKind.removed;
-    }
-
+    final rows = doc.rows;
     return [
-      for (var at = 0; at < doc.rows.length; at++)
-        if (changed(doc.rows[at]) && (at == 0 || !changed(doc.rows[at - 1])))
-          at,
+      for (var at = 0; at < rows.length; at++)
+        if (rows[at].changed && (at == 0 || !rows[at - 1].changed)) at,
     ];
   }
 

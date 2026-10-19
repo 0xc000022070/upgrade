@@ -762,7 +762,7 @@ class DiffRow extends StatelessWidget {
     };
     if (single || carried) marker = ' ';
     if (moved) {
-      if (marker != ' ') marker = block ? '↕' : '·';
+      if (marker != ' ' && block) marker = '↕';
       text = context.tokens.textSecondary;
       mark = context.tokens.textDisabled;
       ground = null;

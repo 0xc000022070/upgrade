@@ -2297,6 +2297,25 @@ new file mode 100644
       await unmount(tester);
     });
 
+    testWidgets('a reflow keeps its dimmed sides and is a hunk to walk to', (
+      tester,
+    ) async {
+      final old = [for (var i = 1; i <= 30; i++) 'const v$i = $i;'].join('\n');
+      final now = old.replaceFirst('const v20 = 20;', 'const v20 =\n    20;');
+      await viewer(
+        tester,
+        runner: FakeRunner(texts: {'lib/main.dart': ('$old\n', '$now\n')}),
+      );
+
+      expect(litRuns(tester, onSheet(find.text('    20;'))), isEmpty);
+      expect(onSheet(find.text('−')), findsWidgets);
+      expect(onSheet(find.text('+')), findsWidgets);
+      expect(onSheet(find.text('NO HUNKS')), findsNothing);
+      expect(onSheet(find.text('1 HUNKS')), findsOneWidget);
+
+      await unmount(tester);
+    });
+
     testWidgets('a held line stays held when a fold above it opens', (
       tester,
     ) async {
