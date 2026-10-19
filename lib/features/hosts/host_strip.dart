@@ -42,45 +42,48 @@ class HostGroupCell extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.sm,
-            vertical: Spacing.xs,
-          ),
+        child: ColoredBox(
           color: context.tokens.surfaceSecondary,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              HostMark(
-                system,
-                hostId: hostId,
-                size: IconSizes.affordance,
-                color: ink,
-              ),
-              const SizedBox(width: Spacing.xs),
-              ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth:
-                      hostGroupMaxWidth - IconSizes.affordance - Spacing.xs,
-                ),
-                child: Text(
-                  name.toUpperCase(),
-                  style: context.tokens.label.copyWith(color: ink),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (hidden > 0) ...[
-                const SizedBox(width: Spacing.xs),
-                Text(
-                  '+$hidden',
-                  style: context.tokens.label.copyWith(
-                    color: context.tokens.textMuted,
+          // The header is a fixed row, so a tag that grew with the font would eat the
+          // tabs under it.
+          child: MediaQuery.withNoTextScaling(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  HostMark(
+                    system,
+                    hostId: hostId,
+                    size: IconSizes.affordance,
+                    color: ink,
                   ),
-                ),
-              ],
-            ],
+                  const SizedBox(width: Spacing.xs),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth:
+                          hostGroupMaxWidth - IconSizes.affordance - Spacing.xs,
+                    ),
+                    child: Text(
+                      name.toUpperCase(),
+                      style: context.tokens.navLabel.copyWith(color: ink),
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (hidden > 0) ...[
+                    const SizedBox(width: Spacing.xs),
+                    Text(
+                      '+$hidden',
+                      style: context.tokens.navLabel.copyWith(
+                        color: context.tokens.textMuted,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),

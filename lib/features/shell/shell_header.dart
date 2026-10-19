@@ -31,7 +31,7 @@ const _tabMaxWidth = 88.0;
 
 const _fadeWidth = Spacing.xxl;
 
-const _labelDrop = Spacing.lg;
+const _labelDrop = Spacing.md;
 
 /// A login shell's title is who and where (`luis@nyx: ~/Projects/striked`), and the where
 /// is the half that tells two tabs apart. A title with a space in it is a sentence the
