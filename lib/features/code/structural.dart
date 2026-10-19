@@ -633,8 +633,10 @@ String? _symbol(StructuralFile file, int from, int to) {
     final text = lines[k];
     final depth = _indent(text);
     if (depth >= indent || depth == text.length) continue;
-    if (_opensBlock(text)) return _trimmed(text);
-    indent = depth;
+    // `}) {` and `} else {` end what opened them at this depth: that line names the block.
+    final tail = ')]}'.contains(text[depth]);
+    if (_opensBlock(text) && !tail) return _trimmed(text);
+    indent = tail ? depth + 1 : depth;
   }
   for (var k = top - 2; k >= 0; k--) {
     final text = lines[k];

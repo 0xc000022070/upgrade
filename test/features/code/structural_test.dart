@@ -90,6 +90,26 @@ void main() {
     expect(opened.first.line.text, startsWith('@@ -1,23 +1,23 @@'));
   });
 
+  test('a header names a signature from its first line, not its last', () {
+    final old = [
+      'class A {',
+      '  void read(',
+      '    Object value, {',
+      '    bool bounded = true,',
+      '  }) {',
+      for (var i = 0; i < 8; i++) '    final a$i = $i;',
+      '    final b = 2;',
+      '  }',
+      '}',
+    ].join('\n');
+    final now = old.replaceFirst('b = 2;', 'b = 3;');
+    final shown = presentFile(read('$old\n', '$now\n'), const {});
+    final header = shown.firstWhere(
+      (row) => row.line.kind == DiffLineKind.hunk,
+    );
+    expect(header.line.text, endsWith('@@ void read('));
+  });
+
   test('a declaration held whole folds to its own first line', () {
     final body = [
       'class A {',
