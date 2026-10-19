@@ -1,34 +1,45 @@
-import 'dart:async';
-import 'dart:isolate';
 import 'dart:math' as math;
+import 'dart:async';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/providers.dart';
 import 'package:striked/data/repositories/host_repository.dart';
 import 'package:striked/data/repositories/path_repository.dart';
+import 'package:striked/data/repositories/settings_repository.dart';
 import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/action_block.dart';
 import 'package:striked/design/components/list_row.dart';
 import 'package:striked/design/components/panel.dart';
 import 'package:striked/design/components/panel_sheet.dart';
 import 'package:striked/design/components/section.dart';
 import 'package:striked/design/components/status_tag.dart';
+import 'package:striked/design/icons/striked_icon.dart';
+import 'package:striked/design/icons/striked_icons.dart';
 import 'package:striked/design/layout.dart';
 import 'package:striked/design/spacing.dart';
+import 'package:striked/features/home/compose_sheet.dart';
+import 'package:striked/features/shell/sheets/shell_sheet.dart';
+import 'package:striked/platform/shell/remote_shell.dart';
+import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/platform/workspace/workspace_commands.dart';
 import 'package:striked/platform/workspace/workspace_model.dart';
 
+import 'package:striked/features/code/change_tree.dart';
 import 'package:striked/features/code/diff_jump.dart';
+import 'package:striked/features/code/diff_key.dart';
+import 'package:striked/features/code/diff_lists.dart';
 import 'package:striked/features/code/diff_map.dart';
-import 'package:striked/features/code/hunk_pin.dart';
-import 'package:striked/features/code/intraline.dart';
+import 'package:striked/features/code/diff_outline.dart';
+import 'package:striked/features/code/diff_pane.dart';
+import 'package:striked/features/code/diff_patch.dart';
+import 'package:striked/features/code/diff_peek.dart';
+import 'package:striked/features/code/diff_read.dart';
+import 'package:striked/features/code/diff_session.dart';
 import 'package:striked/features/code/structural.dart';
 import 'package:striked/features/code/syntax.dart';
-import 'package:striked/features/code/syntax_style.dart';
 import 'package:striked/features/code/workspace_controller.dart';
 
 Future<void> showDiffSheet(
@@ -80,7 +91,10 @@ Future<void> _sheet(BuildContext context, String label, WidgetBuilder builder) {
     title: label.toUpperCase(),
     maxHeightFraction: 0.9,
     maxWidth: double.infinity,
-    builder: builder,
+    builder: (context) => ColoredBox(
+      color: context.tokens.backgroundPrimary,
+      child: builder(context),
+    ),
   );
 }
 
@@ -194,42 +208,26 @@ class DiffSheet extends ConsumerStatefulWidget {
   ConsumerState<DiffSheet> createState() => _DiffSheetState();
 }
 
-class _DiffSheetState extends ConsumerState<DiffSheet> {
+class _DiffSheetState extends ConsumerState<DiffSheet>
+    with WidgetsBindingObserver {
   late final WorkspaceController _controller;
   late final bool _owned;
-
-  List<Commit>? _commits;
-
-  Commit? _source;
-
-  List<WorkspaceFile>? _files;
-  bool _filesFailed = false;
-
-  WorkspaceFile? _file;
-  List<DiffLine>? _lines;
-  bool _diffFailed = false;
-
-  /// Every file of the source, read in one command when the source is picked. A tap on a
-  /// row after that draws from here and asks the host nothing.
-  Map<String, List<DiffLine>>? _bundle;
-
-  /// The same answer while it is still in flight, so a tap that lands first waits for it
-  /// instead of asking for the same file a second time.
-  Future<Map<String, List<DiffLine>>?>? _bundling;
-
-  final _reading = <String>{};
-
-  Map<String, FileTexts>? _texts;
-
-  List<WorkspaceFile>? _textsOf;
-
-  final Map<String, _Read?> _reads = {};
+  late final DiffSession _session;
+  SettingsRepository? _settings;
 
   Set<int> _opened = {};
 
   bool? _split;
+  bool _wrap = false;
+  bool _outlineAll = false;
+  bool _tree = true;
+  final Set<String> _closed = {};
 
-  _Doc? _doc;
+  String? _query;
+  int _hit = 0;
+  final TextEditingController _search = TextEditingController();
+
+  DiffDoc? _doc;
   Object? _docKey;
 
   /// Every row is one line tall and every line is the same height, so a hunk is at a known
@@ -238,16 +236,33 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
 
   late final DiffJumps _jumps = DiffJumps(_hunkScroll);
 
-  /// Bumped on every source change, so a slow answer that lands after the user has moved to
-  /// another commit is dropped rather than drawn over it.
-  int _walk = 0;
-
   bool _changesOpen = false;
+
+  bool _keptBeside = false;
+
+  bool get _beside =>
+      MediaQuery.sizeOf(context).width - Spacing.screenEdge * 2 >=
+      Layout.columnMax;
+
+  bool get _changesShown => _changesOpen && (_beside || !_keptBeside);
   bool _historyOpen = false;
 
   bool _autoPicked = false;
 
   bool _fileAuto = false;
+
+  List<Commit>? _fileLog;
+  bool _logOpen = false;
+
+  String? _shownPath;
+
+  String? _wantPath;
+
+  String? _treePath;
+
+  int _hunk = -1;
+
+  DiffLine? _held;
 
   List<DiffLine>? _plainFrom;
   List<DiffLine>? _plain;
@@ -255,6 +270,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final borrowed = widget.controller;
     _owned = borrowed == null;
     _controller =
@@ -265,271 +281,174 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
           readPrivateKey: ref.read(ed25519KeysProvider).privateKey,
           open: widget.open ?? ref.read(workspaceOpenerProvider),
         );
-    _controller.addListener(_onWorkspace);
+    _settings = ref.read(settingsRepositoryProvider);
+    _session = DiffSession(_controller, settings: _settings)
+      ..addListener(_onSession);
+    unawaited(_loadSettings());
     if (_owned) {
       _controller.connect();
+      _session.start();
     } else {
-      _onWorkspace();
-      final file = widget.file;
-      if (file != null) _pick(file);
+      _session.start(file: widget.file);
+      if (widget.file != null) _shownPath = widget.file!.path;
     }
+  }
+
+  Future<void> _loadSettings() async {
+    final settings = _settings;
+    if (settings == null) return;
+    final tree = await settings.text(
+      SettingsRepository.diffTree,
+      orElse: 'tree',
+    );
+    final wrap = await settings.text(
+      SettingsRepository.diffWrap,
+      orElse: 'off',
+    );
+    if (!mounted) return;
+    setState(() {
+      _tree = tree != 'flat';
+      _wrap = wrap == 'on';
+    });
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_onWorkspace);
+    WidgetsBinding.instance.removeObserver(this);
+    _session
+      ..removeListener(_onSession)
+      ..dispose();
     _jumps.dispose();
     _hunkScroll.dispose();
+    _search.dispose();
     // Only the connection this screen dialled is this screen's to drop.
     if (_owned) _controller.dispose();
     super.dispose();
   }
 
-  void _onWorkspace() {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _session.source == null) {
+      unawaited(_session.refresh());
+    }
+  }
+
+  void _onSession() {
     if (!mounted) return;
+    final path = _session.file?.path;
     setState(() {
-      if (_source == null) {
-        _files = _controller.overview?.files;
-        _filesFailed = _controller.phase == WorkspacePhase.failed;
+      if (path != _shownPath) {
+        _shownPath = path;
+        _forgetFile();
       }
     });
     _autoPick();
-    if (_controller.phase != WorkspacePhase.ready) return;
-    if (_commits == null) _loadCommits();
-    if (_source == null && _bundling == null) {
-      _loadBundle(_walk, _controller.sourceDiffs());
-    }
-    final files = _files;
-    if (_source == null && files != null && !identical(files, _textsOf)) {
-      _textsOf = files;
-      unawaited(_loadTexts(_walk, files, _controller.texts(files)));
-    }
   }
 
-  /// One command for the whole source, kept so the file list is walked without asking the
-  /// host again. A failure is not put on the screen: it costs the viewer nothing but the
-  /// per-file command it was replacing.
-  Future<void> _loadBundle(
-    int walk,
-    Future<Map<String, List<DiffLine>>?> answer,
-  ) async {
-    _bundling = answer;
-    final files = await answer;
-    if (!mounted || walk != _walk) return;
-    final file = _file;
-    final lines = file == null ? null : _bundled(files, file);
-    setState(() {
-      _bundle = files;
-      _bundling = null;
-      if (lines != null) _lines = lines;
-    });
-  }
-
-  Future<void> _loadTexts(
-    int walk,
-    List<WorkspaceFile> files,
-    Future<Map<String, FileTexts>?> answer,
-  ) async {
-    final texts = await answer;
-    if (!mounted || walk != _walk || !identical(files, _textsOf)) return;
-    setState(() {
-      _texts = texts ?? const {};
-      _reads.clear();
-    });
-    final file = _file;
-    if (file == null) return;
-    await _study(file);
-    if (!mounted ||
-        walk != _walk ||
-        !identical(files, _textsOf) ||
-        _file?.path != file.path) {
-      return;
-    }
-    if (_lines == null &&
-        _reads[file.path] == null &&
-        !_reading.contains(file.path)) {
-      unawaited(_read(file));
-    }
-  }
-
-  Future<void> _loadCommits() async {
-    final commits = await _controller.commits();
-    if (!mounted || commits == null) return;
-    setState(() => _commits = commits);
-  }
-
-  Future<void> _select(Commit? commit) async {
-    if (commit?.sha == _source?.sha) return;
-    final walk = ++_walk;
-    setState(() {
-      _source = commit;
-      _files = null;
-      _filesFailed = false;
-      _file = null;
-      _lines = null;
-      _bundle = null;
-      _bundling = null;
-      _reading.clear();
-      _texts = null;
-      _textsOf = null;
-      _reads.clear();
-      _autoPicked = false;
-      if (_historyOpen) {
-        _historyOpen = false;
-        _changesOpen = true;
-      }
-    });
-    if (commit == null) {
-      _onWorkspace();
-      return;
-    }
-    unawaited(_loadBundle(walk, _controller.commitDiffs(commit.sha)));
-    final files = await _controller.commitFiles(commit.sha);
-    if (!mounted || walk != _walk) return;
-    setState(() {
-      _files = files;
-      _filesFailed = files == null;
-    });
-    _autoPick();
-    if (files != null) {
-      _textsOf = files;
-      unawaited(
-        _loadTexts(walk, files, _controller.texts(files, sha: commit.sha)),
-      );
-    }
+  void _forgetFile() {
+    _held = null;
+    _opened = {};
+    _fileLog = null;
+    _logOpen = false;
+    _hit = 0;
+    _hunk = -1;
+    if (_hunkScroll.hasClients) _hunkScroll.jumpTo(0);
+    _jumps.forget();
   }
 
   void _autoPick() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final files = _files;
-      if (!mounted || _autoPicked) return;
-      if (_file != null) {
+      final files = _session.files;
+      if (!mounted) return;
+      final want = _wantPath;
+      if (want != null && files != null) {
+        _wantPath = null;
+        final there = files.where((file) => file.path == want);
+        if (there.isNotEmpty) {
+          _autoPicked = true;
+          _pick(there.first);
+          return;
+        }
+      }
+      if (_autoPicked) return;
+      if (_session.file != null) {
         _autoPicked = true;
         return;
       }
       if (files == null || files.isEmpty) return;
       _autoPicked = true;
-      final room = MediaQuery.sizeOf(context).width - Spacing.screenEdge * 2;
-      if (files.length == 1 || room >= Layout.columnMax) {
-        _pick(files.first, auto: true);
+      if (files.length == 1 || _beside) {
+        _pick(_order(files).first, auto: true);
       } else if (!_historyOpen) {
-        setState(() => _changesOpen = true);
+        setState(() {
+          _changesOpen = true;
+          _keptBeside = false;
+        });
       }
     });
   }
 
-  /// Not a future: the answer is usually already here, and only a file the one command did
-  /// not carry costs a round trip.
+  List<WorkspaceFile> _order(List<WorkspaceFile> files) =>
+      _tree ? treeOrder(files) : files;
+
   void _pick(WorkspaceFile file, {bool auto = false}) {
-    final cached = _bundled(_bundle, file);
     setState(() {
-      _file = file;
       _fileAuto = auto;
-      _lines = cached;
-      _diffFailed = false;
-      _changesOpen = false;
+      _changesOpen = _beside && _changesOpen;
+      _keptBeside = _changesOpen;
       _historyOpen = false;
-      _held = null;
-      _opened = {};
+      _shownPath = file.path;
+      _forgetFile();
     });
-    if (_hunkScroll.hasClients) _hunkScroll.jumpTo(0);
-    _jumps.forget();
-    if (cached == null &&
-        _reads[file.path] == null &&
-        !_reading.contains(file.path)) {
-      unawaited(_read(file));
-    }
-    unawaited(_study(file));
+    _session.pick(file);
   }
 
-  /// The fallback: a file the bundle does not carry because the answer was cut at the byte
-  /// cap, or because it is untracked and `diff` never names it.
-  Future<void> _read(WorkspaceFile file) async {
-    final walk = _walk;
-    final source = _source;
-    _reading.add(file.path);
-    List<DiffLine>? lines;
-    try {
-      // The one command may still be in flight, in which case it is the answer and asking
-      // for the file beside it would be the round trip this is for.
-      final bundle = await _bundling;
-      lines = _bundled(bundle, file);
-      lines ??= source == null
-          ? await _controller.diff(file)
-          : await _controller.commitDiff(source.sha, file.path);
-    } finally {
-      if (walk == _walk) _reading.remove(file.path);
-    }
-    if (!mounted || walk != _walk || _file?.path != file.path) return;
-    setState(() {
-      _lines = lines;
-      _diffFailed = lines == null;
-    });
-  }
-
-  Future<void> _study(WorkspaceFile file) async {
-    final texts = _texts?[file.path];
-    if (texts == null || _reads.containsKey(file.path)) return;
-    final walk = _walk;
-    final read = texts.readable ? await _readTexts(texts) : null;
-    if (!mounted || walk != _walk || !identical(_texts?[file.path], texts)) {
+  Future<void> _select(Commit? commit) async {
+    if (commit?.sha == _session.source?.sha) {
+      _wantPath = null;
+      setState(() {
+        _historyOpen = false;
+        _changesOpen = true;
+        _keptBeside = false;
+      });
       return;
     }
-    setState(() => _reads[file.path] = read);
+    if (_session.source == null) _treePath = _session.file?.path;
+    if (commit == null) _wantPath ??= _treePath;
+    setState(() {
+      _autoPicked = false;
+      if (_historyOpen) {
+        _historyOpen = false;
+        _changesOpen = true;
+        _keptBeside = false;
+      }
+    });
+    await _session.select(commit);
   }
-
-  List<DiffLine>? _bundled(
-    Map<String, List<DiffLine>>? bundle,
-    WorkspaceFile file,
-  ) {
-    final lines = bundle?[file.path];
-    final before = file.origin == null ? null : bundle?[file.origin];
-    if (lines == null || before == null) return lines;
-    if (_files?.any((row) => row.path == file.origin) ?? true) return lines;
-    return [...before, ...lines];
-  }
-
-  DiffLine? _held;
 
   WorkspaceFile? _neighbour(int step) {
-    final files = _files;
-    final file = _file;
+    final files = _session.files;
+    final file = _session.file;
     if (files == null || file == null) return null;
-    final at = files.indexWhere((row) => row.path == file.path);
+    final order = _order(files);
+    final at = order.indexWhere((row) => row.path == file.path);
     final next = at + step;
-    if (at < 0 || next < 0 || next >= files.length) return null;
-    return files[next];
-  }
-
-  void _walkHunk() {
-    final rows = _doc?.rows;
-    if (rows == null || !_hunkScroll.hasClients) return;
-    final at = (_hunkScroll.offset / _DiffBody.rowHeight(context)).round();
-    bool hunk(SplitRow row) => row.across?.line.kind == DiffLineKind.hunk;
-    var found = -1;
-    for (var i = at + 1; i < rows.length; i++) {
-      if (hunk(rows[i])) {
-        found = i;
-        break;
-      }
-    }
-    if (found < 0) found = rows.indexWhere(hunk);
-    if (found < 0) return;
-    _jumps.to(found * _DiffBody.rowHeight(context));
+    if (at < 0 || next < 0 || next >= order.length) return null;
+    return order[next];
   }
 
   void _close() {
+    _session.close();
     setState(() {
-      _file = null;
-      _lines = null;
       _held = null;
       _changesOpen = true;
+      _keptBeside = false;
       _historyOpen = false;
     });
   }
 
   void _back() {
-    if (_file != null && !_fileAuto) {
+    if (_session.file != null && !_fileAuto) {
       _close();
       return;
     }
@@ -539,12 +458,13 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   void _unfold({required bool changes}) {
     setState(() {
       if (changes) {
-        _changesOpen = !_changesOpen;
+        _changesOpen = !_changesShown;
         _historyOpen = false;
       } else {
         _historyOpen = !_historyOpen;
         _changesOpen = false;
       }
+      _keptBeside = false;
     });
   }
 
@@ -552,31 +472,100 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
     setState(() => _opened = {..._opened, key});
   }
 
+  void _setTree(bool tree) {
+    setState(() => _tree = tree);
+    unawaited(
+      _settings?.setText(SettingsRepository.diffTree, tree ? 'tree' : 'flat'),
+    );
+  }
+
+  void _setWrap(bool wrap) {
+    setState(() {
+      _wrap = wrap;
+      _held = null;
+    });
+    unawaited(
+      _settings?.setText(SettingsRepository.diffWrap, wrap ? 'on' : 'off'),
+    );
+  }
+
+  void _toggleStage(WorkspaceFile file) => unawaited(
+    file.hasUnstaged ? _session.stage([file]) : _session.unstage([file]),
+  );
+
+  void _toggleDir(ChangeDir dir) {
+    final files = dir.every.toList();
+    unawaited(
+      dir.share == StagedShare.all
+          ? _session.unstage(files)
+          : _session.stage([
+              for (final file in files)
+                if (file.hasUnstaged) file,
+            ]),
+    );
+  }
+
+  Future<void> _discard(List<WorkspaceFile> files, String what) async {
+    final sure = await confirmSheet(
+      context,
+      title: 'DISCARD',
+      confirmLabel: 'DISCARD',
+      message: files.every((file) => file.untracked)
+          ? '$what is deleted. This is not undone.'
+          : '$what goes back to how the index has it. This is not undone.',
+    );
+    if (!sure || !mounted) return;
+    await _session.discard(files);
+  }
+
+  void _toggleViewed(WorkspaceFile file) {
+    final value = !_session.viewed(file);
+    _session.markViewed(file, value);
+    if (!value || _session.file?.path != file.path) return;
+    final files = _session.files;
+    if (files == null) return;
+    final order = _order(files);
+    final at = order.indexWhere((row) => row.path == file.path);
+    for (var i = 1; i < order.length; i++) {
+      final next = order[(at + i) % order.length];
+      if (!_session.viewed(next)) {
+        _pick(next);
+        return;
+      }
+    }
+  }
+
   int? _heldAt(List<SplitRow> rows) {
     final held = _held;
     if (held == null) return null;
-    final at = rows.indexWhere((row) {
-      final line = _rowLine(row);
-      return line.kind == held.kind &&
+    bool same(ShownRow? side) {
+      final line = side?.whole.line;
+      return line != null &&
+          line.kind == held.kind &&
           line.text == held.text &&
           line.oldLine == held.oldLine &&
           line.newLine == held.newLine;
-    });
+    }
+
+    final at = rows.indexWhere(
+      (row) => same(row.across) || same(row.left) || same(row.right),
+    );
     return at < 0 ? null : at;
   }
 
   DiffLine _rowLine(SplitRow row) =>
-      (row.across ?? row.right ?? row.left)!.line;
+      (row.across ?? row.right ?? row.left)!.whole.line;
 
   @override
   Widget build(BuildContext context) {
-    final list = _changesOpen
+    final list = _changesShown
         ? _changes()
         : _historyOpen
         ? _history()
         : null;
+    final file = _session.file;
     return PopScope(
-      canPop: _file == null || _fileAuto,
+      canPop: file == null || _fileAuto,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _back();
       },
@@ -585,12 +574,9 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _headline(),
-          if (list != null || _file != null) ...[
+          if (list != null || file != null) ...[
             const SizedBox(height: Spacing.panelGap),
-            Flexible(
-              fit: _paneShown(list) ? FlexFit.tight : FlexFit.loose,
-              child: _panes(list),
-            ),
+            Expanded(child: _panes(list)),
           ],
         ],
       ),
@@ -598,9 +584,9 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   }
 
   Widget _headline() {
-    final source = _source;
+    final source = _session.source;
     final status = _controller.overview?.status;
-    final files = _files;
+    final files = _session.files;
     // The sheet is up before the host has answered, so it says which of the two it is: a
     // checkout with nothing changed reads the same as a checkout that has not been read yet.
     final loading = _controller.phase == WorkspacePhase.connecting;
@@ -619,6 +605,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
             if (status != null && !status.clean)
               '${status.changes.length} changed',
           ].join('  ·  ');
+    final worktrees = _controller.overview?.worktrees.length ?? 0;
     return Panel(
       title:
           '${_controller.label.toUpperCase()} / '
@@ -626,7 +613,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       literalTitle: source != null,
       affordance: loading || files == null
           ? null
-          : _Stat(added: added, removed: removed, files: files.length),
+          : DiffStat(added: added, removed: removed, files: files.length),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -647,31 +634,38 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
               overflow: TextOverflow.ellipsis,
             ),
           const SizedBox(height: Spacing.md),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          Wrap(
             children: [
-              Flexible(
-                child: _Switch(
-                  key: const ValueKey('diff-changes'),
-                  label: 'CHANGES',
-                  count: _countWord(files?.length, _filesFailed),
-                  open: _changesOpen,
-                  onTap: () => _unfold(changes: true),
-                ),
+              DiffKey(
+                key: const ValueKey('diff-changes'),
+                says: 'CHANGES',
+                icon: StrikedIcons.diff,
+                label: 'CHANGES',
+                count: _countWord(files?.length, _session.filesFailed),
+                on: _changesShown,
+                onTap: () => _unfold(changes: true),
               ),
-              const SizedBox(width: Spacing.md),
-              Flexible(
-                child: _Switch(
-                  key: const ValueKey('diff-commits'),
-                  label: 'COMMITS',
-                  count: _countWord(
-                    _commits?.length,
-                    _controller.phase == WorkspacePhase.failed,
-                  ),
-                  open: _historyOpen,
-                  onTap: () => _unfold(changes: false),
+              DiffKey(
+                key: const ValueKey('diff-commits'),
+                says: 'COMMITS',
+                icon: StrikedIcons.log,
+                label: 'COMMITS',
+                count: _countWord(
+                  _session.commits?.length,
+                  _controller.phase == WorkspacePhase.failed,
                 ),
+                on: _historyOpen,
+                onTap: () => _unfold(changes: false),
               ),
+              if (worktrees > 1)
+                DiffKey(
+                  key: const ValueKey('diff-worktrees'),
+                  says: 'WORKTREE',
+                  icon: StrikedIcons.branch,
+                  label: 'WORKTREE',
+                  count: '$worktrees',
+                  onTap: _swapWorktree,
+                ),
             ],
           ),
         ],
@@ -679,24 +673,56 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
     );
   }
 
-  bool _paneShown(Widget? list) =>
-      _file != null &&
-      (list == null || MediaQuery.sizeOf(context).width >= Layout.columnMax);
+  Future<void> _swapWorktree() async {
+    final overview = _controller.overview;
+    if (overview == null) return;
+    final worktrees = overview.worktrees;
+    final chosen = await showPanelSheet<String>(
+      context,
+      title: 'WORKTREES',
+      builder: (context) => PanelSheetBody(
+        title: 'WORKTREES',
+        affordance: PanelAffordance('${worktrees.length}', showIcon: false),
+        children: [
+          ListRowGroup(
+            children: [
+              for (final worktree in worktrees)
+                ListRow(
+                  title: worktree.label,
+                  subtitle: worktree.branch ?? 'detached',
+                  value: worktree.directory == _controller.directory
+                      ? 'ON SCREEN'
+                      : null,
+                  valueColor: context.tokens.accent,
+                  onTap: worktree.directory == _controller.directory
+                      ? null
+                      : () => Navigator.of(context).pop(worktree.directory),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (chosen == null || !mounted) return;
+    _session.close();
+    setState(() => _autoPicked = false);
+    await _controller.openWorktree(chosen);
+  }
 
   Widget _panes(Widget? list) {
-    final file = _file;
+    final file = _session.file;
     if (file == null) return list!;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final wide = width >= Layout.columnMax;
+        final wide = _beside;
         if (!wide && list != null) return list;
         return Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (wide && list != null) ...[
               SizedBox(
-                width: width * _listShare - Spacing.panelGap / 2,
+                width: (width * _listShare).clamp(_listLeast, _listMost),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
@@ -715,7 +741,9 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
     );
   }
 
-  static const _listShare = 0.42;
+  static const _listShare = 0.34;
+  static const _listLeast = 300.0;
+  static const _listMost = 440.0;
 
   String _countWord(int? count, bool failed) {
     if (count != null) return '$count';
@@ -723,55 +751,161 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
   }
 
   Widget _changes() {
-    final files = _files;
+    final files = _session.files;
+    final working = _session.source == null;
     return Panel(
       bodyPadding: EdgeInsets.zero,
       bodyFlexible: true,
-      child: switch ((files, _filesFailed)) {
-        (final rows?, _) when rows.isNotEmpty => ListView.separated(
-          shrinkWrap: true,
-          padding: const EdgeInsets.symmetric(
-            vertical: Spacing.sm,
-            horizontal: Spacing.panelPadding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Spacing.panelPadding,
+              Spacing.panelPadding,
+              Spacing.panelPadding,
+              0,
+            ),
+            child: _listTools(files, working: working),
           ),
-          itemCount: rows.length,
-          separatorBuilder: (context, _) => Container(
-            height: Borders.hairline,
-            color: context.tokens.borderSubtle,
-          ),
-          itemBuilder: (context, index) {
-            final file = rows[index];
-            return ListRow(
-              key: ValueKey('diff-file-${file.path}'),
-              kicker: fileKindWord(file),
-              title: file.path,
-              literalTitle: true,
-              subtitle: file.origin,
-              titleColor: file.path == _file?.path
-                  ? context.tokens.accent
-                  : null,
-              valueSpans: fileCountSpans(context, file),
-              onTap: () => _pick(file),
-            );
-          },
+          Flexible(child: _changeList(files, working: working)),
+        ],
+      ),
+    );
+  }
+
+  Widget _listTools(List<WorkspaceFile>? files, {required bool working}) {
+    final against = _session.against;
+    final unstaged = files?.where((file) => file.hasUnstaged).toList() ?? [];
+    final staged = files?.where((file) => file.hasStaged).toList() ?? [];
+    final total = files?.length ?? 0;
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (working)
+          for (final (value, word) in const [
+            (DiffAgainst.head, 'ALL'),
+            (DiffAgainst.staged, 'STAGED'),
+            (DiffAgainst.unstaged, 'UNSTAGED'),
+          ])
+            DiffKey(
+              key: ValueKey('diff-against-${value.name}'),
+              says: word,
+              label: word,
+              on: against == value,
+              onTap: () => _session.readAgainst(value),
+            ),
+        DiffKey(
+          key: const ValueKey('diff-tree'),
+          says: 'TREE',
+          icon: StrikedIcons.files,
+          on: _tree,
+          onTap: () => _setTree(!_tree),
         ),
-        (final rows, final failed) => SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
-          child: Padding(
-            padding: const EdgeInsets.all(Spacing.panelPadding),
-            child: EmptyState(switch ((rows, failed)) {
-              (null, false) => 'loading…',
-              (null, true) => _controller.reason ?? 'could not read it',
-              _ => 'nothing changed',
-            }),
+        if (working && unstaged.isNotEmpty && against != DiffAgainst.staged)
+          DiffKey(
+            key: const ValueKey('diff-stage-all'),
+            says: 'STAGE ALL',
+            icon: StrikedIcons.stage,
+            onTap: _session.writing
+                ? null
+                : () => unawaited(_session.stage(unstaged)),
           ),
+        if (working && staged.isNotEmpty && against != DiffAgainst.unstaged)
+          DiffKey(
+            key: const ValueKey('diff-unstage-all'),
+            says: 'UNSTAGE ALL',
+            icon: StrikedIcons.unstage,
+            onTap: _session.writing
+                ? null
+                : () => unawaited(_session.unstage(staged)),
+          ),
+        if (working && total > 0)
+          Semantics(
+            label: '${_session.viewedCount} / $total VIEWED',
+            excludeSemantics: true,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: Spacing.sm),
+                StrikedIcon(
+                  StrikedIcons.viewed,
+                  size: IconSizes.sm,
+                  color: context.tokens.textMuted,
+                ),
+                const SizedBox(width: Spacing.sm),
+                Text(
+                  '${_session.viewedCount} / $total',
+                  style: context.tokens.panelHeader.copyWith(
+                    color: context.tokens.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _changeList(List<WorkspaceFile>? files, {required bool working}) {
+    if (files == null || files.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(Spacing.panelPadding),
+        child: EmptyState(switch ((files, _session.filesFailed)) {
+          (null, false) => 'loading…',
+          (null, true) => _controller.reason ?? 'could not read it',
+          _ => 'nothing changed',
+        }),
+      );
+    }
+    final rows = changeListRows(
+      context,
+      ChangeRowsData(
+        files: files,
+        tree: _tree,
+        closed: _closed,
+        picked: _session.file?.path,
+        outlineOf: _session.outline,
+        viewed: _session.viewed,
+        writable: working,
+      ),
+      onPick: _pick,
+      onToggleStage: _toggleStage,
+      onToggleViewed: _toggleViewed,
+      onFoldDir: (dir) => setState(() {
+        if (!_closed.remove(dir.path)) _closed.add(dir.path);
+      }),
+      onToggleDir: _toggleDir,
+      peekable: (file, row) => Peekable(
+        title: file.path,
+        onStart: () => _session.peek(file),
+        onOpen: () => _pick(file),
+        preview: (context) => ListenableBuilder(
+          listenable: _session,
+          builder: (context, _) => _PeekDiff(session: _session, file: file),
         ),
-      },
+        child: row,
+      ),
+    );
+    return ListView.separated(
+      shrinkWrap: true,
+      padding: const EdgeInsets.symmetric(
+        vertical: Spacing.sm,
+        horizontal: Spacing.panelPadding,
+      ),
+      itemCount: rows.length,
+      separatorBuilder: (context, _) => Container(
+        height: Borders.hairline,
+        color: context.tokens.borderSubtle,
+      ),
+      itemBuilder: (context, index) => rows[index],
     );
   }
 
   Widget _history() {
-    final commits = _commits;
+    final commits = _session.commits;
+    final source = _session.source;
     return Panel(
       bodyPadding: EdgeInsets.zero,
       bodyFlexible: true,
@@ -784,7 +918,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
               ListRow(
                 key: const ValueKey('diff-source-tree'),
                 title: 'WORKING TREE',
-                titleColor: _source == null ? context.tokens.accent : null,
+                titleColor: source == null ? context.tokens.accent : null,
                 value: _dirtyWord(),
                 onTap: () => _select(null),
               ),
@@ -792,15 +926,27 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
                 const ListRow(title: 'loading…', value: '')
               else
                 for (final commit in commits)
-                  ListRow(
-                    key: ValueKey('diff-commit-${commit.sha}'),
-                    kicker: commit.short,
-                    title: commit.subject,
-                    subtitle: '${commit.author} · ${commit.age}',
-                    titleColor: commit.sha == _source?.sha
-                        ? context.tokens.accent
-                        : null,
-                    onTap: () => _select(commit),
+                  Peekable(
+                    title: '${commit.short}  ${commit.subject}',
+                    onStart: () => unawaited(_session.commitFiles(commit)),
+                    onOpen: () => _select(commit),
+                    preview: (context) => ListenableBuilder(
+                      listenable: _session,
+                      builder: (context, _) => _PeekCommit(
+                        commit: commit,
+                        files: _session.knownCommitFiles(commit),
+                      ),
+                    ),
+                    child: ListRow(
+                      key: ValueKey('diff-commit-${commit.sha}'),
+                      kicker: commit.short,
+                      title: commit.subject,
+                      subtitle: '${commit.author} · ${commit.age}',
+                      titleColor: commit.sha == source?.sha
+                          ? context.tokens.accent
+                          : null,
+                      onTap: () => _select(commit),
+                    ),
                   ),
             ],
           ),
@@ -815,128 +961,81 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
     return status.clean ? 'CLEAN' : '${status.changes.length}';
   }
 
-  Widget _walkBar(WorkspaceFile file) {
-    final held = _held;
-    final rows = _doc?.rows;
-    if (held != null && rows != null && _heldAt(rows) != null) {
-      return _pickedBar(held);
-    }
-    final files = _files ?? const <WorkspaceFile>[];
-    final at = files.indexWhere((row) => row.path == file.path);
-    final before = _neighbour(-1);
-    final after = _neighbour(1);
-    final hunks = (rows ?? const <SplitRow>[])
-        .where((row) => row.across?.line.kind == DiffLineKind.hunk)
-        .length;
-    return Wrap(
-      spacing: Spacing.md,
-      runSpacing: Spacing.sm,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        ActionBlock(
-          key: const ValueKey('diff-prev-file'),
-          label: 'PREV',
-          onTap: before == null ? null : () => _pick(before),
-          tone: before == null
-              ? context.tokens.textDisabled
-              : context.tokens.textSecondary,
-        ),
-        ActionBlock(
-          key: const ValueKey('diff-next-file'),
-          label: 'NEXT',
-          onTap: after == null ? null : () => _pick(after),
-          tone: after == null
-              ? context.tokens.textDisabled
-              : context.tokens.textSecondary,
-        ),
-        ActionBlock(
-          key: const ValueKey('diff-next-hunk'),
-          label: 'HUNK',
-          onTap: hunks > 1 ? _walkHunk : null,
-          tone: hunks > 1
-              ? context.tokens.textSecondary
-              : context.tokens.textDisabled,
-        ),
-        if (at >= 0)
-          Text('FILE ${at + 1} / ${files.length}', style: context.tokens.value),
-      ],
-    );
-  }
-
-  Widget _pickedBar(DiffLine line) {
-    final number = line.newLine ?? line.oldLine;
-    return Wrap(
-      spacing: Spacing.md,
-      runSpacing: Spacing.sm,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        ActionBlock(
-          key: const ValueKey('diff-copy-line'),
-          label: 'COPY',
-          filled: true,
-          tone: context.tokens.accent,
-          onTap: () async {
-            // The line as the file has it, not as the pane drew it: the tabs the pane opened out are
-            // the file's tabs, and a hunk header is git's words in git's order once it leaves the
-            // screen.
-            await Clipboard.setData(ClipboardData(text: line.text));
-            if (mounted) setState(() => _held = null);
-          },
-        ),
-        ActionBlock(
-          key: const ValueKey('diff-drop-line'),
-          label: 'LET GO',
-          onTap: () => setState(() => _held = null),
-        ),
-        if (number != null)
-          Text(
-            // A removed line's number is in the file before the change, and the line that replaced
-            // it carries the same number in the file after. Held one after the other, the two rows
-            // would read the same.
-            line.kind == DiffLineKind.removed
-                ? 'WAS LINE $number'
-                : 'LINE $number',
-            style: context.tokens.value,
-          ),
-      ],
-    );
-  }
-
   List<DiffLine>? _plainOf(WorkspaceFile file, List<DiffLine> lines) {
     if (identical(lines, _plainFrom)) return _plain;
     _plainFrom = lines;
     return _plain = plainFile(file, lines);
   }
 
-  _Doc? _document(WorkspaceFile file, {required bool split}) {
-    final read = _reads[file.path];
-    final lines = _lines;
-    final key = (read ?? lines, _opened, split);
+  Map<String, List<DiffLine>> _othersOf(WorkspaceFile file) => {
+    for (final MapEntry(:key, :value)
+        in (_session.bundle ?? const <String, List<DiffLine>>{}).entries)
+      if (key != file.path) key: value,
+  };
+
+  bool Function(String text)? get _find {
+    final query = _query?.toLowerCase();
+    if (query == null || query.isEmpty) return null;
+    return (text) => text.toLowerCase().contains(query);
+  }
+
+  DiffDoc? _document(
+    WorkspaceFile file, {
+    required bool split,
+    required int? columns,
+  }) {
+    final read = _session.reads[file.path];
+    final lines = _session.lines;
+    final key = (
+      read ?? lines,
+      _opened,
+      split,
+      columns,
+      _session.bundle,
+      _query,
+    );
     final known = _doc;
     if (known != null && _docKey == key) return known;
-    _Doc? doc;
-    if (read != null) {
-      doc = read.document(_opened, split: split);
-    } else if (lines != null) {
-      final plain = _plainOf(file, lines);
-      final shown = _hunkRows(plain ?? lines);
-      doc = _Doc(
-        rows: plain == null && split
-            ? splitRows(shown)
-            : [for (final row in shown) SplitRow(across: row)],
-        reader: DiffReader.lines,
-        split: plain == null && split,
-        single: plain != null,
-      );
-    }
+    final shape = DiffShape(
+      columns: columns,
+      others: _othersOf(file),
+      find: _find,
+    );
+    final doc = diffDocOf(
+      read,
+      lines,
+      lines == null ? null : _plainOf(file, lines),
+      opened: _opened,
+      split: split,
+      shape: shape,
+    );
     _doc = doc;
     _docKey = key;
     return doc;
   }
 
+  int _highestOf(DiffRead? read, List<DiffLine>? lines) {
+    final structural = read?.structural;
+    if (structural != null) {
+      return structural.oldLines.length > structural.newLines.length
+          ? structural.oldLines.length
+          : structural.newLines.length;
+    }
+    final plain = read?.plain;
+    if (plain != null) return plain.length;
+    var highest = 0;
+    for (final line in lines ?? const <DiffLine>[]) {
+      final number = (line.newLine ?? 0) > (line.oldLine ?? 0)
+          ? line.newLine!
+          : line.oldLine ?? 0;
+      if (number > highest) highest = number;
+    }
+    return highest;
+  }
+
   Widget _pane(WorkspaceFile file, {required bool wide}) {
-    final read = _reads[file.path];
-    final lines = _lines;
+    final read = _session.reads[file.path];
+    final lines = _session.lines;
     final single = read != null
         ? read.single
         : lines != null && _plainOf(file, lines) != null;
@@ -949,44 +1048,41 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
       builder: (context, constraints) {
         final fits = !single && _splitFits(context, constraints.maxWidth);
         final split = fits && (_split ?? true);
-        final doc = _document(file, split: split);
+        final wrap = _wrap && !split;
+        final columns = wrap
+            ? _columns(context, constraints.maxWidth, read, lines, single)
+            : null;
+        final doc = _document(file, split: split, columns: columns);
         return Panel(
           // The path and not its last segment: two files of the same name in two directories are
           // the ordinary case in a repository.
-          title: file.path,
+          title: file.origin == null
+              ? file.path
+              : '${file.origin} → ${file.path}',
           literalTitle: true,
           leading: tag,
           affordance: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (doc != null && !single)
-                Text(
-                  switch (doc.reader) {
-                    DiffReader.syntax => 'SYNTAX',
-                    DiffReader.tokens => 'TOKENS',
-                    DiffReader.lines => 'LINES',
-                  },
-                  key: const ValueKey('diff-reader'),
-                  style: context.tokens.panelHeader.copyWith(
-                    color: context.tokens.textDisabled,
+                GestureDetector(
+                  onTap: _legend,
+                  child: Text(
+                    switch (doc.reader) {
+                      DiffReader.syntax => 'SYNTAX',
+                      DiffReader.tokens => 'TOKENS',
+                      DiffReader.lines => 'LINES',
+                    },
+                    key: const ValueKey('diff-reader'),
+                    style: context.tokens.panelHeader.copyWith(
+                      color: context.tokens.textDisabled,
+                    ),
                   ),
                 ),
-              if (fits) ...[
-                const SizedBox(width: Spacing.lg),
-                PanelAffordance(
-                  split ? 'UNIFIED' : 'SPLIT',
-                  key: const ValueKey('diff-split'),
-                  showIcon: false,
-                  onTap: () => setState(() {
-                    _split = !split;
-                    _held = null;
-                  }),
-                ),
-              ],
               const SizedBox(width: Spacing.lg),
               if (wide)
                 if (!file.binary)
-                  _Stat(added: file.added!, removed: file.removed!)
+                  DiffStat(added: file.added!, removed: file.removed!)
                 else
                   const SizedBox.shrink()
               else
@@ -1003,14 +1099,17 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _paneBody(file, doc, read)),
+              _tools(file, doc, fits: fits, split: split, single: single),
+              if (_query != null) _searchBar(doc),
+              _outlineStrip(file, doc),
+              Expanded(child: _paneBody(file, doc, read, wrap: wrap)),
               Container(
                 height: Borders.hairline,
                 color: context.tokens.borderNormal,
               ),
               Padding(
                 padding: const EdgeInsets.all(Spacing.sm),
-                child: _walkBar(file),
+                child: _bottomBar(file, doc),
               ),
             ],
           ),
@@ -1019,10 +1118,32 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
     );
   }
 
-  Widget _paneBody(WorkspaceFile file, _Doc? doc, _Read? read) {
+  int _columns(
+    BuildContext context,
+    double width,
+    DiffRead? read,
+    List<DiffLine>? lines,
+    bool single,
+  ) {
+    final advance = diffCharAdvance(context);
+    final gutter = diffGutterWidth(_highestOf(read, lines), advance);
+    final lead = DiffRow.lead(gutter, advance, single: single);
+    final room = width - DiffMap.width - lead - Spacing.panelPadding;
+    return room <= advance ? 1 : (room / advance).floor();
+  }
+
+  Widget _paneBody(
+    WorkspaceFile file,
+    DiffDoc? doc,
+    DiffRead? read, {
+    required bool wrap,
+  }) {
+    if (_logOpen) return _fileHistory(file);
+    final images = read?.images;
+    if (images != null) return DiffImages(images: images);
     String? empty;
     if (doc == null) {
-      empty = _diffFailed ? 'could not read it' : 'loading…';
+      empty = _session.diffFailed ? 'could not read it' : 'loading…';
     } else if (read?.whitespace ?? false) {
       empty = 'only whitespace changed';
     } else if (doc.rows.isEmpty && (read?.single ?? false)) {
@@ -1036,1134 +1157,987 @@ class _DiffSheetState extends ConsumerState<DiffSheet> {
         child: EmptyState(empty),
       );
     }
-    return _DiffBody(
+    return DiffBody(
       path: file.path,
       doc: doc!,
       language: languageOf(file.path),
       jumps: _jumps,
       picked: _heldAt(doc.rows),
-      onPick: (row) => setState(() => _held = _rowLine(doc.rows[row])),
+      query: _query,
+      wrap: wrap,
+      onPick: (row, {required old}) {
+        final at = doc.rows[row];
+        final side =
+            at.across ?? (old ? at.left ?? at.right : at.right ?? at.left);
+        setState(() => _held = side!.whole.line);
+      },
       onFold: _fold,
+      onGoto: _goto,
+      onEdge: (step) {
+        final next = _neighbour(step);
+        if (next != null) _pick(next);
+      },
     );
   }
 
+  void _goto(DiffGoto goto) {
+    final path = goto.path;
+    if (path != null && path != _session.file?.path) {
+      final files = _session.files ?? const <WorkspaceFile>[];
+      final there = files.where((file) => file.path == path);
+      if (there.isEmpty) return;
+      _pick(there.first);
+      return;
+    }
+    final row = _doc?.rowOf(goto.line, old: goto.old);
+    if (row != null) _jumpRow(row);
+  }
+
+  void _jumpRow(int row) {
+    final above = row - _jumpAbove < 0 ? 0 : row - _jumpAbove;
+    _jumps.to(above * DiffBody.rowHeight(context));
+  }
+
+  static const _jumpAbove = 2;
+
   bool _splitFits(BuildContext context, double width) {
-    final advance = _charAdvance(context);
-    final lead = _DiffRow.lead(
-      _gutterWidth(9999, advance),
+    final advance = diffCharAdvance(context);
+    final lead = DiffRow.lead(
+      diffGutterWidth(9999, advance),
       advance,
       single: true,
     );
-    return width - DiffMap.width >= 2 * (lead + 80 * advance);
+    return width - DiffMap.width >= 2 * (lead + _splitColumns * advance);
   }
-}
 
-List<ShownRow> _hunkRows(List<DiffLine> lines) {
-  final changed = intralineChanges(lines);
-  return [
-    for (var at = 0; at < lines.length; at++)
-      ShownRow(
-        lines[at],
-        runs: [?changed[at]],
-        fromOld: lines[at].kind == DiffLineKind.removed,
+  static const _splitColumns = 80;
+
+  Widget _tool(_Tool tool, {bool bare = false}) => DiffKey(
+    key: ValueKey('diff-${tool.key}'),
+    says: tool.says,
+    icon: tool.icon,
+    label: bare ? null : tool.label,
+    on: tool.on,
+    tone: tool.tone,
+    onTap: tool.onTap,
+  );
+
+  Widget _tools(
+    WorkspaceFile file,
+    DiffDoc? doc, {
+    required bool fits,
+    required bool split,
+    required bool single,
+  }) {
+    final working = _session.source == null;
+    final busy = _session.writing;
+    final folds = _foldKeys(doc);
+    final viewed = _session.viewed(file);
+    final tools = <_Tool>[
+      (
+        key: 'search',
+        says: 'SEARCH',
+        icon: StrikedIcons.search,
+        label: null,
+        tone: null,
+        onTap: _openSearch,
+        on: _query != null,
+        spare: false,
       ),
-  ];
-}
+      if (!split)
+        (
+          key: 'wrap',
+          says: 'WRAP',
+          icon: StrikedIcons.wrap,
+          label: null,
+          tone: null,
+          onTap: () => _setWrap(!_wrap),
+          on: _wrap,
+          spare: false,
+        ),
+      if (working && file.hasUnstaged)
+        (
+          key: 'stage',
+          says: 'STAGE',
+          icon: StrikedIcons.stage,
+          label: 'STAGE',
+          tone: null,
+          onTap: busy ? null : () => unawaited(_session.stage([file])),
+          on: false,
+          spare: false,
+        ),
+      if (working && file.hasStaged)
+        (
+          key: 'unstage',
+          says: 'UNSTAGE',
+          icon: StrikedIcons.unstage,
+          label: 'UNSTAGE',
+          tone: null,
+          onTap: busy ? null : () => unawaited(_session.unstage([file])),
+          on: false,
+          spare: false,
+        ),
+      if (working)
+        (
+          key: 'viewed',
+          says: 'VIEWED',
+          icon: StrikedIcons.viewed,
+          label: null,
+          tone: null,
+          onTap: () => _toggleViewed(file),
+          on: viewed,
+          spare: false,
+        ),
+      if (fits)
+        (
+          key: 'split',
+          says: 'SPLIT',
+          icon: StrikedIcons.split,
+          label: null,
+          tone: null,
+          onTap: () => setState(() {
+            _split = !split;
+            _held = null;
+          }),
+          on: split,
+          spare: true,
+        ),
+      if (folds.isNotEmpty)
+        (
+          key: 'open-all',
+          says: 'OPEN ALL',
+          icon: StrikedIcons.expand,
+          label: null,
+          tone: null,
+          onTap: () => setState(() => _opened = {..._opened, ...folds}),
+          on: false,
+          spare: true,
+        )
+      else if (_opened.isNotEmpty)
+        (
+          key: 'fold-all',
+          says: 'FOLD ALL',
+          icon: StrikedIcons.collapse,
+          label: null,
+          tone: null,
+          onTap: () => setState(() => _opened = {}),
+          on: false,
+          spare: true,
+        ),
+      (
+        key: 'history',
+        says: 'LOG',
+        icon: StrikedIcons.log,
+        label: null,
+        tone: null,
+        onTap: () => _toggleLog(file),
+        on: _logOpen,
+        spare: true,
+      ),
+      if (working && file.hasUnstaged)
+        (
+          key: 'discard',
+          says: 'DISCARD',
+          icon: StrikedIcons.discard,
+          label: null,
+          tone: busy ? null : context.tokens.danger,
+          onTap: busy ? null : () => unawaited(_discard([file], file.path)),
+          on: false,
+          spare: true,
+        ),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final spares = [
+            for (final tool in tools)
+              if (tool.spare) tool,
+          ];
+          final folded = spares.length > 1 && _toolsWidth(tools) > box.maxWidth;
+          final _Tool more = (
+            key: 'more',
+            says: 'MORE',
+            icon: StrikedIcons.more,
+            label: null,
+            tone: null,
+            onTap: () => _moreTools(spares),
+            on: spares.any((tool) => tool.on),
+            spare: false,
+          );
+          final row = [
+            for (final tool in tools)
+              if (!folded || !tool.spare) tool,
+            if (folded) more,
+          ];
+          final bare = _toolsWidth(row) > box.maxWidth;
+          return Wrap(
+            children: [for (final tool in row) _tool(tool, bare: bare)],
+          );
+        },
+      ),
+    );
+  }
 
-const _isolateAbove = 65536;
+  double _toolsWidth(List<_Tool> tools) => tools.fold(
+    0,
+    (width, tool) =>
+        width + DiffKey.widthOf(context, icon: tool.icon, label: tool.label),
+  );
 
-Future<_Read?> _readTexts(FileTexts texts) async {
-  final language = languageOf(texts.path);
-  final reader = texts.changedOld != null || texts.changedNew != null
-      ? DiffReader.syntax
-      : DiffReader.tokens;
-  final old = texts.old;
-  final now = texts.now;
-  final oldSpans = old == null || language == null
-      ? null
-      : await highlightFile(old, language);
-  final newSpans = now == null || language == null
-      ? null
-      : await highlightFile(now, language);
-  if (old == null || now == null) {
-    final lines = splitLines(old ?? now);
-    return _Read(
-      reader: reader,
-      oldSpans: oldSpans,
-      newSpans: newSpans,
-      plain: [
-        for (var at = 0; at < lines.length; at++)
-          ShownRow(
-            DiffLine(
-              DiffLineKind.context,
-              lines[at],
-              oldLine: old == null ? null : at + 1,
-              newLine: now == null ? null : at + 1,
+  Future<void> _moreTools(List<_Tool> spares) {
+    return showPanelSheet<void>(
+      context,
+      title: 'MORE',
+      builder: (sheet) => PanelSheetBody(
+        title: 'MORE',
+        children: [
+          ListRowGroup(
+            children: [
+              for (final tool in spares)
+                ListRow(
+                  key: ValueKey('diff-${tool.key}'),
+                  title: tool.says,
+                  titleColor: tool.onTap == null
+                      ? context.tokens.textDisabled
+                      : tool.on
+                      ? context.tokens.accent
+                      : tool.tone,
+                  onTap: tool.onTap == null
+                      ? null
+                      : () {
+                          Navigator.of(sheet).pop();
+                          tool.onTap!();
+                        },
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Set<int> _foldKeys(DiffDoc? doc) => {
+    for (final row in doc?.rows ?? const <SplitRow>[])
+      for (final side in [row.across, row.left, row.right])
+        if (side?.fold case final fold?) fold.key,
+  };
+
+  void _openSearch() {
+    setState(() {
+      if (_query == null) {
+        _query = '';
+      } else {
+        _query = null;
+        _search.clear();
+      }
+      _hit = 0;
+    });
+  }
+
+  List<int> _hitRows(DiffDoc? doc) {
+    final find = _find;
+    if (doc == null || find == null) return const [];
+    return [
+      for (var at = 0; at < doc.rows.length; at++)
+        if ([doc.rows[at].across, doc.rows[at].left, doc.rows[at].right].any(
+          (side) => side != null && side.fold == null && find(_drawn(side)),
+        ))
+          at,
+    ];
+  }
+
+  String _drawn(ShownRow side) => side.drawn ?? side.line.text;
+
+  void _stepHit(List<int> hits, int step) {
+    if (hits.isEmpty) return;
+    final next = (math.min(_hit, hits.length - 1) + step) % hits.length;
+    setState(() => _hit = next < 0 ? next + hits.length : next);
+    _jumpRow(hits[_hit]);
+  }
+
+  Widget _searchBar(DiffDoc? doc) {
+    final hits = _hitRows(doc);
+    final hit = hits.isEmpty ? 0 : math.min(_hit, hits.length - 1);
+    final shown = hits.isEmpty ? '0 / 0' : '${hit + 1} / ${hits.length}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              key: const ValueKey('diff-search-field'),
+              controller: _search,
+              autofocus: true,
+              style: context.tokens.noteBody,
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: 'find in this file',
+              ),
+              onChanged: (value) => setState(() {
+                _query = value;
+                _hit = 0;
+              }),
+              onSubmitted: (_) => _stepHit(hits, 1),
             ),
-            fromOld: now == null,
+          ),
+          const SizedBox(width: Spacing.md),
+          Text(
+            shown,
+            style: context.tokens.panelHeader.copyWith(
+              color: context.tokens.textMuted,
+            ),
+          ),
+          const SizedBox(width: Spacing.sm),
+          DiffKey(
+            key: const ValueKey('diff-search-prev'),
+            says: 'PREV MATCH',
+            icon: StrikedIcons.arrowUp,
+            onTap: hits.isEmpty ? null : () => _stepHit(hits, -1),
+          ),
+          DiffKey(
+            key: const ValueKey('diff-search-next'),
+            says: 'NEXT MATCH',
+            icon: StrikedIcons.arrowDown,
+            onTap: hits.isEmpty ? null : () => _stepHit(hits, 1),
+          ),
+          DiffKey(
+            key: const ValueKey('diff-search-close'),
+            says: 'CLOSE SEARCH',
+            icon: StrikedIcons.close,
+            onTap: _openSearch,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _outlineStrip(WorkspaceFile file, DiffDoc? doc) {
+    final outline = _session.outline(file);
+    if (outline.isEmpty || doc == null || _logOpen) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      key: const ValueKey('diff-outline'),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final fit = _outlineFit(outline, box.maxWidth);
+          final shown = _outlineAll ? outline : outline.take(fit);
+          final more = outline.length - shown.length;
+          return Wrap(
+            children: [
+              for (final (at, change) in shown.indexed)
+                KeyedSubtree(
+                  key: ValueKey(at),
+                  child: DiffKey(
+                    key: ValueKey('diff-outline-${change.name}'),
+                    says: '${change.mark} ${change.label}',
+                    label: '${change.mark} ${change.label}',
+                    onTap: () => _jumpSymbol(doc, change),
+                  ),
+                ),
+              if (more > 0 || _outlineAll && outline.length > fit)
+                DiffKey(
+                  key: const ValueKey('diff-outline-more'),
+                  says: more > 0 ? '$more MORE' : 'LESS',
+                  label: more > 0 ? '+$more' : 'LESS',
+                  onTap: () => setState(() => _outlineAll = !_outlineAll),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  int _outlineFit(List<SymbolChange> outline, double width) {
+    final cell = DiffKey.widthOf(context, label: '+${outline.length}');
+    var used = 0.0;
+    var fit = 0;
+    for (final change in outline) {
+      used += DiffKey.widthOf(context, label: '${change.mark} ${change.label}');
+      final rest = fit + 1 < outline.length ? cell : 0.0;
+      if (used + rest > width) break;
+      fit++;
+    }
+    return math.max(fit, 1);
+  }
+
+  void _jumpSymbol(DiffDoc doc, SymbolChange change) {
+    final line = change.newLine;
+    final row = line != null
+        ? doc.rowOf(line, old: false)
+        : change.oldLine == null
+        ? null
+        : doc.rowOf(change.oldLine!, old: true);
+    if (row != null) _jumpRow(row);
+  }
+
+  Future<void> _toggleLog(WorkspaceFile file) async {
+    if (_logOpen) {
+      setState(() => _logOpen = false);
+      return;
+    }
+    setState(() {
+      _logOpen = true;
+      _held = null;
+    });
+    final log = await _session.fileLog(file.path);
+    if (!mounted || _session.file?.path != file.path) return;
+    setState(() => _fileLog = log ?? const []);
+  }
+
+  Widget _fileHistory(WorkspaceFile file) {
+    final log = _fileLog;
+    if (log == null || log.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(Spacing.panelPadding),
+        child: EmptyState(log == null ? 'loading…' : 'no commits touch it'),
+      );
+    }
+    return ListView(
+      padding: panelRowsPadding,
+      children: [
+        for (final commit in log)
+          ListRow(
+            key: ValueKey('diff-file-commit-${commit.sha}'),
+            kicker: commit.short,
+            title: commit.subject,
+            subtitle: '${commit.author} · ${commit.age}',
+            titleColor: commit.sha == _session.source?.sha
+                ? context.tokens.accent
+                : null,
+            onTap: () {
+              _wantPath = file.path;
+              unawaited(_select(commit));
+            },
           ),
       ],
     );
   }
-  StructuralFile? read() =>
-      structuralFile(texts, language, oldSpans: oldSpans, newSpans: newSpans);
-  final file = old.length + now.length > _isolateAbove
-      ? await Isolate.run(read)
-      : read();
-  if (file == null) return null;
-  return _Read(
-    reader: reader,
-    structural: file,
-    oldSpans: oldSpans,
-    newSpans: newSpans,
-    whitespace:
-        old != now &&
-        file.rows.every((row) => row.kind == DiffLineKind.context),
-  );
-}
 
-class _Read {
-  const _Read({
-    required this.reader,
-    this.structural,
-    this.plain,
-    this.oldSpans,
-    this.newSpans,
-    this.whitespace = false,
-  });
-
-  final DiffReader reader;
-  final StructuralFile? structural;
-
-  final List<ShownRow>? plain;
-  final List<List<SyntaxSpan>>? oldSpans;
-  final List<List<SyntaxSpan>>? newSpans;
-
-  final bool whitespace;
-
-  bool get single => plain != null;
-
-  bool get unchanged =>
-      structural?.rows.every((row) => row.kind == DiffLineKind.context) ??
-      false;
-
-  _Doc document(Set<int> opened, {required bool split}) {
-    final plain = this.plain;
-    if (plain != null) {
-      return _Doc(
-        rows: [for (final row in plain) SplitRow(across: row)],
-        reader: reader,
-        single: true,
-        oldSpans: oldSpans,
-        newSpans: newSpans,
-      );
-    }
-    final shown = presentFile(structural!, opened);
-    return _Doc(
-      rows: split
-          ? splitRows(shown)
-          : [for (final row in shown) SplitRow(across: row)],
-      reader: reader,
-      split: split,
-      oldSpans: oldSpans,
-      newSpans: newSpans,
+  Future<void> _legend() {
+    final tokens = context.tokens;
+    Widget entry(String word, String says, {Color? color}) =>
+        ListRow(title: word, titleColor: color, subtitle: says);
+    return showPanelSheet<void>(
+      context,
+      title: 'HOW IT READS',
+      builder: (context) => PanelSheetBody(
+        title: 'HOW IT READS',
+        children: [
+          ListRowGroup(
+            children: [
+              entry(
+                'SYNTAX',
+                'both sides parsed; what changed is the code, so moved and reformatted lines stay quiet and the outline names the declarations it touched',
+                color: tokens.accent,
+              ),
+              entry(
+                'TOKENS',
+                'no grammar for it; the changed words of a line are lit, not the whole line',
+              ),
+              entry(
+                'LINES',
+                'too large or not read yet; git\'s own hunks, line against line',
+              ),
+              entry(
+                '+ GREEN',
+                'a line only the new side has',
+                color: tokens.accent,
+              ),
+              entry(
+                '− RED',
+                'a line only the old side had',
+                color: tokens.danger,
+              ),
+              entry(
+                '· KEPT',
+                'no ground: the code on this line is all still there, shifted, reformatted or added to',
+              ),
+              entry(
+                '↕ MOVED',
+                'a block that went somewhere else; tap its note to go there',
+              ),
+              entry('⋯ FOLD', 'unchanged lines; tap to open them'),
+            ],
+          ),
+        ],
+      ),
     );
   }
-}
 
-class _Doc {
-  const _Doc({
-    required this.rows,
-    required this.reader,
-    this.split = false,
-    this.single = false,
-    this.oldSpans,
-    this.newSpans,
-  });
+  List<int> _blockStarts(DiffDoc? doc) {
+    if (doc == null) return const [];
+    bool changed(SplitRow row) {
+      final kind = row.line.kind;
+      return kind == DiffLineKind.added || kind == DiffLineKind.removed;
+    }
 
-  final List<SplitRow> rows;
-  final DiffReader reader;
-  final bool split;
-  final bool single;
-  final List<List<SyntaxSpan>>? oldSpans;
-  final List<List<SyntaxSpan>>? newSpans;
-
-  List<SyntaxSpan>? spansOf(ShownRow row) {
-    final line = row.line;
-    final (spans, number) = switch (line.kind) {
-      DiffLineKind.fold => (newSpans, row.fold?.headLine),
-      _ when row.fromOld => (oldSpans, line.oldLine),
-      _ => (newSpans, line.newLine),
-    };
-    if (spans == null || number == null || number > spans.length) return null;
-    return spans[number - 1];
+    return [
+      for (var at = 0; at < doc.rows.length; at++)
+        if (changed(doc.rows[at]) && (at == 0 || !changed(doc.rows[at - 1])))
+          at,
+    ];
   }
-}
 
-class _Switch extends StatelessWidget {
-  const _Switch({
-    super.key,
-    required this.label,
-    required this.count,
-    required this.open,
-    required this.onTap,
-  });
+  int _hunkAt(List<int> blocks) {
+    final stepped = math.min(_hunk, blocks.length - 1);
+    final position = _hunkScroll.positions.length == 1
+        ? _hunkScroll.position
+        : null;
+    final pixels = position != null && position.hasPixels
+        ? position.pixels
+        : 0.0;
+    final top = pixels / DiffBody.rowHeight(context) + _jumpAbove;
+    final at = blocks.lastIndexWhere((row) => row <= top + 0.5);
+    final end =
+        position != null &&
+        position.hasContentDimensions &&
+        position.extentAfter < 1;
+    return end ? math.max(at, stepped) : at;
+  }
 
-  final String label;
-  final String count;
-  final bool open;
-  final VoidCallback onTap;
+  void _stepHunk(List<int> blocks, int step) {
+    if (blocks.isEmpty) return;
+    final hunk = _hunkAt(blocks);
+    final next =
+        (hunk < 0 && step < 0 ? blocks.length - 1 : hunk + step) %
+        blocks.length;
+    setState(() => _hunk = next < 0 ? next + blocks.length : next);
+    _jumpRow(blocks[_hunk]);
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    final tone = open ? context.tokens.accent : context.tokens.textSecondary;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: TapTargets.minHeight),
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: open ? context.tokens.accent : context.tokens.borderNormal,
-            width: Borders.hairline,
-          ),
-          borderRadius: BorderRadius.circular(Radii.sharp),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: context.tokens.panelHeader.copyWith(color: tone),
-            ),
-            const SizedBox(width: Spacing.sm),
-            Flexible(
-              child: Text(
-                count,
-                style: context.tokens.panelHeader.copyWith(
-                  color: context.tokens.textMuted,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+  Widget _block(
+    String key,
+    String says,
+    VoidCallback? onTap, {
+    StrikedIcons? icon,
+    String? word,
+    bool bare = false,
+    bool filled = false,
+    Color? tone,
+  }) => DiffKey(
+    key: ValueKey('diff-$key'),
+    says: says,
+    icon: icon,
+    label: bare ? null : word ?? says,
+    onTap: onTap,
+    filled: filled,
+    tone: tone,
+  );
+
+  Widget _bottomBar(WorkspaceFile file, DiffDoc? doc) {
+    final held = _held;
+    if (held != null && doc != null && !_logOpen) {
+      return _holdBar(file, doc, held);
+    }
+    final blocks = _blockStarts(doc);
+    final files = _session.files ?? const <WorkspaceFile>[];
+    final at = _order(files).indexWhere((row) => row.path == file.path);
+    final before = _neighbour(-1);
+    final after = _neighbour(1);
+    final walks = blocks.length > 1;
+    final said = _session.said;
+    final muted = context.tokens.panelHeader.copyWith(
+      color: context.tokens.textMuted,
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (said != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: Spacing.sm),
+            child: Text(
+              said,
+              style: context.tokens.rowSubtitle.copyWith(
+                color: context.tokens.warning,
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-List<DiffLine>? plainFile(WorkspaceFile file, List<DiffLine> lines) {
-  final side = switch (file.kind) {
-    WorkspaceChangeKind.untracked ||
-    WorkspaceChangeKind.added => DiffLineKind.added,
-    WorkspaceChangeKind.deleted => DiffLineKind.removed,
-    _ => null,
-  };
-  if (side == null) return null;
-  final plain = <DiffLine>[];
-  for (final line in lines) {
-    if (line.kind == DiffLineKind.meta || line.kind == DiffLineKind.hunk) {
-      continue;
-    }
-    if (line.kind == DiffLineKind.capped) {
-      plain.add(line);
-    } else if (line.kind == side) {
-      plain.add(
-        DiffLine(
-          DiffLineKind.context,
-          line.text,
-          oldLine: line.oldLine,
-          newLine: line.newLine,
-        ),
-      );
-    } else {
-      return null;
-    }
-  }
-  return plain.isEmpty ? null : plain;
-}
-
-class _Rail extends StatelessWidget {
-  const _Rail({
-    required this.shift,
-    required this.travel,
-    required this.room,
-    required this.lead,
-  });
-
-  final ValueListenable<double> shift;
-  final double travel;
-  final double room;
-  final double lead;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(left: lead, top: Spacing.xs, bottom: Spacing.xs),
-      child: SizedBox(
-        height: Borders.hairline * 2,
-        child: ValueListenableBuilder<double>(
-          valueListenable: shift,
-          builder: (context, at, _) {
-            // The thumb is as much of the rail as the pane is of the line.
-            final thumb = math.max(room * room / (room + travel), Spacing.xl);
-            final travelled = math.min(at, travel) / travel;
-            return Stack(
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: Layout.columnMax),
+            child: Row(
               children: [
-                Positioned.fill(
-                  child: ColoredBox(color: context.tokens.borderSubtle),
+                _block(
+                  'prev-file',
+                  'PREV FILE',
+                  before == null ? null : () => _pick(before),
+                  icon: StrikedIcons.arrowLeft,
+                  bare: true,
                 ),
-                Positioned(
-                  left: travelled * (room - thumb),
-                  width: thumb,
-                  top: 0,
-                  bottom: 0,
-                  child: ColoredBox(color: context.tokens.textDisabled),
+                Expanded(
+                  child: _count(
+                    at < 0 ? 'FILE' : 'FILE ${at + 1} / ${files.length}',
+                    muted,
+                  ),
+                ),
+                _block(
+                  'next-file',
+                  'NEXT FILE',
+                  after == null ? null : () => _pick(after),
+                  icon: StrikedIcons.arrowRight,
+                  bare: true,
+                ),
+                const SizedBox(width: Spacing.lg),
+                _block(
+                  'prev-hunk',
+                  'HUNK UP',
+                  walks ? () => _stepHunk(blocks, -1) : null,
+                  icon: StrikedIcons.arrowUp,
+                  bare: true,
+                ),
+                Expanded(
+                  child: ListenableBuilder(
+                    listenable: _hunkScroll,
+                    builder: (context, _) {
+                      final hunk = blocks.isEmpty ? -1 : _hunkAt(blocks);
+                      return _count(
+                        blocks.isEmpty
+                            ? 'NO HUNKS'
+                            : hunk < 0
+                            ? '${blocks.length} HUNKS'
+                            : 'HUNK ${hunk + 1} / ${blocks.length}',
+                        muted,
+                      );
+                    },
+                  ),
+                ),
+                _block(
+                  'next-hunk',
+                  'HUNK DOWN',
+                  walks ? () => _stepHunk(blocks, 1) : null,
+                  icon: StrikedIcons.arrowDown,
+                  bare: true,
                 ),
               ],
-            );
-          },
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
-}
 
-class _Stat extends StatelessWidget {
-  const _Stat({required this.added, required this.removed, this.files});
+  Widget _count(String text, TextStyle style) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: Spacing.xs),
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(text, style: style, maxLines: 1),
+    ),
+  );
 
-  final int added;
-  final int removed;
-  final int? files;
+  int _anchor(DiffDoc doc, DiffLine held) {
+    final own = held.newLine;
+    if (own != null) return own;
+    final at = _heldAt(doc.rows) ?? 0;
+    for (var next = at + 1; next < doc.rows.length; next++) {
+      final line = _rowLine(doc.rows[next]).newLine;
+      if (line != null) return line;
+    }
+    for (var back = at - 1; back >= 0; back--) {
+      final line = _rowLine(doc.rows[back]).newLine;
+      if (line != null) return line + 1;
+    }
+    return 1;
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+  void _copied(String text) {
+    unawaited(Clipboard.setData(ClipboardData(text: text)));
+    setState(() => _held = null);
+  }
+
+  VoidCallback? _copyPatch(WorkspaceFile file, int anchor) {
+    final lines = _session.lines ?? _session.bundled(file);
+    final span = lines == null ? null : hunkHolding(lines, anchor);
+    if (lines == null || span == null) return null;
+    return () => _copied(hunkPatch(file.path, lines, span));
+  }
+
+  void _openEditor(UserIntent intent, int line, String path) {
+    final directory = _controller.directory;
+    final inner = '\${EDITOR:-vi} +$line ${shellQuote(path)}; exec \$SHELL -l';
+    openHostShell(
+      context,
+      _controller.host,
+      intent: intent,
+      command: '${shellCd(directory)} && exec \$SHELL -lc ${shellQuote(inner)}',
+      directory: directory,
+    );
+  }
+
+  Future<void> _hunkWrite(
+    WorkspaceFile file,
+    HunkWrite write,
+    int anchor,
+    DiffLine held, {
+    DiffLine? only,
+  }) async {
+    if (write == HunkWrite.discard) {
+      final sure = await confirmSheet(
+        context,
+        title: 'DISCARD',
+        confirmLabel: 'DISCARD',
+        message: file.untracked && only == null
+            ? '${file.path} is deleted. This is not undone.'
+            : only == null
+            ? 'The hunk goes back to how the index has it. This is not undone.'
+            : 'The line goes back to how the index has it. This is not undone.',
+      );
+      if (!sure || !mounted) return;
+    }
+    setState(() => _held = null);
+    await _session.writeHunk(file, write, anchor, only: only, held: held);
+  }
+
+  Widget _holdBar(WorkspaceFile file, DiffDoc doc, DiffLine held) {
+    final number = held.newLine ?? held.oldLine;
+    final anchor = _anchor(doc, held);
+    final ref = '${file.path}:${number ?? anchor}';
+    final change =
+        held.kind == DiffLineKind.added || held.kind == DiffLineKind.removed;
+    final working = _session.source == null;
+    final staged = _session.against == DiffAgainst.staged;
+    final busy = _session.writing;
+    void write(HunkWrite how, {bool line = false}) => unawaited(
+      _hunkWrite(file, how, anchor, held, only: line ? held : null),
+    );
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (files case final count?) ...[
-          Text(
-            '$count ${count == 1 ? 'FILE' : 'FILES'}',
-            style: context.tokens.panelHeader,
-          ),
-          const SizedBox(width: Spacing.lg),
-        ],
-        Text.rich(
-          _countSpan('+$added', context.tokens.accent, added),
-          style: context.tokens.panelHeader,
+        _block(
+          'copy-line',
+          'COPY',
+          () => _copied(held.text),
+          filled: true,
+          tone: context.tokens.accent,
         ),
-        const SizedBox(width: Spacing.md),
-        Text.rich(
-          _countSpan('−$removed', context.tokens.warning, removed),
-          style: context.tokens.panelHeader,
+        _block('copy-ref', 'COPY REF', () => _copied(ref), word: 'REF'),
+        _block('copy-patch', 'PATCH', _copyPatch(file, anchor)),
+        if (working && !file.binary)
+          DiffKey(
+            key: const ValueKey('diff-open-editor'),
+            says: 'OPEN',
+            icon: StrikedIcons.edit,
+            onTap: UserIntent.onGesture(
+              (intent) =>
+                  _openEditor(intent, held.newLine ?? anchor, file.path),
+            ),
+          ),
+        _block(
+          'send-line',
+          'SEND',
+          () => unawaited(
+            showCompose(context, text: '$ref\n```\n${held.text}\n```\n'),
+          ),
+          icon: StrikedIcons.submit,
+          bare: true,
+        ),
+        if (working && staged) ...[
+          _block(
+            'unstage-hunk',
+            'UNSTAGE HUNK',
+            busy ? null : () => write(HunkWrite.unstage),
+            icon: StrikedIcons.unstage,
+            word: 'HUNK',
+          ),
+          if (change)
+            _block(
+              'unstage-line',
+              'UNSTAGE LINE',
+              busy ? null : () => write(HunkWrite.unstage, line: true),
+              icon: StrikedIcons.unstage,
+              word: 'LINE',
+            ),
+        ] else if (working) ...[
+          _block(
+            'stage-hunk',
+            'STAGE HUNK',
+            busy ? null : () => write(HunkWrite.stage),
+            icon: StrikedIcons.stage,
+            word: 'HUNK',
+          ),
+          if (change)
+            _block(
+              'stage-line',
+              'STAGE LINE',
+              busy ? null : () => write(HunkWrite.stage, line: true),
+              icon: StrikedIcons.stage,
+              word: 'LINE',
+            ),
+          _block(
+            'discard-hunk',
+            'DISCARD HUNK',
+            busy ? null : () => write(HunkWrite.discard),
+            icon: StrikedIcons.discard,
+            word: 'HUNK',
+            tone: context.tokens.danger,
+          ),
+          if (change)
+            _block(
+              'discard-line',
+              'DISCARD LINE',
+              busy ? null : () => write(HunkWrite.discard, line: true),
+              icon: StrikedIcons.discard,
+              word: 'LINE',
+              tone: context.tokens.danger,
+            ),
+        ],
+        _block(
+          'drop-line',
+          'LET GO',
+          () => setState(() => _held = null),
+          icon: StrikedIcons.close,
+          bare: true,
+        ),
+        const SizedBox(width: Spacing.sm),
+        Text(
+          held.newLine == null && held.oldLine != null
+              ? 'WAS LINE ${held.oldLine}'
+              : 'LINE ${number ?? '-'}',
+          style: context.tokens.panelHeader.copyWith(
+            color: context.tokens.textMuted,
+          ),
         ),
       ],
     );
   }
 }
 
-/// The gutter scrolls with the text rather than standing still beside it: two scrollers
-/// kept in step is a second source of truth about where the view is, and the one thing
-/// worse than a gutter that moves is a gutter that disagrees with the line next to it.
-class _DiffBody extends StatefulWidget {
-  const _DiffBody({
-    required this.path,
-    required this.doc,
-    required this.jumps,
-    required this.picked,
-    required this.onPick,
-    required this.onFold,
-    this.language,
-  });
+typedef _Tool = ({
+  String key,
+  String says,
+  StrikedIcons icon,
+  String? label,
+  Color? tone,
+  VoidCallback? onTap,
+  bool on,
+  bool spare,
+});
 
-  final String path;
+class _PeekDiff extends StatefulWidget {
+  const _PeekDiff({required this.session, required this.file});
 
-  final _Doc doc;
-
-  final DiffJumps jumps;
-
-  final SyntaxLanguage? language;
-
-  final int? picked;
-
-  final ValueChanged<int> onPick;
-
-  final ValueChanged<int> onFold;
-
-  /// One line's box plus the hairline of air either side of it. Every row is exactly this
-  /// tall — the text never wraps — which is what lets the list build only the rows on
-  /// screen and still know where row ten thousand is. Measured at the size the phone is
-  /// going to paint it: a row sized for the small one cuts the top and bottom off every
-  /// line and puts every jump on the wrong row.
-  static double rowHeight(BuildContext context) =>
-      MediaQuery.textScalerOf(context)
-              .scale(context.tokens.noteBody.fontSize!) *
-          context.tokens.noteBody.height! +
-      _linePadding * 2;
-
-  static const _linePadding = 1.0;
+  final DiffSession session;
+  final WorkspaceFile file;
 
   @override
-  State<_DiffBody> createState() => _DiffBodyState();
+  State<_PeekDiff> createState() => _PeekDiffState();
 }
 
-class _DiffBodyState extends State<_DiffBody>
-    with SingleTickerProviderStateMixin {
-  /// How far left the text is pushed, in pixels. The numbers and the marker are not pushed
-  /// with it. A notifier and not `setState`: a drag repaints the text of the rows on screen
-  /// and nothing else — not the list, not the sheet around it.
-  final ValueNotifier<double> _shift = ValueNotifier(0);
-
-  /// The text carried on after the finger lets go, the way the vertical list is.
-  late final AnimationController _glide = AnimationController.unbounded(
-    vsync: this,
-  )..addListener(_glided);
-
-  double _travel = 0;
-
-  void _glided() {
-    final at = _glide.value.clamp(0.0, _travel);
-    _shift.value = at;
-    if (at != _glide.value) _glide.stop();
-  }
-
-  void _fling(DragEndDetails end) {
-    final velocity = -(end.primaryVelocity ?? 0);
-    if (velocity == 0) return;
-    _glide
-      ..value = _shift.value
-      ..animateWith(
-        ClampingScrollSimulation(position: _shift.value, velocity: velocity),
-      );
-  }
-
-  /// A hunk header has no number of its own, so the search runs on to the first line under
-  /// it that has one.
-  int? _lineAt(double offset) {
-    final rows = widget.doc.rows;
-    for (
-      var row = (offset / _DiffBody.rowHeight(context)).floor();
-      row < rows.length;
-      row++
-    ) {
-      if (row < 0) continue;
-      final line = rows[row].line;
-      final number = line.newLine ?? line.oldLine;
-      if (number != null) return number;
-    }
-    return null;
-  }
-
-  /// Every row's text as drawn, its tabs opened out and its runs and colours moved to
-  /// match, so the width and the mark offsets count the characters on screen.
-  final Map<ShownRow, _Cell> _cells = Map.identity();
-
-  List<DiffStreak> _streaks = const [];
-
-  List<int> _hunks = const [];
-
-  int _widest = 0;
-  int _highest = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _read();
-  }
-
-  @override
-  void didUpdateWidget(covariant _DiffBody old) {
-    super.didUpdateWidget(old);
-    // Another file is another set of lines and another width. The reader is put back at the
-    // left margin rather than dropped into the middle of a line they have not read yet.
-    if (old.path != widget.path) {
-      _glide.stop();
-      _shift.value = 0;
-    }
-    if (!identical(old.doc, widget.doc)) _read();
-  }
-
-  void _read() {
-    _cells.clear();
-    _widest = 0;
-    _highest = 0;
-    final lines = <DiffLine>[];
-    for (final row in widget.doc.rows) {
-      for (final side in [row.across, row.left, row.right]) {
-        if (side == null) continue;
-        final cell = _cells[side] ??= _cell(side);
-        if (cell.text.length > _widest) _widest = cell.text.length;
-        final old = side.line.oldLine ?? 0;
-        final now = side.line.newLine ?? 0;
-        if (old > _highest) _highest = old;
-        if (now > _highest) _highest = now;
-      }
-      lines.add(row.line);
-    }
-    _streaks = diffStreaks(lines);
-    _hunks = hunkRows(lines);
-  }
-
-  _Cell _cell(ShownRow row) {
-    final line = row.line;
-    final text = switch (line.kind) {
-      DiffLineKind.hunk => hunkHeadline(line.text),
-      DiffLineKind.fold => row.fold?.head ?? '',
-      _ => line.text,
-    };
-    return _Cell.open(
-      text,
-      row.moved ? const [] : row.runs,
-      widget.doc.spansOf(row),
-    );
-  }
+class _PeekDiffState extends State<_PeekDiff> {
+  final ScrollController _scroll = ScrollController();
+  late final DiffJumps _jumps = DiffJumps(_scroll);
 
   @override
   void dispose() {
-    _glide.dispose();
-    _shift.dispose();
+    _jumps.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final doc = widget.doc;
-    final advance = _charAdvance(context);
-    final row = _DiffBody.rowHeight(context);
-    final gutter = _gutterWidth(_highest, advance);
-    final halves = doc.split;
-    final lead = _DiffRow.lead(gutter, advance, single: doc.single || halves);
-    final text = _widest * advance + Spacing.panelPadding;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final mapped =
-            _streaks.isNotEmpty &&
-            doc.rows.length * row > constraints.maxHeight;
-        final width = constraints.maxWidth - (mapped ? DiffMap.width : 0);
-        final room = math.max(
-          0.0,
-          (halves ? (width - Borders.hairline) / 2 : width) - lead,
-        );
-        final travel = math.max(0.0, text - room);
-        _travel = travel;
-        Widget side(ShownRow? shown, {required bool old}) {
-          if (shown == null) return const SizedBox.shrink();
-          final line = shown.line;
-          return _DiffRow(
-            line: DiffLine(
-              line.kind,
-              line.text,
-              oldLine: old ? line.oldLine : null,
-              newLine: old ? null : line.newLine,
-            ),
-            cell: _cells[shown]!,
-            moved: shown.moved,
-            gutter: gutter,
-            single: true,
-            language: widget.language,
-            shift: _shift,
-            travel: travel,
-          );
-        }
-
-        Widget rowAt(int index) {
-          final at = doc.rows[index];
-          final across = at.across;
-          if (across != null) {
-            final fold = across.fold;
-            if (fold != null) {
-              return _FoldLine(
-                fold: fold,
-                cell: _cells[across]!,
-                lead: lead,
-                language: widget.language,
-                shift: _shift,
-                travel: travel,
-                onTap: () => widget.onFold(fold.key),
-              );
-            }
-            return _DiffRow(
-              line: across.line,
-              cell: _cells[across]!,
-              moved: across.moved,
-              gutter: gutter,
-              single: doc.single,
-              language: widget.language,
-              shift: _shift,
-              travel: travel,
-              picked: widget.picked == index,
-            );
-          }
-          final pair = Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: side(at.left, old: true)),
-              Container(
-                width: Borders.hairline,
-                color: context.tokens.borderNormal,
-              ),
-              Expanded(child: side(at.right, old: false)),
-            ],
-          );
-          return widget.picked == index ? _Picked(child: pair) : pair;
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        GestureDetector(
-                          // Horizontal against the list's vertical: the arena hands the
-                          // drag to whichever direction it started in. From the touch
-                          // down and not from the win: the rows hold a long press now, so
-                          // the drag has to outrun the slop before the arena gives it
-                          // anything, and the text would otherwise arrive at the finger
-                          // short by exactly that distance every time.
-                          dragStartBehavior: DragStartBehavior.down,
-                          onHorizontalDragDown: travel == 0
-                              ? null
-                              : (_) => _glide.stop(),
-                          onHorizontalDragUpdate: travel == 0
-                              ? null
-                              : (drag) => _shift.value =
-                                    (_shift.value - drag.delta.dx).clamp(
-                                      0.0,
-                                      travel,
-                                    ),
-                          onHorizontalDragEnd: travel == 0 ? null : _fling,
-                          child: ListView.builder(
-                            controller: widget.jumps.scroll,
-                            padding: EdgeInsets.zero,
-                            itemExtent: row,
-                            itemCount: doc.rows.length,
-                            itemBuilder: (context, index) {
-                              final line = doc.rows[index].line;
-                              return GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                // The row that says where a cut file stops is this app's
-                                // sentence about the file rather than anything the file
-                                // has, so there is nothing in it to take.
-                                onLongPress:
-                                    line.kind == DiffLineKind.capped ||
-                                        line.kind == DiffLineKind.fold
-                                    ? null
-                                    : () => widget.onPick(index),
-                                child: rowAt(index),
-                              );
-                            },
-                          ),
-                        ),
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          child: HunkPin(
-                            rows: _hunks,
-                            jumps: widget.jumps,
-                            rowHeight: row,
-                            rowAt: rowAt,
-                          ),
-                        ),
-                        DiffReturn(jumps: widget.jumps, lineAt: _lineAt),
-                      ],
-                    ),
-                  ),
-                  if (mapped)
-                    DiffMap(
-                      streaks: _streaks,
-                      rows: doc.rows.length,
-                      jumps: widget.jumps,
-                    ),
-                ],
-              ),
-            ),
-            if (travel > 0)
-              Padding(
-                // The rail measures the text, so it ends where the text ends
-                // rather than running on under the strip.
-                padding: EdgeInsets.only(right: mapped ? DiffMap.width : 0),
-                child: _Rail(
-                  shift: _shift,
-                  travel: travel,
-                  room: room,
-                  lead: lead,
-                ),
-              ),
-          ],
-        );
-      },
+    final file = widget.file;
+    final read = widget.session.reads[file.path];
+    final images = read?.images;
+    if (images != null) return DiffImages(images: images);
+    final lines = widget.session.bundled(file);
+    final doc = diffDocOf(
+      read,
+      lines,
+      lines == null ? null : plainFile(file, lines),
     );
-  }
-}
-
-class _Cell {
-  const _Cell(this.text, this.runs, this.spans);
-
-  /// A tab opened out to the next eight-column stop. The face draws a tab as one advance
-  /// and the pane was measuring it as eight, so a file indented with tabs came out both
-  /// mismeasured and flattened. Eight is git's own stop and the one the width arithmetic
-  /// already assumed.
-  factory _Cell.open(
-    String text,
-    List<IntralineSpan> runs,
-    List<SyntaxSpan>? spans,
-  ) {
-    spans = spans == null ? null : _cut(spans, text.length);
-    if (!text.contains('\t')) return _Cell(text, runs, spans);
-    final at = List<int>.filled(text.length + 1, 0);
-    final open = StringBuffer();
-    var column = 0;
-    for (var i = 0; i < text.length; i++) {
-      at[i] = column;
-      if (text.codeUnitAt(i) == 0x09) {
-        final stop = _tabStop - column % _tabStop;
-        open.write(' ' * stop);
-        column += stop;
-      } else {
-        open.writeCharCode(text.codeUnitAt(i));
-        column++;
-      }
-    }
-    at[text.length] = column;
-    final opened = open.toString();
-    var from = 0;
-    return _Cell(
-      opened,
-      [for (final run in runs) (start: at[run.start], end: at[run.end])],
-      spans == null
-          ? null
-          : [
-              for (final span in spans)
-                (
-                  text: opened.substring(
-                    at[from],
-                    at[from += span.text.length],
-                  ),
-                  token: span.token,
-                ),
-            ],
-    );
-  }
-
-  final String text;
-  final List<IntralineSpan> runs;
-  final List<SyntaxSpan>? spans;
-
-  static List<SyntaxSpan> _cut(List<SyntaxSpan> spans, int length) {
-    final cut = <SyntaxSpan>[];
-    var at = 0;
-    for (final span in spans) {
-      if (at >= length) break;
-      final end = math.min(at + span.text.length, length);
-      cut.add((text: span.text.substring(0, end - at), token: span.token));
-      at = end;
-    }
-    return cut;
-  }
-}
-
-const _tabStop = 8;
-
-/// The advance of one character in the body's face, measured once. IBM Plex Mono is
-/// monospaced, so the width of a line is its length and the width of the whole diff is
-/// the longest line — arithmetic, where `IntrinsicWidth` was a second layout pass over
-/// every row in the file, and arithmetic is what lets the rows be built lazily.
-double _charAdvance(BuildContext context) {
-  final scaler = MediaQuery.textScalerOf(context);
-  final size = scaler.scale(context.tokens.noteBody.fontSize!);
-  final known = _advance;
-  if (known != null && _advanceAt == size) return known;
-  final painter = TextPainter(
-    text: TextSpan(text: _ruler, style: context.tokens.noteBody),
-    textDirection: TextDirection.ltr,
-    textScaler: scaler,
-  )..layout();
-  final advance = painter.width / _ruler.length;
-  painter.dispose();
-  _advanceAt = size;
-  return _advance = advance;
-}
-
-double? _advance;
-
-/// The painted font size [_advance] was measured at. The system text size can move while
-/// the app is open, and a cache that outlived it would be the same mismeasurement it
-/// exists to avoid.
-double? _advanceAt;
-const _ruler = '0123456789';
-
-/// Wide enough for the highest number either side, with a floor of two digits so a short
-/// file's gutter is not a hairline.
-double _gutterWidth(int highest, double advance) =>
-    (highest < 100 ? 2 : highest.toString().length) * advance + Spacing.md;
-
-class _Picked extends StatelessWidget {
-  const _Picked({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
+    final outline = outlineLine(widget.session.outline(file));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Positioned.fill(child: child),
-        Positioned(
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: Spacing.xs,
-          child: ColoredBox(color: context.tokens.accent),
+        if (outline != null)
+          Padding(
+            padding: const EdgeInsets.all(Spacing.panelPadding),
+            child: Text(
+              outline,
+              style: context.tokens.noteBody.copyWith(
+                color: context.tokens.textMuted,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        Flexible(
+          child: doc == null || doc.rows.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(Spacing.panelPadding),
+                  child: EmptyState('loading…'),
+                )
+              : SizedBox(
+                  height: doc.rows.length * DiffBody.rowHeight(context),
+                  child: DiffBody(
+                    path: file.path,
+                    doc: doc,
+                    language: languageOf(file.path),
+                    jumps: _jumps,
+                    picked: null,
+                    onPick: (_, {required old}) {},
+                    onFold: (_) {},
+                  ),
+                ),
         ),
       ],
     );
   }
 }
 
-class _FoldLine extends StatelessWidget {
-  const _FoldLine({
-    required this.fold,
-    required this.cell,
-    required this.lead,
-    required this.onTap,
-    required this.shift,
-    required this.travel,
-    this.language,
-  });
+class _PeekCommit extends StatelessWidget {
+  const _PeekCommit({required this.commit, required this.files});
 
-  final FoldRow fold;
-  final _Cell cell;
-  final double lead;
-  final VoidCallback onTap;
-  final SyntaxLanguage? language;
-
-  final ValueListenable<double> shift;
-  final double travel;
+  final Commit commit;
+  final List<WorkspaceFile>? files;
 
   @override
   Widget build(BuildContext context) {
-    final muted = context.tokens.noteBody.copyWith(
-      color: context.tokens.textMuted,
-    );
-    final head = fold.head;
-    final lines = fold.count == 1 ? 'line' : 'lines';
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        color: context.tokens.surfacePrimary,
-        padding: const EdgeInsets.only(
-          top: _DiffBody._linePadding,
-          bottom: _DiffBody._linePadding,
-          right: Spacing.panelPadding,
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: lead,
-              child: head == null
-                  ? null
-                  : Padding(
-                      padding: const EdgeInsets.only(right: Spacing.md),
-                      child: FittedBox(
-                        alignment: Alignment.centerRight,
-                        fit: BoxFit.scaleDown,
-                        child: Text('⋯ ${fold.count}', style: muted),
-                      ),
-                    ),
-            ),
-            Expanded(
-              child: head == null
-                  ? Text(
-                      '⋯ ${fold.count} unchanged $lines',
-                      style: muted,
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.clip,
-                    )
-                  : ClipRect(
-                      child: ValueListenableBuilder<double>(
-                        valueListenable: shift,
-                        builder: (context, at, painted) => Transform.translate(
-                          offset: Offset(-math.min(at, travel), 0),
-                          child: painted,
-                        ),
-                        child: OverflowBox(
-                          alignment: Alignment.centerLeft,
-                          maxWidth: double.infinity,
-                          child: Text.rich(
-                            _codeSpan(
-                              context,
-                              cell,
-                              language,
-                              DiffLineKind.context,
-                            ),
-                            style: context.tokens.noteBody.copyWith(
-                              color: context.tokens.textSecondary,
-                            ),
-                            maxLines: 1,
-                            softWrap: false,
-                          ),
-                        ),
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DiffRow extends StatelessWidget {
-  const _DiffRow({
-    required this.line,
-    required this.cell,
-    required this.gutter,
-    required this.shift,
-    required this.travel,
-    this.language,
-    this.moved = false,
-    this.picked = false,
-    this.single = false,
-  });
-
-  final DiffLine line;
-  final _Cell cell;
-  final double gutter;
-  final bool single;
-  final SyntaxLanguage? language;
-
-  final bool moved;
-
-  final ValueListenable<double> shift;
-
-  /// How far the text can go before its longest line ends. Read here as well as in the drag
-  /// so a pane that just got narrower draws clamped instead of writing to the notifier in
-  /// the middle of a build.
-  final double travel;
-
-  final bool picked;
-
-  static double lead(double gutter, double advance, {bool single = false}) =>
-      (single ? gutter + Spacing.md * 2 : gutter * 2 + Spacing.md * 3) +
-      Borders.hairline +
-      advance +
-      Spacing.sm;
-
-  @override
-  Widget build(BuildContext context) {
-    var (marker, text, mark, ground) = switch (line.kind) {
-      DiffLineKind.added => (
-        '+',
-        context.tokens.textPrimary,
-        context.tokens.accent,
-        context.tokens.diffAddedGround,
-      ),
-      DiffLineKind.removed => (
-        '−',
-        context.tokens.textSecondary,
-        context.tokens.danger,
-        context.tokens.diffRemovedGround,
-      ),
-      DiffLineKind.hunk => (
-        ' ',
-        context.tokens.textMuted,
-        context.tokens.textDisabled,
-        context.tokens.surfacePrimary,
-      ),
-      DiffLineKind.meta || DiffLineKind.fold => (
-        ' ',
-        context.tokens.textDisabled,
-        context.tokens.textDisabled,
-        null,
-      ),
-      DiffLineKind.context => (
-        ' ',
-        context.tokens.textSecondary,
-        context.tokens.textDisabled,
-        null,
-      ),
-      DiffLineKind.capped => (
-        '…',
-        context.tokens.warning,
-        context.tokens.warning,
-        context.tokens.diffCappedGround,
-      ),
-    };
-    if (moved) {
-      text = context.tokens.textSecondary;
-      mark = context.tokens.textDisabled;
-      ground = null;
-    }
-    final numbers = context.tokens.noteBody.copyWith(
-      color: context.tokens.textDisabled,
-    );
-    final row = Container(
-      color: ground,
-      padding: const EdgeInsets.symmetric(vertical: _DiffBody._linePadding),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final files = this.files;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(Spacing.panelPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (!single) ...[
-            SizedBox(
-              width: gutter,
-              child: Text(
-                '${line.oldLine ?? ''}',
-                style: numbers,
-                textAlign: TextAlign.right,
-                maxLines: 1,
-              ),
-            ),
-            const SizedBox(width: Spacing.md),
-          ],
-          SizedBox(
-            width: gutter,
-            child: Text(
-              '${(single ? line.newLine ?? line.oldLine : line.newLine) ?? ''}',
-              style: numbers,
-              textAlign: TextAlign.right,
-              maxLines: 1,
-            ),
-          ),
-          const SizedBox(width: Spacing.md),
-          Container(
-            width: Borders.hairline,
-            // The row's whole inside. A fixed height was the row's inside
-            // at one text size and a third of the way short of it at the
-            // largest, which turned the rule into ticks.
-            height: _DiffBody.rowHeight(context) - _DiffBody._linePadding * 2,
-            color: context.tokens.borderSubtle,
-          ),
-          const SizedBox(width: Spacing.md),
           Text(
-            marker,
-            style: context.tokens.noteBody.copyWith(color: mark),
-            maxLines: 1,
+            '${commit.author}  ·  ${commit.age}',
+            style: context.tokens.rowSubtitle,
           ),
-          const SizedBox(width: Spacing.sm),
-          Expanded(
-            child: ClipRect(
-              child: ValueListenableBuilder<double>(
-                valueListenable: shift,
-                builder: (context, at, painted) => Transform.translate(
-                  offset: Offset(-math.min(at, travel), 0),
-                  child: painted,
-                ),
-                // Laid out once at its full width and painted once into its own
-                // layer: a drag moves the layer, it does not paint the line again.
-                child: OverflowBox(
-                  alignment: Alignment.centerLeft,
-                  maxWidth: double.infinity,
-                  child: RepaintBoundary(
-                    child: Padding(
-                      padding: const EdgeInsets.only(
-                        right: Spacing.panelPadding,
-                      ),
-                      child: Text.rich(
-                        _codeSpan(context, cell, language, line.kind),
-                        style: context.tokens.noteBody.copyWith(color: text),
+          const SizedBox(height: Spacing.md),
+          if (files == null)
+            const EmptyState('loading…')
+          else
+            for (final file in files)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        file.path,
+                        style: context.tokens.noteBody,
                         maxLines: 1,
-                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ),
+                    const SizedBox(width: Spacing.md),
+                    Text.rich(
+                      TextSpan(children: fileCountSpans(context, file)),
+                      style: context.tokens.noteBody,
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ),
         ],
       ),
     );
-    if (!picked) return row;
-    return _Picked(child: row);
   }
 }
-
-InlineSpan _codeSpan(
-  BuildContext context,
-  _Cell cell,
-  SyntaxLanguage? language,
-  DiffLineKind kind,
-) {
-  final text = cell.text;
-  final words =
-      kind == DiffLineKind.hunk ||
-      kind == DiffLineKind.meta ||
-      kind == DiffLineKind.capped;
-  final spans = words
-      ? [(text: text, token: SyntaxToken.plain)]
-      : cell.spans ??
-            (language == null
-                ? [(text: text, token: SyntaxToken.plain)]
-                : highlight(text, language));
-  final ground = switch (kind) {
-    DiffLineKind.added => context.tokens.diffAddedRun,
-    DiffLineKind.removed => context.tokens.diffRemovedRun,
-    _ => null,
-  };
-  final runs = ground == null ? const <IntralineSpan>[] : cell.runs;
-  final children = <TextSpan>[];
-  var at = 0;
-  var next = 0;
-  void piece(int from, int to, TextStyle? style) {
-    while (from < to) {
-      while (next < runs.length && runs[next].end <= from) {
-        next++;
-      }
-      final lit = next < runs.length && runs[next].start <= from;
-      final end = lit
-          ? math.min(to, runs[next].end)
-          : next < runs.length
-          ? math.min(to, runs[next].start)
-          : to;
-      children.add(
-        TextSpan(
-          text: text.substring(from, end),
-          style: lit
-              ? (style ?? const TextStyle()).copyWith(backgroundColor: ground)
-              : style,
-        ),
-      );
-      from = end;
-    }
-  }
-
-  for (final span in spans) {
-    final end = math.min(at + span.text.length, text.length);
-    piece(at, end, syntaxStyle(context, span.token));
-    at = end;
-  }
-  if (at < text.length) piece(at, text.length, null);
-  return TextSpan(children: children);
-}
-
-List<TextSpan> fileCountSpans(BuildContext context, WorkspaceFile file) {
-  if (file.binary) return [TextSpan(text: file.untracked ? 'NEW' : 'BINARY')];
-  return [
-    _countSpan('+${file.added}', context.tokens.accent, file.added),
-    const TextSpan(text: ' '),
-    _countSpan('−${file.removed}', context.tokens.warning, file.removed),
-  ];
-}
-
-TextSpan _countSpan(String text, Color lit, int? count) => TextSpan(
-  text: text,
-  style: (count ?? 0) == 0 ? null : TextStyle(color: lit),
-);
-
-String fileKindWord(WorkspaceFile file) => switch (file.kind) {
-  WorkspaceChangeKind.modified => 'MODIFIED',
-  WorkspaceChangeKind.added => 'ADDED',
-  WorkspaceChangeKind.deleted => 'DELETED',
-  WorkspaceChangeKind.renamed => 'RENAMED',
-  WorkspaceChangeKind.untracked => 'UNTRACKED',
-  WorkspaceChangeKind.conflicted => 'CONFLICT',
-};

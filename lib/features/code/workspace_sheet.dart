@@ -243,6 +243,8 @@ class _WorkspaceSheetState extends ConsumerState<WorkspaceSheet> {
 
 const _nameMaxWidth = 112.0;
 
+const _branchLeast = 48.0;
+
 class _Name extends StatelessWidget {
   const _Name({required this.label});
 
@@ -286,31 +288,46 @@ class _BranchCell extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            StrikedIcon(
-              StrikedIcons.branch,
-              size: IconSizes.affordance,
-              color: tint,
-            ),
-            if (branch case final branch?) ...[
-              const SizedBox(width: Spacing.sm),
-              Flexible(
-                child: Text(
-                  branch,
-                  style: tokens.value.copyWith(color: tint),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final tracking = this.tracking;
+            final counts = tracking == null
+                ? 0.0
+                : (TextPainter(
+                    text: TextSpan(text: tracking, style: tokens.value),
+                    textDirection: TextDirection.ltr,
+                    textScaler: MediaQuery.textScalerOf(context),
+                    maxLines: 1,
+                  )..layout()).width;
+            final room =
+                box.maxWidth - IconSizes.affordance - Spacing.sm * 2 - counts;
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                StrikedIcon(
+                  StrikedIcons.branch,
+                  size: IconSizes.affordance,
+                  color: tint,
                 ),
-              ),
-            ],
-            if (tracking case final tracking?) ...[
-              const SizedBox(width: Spacing.sm),
-              Text(tracking, style: tokens.value, maxLines: 1),
-            ],
-          ],
+                if (branch case final branch?) ...[
+                  const SizedBox(width: Spacing.sm),
+                  Flexible(
+                    child: Text(
+                      branch,
+                      style: tokens.value.copyWith(color: tint),
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+                if (tracking != null && room >= _branchLeast) ...[
+                  const SizedBox(width: Spacing.sm),
+                  Text(tracking, style: tokens.value, maxLines: 1),
+                ],
+              ],
+            );
+          },
         ),
       ),
     );

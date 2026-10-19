@@ -133,6 +133,36 @@ SyntaxLanguage? languageOf(String path) {
   };
 }
 
+SyntaxLanguage? languageNamed(String? name) => switch (name) {
+  'dart' => _dart,
+  'javascript' || 'jsx' => _javascript,
+  'typescript' || 'tsx' => _typescript,
+  'go' => _go,
+  'rust' => _rust,
+  'python' => _python,
+  'c' => _c,
+  'cpp' => _cpp,
+  'java' => _java,
+  'kotlin' => _kotlin,
+  'scala' => _scala,
+  'bash' || 'sh' || 'shell' || 'zsh' => _bash,
+  'yaml' => _yaml,
+  'toml' || 'ini' => _ini,
+  'json' => _json,
+  'sql' => _sql,
+  'nix' => _nix,
+  'lua' => _lua,
+  'markdown' => _markdown,
+  'dockerfile' => _dockerfile,
+  'make' || 'makefile' => _makefile,
+  'css' => _css,
+  'scss' => _scss,
+  'html' || 'xml' => _xml,
+  'proto' || 'protobuf' => _protobuf,
+  'graphql' => _graphql,
+  _ => null,
+};
+
 List<SyntaxSpan> highlight(String line, SyntaxLanguage? language) {
   if (language == null || line.isEmpty) return [_plain(line)];
   // A line that opens inside a block comment cannot be told from one that does

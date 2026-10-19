@@ -131,26 +131,17 @@ List<_Atom> _atoms(
         : lines[index];
     var at = offset;
     for (final span in spans) {
-      final whole =
-          span.token == SyntaxToken.string || span.token == SyntaxToken.comment;
-      if (whole) {
-        final trimmed = span.text.trim();
-        if (trimmed.isNotEmpty) {
-          final lead = span.text.indexOf(trimmed);
-          atoms.add((
-            start: at + lead,
-            end: at + lead + trimmed.length,
-            key: trimmed,
-          ));
-        }
-      } else {
-        for (final match in _word.allMatches(span.text)) {
-          atoms.add((
-            start: at + match.start,
-            end: at + match.end,
-            key: match[0]!,
-          ));
-        }
+      final prefix = switch (span.token) {
+        SyntaxToken.string => 's:',
+        SyntaxToken.comment => 'c:',
+        _ => '',
+      };
+      for (final match in _word.allMatches(span.text)) {
+        atoms.add((
+          start: at + match.start,
+          end: at + match.end,
+          key: '$prefix${match[0]!}',
+        ));
       }
       at += span.text.length;
     }
@@ -379,24 +370,53 @@ class FoldRow {
   final int? headLine;
 }
 
+typedef DiffGoto = ({String? path, int line, bool old});
+
 class ShownRow {
   const ShownRow(
     this.line, {
     this.runs = const [],
     this.moved = false,
+    this.block = false,
     this.fold,
     this.fromOld = false,
     this.oldText,
+    this.goto,
+    this.wrapOf,
+    this.spans,
+    this.drawn,
   });
 
   final DiffLine line;
   final List<IntralineSpan> runs;
   final bool moved;
+
+  final bool block;
   final FoldRow? fold;
 
   final bool fromOld;
 
   final String? oldText;
+
+  final DiffGoto? goto;
+
+  final ShownRow? wrapOf;
+
+  final List<SyntaxSpan>? spans;
+
+  final String? drawn;
+
+  ShownRow get whole => wrapOf ?? this;
+
+  ShownRow dimmed() => ShownRow(
+    line,
+    runs: runs,
+    moved: true,
+    block: true,
+    fold: fold,
+    fromOld: fromOld,
+    oldText: oldText,
+  );
 }
 
 const contextLines = 3;
@@ -405,7 +425,11 @@ const foldShortest = 4;
 
 const _declarationShortest = 3;
 
-List<ShownRow> presentFile(StructuralFile file, Set<int> opened) {
+List<ShownRow> presentFile(
+  StructuralFile file,
+  Set<int> opened, {
+  bool Function(AlignedLine row)? reveal,
+}) {
   final rows = file.rows;
   final near = List<bool>.filled(rows.length, false);
   for (var i = 0; i < rows.length; i++) {
@@ -418,6 +442,7 @@ List<ShownRow> presentFile(StructuralFile file, Set<int> opened) {
       near[j] = true;
     }
   }
+  _closeBrackets(file, near);
 
   final folds = <int, FoldRow>{};
   final hidden = List<bool>.filled(rows.length, false);
@@ -434,6 +459,10 @@ List<ShownRow> presentFile(StructuralFile file, Set<int> opened) {
     if (j - i >= foldShortest) {
       for (final fold in _segments(file, i, j)) {
         if (opened.contains(fold.key)) continue;
+        if (reveal != null &&
+            rows.sublist(fold.key, fold.key + fold.count).any(reveal)) {
+          continue;
+        }
         folds[fold.key] = fold;
         for (var k = fold.key; k < fold.key + fold.count; k++) {
           hidden[k] = true;
@@ -485,6 +514,24 @@ List<ShownRow> presentFile(StructuralFile file, Set<int> opened) {
   }
   return shown;
 }
+
+void _closeBrackets(StructuralFile file, List<bool> near) {
+  for (var i = 0; i + 1 < near.length; i++) {
+    if (!near[i] || near[i + 1]) continue;
+    var j = i + 1;
+    while (j < near.length && j - i <= _closerReach) {
+      final row = file.rows[j];
+      if (row.kind != DiffLineKind.context) break;
+      if (!_closer.hasMatch(file.newLines[row.newNo! - 1])) break;
+      near[j++] = true;
+    }
+    i = j - 1;
+  }
+}
+
+const _closerReach = 3;
+
+final _closer = RegExp(r'^\s*[\)\]\}][\)\]\};,]*\s*$');
 
 List<FoldRow> _segments(StructuralFile file, int from, int to) {
   final first = file.rows[from].newNo!;

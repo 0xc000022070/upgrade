@@ -1017,6 +1017,7 @@ void main() {
           'lib/features/agents/agent_shell.dart': 1,
           'lib/features/agents/agents_screen.dart': 2,
           'lib/features/agents/sent_screen.dart': 1,
+          'lib/features/code/diff_sheet.dart': 1,
           'lib/features/code/workspace_sheet.dart': 1,
           'lib/features/home/agents_panel.dart': 2,
           'lib/features/hosts/hosts_screen.dart': 4,

@@ -15,6 +15,9 @@ class SettingsRepository {
   static const codeSidebarShare = 'code_sidebar_share';
   static const codeDrawerShare = 'code_drawer_share';
 
+  static const diffTree = 'diff_tree';
+  static const diffWrap = 'diff_wrap';
+
   static const themeSystem = 'theme_system';
 
   static const whisperLanguage = 'whisper_language';

@@ -28,8 +28,6 @@ class WorkspaceStatus {
   bool get clean => changes.isEmpty;
 }
 
-/// Deliberately coarser than git's two-letter code: the screen has no staging, so a
-/// change staged and a change not staged are the same change to it.
 enum WorkspaceChangeKind {
   modified,
   added,
@@ -40,12 +38,21 @@ enum WorkspaceChangeKind {
 }
 
 class WorkspaceChange {
-  const WorkspaceChange({required this.path, required this.kind, this.origin});
+  const WorkspaceChange({
+    required this.path,
+    required this.kind,
+    this.origin,
+    this.staged = '.',
+    this.unstaged = '.',
+  });
 
   final String path;
   final WorkspaceChangeKind kind;
 
   final String? origin;
+
+  final String staged;
+  final String unstaged;
 }
 
 class Worktree {
@@ -75,6 +82,8 @@ class WorkspaceFile {
     required this.added,
     required this.removed,
     this.origin,
+    this.staged = '.',
+    this.unstaged = '.',
   });
 
   final String path;
@@ -85,8 +94,14 @@ class WorkspaceFile {
   final int? removed;
   final String? origin;
 
+  final String staged;
+  final String unstaged;
+
   bool get binary => added == null;
   bool get untracked => kind == WorkspaceChangeKind.untracked;
+
+  bool get hasStaged => staged != '.' && staged != '?';
+  bool get hasUnstaged => unstaged != '.';
 }
 
 class WorkspaceOverview {
@@ -190,6 +205,8 @@ WorkspaceStatus parseStatus(String output) {
         WorkspaceChange(
           path: line.substring(2),
           kind: WorkspaceChangeKind.untracked,
+          staged: '?',
+          unstaged: '?',
         ),
       );
     } else if (line.startsWith('u ')) {
@@ -198,7 +215,12 @@ WorkspaceStatus parseStatus(String output) {
       final path = _tail(line, 10);
       if (path != null) {
         changes.add(
-          WorkspaceChange(path: path, kind: WorkspaceChangeKind.conflicted),
+          WorkspaceChange(
+            path: path,
+            kind: WorkspaceChangeKind.conflicted,
+            staged: 'U',
+            unstaged: 'U',
+          ),
         );
       }
     } else if (line.startsWith('1 ') || line.startsWith('2 ')) {
@@ -217,10 +239,19 @@ WorkspaceStatus parseStatus(String output) {
                 ? WorkspaceChangeKind.added
                 : WorkspaceChangeKind.renamed,
             origin: tab < 0 || copied ? null : path.substring(tab + 1),
+            staged: code[0],
+            unstaged: code[1],
           ),
         );
       } else {
-        changes.add(WorkspaceChange(path: path, kind: _kindOf(code)));
+        changes.add(
+          WorkspaceChange(
+            path: path,
+            kind: _kindOf(code),
+            staged: code[0],
+            unstaged: code[1],
+          ),
+        );
       }
     }
   }
@@ -410,6 +441,8 @@ List<WorkspaceFile> mergeFiles(
             (final removed, _) => removed,
           },
           origin: kinds[file.path]?.origin ?? file.origin,
+          staged: kinds[file.path]?.staged ?? '.',
+          unstaged: kinds[file.path]?.unstaged ?? '.',
         ),
   ];
   final counted = files.map((file) => file.path).toSet();
@@ -423,6 +456,8 @@ List<WorkspaceFile> mergeFiles(
         kind: WorkspaceChangeKind.untracked,
         added: counts[change.path]?.added,
         removed: counts[change.path]?.removed,
+        staged: '?',
+        unstaged: '?',
       ),
     );
   }
@@ -656,6 +691,17 @@ List<String> _lines(String output, {bool keepEmpty = false}) {
 
 typedef TextRun = ({int start, int end});
 
+typedef CaptureRun = ({int start, int end, String kind});
+
+class FileImages {
+  const FileImages({required this.mime, this.old, this.now});
+
+  final String mime;
+
+  final String? old;
+  final String? now;
+}
+
 class DiffScope {
   const DiffScope({
     required this.line,
@@ -680,12 +726,27 @@ class FileTexts {
     this.changedNew,
     this.scopesOld = const [],
     this.scopesNew = const [],
+    this.language,
+    this.oldOid,
+    this.newOid,
+    this.capturesOld,
+    this.capturesNew,
+    this.images,
   });
 
   final String path;
   final String? old;
   final String? now;
   final String? skipped;
+
+  final String? language;
+  final String? oldOid;
+  final String? newOid;
+
+  final List<CaptureRun>? capturesOld;
+  final List<CaptureRun>? capturesNew;
+
+  final FileImages? images;
 
   final List<TextRun>? changedOld;
   final List<TextRun>? changedNew;
@@ -694,6 +755,8 @@ class FileTexts {
   final List<DiffScope> scopesNew;
 
   bool get readable => skipped == null && (old != null || now != null);
+
+  bool get budgeted => skipped == 'budget';
 }
 
 Map<String, FileTexts>? parseFileTexts(String stdout, List<String> paths) {
@@ -755,7 +818,14 @@ Map<String, FileTexts>? _engineTexts(String body) {
 FileTexts _engineFile(String path, Map<Object?, Object?> file) {
   final changed = file['changed'];
   final scopes = file['scopes'];
+  final highlight = file['highlight'];
   return FileTexts(
+    language: _string(file['language']),
+    oldOid: _string(file['old_oid']),
+    newOid: _string(file['new_oid']),
+    capturesOld: highlight is Map ? _capturesOf(highlight['old']) : null,
+    capturesNew: highlight is Map ? _capturesOf(highlight['new']) : null,
+    images: _imagesOf(file['image']),
     path: path,
     old: file['old'] is String ? file['old']! as String : null,
     now: file['new'] is String ? file['new']! as String : null,
@@ -765,6 +835,29 @@ FileTexts _engineFile(String path, Map<Object?, Object?> file) {
     scopesOld: scopes is Map ? _scopesOf(scopes['old']) : const [],
     scopesNew: scopes is Map ? _scopesOf(scopes['new']) : const [],
   );
+}
+
+String? _string(Object? value) => value is String ? value : null;
+
+List<CaptureRun>? _capturesOf(Object? runs) {
+  if (runs is! List) return null;
+  return [
+    for (final run in runs)
+      if (run case [final int start, final int end, final String kind]
+          when end > start)
+        (start: start, end: end, kind: kind),
+  ];
+}
+
+FileImages? _imagesOf(Object? image) {
+  if (image case {'mime': final String mime}) {
+    return FileImages(
+      mime: mime,
+      old: _string(image['old']),
+      now: _string(image['new']),
+    );
+  }
+  return null;
 }
 
 List<TextRun>? _runsOf(Object? runs) {

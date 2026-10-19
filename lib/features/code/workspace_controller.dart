@@ -144,8 +144,9 @@ class WorkspaceController extends ChangeNotifier {
   /// already answered. A file the answer did not reach — it came back at the byte cap, or
   /// it is untracked and `diff` never names it — is simply absent, and [diff] is still
   /// there for it.
-  Future<Map<String, List<DiffLine>>?> sourceDiffs() =>
-      _diffs(WorkspaceCommands.sourceDiff(_directory));
+  Future<Map<String, List<DiffLine>>?> sourceDiffs({
+    DiffAgainst against = DiffAgainst.head,
+  }) => _diffs(WorkspaceCommands.sourceDiff(_directory, against: against));
 
   Future<Map<String, List<DiffLine>>?> commitDiffs(String sha) =>
       _diffs(WorkspaceCommands.commitDiffAll(_directory, sha));
@@ -158,10 +159,13 @@ class WorkspaceController extends ChangeNotifier {
 
   /// Null when the command failed, which the sheet words as its own empty line rather than
   /// tearing down the screen behind it.
-  Future<List<DiffLine>?> diff(WorkspaceFile file) async {
-    final command = file.untracked
+  Future<List<DiffLine>?> diff(
+    WorkspaceFile file, {
+    DiffAgainst against = DiffAgainst.head,
+  }) async {
+    final command = file.untracked && against != DiffAgainst.staged
         ? WorkspaceCommands.newFileDiff(_directory, file.path)
-        : WorkspaceCommands.fileDiff(_directory, file.path);
+        : WorkspaceCommands.fileDiff(_directory, file.path, against: against);
     final reply = await _run(command);
     if (reply == null || !reply.ok) return null;
     return parseDiff(reply.stdout, complete: _whole(reply.stdout));
@@ -170,6 +174,7 @@ class WorkspaceController extends ChangeNotifier {
   Future<Map<String, FileTexts>?> texts(
     List<WorkspaceFile> files, {
     String? sha,
+    DiffAgainst against = DiffAgainst.head,
   }) async {
     final readable = WorkspaceCommands.textsCarried([
       for (final file in files)
@@ -177,7 +182,7 @@ class WorkspaceController extends ChangeNotifier {
     ]);
     if (readable.isEmpty) return const {};
     final reply = await _run(
-      WorkspaceCommands.texts(_directory, readable, sha: sha),
+      WorkspaceCommands.texts(_directory, readable, sha: sha, against: against),
       quiet: true,
     );
     if (reply == null || !reply.ok) return null;
@@ -213,6 +218,51 @@ class WorkspaceController extends ChangeNotifier {
       utf8.encode(stdout).length < WorkspaceCommands.diffBytes;
 
   /// [path] relative to [directory], empty for the root itself.
+  Future<List<Commit>?> fileLog(String path) async {
+    final reply = await _run(WorkspaceCommands.fileLog(_directory, path));
+    if (reply == null || !reply.ok) return null;
+    return parseCommits(reply.stdout);
+  }
+
+  Future<String?> stage(List<String> paths) =>
+      _write(WorkspaceCommands.stage(_directory, paths));
+
+  Future<String?> unstage(List<String> paths) =>
+      _write(WorkspaceCommands.unstage(_directory, paths));
+
+  Future<String?> discard(List<String> paths, {required bool untracked}) =>
+      _write(
+        WorkspaceCommands.discard(_directory, paths, untracked: untracked),
+      );
+
+  Future<String?> apply(
+    String patch, {
+    required bool cached,
+    required bool reverse,
+  }) {
+    if (utf8.encode(patch).length > workspacePatchBytes) {
+      return Future.value('too large to send');
+    }
+    return _write(
+      WorkspaceCommands.apply(
+        _directory,
+        patch,
+        cached: cached,
+        reverse: reverse,
+      ),
+    );
+  }
+
+  Future<String?> _write(String command) async {
+    final reply = await _run(command);
+    if (_disposed) return null;
+    if (reply == null) return 'connection lost';
+    await _load(_attempt);
+    if (reply.ok) return null;
+    final said = reply.stderr.trim().split('\n').first;
+    return said.isEmpty ? 'git said no' : said.toLowerCase();
+  }
+
   Future<List<DirEntry>?> list(String path) async {
     final reply = await _run(WorkspaceCommands.listing(_directory, path));
     if (reply == null || !reply.ok) return null;

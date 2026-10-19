@@ -565,6 +565,7 @@ class _ExplorerState extends ConsumerState<Explorer> {
           for (final file in files)
             ListRow(
               title: file.path,
+              titleMaxLines: 2,
               subtitle: file.binary ? null : '+${file.added} −${file.removed}',
               leading: FileIcon.file(languageOf(file.path)),
               value: _letter(file.kind),

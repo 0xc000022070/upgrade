@@ -8,6 +8,7 @@ import 'package:striked/application/shell/shell_font.dart';
 import 'package:striked/data/database.dart';
 import 'package:striked/data/repositories/host_repository.dart';
 import 'package:striked/data/repositories/path_repository.dart';
+import 'package:striked/data/repositories/settings_repository.dart';
 import 'package:striked/features/shell/host_shell_screen.dart';
 import 'package:striked/features/shell/sheets/shell_sheet.dart';
 import 'package:striked/features/shell/session/shell_sessions.dart';
@@ -64,6 +65,9 @@ List<Override> get noSettings => [
     (ref) => Stream.value(shellFontSizeDefault),
   ),
   hostsProvider.overrideWith((ref) => Stream.value(const <Host>[])),
+  settingsRepositoryProvider.overrideWith(
+    (ref) => SettingsRepository(memoryDatabase()),
+  ),
 ];
 
 AppDatabase memoryDatabase() {

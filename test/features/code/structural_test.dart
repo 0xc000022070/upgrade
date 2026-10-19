@@ -41,10 +41,32 @@ void main() {
     expect(added.runs, [(start: 6, end: 12)]);
   });
 
-  test('a string is one token whatever changed inside it', () {
+  test('a word changed inside a string marks that word alone', () {
     final file = read("print('a b c');\n", "print('a b d');\n");
     final added = file.rows.firstWhere((row) => row.kind == DiffLineKind.added);
-    expect(added.runs, [(start: 6, end: 13)]);
+    expect(added.runs, [(start: 11, end: 12)]);
+  });
+
+  test('a word in a string never matches the same word in code', () {
+    final file = read("x = name;\n", "x = 'name';\n");
+    final added = file.rows.firstWhere((row) => row.kind == DiffLineKind.added);
+    expect(added.runs, [(start: 4, end: 10)]);
+  });
+
+  test('context under a change runs on through closing brackets', () {
+    final body = [for (var i = 1; i <= 3; i++) '    s$i;'];
+    final old = [
+      'f() {',
+      '  if (x) {',
+      ...body,
+      '  }',
+      '}',
+      for (var i = 1; i <= 12; i++) 'tail$i;',
+    ].join('\n');
+    final now = old.replaceFirst('s1;', 's1 = 1;');
+    final shown = presentFile(read('$old\n', '$now\n'), const {});
+    final texts = [for (final row in shown) row.line.text];
+    expect(texts, containsAllInOrder(['    s3;', '  }', '}']));
   });
 
   test('crlf texts keep their run offsets on every line', () {

@@ -16,10 +16,23 @@ const workspaceNoDirectory = 20;
 
 const workspaceNoRepository = 21;
 
+enum DiffAgainst {
+  head('head'),
+  unstaged('index'),
+  staged('staged');
+
+  const DiffAgainst(this.wire);
+
+  final String wire;
+}
+
+/// Linux refuses one argument past 128 KiB, and a patch travels as one.
+const workspacePatchBytes = 98304;
+
 /// Every one of them is a single `sh -c`, because the cost of asking a machine on the
 /// other side of a phone's radio is the round trip and not the bytes: a screen that
-/// wants three answers asks for them at once and splits on [workspaceRecord]. Nothing
-/// here writes.
+/// wants three answers asks for them at once and splits on [workspaceRecord]. Writes
+/// touch only the index and the working tree.
 abstract final class WorkspaceCommands {
   static String _enter(String directory) =>
       '${shellCd(directory)} 2>/dev/null || exit $workspaceNoDirectory\n'
@@ -75,10 +88,19 @@ abstract final class WorkspaceCommands {
 
   /// The round trip is the cost, not the bytes: a commit of twenty files asked for one at
   /// a time is twenty handshakes' worth of latency on a radio.
-  static String sourceDiff(String directory) => underSh(
+  static String sourceDiff(
+    String directory, {
+    DiffAgainst against = DiffAgainst.head,
+  }) => underSh(
     '${_enter(directory)}'
-    'git --no-pager diff --no-color HEAD | head -c $diffBytes\n',
+    'git --no-pager diff --no-color ${_range(against)}| head -c $diffBytes\n',
   );
+
+  static String _range(DiffAgainst against) => switch (against) {
+    DiffAgainst.head => 'HEAD ',
+    DiffAgainst.unstaged => '',
+    DiffAgainst.staged => '--cached ',
+  };
 
   static String commitDiffAll(String directory, String sha) => underSh(
     '${_enter(directory)}'
@@ -88,9 +110,13 @@ abstract final class WorkspaceCommands {
 
   /// `HEAD` and not the index, so a file staged and then edited again reads as the one
   /// change the user made rather than as two.
-  static String fileDiff(String directory, String path) => underSh(
+  static String fileDiff(
+    String directory,
+    String path, {
+    DiffAgainst against = DiffAgainst.head,
+  }) => underSh(
     '${_enter(directory)}'
-    'git --no-pager diff --no-color HEAD -- ${shellQuote(path)} '
+    'git --no-pager diff --no-color ${_range(against)}-- ${shellQuote(path)} '
     '| head -c $diffBytes\n',
   );
 
@@ -133,9 +159,11 @@ abstract final class WorkspaceCommands {
     String directory,
     List<(String, String?)> files, {
     String? sha,
+    DiffAgainst against = DiffAgainst.head,
   }) {
     final request = jsonEncode({
       'commit': sha,
+      if (sha == null && against != DiffAgainst.head) 'against': against.wire,
       'files': [
         for (final (path, origin) in files) {'path': path, 'origin': origin},
       ],
@@ -144,14 +172,18 @@ abstract final class WorkspaceCommands {
     final sides = StringBuffer();
     for (var index = 0; index < files.length; index++) {
       final (path, origin) = files[index];
-      final before = shellQuote(
-        '${sha == null ? 'HEAD' : '$sha^'}:${origin ?? path}',
-      );
-      sides.write('blob o $index $before\n');
-      if (sha == null) {
-        sides.write('tree $index ${shellQuote(path)}\n');
-      } else {
+      final base = switch ((sha, against)) {
+        (final sha?, _) => '$sha^',
+        (null, DiffAgainst.unstaged) => '',
+        _ => 'HEAD',
+      };
+      sides.write('blob o $index ${shellQuote('$base:${origin ?? path}')}\n');
+      if (sha != null) {
         sides.write('blob n $index ${shellQuote('$sha:$path')}\n');
+      } else if (against == DiffAgainst.staged) {
+        sides.write('blob n $index ${shellQuote(':$path')}\n');
+      } else {
+        sides.write('tree $index ${shellQuote(path)}\n');
       }
     }
     return underSh(
@@ -213,6 +245,55 @@ abstract final class WorkspaceCommands {
     "printf '\\036\\n'\n"
     'git --no-pager show --no-color --first-parent --name-status --format= '
     '${shellQuote(sha)}\n',
+  );
+
+  static String fileLog(
+    String directory,
+    String path, {
+    int count = 100,
+  }) => underSh(
+    '${_enter(directory)}'
+    'git --no-pager log --no-color --follow -n $count '
+    "--pretty='format:%H%x1f%h%x1f%an%x1f%ar%x1f%s' -- ${shellQuote(path)}\n",
+  );
+
+  static String stage(String directory, List<String> paths) => underSh(
+    '${_enter(directory)}'
+    'exec git add -A -- ${paths.map(shellQuote).join(' ')}\n',
+  );
+
+  static String unstage(String directory, List<String> paths) {
+    final quoted = paths.map(shellQuote).join(' ');
+    return underSh(
+      '${_enter(directory)}'
+      'if git rev-parse -q --verify HEAD >/dev/null; then\n'
+      '  git restore --staged -- $quoted 2>/dev/null || exec git reset -q -- $quoted\n'
+      'else exec git rm -q --cached -r -- $quoted; fi\n',
+    );
+  }
+
+  static String discard(
+    String directory,
+    List<String> paths, {
+    required bool untracked,
+  }) {
+    final quoted = paths.map(shellQuote).join(' ');
+    final command = untracked
+        ? 'exec git clean -f -q -- $quoted'
+        : 'git restore --worktree -- $quoted 2>/dev/null || '
+              'exec git checkout -q -- $quoted';
+    return underSh('${_enter(directory)}$command\n');
+  }
+
+  static String apply(
+    String directory,
+    String patch, {
+    required bool cached,
+    required bool reverse,
+  }) => underSh(
+    '${_enter(directory)}'
+    'printf %s ${shellQuote(patch)} | exec git apply --recount '
+    '--whitespace=nowarn ${cached ? '--cached ' : ''}${reverse ? '-R ' : ''}-\n',
   );
 
   static String commitDiff(String directory, String sha, String path) =>
