@@ -32,6 +32,7 @@ import 'package:striked/design/spacing.dart';
 import 'package:striked/platform/links/browser.dart';
 import 'package:striked/features/home/agent_mark.dart';
 import 'package:striked/application/drops/attachment_files.dart';
+import 'package:striked/features/photos/photo_review.dart';
 import 'package:striked/features/tasks/image_viewer.dart';
 import 'package:striked/features/tasks/item_pickers.dart';
 import 'package:striked/features/tasks/item_send.dart';
@@ -210,9 +211,11 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   }
 
   Future<void> _image() async {
-    final path = await ref.read(attachmentFilesProvider).pick();
-    if (!mounted || path == null) return;
-    setState(() => _pending.add(NewAttachment.image(path)));
+    final paths = await ref
+        .read(attachmentFilesProvider)
+        .pick((paths) => reviewPhotos(context, paths, verb: 'ATTACH'));
+    if (!mounted || paths.isEmpty) return;
+    setState(() => _pending.addAll(paths.map(NewAttachment.image)));
     // The picker took the focus to another activity; without this the strip and the keyboard
     // do not come back and the chip lands on a dismissed editor.
     _focus.requestFocus();

@@ -185,7 +185,7 @@ void main() {
     );
     final heavy = png(16);
     final light = png(2);
-    await openSheet(tester, pick: () async => [heavy, light]);
+    await openSheet(tester, pick: (_) async => [heavy, light]);
 
     await tester.tap(photos);
     for (var i = 0; i < 20; i++) {
@@ -213,4 +213,4 @@ void main() {
   });
 }
 
-Future<List<Uint8List>> _none() async => [];
+Future<List<Uint8List>> _none(BuildContext _) async => [];

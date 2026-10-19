@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:striked/application/drops/clips.dart';
+import 'package:striked/features/photos/photo_cut.dart';
 
 /// An image attachment is a copy: the gallery entry can be deleted, moved or re-encoded
 /// by the OS, and a content URI does not survive a reinstall. Rows store the path
@@ -35,23 +36,37 @@ abstract final class ImageAttachments {
     return p.isWithin(p.join(root, _dir), resolved) ? resolved : null;
   }
 
-  /// Gallery only, no camera, and the picker's own resize is used on the way in: what is
-  /// kept is what is sent. Null when the picker was dismissed.
-  static Future<String?> pick() async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
+  static Future<List<String>> pick(PhotoReview review) async {
+    final picked = await ImagePicker().pickMultiImage(
       maxWidth: photoAttachEdge,
       maxHeight: photoAttachEdge,
     );
-    if (picked == null) return null;
+    if (picked.isEmpty) return const [];
+    final kept = await review([for (final file in picked) file.path]);
+    if (kept == null) return const [];
     if (_root == null) await init();
-    final extension = p.extension(picked.path).toLowerCase();
-    final relative = p.join(
-      _dir,
-      '${_uuid.v7()}${extension.isEmpty ? '.jpg' : extension}',
-    );
-    await picked.saveTo(p.join(_root!, relative));
-    return relative;
+    final stored = <String>[];
+    for (final photo in kept) {
+      final keep = photo.keep;
+      final cut = keep == null
+          ? null
+          : await cutImage(await File(photo.path).readAsBytes(), keep);
+      final extension = cut != null
+          ? '.png'
+          : p.extension(photo.path).toLowerCase();
+      final relative = p.join(
+        _dir,
+        '${_uuid.v7()}${extension.isEmpty ? '.jpg' : extension}',
+      );
+      final target = p.join(_root!, relative);
+      if (cut == null) {
+        await File(photo.path).copy(target);
+      } else {
+        await File(target).writeAsBytes(cut);
+      }
+      stored.add(relative);
+    }
+    return stored;
   }
 
   /// Best effort: the row is the record, and a file that is already gone must not stop the

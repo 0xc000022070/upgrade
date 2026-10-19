@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:striked/features/photos/photo_cut.dart';
 import 'package:striked/features/tasks/image_input.dart';
 import 'package:striked/platform/plugins/access.dart';
 import 'package:striked/application/providers.dart';
@@ -14,7 +15,8 @@ class AttachmentFiles {
   final PluginLease _lease;
   String? absolute(String relative) =>
       _lease.read(() => ImageAttachments.absolute(relative));
-  Future<String?> pick() => _lease.call(ImageAttachments.pick);
+  Future<List<String>> pick(PhotoReview review) =>
+      _lease.call(() => ImageAttachments.pick(review));
   Future<void> remove(String relative) =>
       _lease.call(() => ImageAttachments.remove(relative));
 }

@@ -16,6 +16,7 @@ import 'package:striked/design/icons/striked_icon.dart';
 import 'package:striked/design/icons/striked_icons.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:striked/features/photos/photo_review.dart';
 import 'package:striked/features/shell/input/clip_paste.dart';
 import 'package:striked/features/shell/input/photo_attach.dart';
 import 'package:striked/features/shell/session/shell_sessions.dart';
@@ -30,14 +31,17 @@ const attachSheetLinger = Duration(milliseconds: 700);
 /// wait for that read.
 const attachGap = Duration(milliseconds: 300);
 
-typedef PhotoPicker = Future<List<Uint8List>> Function();
+typedef PhotoPicker = Future<List<Uint8List>> Function(BuildContext context);
+
+Future<List<Uint8List>> _pickAndReview(BuildContext context) =>
+    pickPhotos((paths) => reviewPhotos(context, paths, verb: 'SEND'));
 
 typedef FilePicker = Future<List<SharedFile>> Function();
 
 Future<void> showAttachSheet(
   BuildContext context, {
   required ShellSession session,
-  PhotoPicker pick = pickPhotos,
+  PhotoPicker pick = _pickAndReview,
   FilePicker? pickFiles,
 }) => showPanelSheet<void>(
   context,
@@ -89,7 +93,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
     intent,
     'PHOTOS',
     () async => [
-      for (final photo in await widget.pick())
+      for (final photo in await widget.pick(context))
         (
           file: (
             fileName: freshPngName(),
@@ -307,7 +311,8 @@ class _AttachHelp extends StatelessWidget {
     'Puts a picture in the hands of whatever is running in this shell. '
         'An agent under the pty reads it off the clipboard, so it sees the '
         'image itself and not a file name it has to go and open.',
-    'PHOTOS picks from the gallery, as many as you like. Each one is '
+    'PHOTOS picks from the gallery, as many as you like, and shows them '
+        'first: swipe through, crop or drop any, then SEND. Each one is '
         'uploaded to the host, three at a time and the lightest first, put on '
         'the host clipboard and pasted with Ctrl+V as it lands. A host with no '
         'clipboard tool gets the file path typed at the cursor instead.',

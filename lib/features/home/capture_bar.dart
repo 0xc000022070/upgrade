@@ -18,6 +18,7 @@ import 'package:striked/design/icons/striked_icon.dart';
 import 'package:striked/design/icons/striked_icons.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/application/drops/attachment_files.dart';
+import 'package:striked/features/photos/photo_review.dart';
 import 'package:striked/features/tasks/item_pickers.dart';
 import 'package:striked/application/links/urls.dart';
 import 'package:striked/features/tasks/url_highlight_controller.dart';
@@ -155,9 +156,11 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   }
 
   Future<void> _image() async {
-    final path = await ref.read(attachmentFilesProvider).pick();
-    if (!mounted || path == null) return;
-    setState(() => _pending.add(NewAttachment.image(path)));
+    final paths = await ref
+        .read(attachmentFilesProvider)
+        .pick((paths) => reviewPhotos(context, paths, verb: 'ATTACH'));
+    if (!mounted || paths.isEmpty) return;
+    setState(() => _pending.addAll(paths.map(NewAttachment.image)));
     // The picker was another activity; the keyboard and the strip have to come back or the
     // chip lands on a field nobody is in.
     _focus.requestFocus();
