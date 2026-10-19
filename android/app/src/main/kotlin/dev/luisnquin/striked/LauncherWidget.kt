@@ -102,7 +102,6 @@ class LauncherWidget : AppWidgetProvider() {
         private const val SEND_LIST_HEIGHT = 160f
         private const val USAGE_CARD_HEIGHT = 110f
         private const val USAGE_CARD_ROW = 76f
-        private const val USAGE_HOST_ROW = 20f
         private const val USAGE_FRAME = 32f
         private const val USAGE_PAIR_WIDTH = 400f
         private const val USAGE_COMPACT_PAIR_WIDTH = 300f
@@ -432,25 +431,9 @@ class LauncherWidget : AppWidgetProvider() {
                 removeAllViews(R.id.usage_rows)
                 setViewVisibility(R.id.usage_empty, if (accounts.isEmpty()) View.VISIBLE else View.GONE)
                 setViewVisibility(R.id.usage_rows, if (accounts.isEmpty()) View.GONE else View.VISIBLE)
-                if (cards) {
-                    var room = size.height - USAGE_FRAME
-                    for ((host, own) in accounts.groupBy { it.optString("host") }) {
-                        if (room < USAGE_HOST_ROW + USAGE_CARD_ROW) break
-                        room -= USAGE_HOST_ROW
-                        addView(
-                            R.id.usage_rows,
-                            RemoteViews(context.packageName, R.layout.usage_host).apply {
-                                setTextViewText(R.id.usage_host, hostLine(context, host))
-                            },
-                        )
-                        for (pair in own.chunked(columns)) {
-                            if (room < USAGE_CARD_ROW) break
-                            room -= USAGE_CARD_ROW
-                            addView(R.id.usage_rows, usagePair(context, pair, now, true))
-                        }
-                    }
-                } else {
-                    addView(R.id.usage_rows, usagePair(context, accounts.take(columns), now, false))
+                val rows = if (cards) ((size.height - USAGE_FRAME) / USAGE_CARD_ROW).toInt().coerceAtLeast(1) else 1
+                for (pair in accounts.take(rows * columns).chunked(columns)) {
+                    addView(R.id.usage_rows, usagePair(context, pair, now, cards))
                 }
                 setOnClickPendingIntent(R.id.usage_field, open(context, HOME))
             }
@@ -470,11 +453,6 @@ class LauncherWidget : AppWidgetProvider() {
             val windows = account.optJSONArray("windows") ?: return emptyList()
             return (0 until windows.length()).mapNotNull { windows.optJSONObject(it) }.take(USAGE_WINDOWS)
         }
-
-        private fun hostLine(context: Context, host: String): CharSequence =
-            android.text.SpannableStringBuilder("> $host").apply {
-                setSpan(ForegroundColorSpan(context.getColor(R.color.launcher_accent)), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
 
         private fun usagePair(context: Context, accounts: List<JSONObject>, now: Long, card: Boolean): RemoteViews =
             RemoteViews(context.packageName, R.layout.usage_pair).apply {

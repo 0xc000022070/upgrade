@@ -66,7 +66,6 @@ void main() {
       {
         'agent': 'codex',
         'name': 'CODEX · PRO',
-        'host': 'NYX',
         'captured': captured.millisecondsSinceEpoch,
         'day': day,
         'windows': [
@@ -90,7 +89,6 @@ void main() {
       {
         'agent': 'claude',
         'name': 'CLAUDE',
-        'host': 'NYX',
         'day': day,
         'today': 10,
         'yesterday': 0,

@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:striked/application/agents/agent_usage.dart';
 import 'package:striked/application/agents/agents.dart';
-import 'package:striked/data/repositories/host_repository.dart';
 import 'package:striked/design/components/panel.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/design/tokens.dart';
@@ -46,10 +45,7 @@ class _UsagePanelState extends ConsumerState<UsagePanel> {
         widget.usages ?? ref.watch(usageFeedProvider);
     if (usages.isEmpty) return const SizedBox.shrink();
     final at = widget.now ?? DateTime.now();
-    final byHost = <String, (Host, List<AgentUsage>)>{};
-    for (final (:host, :usage) in usages) {
-      byHost.putIfAbsent(host.id, () => (host, [])).$2.add(usage);
-    }
+    final accounts = usageAccounts(usages);
     return Padding(
       padding: const EdgeInsets.only(top: Spacing.panelGap),
       child: Panel(
@@ -73,41 +69,35 @@ class _UsagePanelState extends ConsumerState<UsagePanel> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
-                for (final (host, accounts) in byHost.values) ...[
-                  _HostLine(host),
-                  for (var i = 0; i < accounts.length; i += columns)
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        top: Spacing.md,
-                        bottom: Spacing.md,
-                      ),
-                      child: IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            for (var j = i; j < i + columns; j++) ...[
-                              if (j > i)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: Spacing.lg,
-                                  ),
-                                  child: VerticalDivider(
-                                    width: 1,
-                                    thickness: 1,
-                                    color: context.tokens.borderSubtle,
-                                  ),
+                for (var i = 0; i < accounts.length; i += columns)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: Spacing.md),
+                    child: IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var j = i; j < i + columns; j++) ...[
+                            if (j > i)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: Spacing.lg,
                                 ),
-                              Expanded(
-                                child: j < accounts.length
-                                    ? _Account(accounts[j], now: at)
-                                    : const SizedBox.shrink(),
+                                child: VerticalDivider(
+                                  width: 1,
+                                  thickness: 1,
+                                  color: context.tokens.borderSubtle,
+                                ),
                               ),
-                            ],
+                            Expanded(
+                              child: j < accounts.length
+                                  ? _Account(accounts[j], now: at)
+                                  : const SizedBox.shrink(),
+                            ),
                           ],
-                        ),
+                        ],
                       ),
                     ),
-                ],
+                  ),
               ],
             );
           },
@@ -118,26 +108,6 @@ class _UsagePanelState extends ConsumerState<UsagePanel> {
 }
 
 const usageColumn = 220.0;
-
-class _HostLine extends StatelessWidget {
-  const _HostLine(this.host);
-
-  final Host host;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Row(
-      children: [
-        Text('>', style: tokens.valueStrong.copyWith(color: tokens.accent)),
-        const SizedBox(width: Spacing.md),
-        Text(host.name.toUpperCase(), style: tokens.label),
-        const SizedBox(width: Spacing.md),
-        Expanded(child: Divider(height: 1, color: tokens.borderSubtle)),
-      ],
-    );
-  }
-}
 
 class _Account extends StatelessWidget {
   const _Account(this.usage, {required this.now});

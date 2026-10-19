@@ -165,14 +165,13 @@ List<Map<String, Object?>> launcherUsage(
   List<HostUsage> usages,
   DateTime now,
 ) => [
-  for (final (:host, :usage) in usages)
+  for (final usage in usageAccounts(usages))
     if (usageDays(usage, now) case (:final day, :final today, :final yesterday))
       {
         'agent': usage.agent,
         'name': usage.plan == null
             ? agentMarkName(usage.agent)
             : '${agentMarkName(usage.agent)} · ${usage.plan!.toUpperCase()}',
-        'host': host.name.toUpperCase(),
         'captured': ?usage.captured?.millisecondsSinceEpoch,
         'day': day.millisecondsSinceEpoch,
         'today': ?today?.round(),

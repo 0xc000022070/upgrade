@@ -38,11 +38,13 @@ AgentUsage _codex({
   double fiveHour = 12,
   bool reached = false,
   String? error,
+  String account = 'fixture@localhost',
+  Duration age = const Duration(minutes: 2),
 }) => AgentUsage(
   agent: 'codex',
-  account: 'fixture@localhost',
+  account: account,
   plan: 'pro',
-  captured: _now.subtract(const Duration(minutes: 2)),
+  captured: _now.subtract(age),
   error: error,
   limits: [
     UsageLimit(
@@ -78,7 +80,7 @@ void main() {
 
     expect(find.byType(Panel), findsOneWidget);
     expect(find.text('CODEX · PRO'), findsOneWidget);
-    expect(find.text('NYX'), findsOneWidget);
+    expect(find.text('NYX'), findsNothing);
     expect(find.text('2m ago'), findsOneWidget);
     expect(find.text('fixture@localhost'), findsOneWidget);
     expect(find.byType(AgentMark), findsOneWidget);
@@ -94,7 +96,7 @@ void main() {
   testWidgets('accounts pair up only when two columns fit', (tester) async {
     final both = [
       (host: _nyx, usage: _codex()),
-      (host: _nyx, usage: _codex(fiveHour: 50)),
+      (host: _nyx, usage: _codex(fiveHour: 50, account: 'other@localhost')),
     ];
     double top(int index) =>
         tester.getTopLeft(find.byType(AgentMark).at(index)).dy;
@@ -201,6 +203,34 @@ void main() {
         to,
       ),
       closeTo(10 + 3 + 4, 1e-9),
+    );
+  });
+
+  test('an account read on two hosts is one card, the fresher read', () {
+    const rose = Host(
+      id: 'h2',
+      name: 'rose',
+      address: '100.64.0.2',
+      port: 22,
+      user: 'dev',
+      keyId: 'key-1',
+    );
+    final stale = _codex(age: const Duration(minutes: 9));
+    final fresh = _codex(fiveHour: 40);
+    final other = _codex(account: 'other@localhost');
+
+    expect(
+      usageAccounts([
+        (host: _nyx, usage: stale),
+        (host: rose, usage: fresh),
+        (host: rose, usage: other),
+      ]),
+      [fresh, other],
+    );
+    final failed = fresh.failing('NOT REACHED');
+    expect(
+      usageAccounts([(host: _nyx, usage: failed), (host: rose, usage: fresh)]),
+      [fresh],
     );
   });
 

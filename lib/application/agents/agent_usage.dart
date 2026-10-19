@@ -154,3 +154,20 @@ UsageDays usageDays(AgentUsage usage, DateTime now) {
     yesterday: usageRise(usage.history, before, day),
   );
 }
+
+List<AgentUsage> usageAccounts(List<HostUsage> usages) {
+  final accounts = <(String, String?, String?), AgentUsage>{};
+  for (final (host: _, :usage) in usages) {
+    final key = (usage.agent, usage.account, usage.plan);
+    final kept = accounts[key];
+    if (kept == null || _fresher(usage, kept)) accounts[key] = usage;
+  }
+  return [...accounts.values];
+}
+
+bool _fresher(AgentUsage usage, AgentUsage than) {
+  final (at, other) = (usage.captured, than.captured);
+  if (at == null || other == null) return other == null && at != null;
+  if (at != other) return at.isAfter(other);
+  return usage.error == null && than.error != null;
+}
