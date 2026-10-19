@@ -85,6 +85,43 @@ class ChangeRowsData {
 
 String wrappablePath(String path) => path.replaceAll('/', '/\u200B');
 
+Widget _countsBesideIfRoom(
+  BuildContext context, {
+  required String title,
+  required List<TextSpan> counts,
+  required double reserved,
+  required ListRow Function(bool below) row,
+}) {
+  double measure(BuildContext context, InlineSpan span) {
+    final painter = TextPainter(
+      text: span,
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
+  return LayoutBuilder(
+    builder: (context, box) {
+      final need =
+          measure(
+            context,
+            TextSpan(text: title, style: context.tokens.rowTitle),
+          ) +
+          Spacing.lg +
+          measure(
+            context,
+            TextSpan(children: counts, style: context.tokens.value),
+          ) +
+          reserved;
+      return row(need > box.maxWidth);
+    },
+  );
+}
+
 List<Widget> changeListSlivers(
   BuildContext context,
   ChangeRowsData data, {
@@ -109,72 +146,98 @@ List<Widget> changeListSlivers(
       child: row,
     ),
   );
-  Widget dirRow(ChangeDir dir, int depth) => ruled(
-    depth,
-    ListRow(
-      key: ValueKey('diff-dir-${dir.path}'),
-      title: wrappablePath('${dir.name}/'),
-      titleMaxLines: 4,
-      titleColor: context.tokens.textSecondary,
-      leading: Text(
-        data.closed.contains(dir.path) ? '▸' : '▾',
-        style: context.tokens.noteBody.copyWith(
-          color: context.tokens.textMuted,
+  final lead = letters + Spacing.lg;
+  Widget dirRow(ChangeDir dir, int depth) {
+    final title = wrappablePath('${dir.name}/');
+    final counts = [
+      TextSpan(text: '${dir.count}  '),
+      countSpan('+${dir.added}', context.tokens.accent, dir.added),
+      const TextSpan(text: ' '),
+      countSpan('−${dir.removed}', context.tokens.warning, dir.removed),
+    ];
+    return ruled(
+      depth,
+      _countsBesideIfRoom(
+        context,
+        title: title,
+        counts: counts,
+        reserved: lead,
+        row: (below) => ListRow(
+          key: ValueKey('diff-dir-${dir.path}'),
+          title: title,
+          metadataBelow: below,
+          titleMaxLines: 4,
+          titleColor: context.tokens.textSecondary,
+          leading: Text(
+            data.closed.contains(dir.path) ? '▸' : '▾',
+            style: context.tokens.noteBody.copyWith(
+              color: context.tokens.textMuted,
+            ),
+          ),
+          leadingWidth: letters,
+          valueSpans: counts,
+          onTap: () => onFoldDir(dir),
         ),
       ),
-      leadingWidth: letters,
-      valueSpans: [
-        TextSpan(text: '${dir.count}  '),
-        countSpan('+${dir.added}', context.tokens.accent, dir.added),
-        const TextSpan(text: ' '),
-        countSpan('−${dir.removed}', context.tokens.warning, dir.removed),
-      ],
-      onTap: () => onFoldDir(dir),
-    ),
-  );
-  Widget fileRow(WorkspaceFile file, int depth) => ruled(
-    depth,
-    peekable(
-      file,
-      ListRow(
-        key: ValueKey('diff-file-${file.path}'),
-        title: wrappablePath(data.tree ? baseName(file.path) : file.path),
-        titleMaxLines: 4,
-        subtitle:
-            outlineLine(data.outlineOf(file)) ??
-            (file.origin == null ? null : 'from ${file.origin}'),
-        subtitleMaxLines: 2,
-        subtitleColor: context.tokens.textMuted,
-        titleColor: file.path == data.picked
-            ? context.tokens.accent
-            : data.viewed(file)
-            ? context.tokens.textMuted
-            : null,
-        leading: StatusLetters.of(file),
-        leadingWidth: letters,
-        valueSpans: fileCountSpans(context, file),
-        trailing: data.working
-            ? GestureDetector(
-                key: ValueKey('diff-viewed-${file.path}'),
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onToggleViewed(file),
-                child: Padding(
-                  padding: const EdgeInsets.only(left: Spacing.md),
-                  child: Text(
-                    data.viewed(file) ? '✓' : '·',
-                    style: context.tokens.noteBody.copyWith(
-                      color: data.viewed(file)
-                          ? context.tokens.accent
-                          : context.tokens.textDisabled,
+    );
+  }
+
+  final viewedWidth = Spacing.sm + Spacing.md + diffCharAdvance(context);
+  Widget fileRow(WorkspaceFile file, int depth) {
+    final title = wrappablePath(data.tree ? baseName(file.path) : file.path);
+    final counts = fileCountSpans(context, file);
+    return ruled(
+      depth,
+      peekable(
+        file,
+        _countsBesideIfRoom(
+          context,
+          title: title,
+          counts: counts,
+          reserved: lead + (data.working ? viewedWidth : 0),
+          row: (below) => ListRow(
+            key: ValueKey('diff-file-${file.path}'),
+            title: title,
+            metadataBelow: below,
+            titleMaxLines: 4,
+            subtitle:
+                outlineLine(data.outlineOf(file)) ??
+                (file.origin == null ? null : 'from ${file.origin}'),
+            subtitleMaxLines: 2,
+            subtitleColor: context.tokens.textMuted,
+            titleColor: file.path == data.picked
+                ? context.tokens.accent
+                : data.viewed(file)
+                ? context.tokens.textMuted
+                : null,
+            leading: StatusLetters.of(file),
+            leadingWidth: letters,
+            valueSpans: counts,
+            trailing: data.working
+                ? GestureDetector(
+                    key: ValueKey('diff-viewed-${file.path}'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onToggleViewed(file),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: Spacing.md),
+                      child: Text(
+                        data.viewed(file) ? '✓' : '·',
+                        style: context.tokens.noteBody.copyWith(
+                          color: data.viewed(file)
+                              ? context.tokens.accent
+                              : context.tokens.textDisabled,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              )
-            : null,
-        onTap: () => onPick(file),
+                  )
+                : null,
+            onTap: () => onPick(file),
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
+
   List<Widget> level(ChangeDir dir, int depth) {
     final files = sortedFiles(dir);
     return [

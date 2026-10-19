@@ -2575,6 +2575,37 @@ new file mode 100644
 
       await unmount(tester);
     });
+
+    testWidgets('a name too long beside its counts gets the counts under it', (
+      tester,
+    ) async {
+      const long = 'mobile-workload-comparison-2026-10-14-with-its-artifacts';
+      final names = [
+        '$long/artifact-validation-for-the-whole-comparison.json',
+        '$long/b.html',
+        'lib/a.dart',
+        'lib/comparison-data.json',
+      ];
+      final runner = FakeRunner(
+        overview: overviewOf(
+          names.map((name) => '? $name\n').join(),
+          '',
+          names.map((name) => '$name:1\n').join(),
+        ),
+      );
+      await bare(tester, runner: runner, size: const Size(400, 900));
+      ListRow row(String key) =>
+          tester.widget<ListRow>(onSheet(find.byKey(ValueKey(key))));
+
+      expect(row('diff-dir-$long').metadataBelow, isTrue);
+      expect(row('diff-dir-lib').metadataBelow, isFalse);
+      expect(row('diff-file-${names.first}').metadataBelow, isTrue);
+      expect(row('diff-file-lib/a.dart').metadataBelow, isFalse);
+      // Fits the row alone, not beside its counts.
+      expect(row('diff-file-lib/comparison-data.json').metadataBelow, isTrue);
+
+      await unmount(tester);
+    });
   });
   group('the tracker', () {
     // The default fake lists the same two entries wherever it is asked, so the root is
