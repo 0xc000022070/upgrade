@@ -137,12 +137,22 @@ double? usageRise(List<UsageSample> history, DateTime from, DateTime to) {
   for (var i = 1; i < history.length; i++) {
     final (before, after) = (history[i - 1], history[i]);
     if (after.at.isBefore(from) || !after.at.isBefore(to)) continue;
-    rise += after.resetsAt == before.resetsAt
-        ? math.max(0, after.usedPercent - before.usedPercent)
-        : after.usedPercent;
+    rise += _restarted(before, after)
+        ? after.usedPercent
+        : math.max(0, after.usedPercent - before.usedPercent);
   }
   return rise;
 }
+
+// A reset time that drifts between reads is not a new window: one began only
+// if the share fell or the earlier window's reset has come.
+bool _restarted(UsageSample before, UsageSample after) =>
+    after.resetsAt != before.resetsAt &&
+    (after.usedPercent < before.usedPercent ||
+        switch (before.resetsAt) {
+          final resets? => !after.at.isBefore(resets),
+          null => true,
+        });
 
 UsageDays usageDays(AgentUsage usage, DateTime now) {
   final day = DateTime(now.year, now.month, now.day);

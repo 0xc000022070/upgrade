@@ -206,6 +206,24 @@ void main() {
     );
   });
 
+  test('a reset time that drifts between reads does not start a window', () {
+    final from = DateTime(2026, 10, 18);
+    final to = DateTime(2026, 10, 19);
+    UsageSample at(int minute, double used) {
+      final read = from.add(Duration(minutes: minute));
+      return UsageSample(
+        at: read,
+        usedPercent: used,
+        resetsAt: read.add(const Duration(days: 1)),
+      );
+    }
+
+    expect(
+      usageRise([at(0, 34), at(1, 34), at(2, 35), at(3, 35)], from, to),
+      closeTo(1, 1e-9),
+    );
+  });
+
   test('an account read on two hosts is one card, the fresher read', () {
     const rose = Host(
       id: 'h2',
