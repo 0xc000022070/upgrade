@@ -49,7 +49,7 @@
 ///   (tested: ssh_lifecycle_model).
 /// - A terminal silent past its health window has ended (tested: shell_tunnel).
 /// - Besides the revive below, only `ShellSessions`' reconnect schedule for a dropped tab
-///   dials on a timer, with a [Reconnect] (convention).
+///   and its banner watch over a waiting tab dial on a timer, with a [Reconnect] (convention).
 ///
 /// Liveness, settling, sleep (tested: host_links, host_owner, ssh_lifecycle_model,
 /// shell_sessions):

@@ -17,6 +17,7 @@ import 'package:striked/design/components/dot_spinner.dart';
 import 'package:striked/features/shell/host_shell_screen.dart';
 import 'package:striked/features/shell/session/shell_sessions.dart';
 import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/links/link_probe.dart';
 import 'package:striked/platform/shell/host_system.dart';
 import 'package:striked/platform/shell/remote_shell.dart';
 import 'package:striked/platform/shell/shell_connection.dart';
@@ -2000,6 +2001,72 @@ void main() {
     expect(session.state, isA<ShellWaiting>());
 
     await sessions.close(intent: testIntent(), _rose.id, session);
+  });
+
+  testWidgets('a waiting tab on screen dials once its host answers a banner', (
+    tester,
+  ) async {
+    var status = LinkStatus.noRoute;
+    final asked = <String>[];
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(
+      transport,
+      probeHost: (address, port) async {
+        asked.add('$address:$port');
+        return LinkResult(status);
+      },
+    );
+    final session = sessions.open(intent: testIntent(), _rose)!;
+    await _pumpDial(tester);
+
+    await _spend(tester, transport, session);
+    transport.refuse = null;
+    final spent = transport.verifiers.length;
+    expect(session.state, isA<ShellWaiting>());
+
+    await tester.pump(shellWaitingWatch);
+    await _pumpDial(tester);
+    expect(asked, ['${_rose.address}:${_rose.port}']);
+    expect(transport.verifiers, hasLength(spent));
+    expect(session.state, isA<ShellWaiting>());
+
+    status = LinkStatus.up;
+    await tester.pump(shellWaitingWatch);
+    await _pumpDial(tester);
+    expect(transport.verifiers, hasLength(spent + 1));
+    expect(session.state, isA<ShellLive>());
+
+    await tester.pump(shellWaitingWatch * 3);
+    expect(asked, hasLength(2));
+
+    await sessions.close(intent: testIntent(), _rose.id, session);
+  });
+
+  testWidgets('a waiting tab asks nothing while the app is away', (
+    tester,
+  ) async {
+    final asked = <String>[];
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(
+      transport,
+      probeHost: (address, port) async {
+        asked.add('$address:$port');
+        return const LinkResult(LinkStatus.up);
+      },
+    );
+    final session = sessions.open(intent: testIntent(), _rose)!;
+    await _pumpDial(tester);
+
+    await _spend(tester, transport, session);
+    sessions.leave(testSignal());
+    await tester.pump(shellWaitingWatch * 3);
+    await _pumpDial(tester);
+
+    expect(asked, isEmpty);
+    expect(session.state, isA<ShellWaiting>());
+
+    await sessions.close(intent: testIntent(), _rose.id, session);
+    await tester.pump(const Duration(seconds: 30));
   });
 
   testWidgets('a live tab and a tab that failed on an answer are not woken', (

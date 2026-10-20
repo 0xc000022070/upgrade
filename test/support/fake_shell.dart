@@ -9,6 +9,7 @@ import 'package:striked/data/enums.dart';
 import 'package:striked/data/repositories/host_repository.dart' show Host;
 import 'package:striked/features/shell/session/shell_sessions.dart';
 import 'package:dartssh2/dartssh2.dart' show SSHChannelRequestError;
+import 'package:striked/platform/links/link_probe.dart';
 import 'package:striked/platform/shell/shell_connection.dart';
 import 'package:striked/platform/ssh/host_files.dart'
     show FileBody, PutProgress, collectBytes, putFile, putLanded;
@@ -373,6 +374,7 @@ ShellSessions fakeShellSessions(
   DateTime Function() now = DateTime.now,
   Future<void> Function(String hostId, HostSystem system)? recordSystem,
   Future<Host> Function(Host host)? beforeDial,
+  Future<LinkResult> Function(String address, int port)? probeHost,
 }) => ShellSessions(
   readPrivateKey: (_) async => privateKey,
   pinHostKey: pinHostKey ?? (_, _) async {},
@@ -388,4 +390,5 @@ ShellSessions fakeShellSessions(
   now: now,
   recordSystem: recordSystem,
   beforeDial: beforeDial,
+  probeHost: probeHost ?? (_, _) async => const LinkResult(LinkStatus.noRoute),
 );

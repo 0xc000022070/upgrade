@@ -19,6 +19,7 @@ import 'package:striked/data/repositories/shell_tab_repository.dart';
 import 'package:striked/data/shell_snapshot_store.dart';
 import 'package:striked/design/tokens.dart';
 import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:striked/platform/links/link_probe.dart';
 import 'package:striked/platform/ssh/host_keys.dart';
 import 'package:striked/platform/ssh/host_links.dart';
 import 'package:striked/platform/notifications/pin_notifications.dart';
@@ -147,6 +148,8 @@ const shellReconnectDelays = <Duration>[
 /// The network arriving and the resume behind it are one wake-up of the phone, so a second
 /// rehome landing inside this of the first is the same moment asking twice.
 const shellRehomeSettle = Duration(seconds: 1);
+
+const shellWaitingWatch = Duration(seconds: 10);
 
 const agentProbeDeadline = Duration(seconds: 3);
 
@@ -584,6 +587,8 @@ class ShellSession extends ChangeNotifier {
   Timer? _reconnect;
   DateTime? _due;
 
+  Reconnect? _waitingOn;
+
   bool _rehoming = false;
   bool _rehomeNetwork = false;
   NetworkChanged? _networkOwed;
@@ -667,10 +672,20 @@ class ShellSessions extends ChangeNotifier {
     this.now = DateTime.now,
     UdpVerdicts? udpVerdicts,
     this.links,
+    Future<LinkResult> Function(String address, int port)? probeHost,
+    this.waitingWatch = shellWaitingWatch,
   }) : _override = open,
+       _probeHost = probeHost ?? probeLink,
        udpVerdicts = udpVerdicts ?? UdpVerdicts();
 
   final HostLinks? links;
+
+  final Future<LinkResult> Function(String address, int port) _probeHost;
+
+  final Duration waitingWatch;
+
+  Timer? _watch;
+  final _watching = <String>{};
 
   final PinNotifier? notifier;
 
@@ -1191,6 +1206,8 @@ class ShellSessions extends ChangeNotifier {
     }
     _sleep?.cancel();
     _sleep = Timer(sleepGrace, _fallAsleep);
+    _watch?.cancel();
+    _watch = null;
   }
 
   void returned(AppResumed reason) {
@@ -1436,6 +1453,7 @@ class ShellSessions extends ChangeNotifier {
     session._stopAsking();
     session.disarm();
     _byHost[hostId]?.remove(session);
+    _unwatchIdle();
     _programs(!session.programs.isEmpty);
     if (_byHost[hostId]?.isEmpty ?? false) {
       _byHost.remove(hostId);
@@ -2213,11 +2231,10 @@ class ShellSessions extends ChangeNotifier {
         _drop(session, dropped + 1, retry, kind);
         return;
       }
-      // The schedule is spent, and sixty-eight seconds of it may have run in a
-      // pocket. Nothing is on a clock from here; the phone coming back in front or a
-      // network arriving is what dials again.
       session.state = ShellWaiting(kind, detail: session._detail);
+      session._waitingOn = retry;
       session.changed();
+      _watchWaiting();
       return;
     }
     session.state = ShellFailed(kind, detail: session._detail);
@@ -2290,6 +2307,59 @@ class ShellSessions extends ChangeNotifier {
         wake(session, reason);
       }
     }
+    _watchWaiting();
+  }
+
+  Iterable<ShellSession> get _watched => _byHost.values
+      .expand((sessions) => sessions)
+      .where(
+        (session) =>
+            session.state is ShellWaiting && session._waitingOn != null,
+      );
+
+  void _watchWaiting() {
+    if (_away || _watch != null || _watched.isEmpty) return;
+    _watch = Timer(waitingWatch, _askWaiting);
+  }
+
+  void _unwatchIdle() {
+    if (_watched.isNotEmpty) return;
+    _watch?.cancel();
+    _watch = null;
+  }
+
+  void _askWaiting() {
+    _watch = null;
+    final waiting = _watched.toList();
+    if (_away || waiting.isEmpty) return;
+    _watchWaiting();
+    for (final hostId in {for (final session in waiting) session.host.id}) {
+      if (!_watching.add(hostId)) continue;
+      final host = waiting
+          .firstWhere((session) => session.host.id == hostId)
+          .host;
+      unawaited(
+        _probeHost(host.address, host.port)
+            .then((result) {
+              if (result.status != LinkStatus.up || _away || _held > 0) return;
+              for (final session in List.of(forHost(hostId))) {
+                final retry = session._waitingOn;
+                final waiting = session.state;
+                if (retry == null || waiting is! ShellWaiting) continue;
+                session._waitingOn = null;
+                session.state = ShellDropped(
+                  1,
+                  kind: waiting.kind,
+                  detail: waiting.detail,
+                );
+                session.changed();
+                unawaited(_redial(session, retry));
+              }
+              _unwatchIdle();
+            })
+            .whenComplete(() => _watching.remove(hostId)),
+      );
+    }
   }
 
   void _rehome(
@@ -2340,6 +2410,7 @@ class ShellSessions extends ChangeNotifier {
     if (_held > 0 || waiting is! ShellWaiting) return;
     session.state = ShellDropped(1, kind: waiting.kind, detail: waiting.detail);
     session.changed();
+    _unwatchIdle();
     unawaited(_redial(session, reason));
   }
 
@@ -2353,6 +2424,7 @@ class ShellSessions extends ChangeNotifier {
       detail: failure?.detail,
     );
     session.changed();
+    _unwatchIdle();
     unawaited(_redial(session, action));
   }
 
@@ -2399,6 +2471,7 @@ class ShellSessions extends ChangeNotifier {
     session.disarm();
     session.state = ShellFailed(kind, detail: session._detail);
     session.changed();
+    _unwatchIdle();
   }
 
   void _drop(
@@ -2426,6 +2499,7 @@ class ShellSessions extends ChangeNotifier {
     final previous = session.connection;
     final ended = previous?.ended;
     if (previous != null && ended == null) {
+      session._waitingOn = null;
       session.state = ShellWaiting(
         ShellFailureKind.streamClosed,
         detail: session._detail,
