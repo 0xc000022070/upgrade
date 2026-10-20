@@ -1,9 +1,11 @@
 import '../../support/native_plugins.dart';
 
 import 'package:drift/native.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:striked/application/agents/agents.dart';
 import 'package:striked/data/database.dart';
 import 'package:striked/data/repositories/activity_repository.dart';
 import 'package:striked/data/repositories/project_repository.dart';
@@ -60,6 +62,21 @@ Future<void> _drain(
 
 Future<void> _ready(WidgetTester tester) =>
     _drain(tester, step: const Duration(milliseconds: 100));
+
+Finder _space(String label) => find.byKey(ValueKey('home-space-$label'));
+
+Future<void> _hold(WidgetTester tester, Finder card, Finder onto) async {
+  final from = tester.getCenter(card);
+  final to = tester.getCenter(onto);
+  final gesture = await tester.startGesture(from);
+  await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+  for (var i = 1; i <= 4; i++) {
+    await gesture.moveTo(Offset.lerp(from, to, i / 4)!);
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  await gesture.up();
+  await _ready(tester);
+}
 
 void main() {
   late AppDatabase db;
@@ -118,6 +135,80 @@ void main() {
     await _ready(tester);
 
     expect(find.text('/ STRIKED / PLUGINS'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a card dropped on + opens a workspace of its own', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    expect(_space('1'), findsOneWidget);
+    expect(_space('2'), findsNothing);
+
+    await _hold(tester, find.text('DROPS'), _space('+'));
+    expect(find.text('DROPS'), findsNothing);
+    expect(find.text('AGENTS'), findsOneWidget);
+    expect(_space('2'), findsOneWidget);
+
+    await tester.tap(_space('2'));
+    await _ready(tester);
+    expect(find.text('DROPS'), findsOneWidget);
+    expect(find.text('AGENTS'), findsNothing);
+    final scope = ProviderScope.containerOf(
+      tester.element(find.byType(HomeScreen)),
+    );
+    expect(scope.read(homeAgentsVisibleProvider), isFalse);
+
+    await tester.fling(find.text('DROPS'), const Offset(300, 0), 1000);
+    await _ready(tester);
+    expect(find.text('AGENTS'), findsOneWidget);
+    expect(scope.read(homeAgentsVisibleProvider), isTrue);
+    expect(find.text('DROPS'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a card dropped on another takes its place', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 900);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    double top(String title) => tester.getTopLeft(find.text(title)).dy;
+    expect(top('AGENTS'), lessThan(top('DROPS')));
+
+    await _hold(tester, find.text('AGENTS'), find.text('DROPS'));
+    expect(top('DROPS'), lessThan(top('AGENTS')));
+
+    await unmount(tester);
+  });
+
+  testWidgets('a workspace left empty says how to fill it, then goes', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 900);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    await _hold(tester, find.text('DROPS'), _space('+'));
+    await tester.tap(_space('2'));
+    await _ready(tester);
+    await _hold(tester, find.text('DROPS'), _space('1'));
+    expect(
+      find.text('EMPTY · HOLD A CARD AND DROP IT ON A NUMBER'),
+      findsOneWidget,
+    );
+    expect(_space('2'), findsOneWidget);
+
+    await tester.tap(_space('1'));
+    await _ready(tester);
+    expect(find.text('AGENTS'), findsOneWidget);
+    expect(find.text('DROPS'), findsOneWidget);
+    expect(_space('2'), findsNothing);
+    expect(_space('+'), findsOneWidget);
 
     await unmount(tester);
   });

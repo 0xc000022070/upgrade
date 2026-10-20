@@ -3,6 +3,10 @@ import 'dart:io';
 
 import 'package:striked/platform/plugins/contributions.dart';
 
+const homeAgentsId = 'striked:home:agents';
+
+const homeSpaceCount = 9;
+
 class PluginPlacementState {
   PluginPlacementState({
     Map<String, PluginPlacementLocation> placements = const {},
@@ -12,6 +16,8 @@ class PluginPlacementState {
     Set<String> knownPages = const {},
     List<String> homeOrder = const [],
     Set<String> hiddenHome = const {},
+    Map<String, int> homeSpaces = const {},
+    this.homeSpace = 1,
     List<String> pinnedPages = const [],
   }) : placements = Map.unmodifiable(placements),
        homeOrder = List.unmodifiable(homeOrder),
@@ -20,6 +26,7 @@ class PluginPlacementState {
        knownWidgets = Set.unmodifiable(knownWidgets),
        knownPages = Set.unmodifiable(knownPages),
        hiddenHome = Set.unmodifiable(hiddenHome),
+       homeSpaces = Map.unmodifiable(homeSpaces),
        pinnedPages = List.unmodifiable(pinnedPages);
 
   final Map<String, PluginPlacementLocation> placements;
@@ -29,7 +36,11 @@ class PluginPlacementState {
   final Set<String> knownPages;
   final List<String> homeOrder;
   final Set<String> hiddenHome;
+  final Map<String, int> homeSpaces;
+  final int homeSpace;
   final List<String> pinnedPages;
+
+  int spaceOf(String id) => homeSpaces[id] ?? 1;
 
   PluginPlacementState copyWith({
     Map<String, PluginPlacementLocation>? placements,
@@ -39,6 +50,8 @@ class PluginPlacementState {
     Set<String>? knownPages,
     List<String>? homeOrder,
     Set<String>? hiddenHome,
+    Map<String, int>? homeSpaces,
+    int? homeSpace,
     List<String>? pinnedPages,
   }) => PluginPlacementState(
     placements: placements ?? this.placements,
@@ -48,6 +61,8 @@ class PluginPlacementState {
     knownPages: knownPages ?? this.knownPages,
     homeOrder: homeOrder ?? this.homeOrder,
     hiddenHome: hiddenHome ?? this.hiddenHome,
+    homeSpaces: homeSpaces ?? this.homeSpaces,
+    homeSpace: homeSpace ?? this.homeSpace,
     pinnedPages: pinnedPages ?? this.pinnedPages,
   );
 
@@ -62,6 +77,8 @@ class PluginPlacementState {
     'known_pages': knownPages.toList(),
     'home_order': homeOrder,
     'hidden_home': hiddenHome.toList(),
+    'home_spaces': homeSpaces,
+    'home_space': homeSpace,
     'pinned_pages': pinnedPages,
   };
 
@@ -79,6 +96,8 @@ class PluginPlacementState {
     final rawOrder = value['home_order'];
     final rawHidden = value['hidden_home'];
     final rawPinned = value['pinned_pages'];
+    final rawSpaces = value['home_spaces'] ?? <String, Object?>{};
+    final homeSpace = value['home_space'] ?? 1;
     if (rawPlacements is! Map<String, Object?> ||
         rawSizes is! Map<String, Object?> ||
         rawWidths is! Map<String, Object?> ||
@@ -86,7 +105,9 @@ class PluginPlacementState {
         rawKnownPages is! List<Object?> ||
         rawOrder is! List<Object?> ||
         rawHidden is! List<Object?> ||
-        rawPinned is! List<Object?>) {
+        rawPinned is! List<Object?> ||
+        rawSpaces is! Map<String, Object?> ||
+        !_validSpace(homeSpace)) {
       throw const PluginPlacementException('Invalid plugin placement data');
     }
     if (rawPlacements.length > 256 ||
@@ -96,7 +117,8 @@ class PluginPlacementState {
         rawKnownPages.length > 256 ||
         rawOrder.length > 256 ||
         rawHidden.length > 256 ||
-        rawPinned.length > 256) {
+        rawPinned.length > 256 ||
+        rawSpaces.length > 256) {
       throw const PluginPlacementException('Too many plugin placements');
     }
     final placements = <String, PluginPlacementLocation>{};
@@ -130,6 +152,14 @@ class PluginPlacementState {
       }
       selectedWidths[entry.key] = width.toDouble();
     }
+    final homeSpaces = <String, int>{};
+    for (final entry in rawSpaces.entries) {
+      final space = entry.value;
+      if (!_validStableId(entry.key) || !_validSpace(space)) {
+        throw const PluginPlacementException('Invalid Home workspace');
+      }
+      homeSpaces[entry.key] = space! as int;
+    }
     final homeOrder = _stringList(rawOrder, 'home order');
     final hiddenHome = _stringList(rawHidden, 'hidden home widgets').toSet();
     final pinnedPages = _stringList(rawPinned, 'pinned pages');
@@ -141,6 +171,8 @@ class PluginPlacementState {
       selectedWidths: selectedWidths,
       homeOrder: homeOrder,
       hiddenHome: hiddenHome,
+      homeSpaces: homeSpaces,
+      homeSpace: homeSpace as int,
       pinnedPages: pinnedPages,
       knownWidgets: knownWidgets,
       knownPages: knownPages,
@@ -217,6 +249,9 @@ bool _validStableId(String value) =>
     value.isNotEmpty &&
     value.length <= 240 &&
     !value.contains(RegExp(r'[\x00-\x1f\x7f]'));
+
+bool _validSpace(Object? value) =>
+    value is int && value >= 1 && value <= homeSpaceCount;
 
 bool _validToken(String value) =>
     value.isNotEmpty &&

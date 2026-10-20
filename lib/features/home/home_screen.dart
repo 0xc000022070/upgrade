@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/rendering.dart';
@@ -13,6 +14,7 @@ import 'package:striked/application/plugins/native_plugins.dart';
 import 'package:striked/application/plugins/plugin_placements.dart';
 import 'package:striked/data/repositories/plugin_placement_repository.dart';
 import 'package:striked/design/components/dot_spinner.dart';
+import 'package:striked/design/components/held_drag.dart';
 import 'package:striked/design/components/list_row.dart';
 import 'package:striked/design/components/panel.dart';
 import 'package:striked/design/components/panel_text_action.dart';
@@ -50,6 +52,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final _usageVisible = ref.read(homeUsageVisibleProvider.notifier);
   final _agentsKey = GlobalKey();
   final _cardsKey = GlobalKey();
+  bool _agentsHere = true;
+  double _swipe = 0;
 
   @override
   void initState() {
@@ -71,13 +75,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _syncVisible() {
     if (mounted) {
       _visible.state = _usageVisible.state =
-          _onStage && ref.read(navIndexProvider) == HomeScreen.navIndex;
+          _onStage &&
+          _agentsHere &&
+          ref.read(navIndexProvider) == HomeScreen.navIndex;
     }
   }
 
   void _leave() {
     ref.read(dropSelectionProvider.notifier).clear();
     ref.read(freshDropsProvider.notifier).clear();
+  }
+
+  PluginPlacements get _layout => ref.read(pluginPlacementsProvider.notifier);
+
+  void _swiped(List<int> numbers, int space, double velocity) {
+    final travel = _swipe;
+    _swipe = 0;
+    if (travel.abs() < 64 && velocity.abs() < 400) return;
+    final next = numbers.indexOf(space) + ((travel + velocity) < 0 ? 1 : -1);
+    if (next >= 0 && next < numbers.length) {
+      unawaited(_layout.showHomeSpace(numbers[next]));
+    }
   }
 
   @override
@@ -102,17 +120,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final selecting = ref
         .watch(dropSelectionProvider)
         .ownedBy(DropSelection.homeScope);
-    final cards = placements == null
-        ? const <PluginWidgetRegistration>[]
-        : [
-            for (final id in placements.homeOrder)
-              if (catalog.widget(id) case final widget?
-                  when widget.enabled &&
-                      placements.placements[id] ==
-                          PluginPlacementLocation.homeCard &&
-                      !placements.hiddenHome.contains(id))
-                widget,
-          ];
+    bool shown(String id) =>
+        id == homeAgentsId ||
+        switch (catalog.widget(id)) {
+          final widget? =>
+            widget.enabled &&
+                placements!.placements[id] ==
+                    PluginPlacementLocation.homeCard &&
+                !placements.hiddenHome.contains(id),
+          null => false,
+        };
+    final order = placements?.homeOrder ?? const [homeAgentsId];
+    final space = placements?.homeSpace ?? 1;
+    final live = [
+      for (final id in order)
+        if (shown(id)) id,
+    ];
+    final here = [
+      for (final id in live)
+        if ((placements?.spaceOf(id) ?? 1) == space) id,
+    ];
+    final numbers = {
+      for (final id in live) placements?.spaceOf(id) ?? 1,
+      space,
+    }.toList()..sort();
+    final free = [
+      for (var n = 1; n <= homeSpaceCount; n++)
+        if (!numbers.contains(n)) n,
+    ].firstOrNull;
+    final agentsHere = here.contains(homeAgentsId);
+    if (agentsHere != _agentsHere) {
+      _agentsHere = agentsHere;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _syncVisible());
+    }
+    void move(String id, String over) =>
+        unawaited(_layout.moveHome(id, over: over));
     final composer = placements == null
         ? null
         : catalog.widgets
@@ -145,16 +187,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
         ),
-      for (final widget in cards)
-        _PlacedPluginWidget(registration: widget, placements: placements!),
-      if (placements != null && cards.isEmpty && composer == null)
+      for (final id in here)
+        if (id == homeAgentsId)
+          _HomeEntry(
+            key: ValueKey(id),
+            id: id,
+            title: 'AGENTS',
+            order: here,
+            onMove: move,
+            child: KeyedSubtree(
+              key: _agentsKey,
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [AgentsPanel(), UsagePanel()],
+              ),
+            ),
+          )
+        else if (catalog.widget(id) case final widget?)
+          _HomeEntry(
+            key: ValueKey(id),
+            id: id,
+            title: widget.contribution.title,
+            order: here,
+            onMove: move,
+            fills: widget.contribution.surface == 'home.drops',
+            child: _PlacedPluginWidget(
+              registration: widget,
+              placements: placements!,
+            ),
+          ),
+      if (here.isEmpty) const _EmptySpace(),
+      if (placements != null &&
+          !live.any((id) => id != homeAgentsId) &&
+          composer == null)
         _PluginsOffPanel(catalog: catalog),
     ];
-    final fill = panels.indexWhere(
-      (panel) =>
-          panel is _PlacedPluginWidget &&
-          panel.registration.contribution.surface == 'home.drops',
-    );
 
     return Column(
       children: [
@@ -162,34 +230,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final wide = _HomeColumns.isWide(constraints.maxWidth, panels);
-              return ScreenScaffold(
-                fill: wide,
-                maxContentWidth: 1100,
-                breadcrumbTrailing: Row(
-                  mainAxisSize: MainAxisSize.min,
+              return GestureDetector(
+                onHorizontalDragUpdate: (details) =>
+                    _swipe += details.primaryDelta ?? 0,
+                onHorizontalDragEnd: (details) =>
+                    _swiped(numbers, space, details.primaryVelocity ?? 0),
+                onHorizontalDragCancel: () => _swipe = 0,
+                child: ScreenScaffold(
+                  fill: wide,
+                  maxContentWidth: 1100,
+                  breadcrumbTrailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (drops)
+                        ToolbarIconAction(
+                          label: 'SEARCH',
+                          icon: StrikedIcons.search,
+                          onTap: () {
+                            _leave();
+                            openItemSearch(context);
+                          },
+                        ),
+                      if (drops) const SizedBox(width: Spacing.sm),
+                      HomeActions(beforeOpen: _leave),
+                    ],
+                  ),
+                  header: _SpaceStrip(
+                    numbers: numbers,
+                    current: space,
+                    free: free,
+                    onShow: (n) => unawaited(_layout.showHomeSpace(n)),
+                    onDrop: (id, n) =>
+                        unawaited(_layout.moveHome(id, space: n)),
+                  ),
                   children: [
-                    if (drops)
-                      ToolbarIconAction(
-                        label: 'SEARCH',
-                        icon: StrikedIcons.search,
-                        onTap: () {
-                          _leave();
-                          openItemSearch(context);
-                        },
-                      ),
-                    if (drops) const SizedBox(width: Spacing.sm),
-                    HomeActions(beforeOpen: _leave),
+                    _HomeColumns(
+                      wide: wide,
+                      cardsKey: _cardsKey,
+                      children: panels,
+                    ),
                   ],
                 ),
-                children: [
-                  _HomeColumns(
-                    wide: wide,
-                    agentsKey: _agentsKey,
-                    cardsKey: _cardsKey,
-                    fill: fill < 0 ? null : fill,
-                    children: panels,
-                  ),
-                ],
               );
             },
           ),
@@ -213,9 +294,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 class _HomeColumns extends StatelessWidget {
   const _HomeColumns({
     required this.wide,
-    required this.agentsKey,
     required this.cardsKey,
-    required this.fill,
     required this.children,
   });
 
@@ -224,44 +303,47 @@ class _HomeColumns extends StatelessWidget {
   static const _minCardHeight = 240.0;
 
   static bool isWide(double width, List<Widget> children) =>
-      width - 2 * Spacing.screenEdge >= 760 && children.isNotEmpty;
+      width - 2 * Spacing.screenEdge >= 760 &&
+      children.any((child) => child is! _HomeEntry || child.id != homeAgentsId);
 
   final bool wide;
-  final GlobalKey agentsKey;
   final GlobalKey cardsKey;
-
-  final int? fill;
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    final agents = KeyedSubtree(
-      key: agentsKey,
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [AgentsPanel(), UsagePanel()],
-      ),
+    final agents = children
+        .whereType<_HomeEntry>()
+        .where((entry) => entry.id == homeAgentsId)
+        .firstOrNull;
+    final column = wide
+        ? [
+            for (final child in children)
+              if (child != agents) child,
+          ]
+        : children;
+    final fill = column.indexWhere(
+      (child) => child is _HomeEntry && child.fills,
     );
     Widget cards([double? viewport]) => KeyedSubtree(
       key: cardsKey,
       child: _CardColumn(
         viewport: viewport,
         minFill: _minCardHeight,
-        fill: fill,
-        children: children,
+        fill: fill < 0 ? null : fill,
+        children: column,
       ),
     );
-    if (!wide) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          agents,
-          const SizedBox(height: Spacing.panelGap),
-          cards(),
-        ],
-      );
-    }
+    if (!wide) return cards();
+    final right = LayoutBuilder(
+      builder: (context, constraints) {
+        final height = math.max(constraints.maxHeight, _minCardHeight);
+        return SingleChildScrollView(
+          child: HomeCardViewport(height: height, child: cards(height)),
+        );
+      },
+    );
+    if (agents == null) return right;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -270,16 +352,7 @@ class _HomeColumns extends StatelessWidget {
           child: SingleChildScrollView(child: agents),
         ),
         const SizedBox(width: Spacing.panelGap),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final height = math.max(constraints.maxHeight, _minCardHeight);
-              return SingleChildScrollView(
-                child: HomeCardViewport(height: height, child: cards(height)),
-              );
-            },
-          ),
-        ),
+        Expanded(child: right),
       ],
     );
   }
@@ -497,4 +570,164 @@ class _PluginsOffPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+class _HomeEntry extends StatelessWidget {
+  const _HomeEntry({
+    super.key,
+    required this.id,
+    required this.title,
+    required this.order,
+    required this.onMove,
+    this.fills = false,
+    required this.child,
+  });
+
+  static const _ghostHeight = 96.0;
+
+  final String id;
+  final String title;
+  final List<String> order;
+  final void Function(String id, String over) onMove;
+  final bool fills;
+  final Widget child;
+
+  static Offset _anchor(
+    Draggable<Object> draggable,
+    BuildContext context,
+    Offset position,
+  ) {
+    final box = context.findRenderObject()! as RenderBox;
+    final local = box.globalToLocal(position);
+    return Offset(
+      local.dx,
+      math.min(local.dy, math.min(box.size.height, _ghostHeight) / 2),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => DragTarget<String>(
+    onWillAcceptWithDetails: (details) => details.data != id,
+    onAcceptWithDetails: (details) => onMove(details.data, id),
+    builder: (context, candidates, _) {
+      final held = candidates.firstOrNull;
+      final edge = BorderSide(
+        color: context.tokens.accent,
+        width: BarSizes.inlineThickness,
+      );
+      final below = held != null && order.indexOf(held) < order.indexOf(id);
+      return DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          border: held == null
+              ? null
+              : Border(
+                  top: below ? BorderSide.none : edge,
+                  bottom: below ? edge : BorderSide.none,
+                ),
+        ),
+        child: HeldDrag<String>(
+          data: id,
+          anchor: _anchor,
+          ghost: (context, size) => Container(
+            width: size.width,
+            height: math.min(size.height, _ghostHeight),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: context.tokens.backgroundPrimary,
+              border: Border.all(color: context.tokens.accent),
+            ),
+            child: Text(
+              title.toUpperCase(),
+              style: context.tokens.panelHeader.copyWith(
+                color: context.tokens.accent,
+              ),
+            ),
+          ),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
+class _SpaceStrip extends StatelessWidget {
+  const _SpaceStrip({
+    required this.numbers,
+    required this.current,
+    required this.free,
+    required this.onShow,
+    required this.onDrop,
+  });
+
+  final List<int> numbers;
+  final int current;
+  final int? free;
+  final ValueChanged<int> onShow;
+  final void Function(String id, int space) onDrop;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget cell(String label, int space, {bool lit = false}) =>
+        DragTarget<String>(
+          onAcceptWithDetails: (details) => onDrop(details.data, space),
+          builder: (context, candidates, _) => GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onShow(space),
+            child: Container(
+              key: ValueKey('home-space-$label'),
+              width: TapTargets.minHeight,
+              decoration: BoxDecoration(
+                border: candidates.isEmpty
+                    ? null
+                    : Border.all(color: context.tokens.accent),
+              ),
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: TapTargets.minHeight - BarSizes.inlineThickness,
+                    child: Center(
+                      child: Text(
+                        label,
+                        style: context.tokens.rowKicker.copyWith(
+                          color: lit
+                              ? context.tokens.accent
+                              : context.tokens.textMuted,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    height: BarSizes.inlineThickness,
+                    color: lit ? context.tokens.accent : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.md),
+      child: Row(
+        children: [
+          for (final n in numbers) cell('$n', n, lit: n == current),
+          if (free case final free?) cell('+', free),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptySpace extends StatelessWidget {
+  const _EmptySpace();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: Spacing.xxl),
+    child: Text(
+      'EMPTY · HOLD A CARD AND DROP IT ON A NUMBER',
+      textAlign: TextAlign.center,
+      style: context.tokens.label.copyWith(color: context.tokens.textMuted),
+    ),
+  );
 }

@@ -1033,7 +1033,12 @@ class _PluginAddsState extends ConsumerState<_PluginAdds> {
     final size = contribution.size(
       state.selectedSizes[id] ?? contribution.defaultSize,
     );
-    final order = state.homeOrder.indexOf(id);
+    final space = state.spaceOf(id);
+    final neighbours = [
+      for (final entry in state.homeOrder)
+        if (state.spaceOf(entry) == space) entry,
+    ];
+    final order = neighbours.indexOf(id);
     return [
       _Choice(
         label: 'PLACE',
@@ -1056,20 +1061,24 @@ class _PluginAddsState extends ConsumerState<_PluginAdds> {
           onSelected: (index) =>
               _run(() => controller.setHomeHidden(id, index == 1)),
         ),
-        if (state.homeOrder.length > 1 && order >= 0) ...[
+        if (neighbours.length > 1 && order >= 0) ...[
           Text(
-            'CARD ${order + 1} OF ${state.homeOrder.length} ON HOME',
+            'CARD ${order + 1} OF ${neighbours.length} ON WORKSPACE $space',
             style: context.tokens.label,
           ),
           if (order > 0)
             PanelTextAction(
               label: 'MOVE UP',
-              onTap: () => _run(() => controller.reorderHome(id, order - 1)),
+              onTap: () => _run(
+                () => controller.moveHome(id, over: neighbours[order - 1]),
+              ),
             ),
-          if (order < state.homeOrder.length - 1)
+          if (order < neighbours.length - 1)
             PanelTextAction(
               label: 'MOVE DOWN',
-              onTap: () => _run(() => controller.reorderHome(id, order + 1)),
+              onTap: () => _run(
+                () => controller.moveHome(id, over: neighbours[order + 1]),
+              ),
             ),
         ],
       ],

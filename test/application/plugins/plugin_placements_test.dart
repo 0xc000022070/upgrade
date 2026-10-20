@@ -62,7 +62,7 @@ void main() {
   test('persisted width outside manifest range is not overwritten', () async {
     var scope = container();
     final initial = await scope.read(pluginPlacementsProvider.future);
-    final drops = initial.homeOrder.first;
+    final drops = initial.homeOrder[1];
     scope.dispose();
     final file = File('${root.path}/placements.json');
     final invalid = jsonEncode(
@@ -86,7 +86,7 @@ void main() {
       final scope = container();
       addTearDown(scope.dispose);
       final state = await scope.read(pluginPlacementsProvider.future);
-      final drops = state.homeOrder.first;
+      final drops = state.homeOrder[1];
       final controller = scope.read(pluginPlacementsProvider.notifier);
 
       await expectLater(
@@ -100,7 +100,7 @@ void main() {
         ),
       );
       await expectLater(
-        controller.reorderHome(drops, state.homeOrder.length),
+        controller.moveHome(drops, space: homeSpaceCount + 1),
         throwsA(isA<PluginPlacementException>()),
       );
       await controller.setWidgetWidth(drops, 420);
@@ -149,7 +149,7 @@ void main() {
     final scope = container();
     addTearDown(scope.dispose);
     final initial = await scope.read(pluginPlacementsProvider.future);
-    final drops = initial.homeOrder.first;
+    final drops = initial.homeOrder[1];
     final controller = scope.read(pluginPlacementsProvider.notifier);
     await Future.wait([
       controller.setHomeHidden(drops, true),
@@ -170,14 +170,80 @@ void main() {
     final scope = container();
     addTearDown(scope.dispose);
     final initial = await scope.read(pluginPlacementsProvider.future);
-    expect(initial.homeOrder.length, 2);
+    expect(initial.homeOrder.length, 3);
     await scope
         .read(pluginPlacementsProvider.notifier)
-        .placeWidget(initial.homeOrder.first, PluginPlacementLocation.homeCard);
+        .placeWidget(initial.homeOrder[1], PluginPlacementLocation.homeCard);
     expect(
       scope.read(pluginPlacementsProvider).requireValue.homeOrder,
       initial.homeOrder,
     );
+  });
+
+  test('Home cards move between places and numbered workspaces', () async {
+    var scope = container();
+    final initial = await scope.read(pluginPlacementsProvider.future);
+    final [agents, first, second] = initial.homeOrder;
+    expect(agents, homeAgentsId);
+    final controller = scope.read(pluginPlacementsProvider.notifier);
+
+    await controller.moveHome(agents, over: second);
+    expect(
+      scope.read(pluginPlacementsProvider).requireValue.homeOrder,
+      [first, second, agents],
+    );
+    await controller.moveHome(agents, over: first);
+    expect(
+      scope.read(pluginPlacementsProvider).requireValue.homeOrder,
+      [agents, first, second],
+    );
+    await controller.moveHome(first, space: 3);
+    await controller.showHomeSpace(3);
+    var state = scope.read(pluginPlacementsProvider).requireValue;
+    expect(state.homeOrder, [agents, second, first]);
+    expect(state.spaceOf(first), 3);
+    expect(state.spaceOf(second), 1);
+    expect(state.homeSpace, 3);
+    await controller.moveHome(second, over: first);
+    expect(
+      scope.read(pluginPlacementsProvider).requireValue.spaceOf(second),
+      3,
+    );
+    await expectLater(
+      controller.showHomeSpace(0),
+      throwsA(isA<PluginPlacementException>()),
+    );
+    await expectLater(
+      controller.moveHome(first, over: second, space: 2),
+      throwsA(isA<PluginPlacementException>()),
+    );
+
+    await controller.setHomeHidden(first, true);
+    scope.dispose();
+    scope = container();
+    addTearDown(scope.dispose);
+    state = await scope.read(pluginPlacementsProvider.future);
+    expect(state.homeSpace, 3);
+    expect(state.spaceOf(first), 3);
+    expect(state.hiddenHome, contains(first));
+  });
+
+  test('a file from before workspaces opens everything on the first', () async {
+    final file = File('${root.path}/placements.json');
+    final scope = container();
+    final initial = await scope.read(pluginPlacementsProvider.future);
+    scope.dispose();
+    final old = initial.encode()
+      ..remove('home_spaces')
+      ..remove('home_space');
+    old['home_order'] = initial.homeOrder.skip(1).toList();
+    await file.writeAsString(jsonEncode(old));
+    final reopened = container();
+    addTearDown(reopened.dispose);
+    final state = await reopened.read(pluginPlacementsProvider.future);
+    expect(state.homeOrder.first, homeAgentsId);
+    expect(state.homeSpace, 1);
+    expect(state.homeOrder.map(state.spaceOf).toSet(), {1});
   });
 
   test(
@@ -529,7 +595,7 @@ void main() {
         .key;
     await expectLater(
       controller.placeWidget(
-        initial.homeOrder.first,
+        initial.homeOrder[1],
         PluginPlacementLocation.homeComposer,
       ),
       throwsA(isA<PluginPlacementException>()),

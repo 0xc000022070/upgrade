@@ -1,6 +1,5 @@
 local TONE = {blocked = "danger", working = "warning", idle = "muted"}
 local US, RS = "\31", "\30"
-local SPACES = 9
 local COLUMN_LIMIT = 8
 local DEFAULT_COLUMNS = {"Inbox", "Doing", "Done"}
 local CARD_LIMIT = 120
@@ -42,48 +41,38 @@ local function clean(name)
 end
 
 local function load()
-    local loaded = {current = tonumber(recall("current")) or 1, spaces = {}, cards = {}, awake = recall("awake") == "on"}
-    for n = 1, SPACES do
-        local parts = split(recall("space:" .. n), RS)
-        if #parts > 1 then
-            local space = {next = tonumber(parts[1]) or 1, columns = {}}
-            for i = 2, #parts do
-                local fields = split(parts[i], US)
-                local id = tonumber(fields[1])
-                if id then table.insert(space.columns, {id = id, name = fields[2] or ""}) end
-            end
-            if #space.columns > 0 then loaded.spaces[n] = space end
-        end
+    local loaded = {next = #DEFAULT_COLUMNS + 1, columns = {}, cards = {}, awake = recall("awake") == "on"}
+    local parts = split(recall("columns"), RS)
+    for i = 2, #parts do
+        local fields = split(parts[i], US)
+        local id = tonumber(fields[1])
+        if id then table.insert(loaded.columns, {id = id, name = fields[2] or ""}) end
+    end
+    if #loaded.columns > 0 then
+        loaded.next = tonumber(parts[1]) or 1
+    else
+        for i, name in ipairs(DEFAULT_COLUMNS) do table.insert(loaded.columns, {id = i, name = name}) end
     end
     for _, line in ipairs(split(recall("cards"), RS)) do
         local fields = split(line, US)
-        local ws, col = tonumber(fields[2]), tonumber(fields[3])
-        if fields[1] and ws and col then table.insert(loaded.cards, {id = fields[1], ws = ws, col = col, host = fields[4] or ""}) end
+        local col = tonumber(fields[2])
+        if fields[1] and col then table.insert(loaded.cards, {id = fields[1], col = col, host = fields[3] or ""}) end
     end
     return loaded
 end
 
-local function space(n)
-    if not layout.spaces[n] then
-        local columns = {}
-        for i, name in ipairs(DEFAULT_COLUMNS) do table.insert(columns, {id = i, name = name}) end
-        layout.spaces[n] = {next = #columns + 1, columns = columns}
-    end
-    return layout.spaces[n]
-end
-
-local function saveSpace(n)
-    local parts = {tostring(space(n).next)}
-    for _, column in ipairs(layout.spaces[n].columns) do
+local function saveColumns()
+    local parts = {tostring(layout.next)}
+    for _, column in ipairs(layout.columns) do
         table.insert(parts, column.id .. US .. column.name)
     end
-    remember("space:" .. n, table.concat(parts, RS))
+    remember("columns", table.concat(parts, RS))
 end
 
 local function saveCards()
     local lines = {}
     for _, entry in ipairs(layout.cards) do
-        table.insert(lines, table.concat({entry.id, tostring(entry.ws), tostring(entry.col), entry.host}, US))
+        table.insert(lines, table.concat({entry.id, tostring(entry.col), entry.host}, US))
     end
     remember("cards", table.concat(lines, RS))
 end
@@ -107,10 +96,8 @@ local function place(state)
             changed = true
         else
             seen[entry.id] = true
-            local columns = space(entry.ws).columns
-            if entry.ws < 1 or entry.ws > SPACES or not holds(columns, entry.col) then
-                entry.ws = math.clamp(entry.ws, 1, SPACES)
-                entry.col = space(entry.ws).columns[1].id
+            if not holds(layout.columns, entry.col) then
+                entry.col = layout.columns[1].id
                 changed = true
             end
             table.insert(kept, entry)
@@ -118,7 +105,7 @@ local function place(state)
     end
     for _, item in ipairs(state.items) do
         if not seen[item.id] then
-            table.insert(kept, {id = item.id, ws = layout.current, col = space(layout.current).columns[1].id, host = item.host})
+            table.insert(kept, {id = item.id, col = layout.columns[1].id, host = item.host})
             changed = true
         end
     end
@@ -126,14 +113,14 @@ local function place(state)
     if changed then saveCards() end
 end
 
-local function move(id, ws, col, before)
+local function move(id, col, before)
     local index
     for i, entry in ipairs(layout.cards) do
         if entry.id == id then index = i end
     end
     if not index then return end
     local entry = table.remove(layout.cards, index)
-    entry.ws, entry.col = ws, col
+    entry.col = col
     local at = #layout.cards + 1
     for i, other in ipairs(layout.cards) do
         if other.id == before then at = i break end
@@ -173,54 +160,16 @@ end
 local function lanes(state, search)
     local byId = {}
     for _, item in ipairs(state.items) do byId[item.id] = item end
-    local columns = space(layout.current).columns
+    local columns = layout.columns
     local result = {}
     for _, column in ipairs(columns) do table.insert(result, {id = column.id, name = column.name, items = {}}) end
     for _, entry in ipairs(layout.cards) do
         local item = byId[entry.id]
-        if item and entry.ws == layout.current and matches(search, item) then
+        if item and matches(search, item) then
             table.insert(result[holds(columns, entry.col) or 1].items, item)
         end
     end
     return result
-end
-
-local function spaces(state)
-    local live, blocked, shown = {}, {}, {}
-    for _, item in ipairs(state.items) do live[item.id] = item end
-    for _, entry in ipairs(layout.cards) do
-        local item = live[entry.id]
-        if item then
-            shown[entry.ws] = true
-            if item.state == "blocked" then blocked[entry.ws] = true end
-        end
-    end
-    shown[layout.current] = true
-    local result, free = {}, nil
-    for n = 1, SPACES do
-        if shown[n] then
-            table.insert(result, {n = n, blocked = blocked[n] == true})
-        elseif not free then
-            free = n
-        end
-    end
-    return result, free
-end
-
-local function strip(state, key, drops)
-    local numbers, free = spaces(state)
-    local buttons = {}
-    for _, entry in ipairs(numbers) do
-        local current = entry.n == layout.current
-        table.insert(buttons, ui.Button {key = key .. entry.n, text = tostring(entry.n), width = 56, onPress = "ws",
-            onDrop = drops and "drop_ws" or nil, args = {ws = entry.n},
-            background = current and "accent" or nil, color = not current and entry.blocked and "danger" or nil})
-    end
-    if free then
-        table.insert(buttons, ui.Button {key = key .. "new", text = "+", width = 56, onPress = "ws",
-            onDrop = drops and "drop_ws" or nil, args = {ws = free}})
-    end
-    return ui.Row {key = key, gap = 6, children = buttons}
 end
 
 local function answers(key, item)
@@ -283,7 +232,7 @@ local function board(state)
 end
 
 local function editor(state)
-    local columns = space(layout.current).columns
+    local columns = layout.columns
     local rows = {}
     for i, column in ipairs(columns) do
         local key = "e_" .. column.id
@@ -301,7 +250,7 @@ local function editor(state)
         }})
     end
     table.insert(rows, ui.Toggle {key = "awake", label = "Keep screen on", value = layout.awake, onChange = "awake"})
-    return ui.Disclosure {key = "columns", title = "Workspace " .. layout.current,
+    return ui.Disclosure {key = "columns", title = "Columns",
         subtitle = #columns .. " columns" .. (layout.awake and " · screen stays on" or ""), children = rows}
 end
 
@@ -311,7 +260,6 @@ local function view(state)
     if state.message ~= "" then
         table.insert(children, ui.Text {key = "message", text = state.message, color = state.failed and "danger" or "accent"})
     end
-    table.insert(children, strip(state, "ws_", true))
     table.insert(children, ui.Input {key = "search", label = "Search", hint = "Title, prompt, message, directory or agent", value = state.search, onChange = "search", live = true})
     table.insert(children, editor(state))
     for _, host in ipairs(state.hosts) do
@@ -334,7 +282,6 @@ local function inbox(state)
     if state.message ~= "" then
         table.insert(children, ui.Text {key = "message", text = state.message, color = state.failed and "danger" or "accent"})
     end
-    table.insert(children, strip(state, "ws_", false))
     local asking = 0
     for _, item in ipairs(state.items) do
         if item.approval and asking < HOME_APPROVALS then
@@ -377,13 +324,12 @@ local function inbox(state)
         table.insert(children, ui.Text {key = "waiting", text = "Reading hosts…", fontSize = 11, color = "muted"})
     end
     table.insert(children, ui.Button {key = "open_board", text = "OPEN BOARD", opens = "main"})
-    return ui.Panel {key = "inbox", title = "AGENTS · WORKSPACE " .. layout.current,
+    return ui.Panel {key = "inbox", title = "AGENTS",
         children = {ui.Column {key = "inboxrows", gap = 8, align = "stretch", children = children}}}
 end
 
 local function columnAction(state, id, col, value)
-    local n = layout.current
-    local columns = space(n).columns
+    local columns = layout.columns
     local index = holds(columns, col)
     if id == "add" then
         local name = clean(value)
@@ -393,8 +339,8 @@ local function columnAction(state, id, col, value)
             return
         end
         if #columns >= COLUMN_LIMIT then return end
-        table.insert(columns, {id = layout.spaces[n].next, name = name})
-        layout.spaces[n].next += 1
+        table.insert(columns, {id = layout.next, name = name})
+        layout.next += 1
     elseif not index then
         return
     elseif id == "rename" then
@@ -409,11 +355,11 @@ local function columnAction(state, id, col, value)
         if #columns < 2 then return end
         table.remove(columns, index)
         for _, entry in ipairs(layout.cards) do
-            if entry.ws == n and entry.col == col then entry.col = columns[1].id end
+            if entry.col == col then entry.col = columns[1].id end
         end
         saveCards()
     end
-    saveSpace(n)
+    saveColumns()
 end
 
 local function update(state, event)
@@ -456,24 +402,18 @@ local function update(state, event)
     state.message = ""
     if event.id == "search" then
         state.search = event.value
-    elseif event.id == "ws" then
-        layout.current = math.clamp(tonumber(args.ws) or 1, 1, SPACES)
-        remember("current", tostring(layout.current))
-    elseif event.id == "drop_ws" then
-        local n = math.clamp(tonumber(args.ws) or 1, 1, SPACES)
-        move(event.value, n, space(n).columns[1].id, nil)
     elseif event.id == "drop_column" then
-        move(event.value, layout.current, args.col, nil)
+        move(event.value, args.col, nil)
     elseif event.id == "drop_card" then
         if event.value == args.id then return state end
         for _, entry in ipairs(layout.cards) do
             if entry.id == args.id then
-                move(event.value, entry.ws, entry.col, args.id)
+                move(event.value, entry.col, args.id)
                 break
             end
         end
     elseif event.id == "add" then
-        columnAction(state, "add", nil, fields["newcol_" .. #space(layout.current).columns])
+        columnAction(state, "add", nil, fields["newcol_" .. #layout.columns])
     elseif event.id == "rename" or event.id == "left" or event.id == "right" or event.id == "delete" then
         columnAction(state, event.id, args.col, event.value)
     elseif event.id == "awake" then

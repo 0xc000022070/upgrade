@@ -90,8 +90,16 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
     }
     placements[id] = location;
     final homeOrder = [...current.homeOrder]..remove(id);
-    if (location == PluginPlacementLocation.homeCard) homeOrder.add(id);
-    return current.copyWith(placements: placements, homeOrder: homeOrder);
+    final spaces = Map.of(current.homeSpaces)..remove(id);
+    if (location == PluginPlacementLocation.homeCard) {
+      homeOrder.add(id);
+      spaces[id] = current.homeSpace;
+    }
+    return current.copyWith(
+      placements: placements,
+      homeOrder: homeOrder,
+      homeSpaces: spaces,
+    );
   });
 
   Future<void> setWidgetPlaced(String id, bool placed) => _change((current) {
@@ -108,19 +116,42 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
       placements: placements,
       homeOrder: order,
       hiddenHome: hidden,
+      homeSpaces: Map.of(current.homeSpaces)..remove(id),
     );
   });
 
-  Future<void> reorderHome(String id, int index) => _change((current) {
-    if (current.placements[id] != PluginPlacementLocation.homeCard ||
-        !current.homeOrder.contains(id) ||
-        index < 0 ||
-        index >= current.homeOrder.length) {
+  Future<void> moveHome(String id, {String? over, int? space}) => _change((
+    current,
+  ) {
+    final order = [...current.homeOrder];
+    final from = order.indexOf(id);
+    if (from < 0 ||
+        id != homeAgentsId &&
+            current.placements[id] != PluginPlacementLocation.homeCard ||
+        (over == null) == (space == null) ||
+        over != null && !order.contains(over) ||
+        space != null && (space < 1 || space > homeSpaceCount)) {
       throw const PluginPlacementException('Invalid Home widget order');
     }
-    final order = [...current.homeOrder]..remove(id);
-    order.insert(index, id);
-    return current.copyWith(homeOrder: order);
+    if (over == id) return current;
+    order.removeAt(from);
+    if (over == null) {
+      order.add(id);
+    } else {
+      final to = order.indexOf(over);
+      order.insert(from <= to ? to + 1 : to, id);
+    }
+    return current.copyWith(
+      homeOrder: order,
+      homeSpaces: {...current.homeSpaces, id: space ?? current.spaceOf(over!)},
+    );
+  });
+
+  Future<void> showHomeSpace(int space) => _change((current) {
+    if (space < 1 || space > homeSpaceCount) {
+      throw const PluginPlacementException('Invalid Home workspace');
+    }
+    return current.copyWith(homeSpace: space);
   });
 
   Future<void> setHomeHidden(String id, bool hidden) => _change((current) {
@@ -316,6 +347,8 @@ PluginPlacementState _withDefaults(
   final placements = Map.of(stored.placements);
   final sizes = Map.of(stored.selectedSizes);
   final order = [...stored.homeOrder];
+  final spaces = Map.of(stored.homeSpaces);
+  if (!order.contains(homeAgentsId)) order.insert(0, homeAgentsId);
   final knownWidgets = {...stored.knownWidgets};
   final enabled = {
     for (final widget in catalog.widgets)
@@ -340,6 +373,7 @@ PluginPlacementState _withDefaults(
       }
       if (location == PluginPlacementLocation.homeCard) {
         order.add(widget.stableId);
+        spaces[widget.stableId] = stored.homeSpace;
       }
     }
   }
@@ -356,6 +390,7 @@ PluginPlacementState _withDefaults(
     placements: placements,
     selectedSizes: sizes,
     homeOrder: order,
+    homeSpaces: spaces,
     pinnedPages: pinned,
     knownWidgets: knownWidgets,
     knownPages: knownPages,
