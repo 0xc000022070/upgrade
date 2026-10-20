@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 
 import 'package:striked/design/components/bracket_label.dart';
@@ -158,6 +159,19 @@ class PluginUiNode {
       if (props['live'] != null &&
           (props['live'] is! bool || kind != 'input')) {
         throw const PluginException('Only an input is live');
+      }
+      final drag = props['drag'];
+      if (drag != null &&
+          (card || kind != 'box' || drag is! String || drag.length > 160)) {
+        throw const PluginException('Only a box on a page drags');
+      }
+      final drop = props['onDrop'];
+      if (drop != null &&
+          (card ||
+              const {'page', 'screen', 'footer'}.contains(kind) ||
+              drop is! String ||
+              drop.length > 160)) {
+        throw const PluginException('Only a node on a page takes a drop');
       }
       if (props['awake'] != null && kind != 'page' ||
           props['awake'] == true && !allowAwake) {
@@ -678,6 +692,24 @@ class PluginUi extends StatelessWidget {
         child: result,
       );
     }
+    if (p['drag'] case final String payload) {
+      result = _PluginDrag(payload: payload, enabled: !busy, child: result);
+    }
+    if (p['onDrop'] case final String id) {
+      final target = result;
+      result = DragTarget<String>(
+        onAcceptWithDetails: (details) => action(id, value: details.data),
+        builder: (context, candidates, _) => DecoratedBox(
+          position: DecorationPosition.foreground,
+          decoration: BoxDecoration(
+            border: candidates.isEmpty || candidates.first == p['drag']
+                ? null
+                : Border.all(color: context.tokens.accent, width: 2),
+          ),
+          child: target,
+        ),
+      );
+    }
     return KeyedSubtree(key: ValueKey(node.key), child: result);
   }
 
@@ -701,6 +733,124 @@ class PluginUi extends StatelessWidget {
       maxScale: 3,
       child: painting,
     );
+  }
+}
+
+class _PluginDrag extends StatefulWidget {
+  const _PluginDrag({
+    required this.payload,
+    required this.enabled,
+    required this.child,
+  });
+  final String payload;
+  final bool enabled;
+  final Widget child;
+  @override
+  State<_PluginDrag> createState() => _PluginDragState();
+}
+
+class _PluginDragState extends State<_PluginDrag> {
+  final _width = ValueNotifier<double?>(null);
+  _EdgeScroll? _scroll;
+
+  void _start() {
+    _width.value = context.size?.width;
+    _scroll?.stop();
+    _scroll = _EdgeScroll([
+      for (final axis in Axis.values) ?Scrollable.maybeOf(context, axis: axis),
+    ]);
+  }
+
+  void _stop() {
+    _scroll?.stop();
+    _scroll = null;
+  }
+
+  @override
+  void dispose() {
+    _width.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => LongPressDraggable<String>(
+    data: widget.payload,
+    maxSimultaneousDrags: widget.enabled ? 1 : 0,
+    onDragStarted: _start,
+    onDragCompleted: _stop,
+    onDraggableCanceled: (_, _) => _stop(),
+    childWhenDragging: Opacity(opacity: 0.3, child: widget.child),
+    feedback: Material(
+      type: MaterialType.transparency,
+      child: ValueListenableBuilder(
+        valueListenable: _width,
+        builder: (_, width, child) => SizedBox(width: width, child: child),
+        child: Opacity(opacity: 0.9, child: widget.child),
+      ),
+    ),
+    child: widget.child,
+  );
+}
+
+/// Runs off the pointer itself, so it keeps scrolling after the list has
+/// recycled the card being dragged.
+class _EdgeScroll {
+  _EdgeScroll(this.scrollables) {
+    GestureBinding.instance.pointerRouter.addGlobalRoute(_route);
+    _timer = Timer.periodic(const Duration(milliseconds: 16), (_) => _tick());
+  }
+  static const _edge = 56.0;
+  final List<ScrollableState> scrollables;
+  late final Timer _timer;
+  Offset? _at;
+  bool _stopped = false;
+
+  void _route(PointerEvent event) {
+    if (event is PointerUpEvent || event is PointerCancelEvent) {
+      stop();
+    } else if (event is PointerMoveEvent) {
+      _at = event.position;
+    }
+  }
+
+  void _tick() {
+    final at = _at;
+    if (at == null) return;
+    for (final scrollable in scrollables) {
+      final box = scrollable.mounted
+          ? scrollable.context.findRenderObject()
+          : null;
+      if (box is! RenderBox || !box.hasSize) continue;
+      final local = box.globalToLocal(at);
+      final horizontal = scrollable.position.axis == Axis.horizontal;
+      final along = horizontal ? local.dx : local.dy;
+      final extent = horizontal ? box.size.width : box.size.height;
+      final across = horizontal ? local.dy : local.dx;
+      if (across < 0 ||
+          across > (horizontal ? box.size.height : box.size.width)) {
+        continue;
+      }
+      final speed = along < _edge
+          ? along - _edge
+          : along > extent - _edge
+          ? along - extent + _edge
+          : 0.0;
+      if (speed == 0) continue;
+      final position = scrollable.position;
+      position.jumpTo(
+        (position.pixels + speed / 4).clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        ),
+      );
+    }
+  }
+
+  void stop() {
+    if (_stopped) return;
+    _stopped = true;
+    _timer.cancel();
+    GestureBinding.instance.pointerRouter.removeGlobalRoute(_route);
   }
 }
 

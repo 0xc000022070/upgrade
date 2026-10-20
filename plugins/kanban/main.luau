@@ -1,8 +1,15 @@
-local STATES = {"blocked", "working", "done", "idle"}
-local RANK = {blocked = 1, working = 2, done = 3, idle = 4}
 local TONE = {blocked = "danger", working = "warning", idle = "muted"}
+local US, RS = "\31", "\30"
+local SPACES = 9
+local COLUMN_LIMIT = 8
+local DEFAULT_COLUMNS = {"Inbox", "Doing", "Done"}
 local CARD_LIMIT = 120
-local HOME_BLOCKED = 3
+local HOME_COLUMNS = 3
+local HOME_ROWS = 4
+local HOME_APPROVALS = 2
+
+-- Read from storage on every frame, so a page and its Home card never hold different boards.
+local layout
 
 local function remember(key, value)
     local saved = striked.data.get("preferences", key)
@@ -12,6 +19,127 @@ end
 local function recall(key)
     local saved = striked.data.get("preferences", key)
     return saved and saved.value or ""
+end
+
+local function split(text, separator)
+    local parts = {}
+    if text == "" then return parts end
+    local start = 1
+    while true do
+        local at = string.find(text, separator, start, true)
+        if not at then
+            table.insert(parts, string.sub(text, start))
+            return parts
+        end
+        table.insert(parts, string.sub(text, start, at - 1))
+        start = at + 1
+    end
+end
+
+local function clean(name)
+    local flat = string.gsub(name or "", "%c", " ")
+    return string.sub(string.match(flat, "^%s*(.-)%s*$"), 1, 24)
+end
+
+local function load()
+    local loaded = {current = tonumber(recall("current")) or 1, spaces = {}, cards = {}, awake = recall("awake") == "on"}
+    for n = 1, SPACES do
+        local parts = split(recall("space:" .. n), RS)
+        if #parts > 1 then
+            local space = {next = tonumber(parts[1]) or 1, columns = {}}
+            for i = 2, #parts do
+                local fields = split(parts[i], US)
+                local id = tonumber(fields[1])
+                if id then table.insert(space.columns, {id = id, name = fields[2] or ""}) end
+            end
+            if #space.columns > 0 then loaded.spaces[n] = space end
+        end
+    end
+    for _, line in ipairs(split(recall("cards"), RS)) do
+        local fields = split(line, US)
+        local ws, col = tonumber(fields[2]), tonumber(fields[3])
+        if fields[1] and ws and col then table.insert(loaded.cards, {id = fields[1], ws = ws, col = col, host = fields[4] or ""}) end
+    end
+    return loaded
+end
+
+local function space(n)
+    if not layout.spaces[n] then
+        local columns = {}
+        for i, name in ipairs(DEFAULT_COLUMNS) do table.insert(columns, {id = i, name = name}) end
+        layout.spaces[n] = {next = #columns + 1, columns = columns}
+    end
+    return layout.spaces[n]
+end
+
+local function saveSpace(n)
+    local parts = {tostring(space(n).next)}
+    for _, column in ipairs(layout.spaces[n].columns) do
+        table.insert(parts, column.id .. US .. column.name)
+    end
+    remember("space:" .. n, table.concat(parts, RS))
+end
+
+local function saveCards()
+    local lines = {}
+    for _, entry in ipairs(layout.cards) do
+        table.insert(lines, table.concat({entry.id, tostring(entry.ws), tostring(entry.col), entry.host}, US))
+    end
+    remember("cards", table.concat(lines, RS))
+end
+
+local function holds(columns, id)
+    for i, column in ipairs(columns) do
+        if column.id == id then return i end
+    end
+    return nil
+end
+
+local function place(state)
+    local live, ok = {}, {}
+    for _, host in ipairs(state.hosts) do
+        if host.ok then ok[host.id] = true end
+    end
+    for _, item in ipairs(state.items) do live[item.id] = true end
+    local kept, seen, changed = {}, {}, false
+    for _, entry in ipairs(layout.cards) do
+        if seen[entry.id] or not live[entry.id] and state.ready and ok[entry.host] then
+            changed = true
+        else
+            seen[entry.id] = true
+            local columns = space(entry.ws).columns
+            if entry.ws < 1 or entry.ws > SPACES or not holds(columns, entry.col) then
+                entry.ws = math.clamp(entry.ws, 1, SPACES)
+                entry.col = space(entry.ws).columns[1].id
+                changed = true
+            end
+            table.insert(kept, entry)
+        end
+    end
+    for _, item in ipairs(state.items) do
+        if not seen[item.id] then
+            table.insert(kept, {id = item.id, ws = layout.current, col = space(layout.current).columns[1].id, host = item.host})
+            changed = true
+        end
+    end
+    layout.cards = kept
+    if changed then saveCards() end
+end
+
+local function move(id, ws, col, before)
+    local index
+    for i, entry in ipairs(layout.cards) do
+        if entry.id == id then index = i end
+    end
+    if not index then return end
+    local entry = table.remove(layout.cards, index)
+    entry.ws, entry.col = ws, col
+    local at = #layout.cards + 1
+    for i, other in ipairs(layout.cards) do
+        if other.id == before then at = i break end
+    end
+    table.insert(layout.cards, at, entry)
+    saveCards()
 end
 
 local function list(state)
@@ -29,80 +157,70 @@ local function detail(item)
     return item.message
 end
 
-local function age(seconds)
-    if seconds < 60 then return tostring(seconds) .. "s" end
-    if seconds < 3600 then return tostring(seconds // 60) .. "m" end
-    return tostring(seconds // 3600) .. "h"
-end
-
-local function matches(state, item)
-    if state.agent ~= "" and item.agent ~= state.agent then return false end
-    if state.host ~= "" and item.host ~= state.host then return false end
-    if state.project ~= "" and project(item) ~= state.project then return false end
+local function matches(search, item)
     local hay = string.lower(table.concat({item.title, item.question, item.message, item.directory, item.agent,
         item.approval and item.approval.line or ""}, " "))
-    for word in string.gmatch(string.lower(state.search), "%S+") do
+    for word in string.gmatch(string.lower(search), "%S+") do
         if not string.find(hay, word, 1, true) then return false end
     end
     return true
 end
 
-local function ordered(a, b)
-    local ra, rb = RANK[a.state] or 5, RANK[b.state] or 5
-    if ra ~= rb then return ra < rb end
-    if a.title ~= b.title then return a.title < b.title end
-    return a.id < b.id
+local function title(item)
+    return item.title ~= "" and item.title or "Untitled session"
 end
 
-local function columns(state)
+local function lanes(state, search)
+    local byId = {}
+    for _, item in ipairs(state.items) do byId[item.id] = item end
+    local columns = space(layout.current).columns
     local result = {}
-    local index = {}
-    local function column(id, name, tone)
-        if not index[id] then
-            index[id] = {id = id, name = name, tone = tone, items = {}}
-            table.insert(result, index[id])
+    for _, column in ipairs(columns) do table.insert(result, {id = column.id, name = column.name, items = {}}) end
+    for _, entry in ipairs(layout.cards) do
+        local item = byId[entry.id]
+        if item and entry.ws == layout.current and matches(search, item) then
+            table.insert(result[holds(columns, entry.col) or 1].items, item)
         end
-        return index[id]
-    end
-    if state.group == "status" then
-        for _, word in ipairs(STATES) do column(word, string.upper(word), TONE[word]) end
-    elseif state.group == "machine" then
-        for _, host in ipairs(state.hosts) do column(host.id, string.upper(host.name), not host.ok and "danger" or nil) end
-    end
-    local items = {}
-    for _, item in ipairs(state.items) do
-        if matches(state, item) then table.insert(items, item) end
-    end
-    table.sort(items, ordered)
-    for _, item in ipairs(items) do
-        local target
-        if state.group == "machine" then
-            target = column(item.host, string.upper(item.host_name))
-        elseif state.group == "workspace" then
-            local name = project(item)
-            target = column(name, name == "" and "NO WORKSPACE" or name)
-        else
-            target = column(item.state, string.upper(item.state), TONE[item.state])
-        end
-        table.insert(target.items, item)
-    end
-    if state.group == "workspace" then
-        table.sort(result, function(a, b) return a.name < b.name end)
     end
     return result
 end
 
-local function options(state, read, labelOf)
-    local seen = {}
-    local result = {{value = "", label = "All"}}
-    for _, item in ipairs(state.items) do
-        local value = read(item)
-        if value ~= "" and not seen[value] then
-            seen[value] = true
-            table.insert(result, {value = value, label = labelOf and labelOf(item) or value})
+local function spaces(state)
+    local live, blocked, shown = {}, {}, {}
+    for _, item in ipairs(state.items) do live[item.id] = item end
+    for _, entry in ipairs(layout.cards) do
+        local item = live[entry.id]
+        if item then
+            shown[entry.ws] = true
+            if item.state == "blocked" then blocked[entry.ws] = true end
         end
     end
-    return result
+    shown[layout.current] = true
+    local result, free = {}, nil
+    for n = 1, SPACES do
+        if shown[n] then
+            table.insert(result, {n = n, blocked = blocked[n] == true})
+        elseif not free then
+            free = n
+        end
+    end
+    return result, free
+end
+
+local function strip(state, key, drops)
+    local numbers, free = spaces(state)
+    local buttons = {}
+    for _, entry in ipairs(numbers) do
+        local current = entry.n == layout.current
+        table.insert(buttons, ui.Button {key = key .. entry.n, text = tostring(entry.n), width = 56, onPress = "ws",
+            onDrop = drops and "drop_ws" or nil, args = {ws = entry.n},
+            background = current and "accent" or nil, color = not current and entry.blocked and "danger" or nil})
+    end
+    if free then
+        table.insert(buttons, ui.Button {key = key .. "new", text = "+", width = 56, onPress = "ws",
+            onDrop = drops and "drop_ws" or nil, args = {ws = free}})
+    end
+    return ui.Row {key = key, gap = 6, children = buttons}
 end
 
 local function answers(key, item)
@@ -117,10 +235,10 @@ local function card(item)
     local tone = TONE[item.state]
     local children = {
         ui.Row {key = key .. "head", gap = 8, children = {
-            ui.Text {key = key .. "agent", text = string.upper(item.agent), bold = true, flex = 1, lines = 1, color = tone},
-            ui.Text {key = key .. "state", text = string.upper(item.state), fontSize = 11, color = tone},
+            ui.Text {key = key .. "agent", text = string.upper(item.agent), bold = true, flex = 1, lines = 1, color = "muted"},
+            ui.StatusTag {key = key .. "state", label = string.upper(item.state), color = tone},
         }},
-        ui.Text {key = key .. "title", text = item.title ~= "" and item.title or "Untitled session", bold = true, lines = 2},
+        ui.Text {key = key .. "title", text = title(item), bold = true, lines = 2},
     }
     local line = detail(item)
     if line ~= "" then
@@ -131,14 +249,14 @@ local function card(item)
         fontSize = 11, lines = 1, color = "muted"})
     if item.approval then table.insert(children, answers(key, item)) end
     return ui.Box {key = key, padding = 10, border = item.state == "blocked" and "danger" or nil,
-        onPress = "open", args = {id = item.id},
+        onPress = "open", drag = item.id, onDrop = "drop_card", args = {id = item.id},
         children = {ui.Column {key = key .. "rows", gap = 6, align = "stretch", children = children}}}
 end
 
 local function board(state)
     local shown = 0
-    local lanes = {}
-    for _, lane in ipairs(columns(state)) do
+    local result = {}
+    for _, lane in ipairs(lanes(state, state.search)) do
         local key = "l_" .. lane.id
         local cards = {}
         for _, item in ipairs(lane.items) do
@@ -150,52 +268,52 @@ local function board(state)
         if hidden > 0 then
             table.insert(cards, ui.Text {key = key .. "more", text = "+" .. hidden .. " more · search to narrow", color = "muted"})
         end
-        table.insert(lanes, ui.Column {key = key, width = 280, gap = 8, align = "stretch", children = {
-            ui.Box {key = key .. "head", padding = 8, border = lane.tone, children = {
-                ui.Row {key = key .. "row", gap = 8, children = {
-                    ui.Text {key = key .. "name", text = lane.name, bold = true, flex = 1, lines = 1, color = lane.tone},
-                    ui.Text {key = key .. "count", text = tostring(#lane.items), color = "muted"},
+        table.insert(result, ui.Column {key = key, width = 280, gap = 8, align = "stretch", onDrop = "drop_column", args = {col = lane.id},
+            children = {
+                ui.Box {key = key .. "head", padding = 8, children = {
+                    ui.Row {key = key .. "row", gap = 8, children = {
+                        ui.Text {key = key .. "name", text = string.upper(lane.name), bold = true, flex = 1, lines = 1},
+                        ui.Text {key = key .. "count", text = tostring(#lane.items), color = "muted"},
+                    }},
                 }},
-            }},
-            ui.List {key = key .. "cards", flex = 1, gap = 8, children = cards},
-        }})
+                ui.List {key = key .. "cards", flex = 1, gap = 8, children = cards},
+            }})
     end
-    return lanes
+    return result
 end
 
-local function groupButton(state, id, label)
-    return ui.Button {key = "group_" .. id, text = label, flex = 1, onPress = "group", args = {group = id},
-        background = state.group == id and "accent" or nil}
+local function editor(state)
+    local columns = space(layout.current).columns
+    local rows = {}
+    for i, column in ipairs(columns) do
+        local key = "e_" .. column.id
+        table.insert(rows, ui.Row {key = key, gap = 6, children = {
+            ui.Input {key = key .. "name", label = "Column " .. i, value = column.name, onChange = "rename", args = {col = column.id}, flex = 1},
+            ui.Button {key = key .. "left", text = "←", onPress = "left", args = {col = column.id}, enabled = i > 1},
+            ui.Button {key = key .. "right", text = "→", onPress = "right", args = {col = column.id}, enabled = i < #columns},
+            ui.Button {key = key .. "delete", text = "×", color = "danger", onPress = "delete", args = {col = column.id}, enabled = #columns > 1},
+        }})
+    end
+    if #columns < COLUMN_LIMIT then
+        table.insert(rows, ui.Row {key = "add", gap = 6, children = {
+            ui.Input {key = "newcol_" .. #columns, label = "New column", onChange = "add", flex = 1},
+            ui.Button {key = "addcol", text = "ADD", onPress = "add"},
+        }})
+    end
+    table.insert(rows, ui.Toggle {key = "awake", label = "Keep screen on", value = layout.awake, onChange = "awake"})
+    return ui.Disclosure {key = "columns", title = "Workspace " .. layout.current,
+        subtitle = #columns .. " columns" .. (layout.awake and " · screen stays on" or ""), children = rows}
 end
 
 local function view(state)
-    local filters = {}
-    if state.agent ~= "" then table.insert(filters, string.upper(state.agent)) end
-    if state.host ~= "" then
-        local name = state.host
-        for _, host in ipairs(state.hosts) do if host.id == state.host then name = host.name end end
-        table.insert(filters, name)
-    end
-    if state.project ~= "" then table.insert(filters, state.project) end
+    layout = layout or load()
     local children = {}
     if state.message ~= "" then
         table.insert(children, ui.Text {key = "message", text = state.message, color = state.failed and "danger" or "accent"})
     end
+    table.insert(children, strip(state, "ws_", true))
     table.insert(children, ui.Input {key = "search", label = "Search", hint = "Title, prompt, message, directory or agent", value = state.search, onChange = "search", live = true})
-    table.insert(children, ui.Row {key = "group", gap = 8, children = {
-        groupButton(state, "status", "STATUS"), groupButton(state, "machine", "MACHINE"), groupButton(state, "workspace", "WORKSPACE"),
-    }})
-    table.insert(children, ui.Disclosure {key = "filters", title = "Filters",
-        subtitle = #filters > 0 and table.concat(filters, " · ") or (state.awake and "All sessions · screen stays on" or "All sessions"),
-        children = {
-            ui.Select {key = "agent", label = "Agent", value = state.agent, onChange = "filter_agent",
-                options = options(state, function(item) return item.agent end, function(item) return string.upper(item.agent) end)},
-            ui.Select {key = "host", label = "Host", value = state.host, onChange = "filter_host",
-                options = options(state, function(item) return item.host end, function(item) return item.host_name end)},
-            ui.Select {key = "project", label = "Project", value = state.project, onChange = "filter_project", options = options(state, project)},
-            ui.Toggle {key = "awake", label = "Keep screen on", value = state.awake, onChange = "awake"},
-            ui.Button {key = "clear", text = "Clear filters", onPress = "clear"},
-        }})
+    table.insert(children, editor(state))
     for _, host in ipairs(state.hosts) do
         if not host.ok then
             table.insert(children, ui.Text {key = "down_" .. host.id, text = string.upper(host.name) .. " · " .. (host.reason or "did not answer"),
@@ -206,65 +324,101 @@ local function view(state)
         table.insert(children, ui.Text {key = "waiting", text = "Reading hosts…", color = "muted"})
     end
     table.insert(children, ui.List {key = "board", direction = "horizontal", flex = 1, gap = 12, children = board(state)})
-    return ui.Page {key = "page", title = "KANBAN", breadcrumb = "/ TOOLS", fill = true, awake = state.awake,
+    return ui.Page {key = "page", title = "KANBAN", breadcrumb = "/ TOOLS", fill = true, awake = layout.awake,
         children = {ui.Column {key = "body", gap = 8, align = "stretch", children = children}}}
 end
 
 local function inbox(state)
-    local counts = {blocked = 0, working = 0, done = 0}
-    local blocked = {}
-    for _, item in ipairs(state.items) do
-        if counts[item.state] then counts[item.state] += 1 end
-        if item.state == "blocked" then table.insert(blocked, item) end
-    end
-    table.sort(blocked, ordered)
+    layout = layout or load()
     local children = {}
     if state.message ~= "" then
         table.insert(children, ui.Text {key = "message", text = state.message, color = state.failed and "danger" or "accent"})
     end
-    table.insert(children, ui.Row {key = "counts", gap = 8, children = {
-        ui.BracketLabel {key = "blocked", label = "BLOCKED", value = tostring(counts.blocked), color = counts.blocked > 0 and "danger" or nil, flex = 1},
-        ui.BracketLabel {key = "working", label = "WORKING", value = tostring(counts.working), flex = 1},
-        ui.BracketLabel {key = "done", label = "DONE", value = tostring(counts.done), flex = 1},
-    }})
-    for i = 1, math.min(#blocked, HOME_BLOCKED) do
-        local item = blocked[i]
-        local key = "b_" .. item.id
+    table.insert(children, strip(state, "ws_", false))
+    local asking = 0
+    for _, item in ipairs(state.items) do
+        if item.approval and asking < HOME_APPROVALS then
+            asking += 1
+            local key = "a_" .. item.id
+            table.insert(children, ui.Box {key = key, padding = 8, border = "danger", onPress = "open", args = {id = item.id}, children = {
+                ui.Column {key = key .. "rows", gap = 4, align = "stretch", children = {
+                    ui.Text {key = key .. "title", text = string.upper(item.agent) .. " · " .. title(item), bold = true, lines = 1},
+                    ui.Text {key = key .. "line", text = item.approval.line, lines = 2, color = "danger"},
+                    answers(key, item),
+                }},
+            }})
+        end
+    end
+    local columns = {}
+    local all = lanes(state, "")
+    for i = 1, math.min(#all, HOME_COLUMNS) do
+        local lane = all[i]
+        local key = "m_" .. lane.id
         local rows = {
-            ui.Text {key = key .. "title", text = item.title ~= "" and item.title or string.upper(item.agent), bold = true, lines = 1},
-            ui.Text {key = key .. "detail", text = detail(item), lines = 2, color = "muted"},
-            ui.Text {key = key .. "who", text = string.upper(item.agent) .. " · " .. item.host_name, fontSize = 11, lines = 1, color = "muted"},
+            ui.Text {key = key .. "name", text = string.upper(lane.name) .. " " .. #lane.items, bold = true, lines = 1, fontSize = 12, color = "muted"},
         }
-        if item.approval then table.insert(rows, answers(key, item)) end
-        table.insert(children, ui.Box {key = key, padding = 8, border = "danger", onPress = "open", args = {id = item.id},
-            children = {ui.Column {key = key .. "rows", gap = 4, align = "stretch", children = rows}}})
+        for j = 1, math.min(#lane.items, HOME_ROWS) do
+            local item = lane.items[j]
+            table.insert(rows, ui.Box {key = key .. "_" .. item.id, padding = 6, onPress = "open", args = {id = item.id},
+                border = item.state == "blocked" and "danger" or nil, children = {
+                    ui.Text {key = key .. "_" .. item.id .. "t", text = title(item), lines = 1, fontSize = 12, color = TONE[item.state]},
+                }})
+        end
+        if #lane.items > HOME_ROWS then
+            table.insert(rows, ui.Text {key = key .. "more", text = "+" .. (#lane.items - HOME_ROWS), fontSize = 11, color = "muted"})
+        end
+        table.insert(columns, ui.Column {key = key, flex = 1, gap = 4, align = "stretch", children = rows})
     end
-    if #blocked > HOME_BLOCKED then
-        table.insert(children, ui.Text {key = "more", text = "+" .. (#blocked - HOME_BLOCKED) .. " more blocked", color = "muted"})
+    table.insert(children, ui.Row {key = "mini", gap = 6, align = "start", children = columns})
+    if #all > HOME_COLUMNS then
+        table.insert(children, ui.Text {key = "hidden", text = "+" .. (#all - HOME_COLUMNS) .. " more columns on the board", fontSize = 11, color = "muted"})
     end
-    local newest
-    for _, host in ipairs(state.hosts) do
-        if host.read_ago and (newest == nil or host.read_ago < newest) then newest = host.read_ago end
+    if not state.ready then
+        table.insert(children, ui.Text {key = "waiting", text = "Reading hosts…", fontSize = 11, color = "muted"})
     end
-    table.insert(children, ui.Text {key = "read", color = "muted", fontSize = 11,
-        text = newest and "READ " .. age(newest) .. " AGO" or (state.ready and "NO HOST ANSWERED YET" or "READING HOSTS")})
     table.insert(children, ui.Button {key = "open_board", text = "OPEN BOARD", opens = "main"})
-    return ui.Panel {key = "inbox", title = "AGENT BOARD",
+    return ui.Panel {key = "inbox", title = "AGENTS · WORKSPACE " .. layout.current,
         children = {ui.Column {key = "inboxrows", gap = 8, align = "stretch", children = children}}}
 end
 
-local function update(state, event)
-    if event.type == "mount" then
-        if event.widget == nil then
-            state.group = recall("group")
-            if state.group == "" then state.group = "status" end
-            state.agent = recall("agent")
-            state.host = recall("host")
-            state.project = recall("project")
-            state.awake = recall("awake") == "on"
+local function columnAction(state, id, col, value)
+    local n = layout.current
+    local columns = space(n).columns
+    local index = holds(columns, col)
+    if id == "add" then
+        local name = clean(value)
+        if name == "" then
+            state.message = "Name the column first"
+            state.failed = true
+            return
         end
-        return list(state)
+        if #columns >= COLUMN_LIMIT then return end
+        table.insert(columns, {id = layout.spaces[n].next, name = name})
+        layout.spaces[n].next += 1
+    elseif not index then
+        return
+    elseif id == "rename" then
+        local name = clean(value)
+        if name == "" then return end
+        columns[index].name = name
+    elseif id == "left" or id == "right" then
+        local other = index + (id == "left" and -1 or 1)
+        if other < 1 or other > #columns then return end
+        columns[index], columns[other] = columns[other], columns[index]
+    elseif id == "delete" then
+        if #columns < 2 then return end
+        table.remove(columns, index)
+        for _, entry in ipairs(layout.cards) do
+            if entry.ws == n and entry.col == col then entry.col = columns[1].id end
+        end
+        saveCards()
     end
+    saveSpace(n)
+end
+
+local function update(state, event)
+    layout = load()
+    if event.type == "mount" then return list(state) end
     if event.type == "changed" or event.type == "refresh" then return list(state) end
     if event.type == "result" then
         if not event.ok then
@@ -277,6 +431,7 @@ local function update(state, event)
             state.ready = event.value.ready
             state.items = event.value.items
             state.hosts = event.value.hosts
+            place(state)
             -- The feed can trail an answer by a read; keep its buttons hidden until it catches up.
             local still = {}
             for _, item in ipairs(state.items) do
@@ -301,22 +456,29 @@ local function update(state, event)
     state.message = ""
     if event.id == "search" then
         state.search = event.value
-    elseif event.id == "group" then
-        state.group = args.group
-        remember("group", state.group)
-    elseif event.id == "filter_agent" or event.id == "filter_host" or event.id == "filter_project" then
-        local name = string.sub(event.id, 8)
-        state[name] = event.value
-        remember(name, event.value)
-    elseif event.id == "awake" then
-        state.awake = event.value == true
-        remember("awake", state.awake and "on" or "off")
-    elseif event.id == "clear" then
-        for _, name in ipairs({"agent", "host", "project"}) do
-            state[name] = ""
-            remember(name, "")
+    elseif event.id == "ws" then
+        layout.current = math.clamp(tonumber(args.ws) or 1, 1, SPACES)
+        remember("current", tostring(layout.current))
+    elseif event.id == "drop_ws" then
+        local n = math.clamp(tonumber(args.ws) or 1, 1, SPACES)
+        move(event.value, n, space(n).columns[1].id, nil)
+    elseif event.id == "drop_column" then
+        move(event.value, layout.current, args.col, nil)
+    elseif event.id == "drop_card" then
+        if event.value == args.id then return state end
+        for _, entry in ipairs(layout.cards) do
+            if entry.id == args.id then
+                move(event.value, entry.ws, entry.col, args.id)
+                break
+            end
         end
-        state.search = ""
+    elseif event.id == "add" then
+        columnAction(state, "add", nil, fields["newcol_" .. #space(layout.current).columns])
+    elseif event.id == "rename" or event.id == "left" or event.id == "right" or event.id == "delete" then
+        columnAction(state, event.id, args.col, event.value)
+    elseif event.id == "awake" then
+        layout.awake = event.value == true
+        remember("awake", layout.awake and "on" or "off")
     elseif event.id == "allow" or event.id == "deny" then
         state.answering = args.approval
         return state, {ui.effect("agents", "answer", {approval = args.approval, allow = event.id == "allow"}, "answer")}
@@ -328,8 +490,7 @@ end
 
 return ui.app {
     init = function()
-        return {ready = false, items = {}, hosts = {}, message = "", failed = false,
-            group = "status", agent = "", host = "", project = "", awake = false, search = "",
+        return {ready = false, items = {}, hosts = {}, message = "", failed = false, search = "",
             answered = {}, answering = ""}
     end,
     update = update,

@@ -203,21 +203,26 @@ void main() {
   );
 
   test(
-    'columns by status hold their sessions and the failing host says so',
+    'new sessions land in the first column of the workspace in front',
     () async {
       await app.send({'type': 'mount'});
       expect(app.effects.single, containsPair('operation', 'list'));
       await app.listed(feed);
       expect(app.view.props['fill'], isTrue);
       expect(keyed(app.view, 'board').props['direction'], 'horizontal');
-      expect(lanes(app.view), ['BLOCKED', 'WORKING', 'DONE', 'IDLE']);
-      expect(lane(app.view, 'blocked'), ['c_b']);
-      expect(lane(app.view, 'idle'), ['c_d', 'c_e']);
+      expect(lanes(app.view), ['INBOX', 'DOING', 'DONE']);
+      expect(lane(app.view, '1'), ['c_a', 'c_b', 'c_c', 'c_e', 'c_d']);
       expect(texts(app.view), contains('FARADAY · unreachable'));
       expect(texts(app.view), contains('bash · rm -rf build'));
       final box = keyed(app.view, 'c_d');
-      expect(box.props['onPress'], 'open');
+      expect(box.props, containsPair('onPress', 'open'));
+      expect(box.props, containsPair('drag', 'd'));
+      expect(box.props, containsPair('onDrop', 'drop_card'));
       expect(box.props['args'], {'id': 'd'});
+      expect(keyed(app.view, 'l_2').props['onDrop'], 'drop_column');
+      expect(keyed(app.view, 'ws_1').props['background'], 'accent');
+      expect(keyed(app.view, 'ws_new').props['args'], {'ws': 2});
+      expect(keyed(app.view, 'ws_new').props['onDrop'], 'drop_ws');
     },
   );
 
@@ -242,55 +247,127 @@ void main() {
     expect(app.effects.single, containsPair('operation', 'list'));
     await app.listed(feed);
     expect(walk(app.view).where((node) => node.key == 'c_ballow'), isEmpty);
-    expect(lane(app.view, 'blocked'), ['c_b']);
+    expect(lane(app.view, '1'), contains('c_b'));
     await app.action('open', args: {'id': 'd'});
     expect(app.effects.single['args'], {'id': 'd'});
   });
 
-  test('grouping and filters are remembered; the search is not', () async {
+  test(
+    'a dropped card moves between columns and workspaces, and stays there',
+    () async {
+      await opened();
+      await app.action('drop_column', value: 'a', args: {'col': 2});
+      expect(lane(app.view, '2'), ['c_a']);
+      await app.action('drop_card', value: 'c', args: {'id': 'a'});
+      expect(lane(app.view, '2'), ['c_c', 'c_a']);
+      await app.action('drop_card', value: 'a', args: {'id': 'a'});
+      expect(lane(app.view, '2'), ['c_c', 'c_a']);
+      await app.action('drop_ws', value: 'b', args: {'ws': 3});
+      expect(lane(app.view, '1'), ['c_e', 'c_d']);
+      expect(keyed(app.view, 'ws_3').props['color'], 'danger');
+      expect(keyed(app.view, 'ws_new').props['args'], {'ws': 2});
+
+      await app.action('ws', args: {'ws': 3});
+      expect(lane(app.view, '1'), ['c_b']);
+      app.state = null;
+      await app.send({'type': 'mount'});
+      await app.listed({
+        ...feed,
+        'items': [...feed['items']! as List<Object?>, item('f', 'working')],
+      });
+      expect(lane(app.view, '1'), ['c_b', 'c_f']);
+      await app.action('ws', args: {'ws': 1});
+      expect(lane(app.view, '2'), ['c_c', 'c_a']);
+      expect(lane(app.view, '1'), ['c_e', 'c_d']);
+    },
+  );
+
+  test('a session gone from a host that answered leaves; one on a silent host '
+      'keeps its place', () async {
+    final down = item('g', 'idle', host: 'h3', hostName: 'faraday');
+    final items = feed['items']! as List<Object?>;
+    await app.send({'type': 'mount'});
+    await app.listed({
+      ...feed,
+      'items': [...items, down],
+    });
+    await app.action('drop_column', value: 'a', args: {'col': 3});
+    await app.action('drop_column', value: 'g', args: {'col': 3});
+    expect(lane(app.view, '3'), ['c_a', 'c_g']);
+    await app.listed({...feed, 'items': items.skip(1).toList()});
+    await app.listed({
+      ...feed,
+      'items': [...items, down],
+    });
+    expect(lane(app.view, '3'), ['c_g']);
+    expect(lane(app.view, '1').last, 'c_a');
+  });
+
+  test(
+    'each workspace has its own columns, added, renamed, moved and deleted',
+    () async {
+      await opened();
+      await app.action('drop_column', value: 'a', args: {'col': 2});
+      await app.action('add', fields: {'newcol_3': '  Review\n'});
+      expect(lanes(app.view), ['INBOX', 'DOING', 'DONE', 'REVIEW']);
+      expect(keyed(app.view, 'newcol_4').props['value'], isNull);
+      await app.action('add', fields: {'newcol_4': ' '});
+      expect(texts(app.view), contains('Name the column first'));
+      await app.action('rename', value: 'Todo', args: {'col': 1});
+      await app.action('right', args: {'col': 1});
+      expect(lanes(app.view), ['DOING', 'TODO', 'DONE', 'REVIEW']);
+      await app.action('delete', args: {'col': 2});
+      expect(lanes(app.view), ['TODO', 'DONE', 'REVIEW']);
+      expect(lane(app.view, '1'), ['c_b', 'c_c', 'c_e', 'c_d', 'c_a']);
+      await app.action('drop_ws', value: 'c', args: {'ws': 2});
+      await app.action('ws', args: {'ws': 2});
+      expect(lanes(app.view), ['INBOX', 'DOING', 'DONE']);
+      expect(lane(app.view, '1'), ['c_c']);
+
+      app.state = null;
+      await app.send({'type': 'mount'});
+      await app.listed(feed);
+      await app.action('ws', args: {'ws': 1});
+      expect(lanes(app.view), ['TODO', 'DONE', 'REVIEW']);
+    },
+  );
+
+  test('the search narrows the board and is not remembered', () async {
     await opened();
-    await app.action('group', args: {'group': 'machine'});
-    expect(lanes(app.view), ['NYX', 'ROSE', 'FARADAY']);
-    expect([
-      for (final host in ['h1', 'h2', 'h3'])
-        keyed(app.view, 'l_${host}head').props['border'],
-    ], [null, null, 'danger']);
-    await app.action('group', args: {'group': 'workspace'});
-    expect(lanes(app.view), ['fixture', 'striked', 'tools']);
-    await app.action('filter_agent', value: 'claude');
-    expect(lane(app.view, 'striked'), ['c_b', 'c_a']);
     await app.action('search', value: 'PARSER');
-    expect(lanes(app.view), ['striked']);
-    expect(lane(app.view, 'striked'), ['c_a']);
+    expect(lane(app.view, '1'), ['c_a']);
     await app.action('awake', value: true);
     expect(app.view.props['awake'], isTrue);
-
     app.state = null;
     await opened();
-    expect(lanes(app.view), ['fixture', 'striked', 'tools']);
-    expect(lane(app.view, 'striked'), ['c_b', 'c_a']);
     expect(app.view.props['awake'], isTrue);
     expect(keyed(app.view, 'search').props['value'], '');
+    expect(lane(app.view, '1'), hasLength(5));
     expect(
       () => PluginUiNode.parse(app.raw, allowCanvas: false, pages: {'main'}),
       throwsA(isA<PluginException>()),
     );
   });
 
-  test(
-    'the Home card counts, puts blocked first and opens the board',
-    () async {
-      await app.send({'type': 'mount', 'widget': 'inbox'}, widget: 'inbox');
-      expect(app.effects.single, containsPair('operation', 'list'));
-      await app.listed(feed, widget: 'inbox');
-      final counts = keyed(app.view, 'counts').children;
-      expect(counts.map((label) => label.props['value']), ['1', '1', '1']);
-      expect(keyed(app.view, 'b_b').props['onPress'], 'open');
-      expect(keyed(app.view, 'b_ballow').props['args'], {'approval': 'ap1'});
-      expect(texts(app.view), contains('READ 4s AGO'));
-      expect(keyed(app.view, 'open_board').props['opens'], 'main');
-      await app.action('deny', args: {'approval': 'ap1'}, widget: 'inbox');
-      expect(app.effects.single['args'], {'approval': 'ap1', 'allow': false});
-    },
-  );
+  test('the Home card is the workspace in front as a small board', () async {
+    await opened();
+    await app.action('drop_column', value: 'a', args: {'col': 2});
+    app.state = null;
+    await app.send({'type': 'mount', 'widget': 'inbox'}, widget: 'inbox');
+    expect(app.effects.single, containsPair('operation', 'list'));
+    await app.listed(feed, widget: 'inbox');
+    expect(app.view.props['title'], 'AGENTS · WORKSPACE 1');
+    expect(texts(app.view), containsAll(['INBOX 4', 'DOING 1', 'DONE 0']));
+    expect(keyed(app.view, 'm_2_a').props['onPress'], 'open');
+    expect(keyed(app.view, 'm_2_a').props['args'], {'id': 'a'});
+    expect(keyed(app.view, 'm_1_bt').props['color'], 'danger');
+    expect(keyed(app.view, 'a_ballow').props['args'], {'approval': 'ap1'});
+    expect(keyed(app.view, 'open_board').props['opens'], 'main');
+    expect(walk(app.view).where((node) => node.props['drag'] != null), isEmpty);
+    await app.action('deny', args: {'approval': 'ap1'}, widget: 'inbox');
+    expect(app.effects.single['args'], {'approval': 'ap1', 'allow': false});
+    await app.action('ws', args: {'ws': 2}, widget: 'inbox');
+    expect(app.view.props['title'], 'AGENTS · WORKSPACE 2');
+    expect(texts(app.view), contains('INBOX 0'));
+  });
 }

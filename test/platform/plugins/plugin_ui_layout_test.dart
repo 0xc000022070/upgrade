@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:striked/platform/plugins/manifest.dart';
 import 'package:striked/platform/plugins/ui.dart';
@@ -267,5 +268,208 @@ void main() {
       () => parse(node('text', 't', props: {'live': true})),
       throwsA(isA<PluginException>()),
     );
+  });
+
+  testWidgets('a long-pressed box drops on the innermost target under it', (
+    tester,
+  ) async {
+    final events = <Map<String, Object?>>[];
+    Map<String, Object?> card(String id) => node(
+      'box',
+      'card_$id',
+      props: {
+        'drag': id,
+        'onDrop': 'before',
+        'args': {'id': id},
+        'height': 60,
+      },
+      children: [
+        node('text', 't_$id', props: {'text': 'CARD $id'}),
+      ],
+    );
+    Map<String, Object?> lane(int index, List<String> cards) => node(
+      'column',
+      'lane$index',
+      props: {
+        'width': 200,
+        'align': 'stretch',
+        'onDrop': 'into',
+        'args': {'lane': index},
+      },
+      children: [
+        node('text', 'name$index', props: {'text': 'LANE $index'}),
+        node(
+          'list',
+          'cards$index',
+          props: {'flex': 1},
+          children: [for (final id in cards) card(id)],
+        ),
+      ],
+    );
+    Widget build({bool busy = false}) => MaterialApp(
+      theme: testTheme,
+      home: Scaffold(
+        body: PluginUi(
+          node: parse(
+            node(
+              'page',
+              'page',
+              props: {'fill': true},
+              children: [
+                node(
+                  'list',
+                  'board',
+                  props: {'direction': 'horizontal', 'gap': 12},
+                  children: [
+                    lane(0, ['a', 'b']),
+                    lane(1, []),
+                    for (var i = 2; i < 6; i++) lane(i, []),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          values: {},
+          busy: busy,
+          onEvent: events.add,
+        ),
+      ),
+    );
+    await tester.pumpWidget(build());
+
+    Future<void> dragTo(String source, Offset target) async {
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text(source)),
+      );
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+      await gesture.moveTo(target);
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    await dragTo('CARD a', tester.getCenter(find.text('CARD b')));
+    expect(events.single, containsPair('id', 'before'));
+    expect(events.single['value'], 'a');
+    expect(events.single['args'], {'id': 'b'});
+
+    await dragTo(
+      'CARD b',
+      tester.getCenter(find.text('LANE 1')) + const Offset(0, 200),
+    );
+    expect(events.last['id'], 'into');
+    expect(events.last['value'], 'b');
+    expect(events.last['args'], {'lane': 1});
+
+    await dragTo('CARD a', tester.getCenter(find.text('CARD a')));
+    expect(events.last['args'], {'id': 'a'});
+    expect(events, hasLength(3));
+
+    await tester.pumpWidget(build(busy: true));
+    final held = await tester.startGesture(
+      tester.getCenter(find.text('CARD a')),
+    );
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await held.moveBy(const Offset(0, 40));
+    await tester.pump();
+    expect(find.text('CARD a'), findsOneWidget);
+    await held.up();
+    await dragTo('CARD a', tester.getCenter(find.text('LANE 1')));
+    expect(events, hasLength(3));
+  });
+
+  testWidgets('a box held at the edge of its list scrolls the list along', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: testTheme,
+        home: Scaffold(
+          body: PluginUi(
+            node: parse(
+              node(
+                'page',
+                'page',
+                props: {'fill': true},
+                children: [
+                  node(
+                    'list',
+                    'board',
+                    props: {'direction': 'horizontal'},
+                    children: [
+                      for (var i = 0; i < 8; i++)
+                        node(
+                          'box',
+                          'card$i',
+                          props: {'drag': 'c$i', 'width': 200},
+                          children: [
+                            node('text', 't$i', props: {'text': 'CARD $i'}),
+                          ],
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            values: {},
+            onEvent: (_) {},
+          ),
+        ),
+      ),
+    );
+    final board = tester.state<ScrollableState>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable && widget.axisDirection == AxisDirection.right,
+      ),
+    );
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('CARD 0')),
+    );
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await gesture.moveTo(const Offset(395, 300));
+    for (var i = 0; i < 120; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(board.position.pixels, board.position.maxScrollExtent);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    final settled = board.position.pixels;
+    await tester.pump(const Duration(seconds: 1));
+    expect(board.position.pixels, settled);
+  });
+
+  test('only a box on a page drags, and a card takes no drop', () {
+    for (final (source, card) in [
+      (node('text', 't', props: {'drag': 'x'}), false),
+      (node('box', 'b', props: {'drag': 7}), false),
+      (node('page', 'p', props: {'onDrop': 'x'}), false),
+      (node('column', 'c', props: {'onDrop': 3}), false),
+      (
+        node(
+          'panel',
+          'card',
+          children: [
+            node('box', 'b', props: {'drag': 'x'}),
+          ],
+        ),
+        true,
+      ),
+      (
+        node(
+          'panel',
+          'card',
+          children: [
+            node('box', 'b', props: {'onDrop': 'x'}),
+          ],
+        ),
+        true,
+      ),
+    ]) {
+      expect(() => parse(source, card: card), throwsA(isA<PluginException>()));
+    }
   });
 }
