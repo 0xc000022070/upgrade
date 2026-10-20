@@ -36,7 +36,7 @@ schema_version = 1
 service = "item_notes"
 
 [contributes]
-surfaces = ["home.layout", "item.detail"]
+surfaces = ["item.detail"]
 
 [[contributes.widgets]]
 id = "drops"

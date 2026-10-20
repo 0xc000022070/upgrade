@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/features/home/drops_home_surface.dart';
 import 'package:striked/features/home/home_feedback.dart';
 import 'package:striked/features/home/home_card_viewport.dart';
 import 'package:striked/features/home/capture_bar.dart';
@@ -16,14 +15,11 @@ const dropsPlugin = NativePluginModule(
   id: 'striked.drops',
   directory: 'lib/builtin_plugins/drops',
   surfaces: {
-    'home.layout': _home,
     'home.drops': _drops,
     'home.capture': _capture,
   },
   deactivate: _deactivate,
 );
-
-Widget _home(BuildContext context) => const DropsHomeSurface();
 
 Widget _drops(BuildContext context) => const _DropsContribution();
 

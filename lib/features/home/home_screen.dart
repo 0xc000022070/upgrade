@@ -114,7 +114,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _syncVisible();
     });
     final catalog = ref.watch(pluginContributionCatalogProvider);
-    final drops = ref.watch(nativeSurfaceOwnerProvider('home.layout')) != null;
+    final search = ref.watch(nativeSurfaceOwnerProvider('item.detail')) != null;
     final placementState = ref.watch(pluginPlacementsProvider);
     final placements = placementState.valueOrNull;
     final selecting = ref
@@ -242,7 +242,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   breadcrumbTrailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (drops)
+                      if (search)
                         ToolbarIconAction(
                           label: 'SEARCH',
                           icon: StrikedIcons.search,
@@ -251,7 +251,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             openItemSearch(context);
                           },
                         ),
-                      if (drops) const SizedBox(width: Spacing.sm),
+                      if (search) const SizedBox(width: Spacing.sm),
                       HomeActions(beforeOpen: _leave),
                     ],
                   ),
