@@ -92,8 +92,9 @@ class _ConsentRegistry extends PluginHostRegistry {
     InstalledPlugin plugin,
     Map<String, Object?> effect,
     PluginHostConfirm confirm,
-    void Function() check,
-  ) async {
+    void Function() check, {
+    PluginHostGesture? gesture,
+  }) async {
     answered = await confirm(host, 'scheduler', {'setup', 'run'});
     return {'allowed': answered};
   }

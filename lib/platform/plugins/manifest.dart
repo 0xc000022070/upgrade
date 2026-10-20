@@ -678,7 +678,8 @@ List<Object?> _uiGrants(Map<String, Object?> root, {required bool hasUi}) {
       ui.any(
         (entry) =>
             entry != 'record_action' &&
-            (!hasUi || !{'page', 'canvas', 'widget'}.contains(entry)),
+            (!hasUi ||
+                !{'page', 'canvas', 'widget', 'keep_awake'}.contains(entry)),
       )) {
     throw const PluginException('Unsupported UI permission');
   }
@@ -696,6 +697,11 @@ Iterable<PluginPermission> _uiPermissions(List<Object?> ui) => [
     ),
   if (ui.contains('widget'))
     const PluginPermission('ui.widget', 'Draw Home cards; UI API 1'),
+  if (ui.contains('keep_awake'))
+    const PluginPermission(
+      'ui.keep_awake',
+      'Keep the screen on while its page is open',
+    ),
 ];
 
 Map<String, PluginHostCapability> _hostCapabilities(Map<String, Object?> root) {

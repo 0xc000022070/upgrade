@@ -14,6 +14,7 @@ import 'package:striked/features/plugins/plugin_frames.dart';
 import 'package:striked/features/plugins/plugin_page.dart';
 import 'package:striked/platform/plugins/store.dart';
 import 'package:striked/platform/plugins/ui.dart';
+import 'package:striked/platform/ssh/connection_supervisor.dart';
 
 typedef _Drawn = ({
   String stamp,
@@ -62,7 +63,6 @@ class _PluginCardState extends ConsumerState<_PluginCardBody>
   Timer? _timer;
   AppLifecycleListener? _lifecycle;
   bool _due = false;
-  bool _onStage = false;
 
   @override
   InstalledPlugin get plugin => widget.registration.owner;
@@ -76,8 +76,12 @@ class _PluginCardState extends ConsumerState<_PluginCardBody>
       ref.read(pluginsProvider.notifier).card(plugin.id, _widgetId, input);
 
   @override
-  PluginUiNode parseView(Object? view) =>
-      PluginUiNode.parse(view, allowCanvas: canvasGranted, card: true);
+  PluginUiNode parseView(Object? view) => PluginUiNode.parse(
+    view,
+    allowCanvas: canvasGranted,
+    card: true,
+    pages: pageIds,
+  );
 
   @override
   void framed() {
@@ -111,9 +115,6 @@ class _PluginCardState extends ConsumerState<_PluginCardBody>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _onStage =
-        TickerMode.valuesOf(context).enabled &&
-        ModalRoute.of(context)?.isCurrent != false;
     _refreshIfShown();
   }
 
@@ -133,8 +134,12 @@ class _PluginCardState extends ConsumerState<_PluginCardBody>
   }
 
   @override
-  Future<void> dispatch(Map<String, Object?> event) async {
-    await super.dispatch(event);
+  Future<void> dispatch(
+    Map<String, Object?> event, {
+    bool quiet = false,
+    UserIntent? intent,
+  }) async {
+    await super.dispatch(event, quiet: quiet, intent: intent);
     _refreshIfShown();
   }
 
@@ -142,7 +147,7 @@ class _PluginCardState extends ConsumerState<_PluginCardBody>
     if (!mounted ||
         !_due ||
         busy ||
-        !_onStage ||
+        !onStage ||
         WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
       return;
     }
@@ -191,8 +196,11 @@ class _PluginCardState extends ConsumerState<_PluginCardBody>
         PluginUi(
           node: drawn,
           values: fieldValues,
-          onEvent: dispatch,
+          onEvent: UserIntent.onGestureWith(
+            (intent, event) => dispatch(event, intent: intent),
+          ),
           busy: busy,
+          onOpen: openPage,
         ),
         if (error != null)
           Text(

@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 
 import 'package:striked/design/components/bracket_label.dart';
 import 'package:striked/design/components/action_block.dart';
@@ -51,6 +54,8 @@ class PluginUiNode {
     Object? source, {
     required bool allowCanvas,
     bool card = false,
+    bool allowAwake = false,
+    Set<String> pages = const {},
   }) {
     var count = 0;
     var drawingCommands = 0;
@@ -134,6 +139,8 @@ class PluginUiNode {
         'caption',
         'hint',
         'breadcrumb',
+        'opens',
+        'direction',
       ]) {
         if (props[field] != null && props[field] is! String) {
           throw PluginException('Invalid UI $field');
@@ -142,6 +149,31 @@ class PluginUiNode {
             (props[field]! as String).length > 16384) {
           throw const PluginException('UI text exceeds its limit');
         }
+      }
+      if (props['opens'] != null &&
+          (!{'button', 'list_row', 'box'}.contains(kind) ||
+              !pages.contains(props['opens']))) {
+        throw const PluginException('UI opens an undeclared page');
+      }
+      if (props['live'] != null &&
+          (props['live'] is! bool || kind != 'input')) {
+        throw const PluginException('Only an input is live');
+      }
+      if (props['awake'] != null && kind != 'page' ||
+          props['awake'] == true && !allowAwake) {
+        throw const PluginException('Keep-awake permission is not granted');
+      }
+      if (kind == 'page' &&
+          props['fill'] == true &&
+          uiList(value['children'])
+                  .where(
+                    (child) =>
+                        child is! Map<String, Object?> ||
+                        child['kind'] != 'footer',
+                  )
+                  .length !=
+              1) {
+        throw const PluginException('A filling page holds one child');
       }
       if (props['value'] != null &&
           (kind == 'toggle'
@@ -298,6 +330,7 @@ Color pluginColor(StrikedTokens tokens, Object? value, [Color? fallback]) {
     'surface' => tokens.backgroundSecondary,
     'border' => tokens.borderNormal,
     'danger' => tokens.danger,
+    'warning' => tokens.warning,
     String() when RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(value) => Color(
       0xFF000000 | int.parse(value.substring(1), radix: 16),
     ),
@@ -313,17 +346,19 @@ class PluginUi extends StatelessWidget {
     required this.onEvent,
     this.busy = false,
     this.onBack,
+    this.onOpen,
   });
   final PluginUiNode node;
   final Map<String, Object?> values;
   final ValueChanged<Map<String, Object?>> onEvent;
   final bool busy;
   final VoidCallback? onBack;
+  final ValueChanged<String>? onOpen;
 
   @override
   Widget build(BuildContext context) => _build(context, node);
 
-  Widget _build(BuildContext context, PluginUiNode node) {
+  Widget _build(BuildContext context, PluginUiNode node, {bool fills = false}) {
     final p = node.props;
     double number(String name, double fallback) =>
         (p[name] as num?)?.toDouble() ?? fallback;
@@ -338,6 +373,13 @@ class PluginUi extends StatelessWidget {
         if (position != null) 'position': {'x': position.dx, 'y': position.dy},
       });
     }
+
+    final opens = p['opens'] as String?;
+    final press = opens != null
+        ? (busy || onOpen == null ? null : () => onOpen!(opens))
+        : p['onPress'] == null || busy
+        ? null
+        : () => action(p['onPress'] as String?);
 
     Widget child(PluginUiNode entry, {bool flex = false}) {
       final built = _build(context, entry);
@@ -379,13 +421,17 @@ class PluginUi extends StatelessWidget {
               breadcrumbTrailing: busy
                   ? Text('CONNECTING', style: context.tokens.rowKicker)
                   : null,
+              fill: p['fill'] == true,
               children: [
                 for (final entry in node.children.where(
                   (entry) => entry.kind != 'footer',
-                )) ...[
-                  child(entry),
-                  SizedBox(height: number('gap', 16).clamp(0, 64)),
-                ],
+                ))
+                  if (p['fill'] == true)
+                    _build(context, entry, fills: true)
+                  else ...[
+                    child(entry),
+                    SizedBox(height: number('gap', 16).clamp(0, 64)),
+                  ],
               ],
             ),
           ),
@@ -422,6 +468,22 @@ class PluginUi extends StatelessWidget {
           ),
         ),
       ),
+      'column' when fills => LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          child: _FillColumn(
+            viewport: constraints.maxHeight,
+            gap: number('gap', 0).clamp(0, 64),
+            align: align,
+            flexes: [
+              for (final entry in node.children)
+                ((entry.props['flex'] as num?)?.toInt() ?? 0).clamp(0, 12),
+            ],
+            children: [
+              for (final entry in node.children) _build(context, entry),
+            ],
+          ),
+        ),
+      ),
       'column' => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: align,
@@ -454,29 +516,34 @@ class PluginUi extends StatelessWidget {
               child(entry),
         ],
       ),
-      'box' => Container(
-        padding: EdgeInsets.all(number('padding', 12).clamp(0, 64)),
-        decoration: BoxDecoration(
-          color: pluginColor(
-            context.tokens,
-            p['background'],
-            context.tokens.backgroundSecondary,
-          ),
-          border: Border.all(
+      'box' => _pressable(
+        press,
+        Container(
+          padding: EdgeInsets.all(number('padding', 12).clamp(0, 64)),
+          decoration: BoxDecoration(
             color: pluginColor(
               context.tokens,
-              p['border'],
-              context.tokens.borderNormal,
+              p['background'],
+              context.tokens.backgroundSecondary,
+            ),
+            border: Border.all(
+              color: pluginColor(
+                context.tokens,
+                p['border'],
+                context.tokens.borderNormal,
+              ),
             ),
           ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: children(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children(),
+          ),
         ),
       ),
       'text' => Text(
+        maxLines: (p['lines'] as num?)?.toInt().clamp(1, 64),
+        overflow: p['lines'] == null ? null : TextOverflow.ellipsis,
         p['text'] as String? ?? '',
         style:
             (p['style'] == 'heading'
@@ -505,7 +572,7 @@ class PluginUi extends StatelessWidget {
           filled: p['background'] != null,
           onTap: busy || p['disabled'] == true || p['enabled'] == false
               ? null
-              : () => action(p['onPress'] as String?),
+              : press ?? () {},
         ),
       ),
       'input' || 'select' || 'choice' || 'toggle' || 'datetime' => _PluginField(
@@ -517,10 +584,15 @@ class PluginUi extends StatelessWidget {
       ),
       'list' => ListView.separated(
         primary: false,
+        scrollDirection: p['direction'] == 'horizontal'
+            ? Axis.horizontal
+            : Axis.vertical,
         itemCount: node.children.length,
         itemBuilder: (context, index) => child(node.children[index]),
-        separatorBuilder: (_, index) =>
-            SizedBox(height: number('gap', 8).clamp(0, 64)),
+        separatorBuilder: (_, index) => SizedBox(
+          width: number('gap', 8).clamp(0, 64),
+          height: number('gap', 8).clamp(0, 64),
+        ),
       ),
       'canvas' => _canvas(
         node,
@@ -577,9 +649,7 @@ class PluginUi extends StatelessWidget {
         caption: p['caption'] as String?,
         value: p['value'] as String?,
         node: p['node'] == true,
-        onTap: p['onPress'] == null
-            ? null
-            : () => action(p['onPress'] as String?),
+        onTap: press,
       ),
       'status_tag' => Align(
         alignment: Alignment.centerLeft,
@@ -611,6 +681,17 @@ class PluginUi extends StatelessWidget {
     return KeyedSubtree(key: ValueKey(node.key), child: result);
   }
 
+  Widget _pressable(VoidCallback? press, Widget child) => press == null
+      ? child
+      : Semantics(
+          button: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: press,
+            child: child,
+          ),
+        );
+
   Widget _canvas(PluginUiNode node, Widget painting) {
     if (node.props['interactive'] != true) return painting;
     return InteractiveViewer(
@@ -641,6 +722,8 @@ class _PluginField extends StatefulWidget {
 
 class _PluginFieldState extends State<_PluginField> {
   late final TextEditingController text;
+  Timer? _live;
+  Object? _sent;
   String get value => widget.values[widget.node.key]?.toString() ?? '';
   @override
   void initState() {
@@ -656,7 +739,9 @@ class _PluginFieldState extends State<_PluginField> {
   void didUpdateWidget(_PluginField oldWidget) {
     super.didUpdateWidget(oldWidget);
     final next = widget.node.props['value'] ?? '';
-    if (next != (oldWidget.node.props['value'] ?? '')) {
+    // A live field's own value coming back must not overwrite what was typed since.
+    if (next != (oldWidget.node.props['value'] ?? '') && next != _sent) {
+      _live?.cancel();
       widget.values[widget.node.key] = next;
       text.text = '$next';
     }
@@ -667,8 +752,20 @@ class _PluginFieldState extends State<_PluginField> {
     widget.onChange(value);
   }
 
+  void send(Object? value) {
+    _live?.cancel();
+    if (!mounted) return;
+    if (widget.busy) {
+      _live = Timer(const Duration(milliseconds: 300), () => send(value));
+      return;
+    }
+    _sent = value;
+    widget.onChange(value);
+  }
+
   @override
   void dispose() {
+    _live?.cancel();
     text.dispose();
     super.dispose();
   }
@@ -803,15 +900,21 @@ class _PluginFieldState extends State<_PluginField> {
           ),
         );
       default:
+        final live = p['live'] == true;
         return FieldPanel(
-          enabled: !widget.busy,
+          enabled: live || !widget.busy,
           maxLength: 16000,
           label: label,
           hint: p['hint'] as String? ?? '',
           controller: text,
           maxLines: (p['lines'] as num?)?.toInt().clamp(1, 8) ?? 1,
-          onChanged: (value) => widget.values[widget.node.key] = value,
-          onSubmitted: widget.onChange,
+          onChanged: (value) {
+            widget.values[widget.node.key] = value;
+            if (!live) return;
+            _live?.cancel();
+            _live = Timer(const Duration(milliseconds: 300), () => send(value));
+          },
+          onSubmitted: live ? send : widget.onChange,
         );
     }
   }
@@ -924,4 +1027,132 @@ class _PluginCanvas extends CustomPainter {
   @override
   bool shouldRepaint(_PluginCanvas oldDelegate) =>
       signature != oldDelegate.signature || tokens != oldDelegate.tokens;
+}
+
+class _FillColumn extends MultiChildRenderObjectWidget {
+  const _FillColumn({
+    required this.viewport,
+    required this.gap,
+    required this.align,
+    required this.flexes,
+    required super.children,
+  });
+
+  static const minFill = 240.0;
+
+  final double viewport;
+  final double gap;
+  final CrossAxisAlignment align;
+  final List<int> flexes;
+
+  @override
+  _RenderFillColumn createRenderObject(BuildContext context) =>
+      _RenderFillColumn(viewport, gap, align, flexes);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderFillColumn renderObject,
+  ) {
+    renderObject
+      ..viewport = viewport
+      ..gap = gap
+      ..align = align
+      ..flexes = flexes;
+  }
+}
+
+class _FillParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderFillColumn extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _FillParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _FillParentData> {
+  _RenderFillColumn(this._viewport, this._gap, this._align, this._flexes);
+
+  double _viewport;
+  set viewport(double value) {
+    if (value == _viewport) return;
+    _viewport = value;
+    markNeedsLayout();
+  }
+
+  double _gap;
+  set gap(double value) {
+    if (value == _gap) return;
+    _gap = value;
+    markNeedsLayout();
+  }
+
+  CrossAxisAlignment _align;
+  set align(CrossAxisAlignment value) {
+    if (value == _align) return;
+    _align = value;
+    markNeedsLayout();
+  }
+
+  List<int> _flexes;
+  set flexes(List<int> value) {
+    if (listEquals(value, _flexes)) return;
+    _flexes = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _FillParentData) {
+      child.parentData = _FillParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final width = constraints.maxWidth;
+    final stretch = _align == CrossAxisAlignment.stretch;
+    final across = stretch
+        ? BoxConstraints.tightFor(width: width)
+        : BoxConstraints(maxWidth: width);
+    final children = getChildrenAsList();
+    int flexOf(int index) => index < _flexes.length ? _flexes[index] : 0;
+    var taken = children.isEmpty ? 0.0 : _gap * (children.length - 1);
+    var shares = 0;
+    for (var i = 0; i < children.length; i++) {
+      if (flexOf(i) > 0) {
+        shares += flexOf(i);
+      } else {
+        children[i].layout(across, parentUsesSize: true);
+        taken += children[i].size.height;
+      }
+    }
+    final room = _viewport.isFinite
+        ? (_viewport - taken).clamp(_FillColumn.minFill, double.infinity)
+        : _FillColumn.minFill;
+    var y = 0.0;
+    for (var i = 0; i < children.length; i++) {
+      final child = children[i];
+      if (flexOf(i) > 0) {
+        final height = room * flexOf(i) / shares;
+        child.layout(
+          across.copyWith(minHeight: height, maxHeight: height),
+          parentUsesSize: true,
+        );
+      }
+      final x = switch (_align) {
+        CrossAxisAlignment.center => (width - child.size.width) / 2,
+        CrossAxisAlignment.end => width - child.size.width,
+        _ => 0.0,
+      };
+      (child.parentData! as _FillParentData).offset = Offset(x, y);
+      y += child.size.height + (i < children.length - 1 ? _gap : 0);
+    }
+    size = constraints.constrain(Size(width, y));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }

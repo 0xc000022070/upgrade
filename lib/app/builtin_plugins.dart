@@ -12,7 +12,11 @@ const builtinModules = <NativePluginModule>[
   projectsPlugin,
   promptPlugin,
 ];
-const bundledScriptDirectories = ['plugins/agent-schedules', 'plugins/board'];
+const bundledScriptDirectories = [
+  'plugins/agent-schedules',
+  'plugins/board',
+  'plugins/kanban',
+];
 
 Future<List<PluginPackage>> loadBuiltinPlugins() async => [
   for (final module in builtinModules) await _load(module),

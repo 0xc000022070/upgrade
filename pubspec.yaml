@@ -80,6 +80,8 @@ flutter:
     - plugins/agent-schedules/main.luau
     - plugins/board/striked.plugin.toml
     - plugins/board/main.luau
+    - plugins/kanban/striked.plugin.toml
+    - plugins/kanban/main.luau
     - assets/icons/
     - assets/icons/signal/
     - assets/project_emblems/

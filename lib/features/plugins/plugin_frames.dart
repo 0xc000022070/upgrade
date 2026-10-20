@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:striked_luau/striked_luau.dart';
 import 'package:uuid/uuid.dart';
@@ -7,9 +10,12 @@ import 'package:striked/application/plugins/plugin_hosts.dart';
 import 'package:striked/application/plugins/plugins.dart';
 import 'package:striked/data/repositories/host_repository.dart';
 import 'package:striked/design/components/panel_sheet.dart';
+import 'package:striked/features/agents/agent_shell.dart';
+import 'package:striked/features/plugins/plugin_page.dart';
 import 'package:striked/platform/plugins/manifest.dart';
 import 'package:striked/platform/plugins/store.dart';
 import 'package:striked/platform/plugins/ui.dart';
+import 'package:striked/platform/ssh/connection_supervisor.dart';
 
 mixin PluginFrames<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   InstalledPlugin get plugin;
@@ -23,12 +29,106 @@ mixin PluginFrames<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   String? error;
   String? back;
   bool busy = false;
+  bool onStage = false;
   late final int _activation;
+  Future<void>? _current;
+  final _watched = <String, PluginHostService>{};
+  final _changed = <String>{};
+  final _held = <VoidCallback>[];
+  AppLifecycleListener? _lifecycle;
+  Timer? _settle;
 
   @override
   void initState() {
     super.initState();
     _activation = ref.read(pluginsProvider.notifier).activation(plugin.id);
+    final services = ref.read(pluginHostRegistryProvider).services;
+    for (final capability in plugin.manifest.hostCapabilities.values) {
+      final service = services[capability.service];
+      final changes = service?.changes;
+      if (changes == null ||
+          !capability.operations.any(
+            (operation) =>
+                plugin.grants.contains(capability.permission(operation)),
+          )) {
+        continue;
+      }
+      _watched[capability.alias] = service!;
+      ref.listenManual(changes, (_, _) {
+        _changed.add(capability.alias);
+        _deliver();
+      });
+    }
+    if (_watched.isNotEmpty) {
+      _lifecycle = AppLifecycleListener(onResume: _deliver);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final shown =
+        TickerMode.valuesOf(context).enabled &&
+        ModalRoute.of(context)?.isCurrent != false;
+    if (shown == onStage) return;
+    onStage = shown;
+    if (_watched.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _hold(onStage);
+      _deliver();
+    });
+  }
+
+  @override
+  void dispose() {
+    _hold(false);
+    _settle?.cancel();
+    _lifecycle?.dispose();
+    super.dispose();
+  }
+
+  void _hold(bool on) {
+    if (!on) {
+      for (final release in _held) {
+        release();
+      }
+      _held.clear();
+    } else if (_held.isEmpty) {
+      for (final service in _watched.values) {
+        if (service.hold case final hold?) _held.add(hold());
+      }
+    }
+  }
+
+  void _deliver() {
+    if (!mounted ||
+        _changed.isEmpty ||
+        _current != null ||
+        !onStage ||
+        _settle != null ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
+    final alias = _changed.first;
+    _changed.remove(alias);
+    _settle = Timer(const Duration(seconds: 1), () {
+      _settle = null;
+      _deliver();
+    });
+    unawaited(dispatch({'type': 'changed', 'capability': alias}, quiet: true));
+  }
+
+  void openPage(String id) {
+    final page = plugin.manifest.pages
+        .where((page) => page.id == id)
+        .firstOrNull;
+    if (page == null || busy) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PluginPage(plugin: plugin, page: page),
+      ),
+    );
   }
 
   bool get pluginActive =>
@@ -44,6 +144,13 @@ mixin PluginFrames<T extends ConsumerStatefulWidget> on ConsumerState<T> {
 
   bool get canvasGranted =>
       plugin.grants.any((permission) => permission.id == 'ui.canvas');
+
+  bool get awakeGranted =>
+      plugin.grants.any((permission) => permission.id == 'ui.keep_awake');
+
+  Set<String> get pageIds => {
+    for (final page in plugin.manifest.pages) page.id,
+  };
 
   void _check() {
     if (!mounted ||
@@ -79,7 +186,11 @@ mixin PluginFrames<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     return allowed;
   }
 
-  Future<void> _frame(Map<String, Object?> event, int depth) async {
+  Future<void> _frame(
+    Map<String, Object?> event,
+    int depth,
+    PluginHostGesture? gesture,
+  ) async {
     if (depth > 8) {
       throw const PluginException('Plugin effect chain exceeded its limit');
     }
@@ -122,28 +233,58 @@ mixin PluginFrames<T extends ConsumerStatefulWidget> on ConsumerState<T> {
       try {
         final value = await ref
             .read(pluginHostRegistryProvider)
-            .invoke(plugin, request, _confirm, _check);
+            .invoke(plugin, request, _confirm, _check, gesture: gesture);
         answer = {'type': 'result', 'id': id, 'ok': true, 'value': value};
       } catch (error) {
         _check();
         answer = {'type': 'result', 'id': id, 'ok': false, 'error': '$error'};
       }
-      await _frame(answer, depth + 1);
+      await _frame(answer, depth + 1, gesture);
     }
   }
 
-  Future<void> dispatch(Map<String, Object?> event) async {
-    if (busy || !mounted) return;
+  Future<void> dispatch(
+    Map<String, Object?> event, {
+    bool quiet = false,
+    UserIntent? intent,
+  }) async {
+    if (!mounted || busy) return;
+    for (var current = _current; current != null; current = _current) {
+      if (quiet) return;
+      await current;
+      if (!mounted || busy) return;
+    }
+    final run = _run(event, intent, quiet: quiet);
+    _current = run;
+    await run;
+    if (identical(_current, run)) _current = null;
+    _deliver();
+  }
+
+  Future<void> _run(
+    Map<String, Object?> event,
+    UserIntent? intent, {
+    required bool quiet,
+  }) async {
     setState(() {
-      busy = true;
-      error = null;
+      busy = !quiet;
+      if (!quiet) error = null;
     });
+    final gesture = intent == null
+        ? null
+        : PluginHostGesture((host, agent) {
+            if (mounted) openAgentShell(context, ref, host, agent, intent);
+          });
     try {
-      await _frame({
-        ...event,
-        'token': const Uuid().v4(),
-        'now': DateTime.now().toIso8601String(),
-      }, 0);
+      await _frame(
+        {
+          ...event,
+          'token': const Uuid().v4(),
+          'now': DateTime.now().toIso8601String(),
+        },
+        0,
+        gesture,
+      );
     } catch (failure) {
       if (mounted) setState(() => error = '$failure');
     } finally {

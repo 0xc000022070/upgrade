@@ -1029,6 +1029,8 @@ void main() {
         'onGestureWith': {
           _shellScreen: 2,
           'lib/features/shell/parked_shell_bar.dart': 1,
+          'lib/features/plugins/plugin_card.dart': 1,
+          'lib/features/plugins/plugin_page.dart': 1,
         },
         'onNotificationTap': {'lib/app/alerts_boot.dart': 1},
         'onLaunch': {'lib/main.dart': 1},

@@ -501,11 +501,15 @@ final watcherFeedProvider = StreamProvider<AgentPanelState?>(
   (ref) => const Stream.empty(),
 );
 
+final pluginAgentsHeldProvider = StateProvider<int>((ref) => 0);
+
 /// The feed keeps its last value after the stream behind it is swapped for an empty
 /// one, so every reader gates on this rather than on the value being non-null.
 final agentsFeedLiveProvider = Provider<bool>((ref) {
   if (ref.watch(watcherFeedProvider).valueOrNull != null) return true;
-  return ref.watch(homeAgentsVisibleProvider) && ref.watch(appVisibleProvider);
+  return (ref.watch(homeAgentsVisibleProvider) ||
+          ref.watch(pluginAgentsHeldProvider) > 0) &&
+      ref.watch(appVisibleProvider);
 });
 
 /// Bumped on resume and network arrival to redial refused hosts. Visibility cannot stand in:

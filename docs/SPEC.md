@@ -2467,6 +2467,34 @@ Board is written against the drawing surface, the tap and the dataset API a repo
 
 A board holds as many notes and links as one drawing pass and one invocation's dataset transfer allow. Reaching that ceiling refuses the new note and says so on the board, rather than dropping notes from the drawing or accepting one it cannot store.
 
+### A plugin reads the agent inbox, and answers it only under a tap
+
+`agents` is a host service a plugin declares like any other — `[host_capabilities.<alias>]` naming `service = "agents"` and the operations it wants, each its own permission on review. It has three: `list`, `answer` and `open`.
+
+`list` answers what the agent panel already holds and opens no connection of its own: `hosts`, one per machine that answered or failed, with its id, name, whether it answered, the failure line when it did not, and when it last did; and `items`, one per live session, with a stable id, the host's id and name, the agent, its state word, title, workspace, directory, question, last message, whether herdr or the engine reported it, and the approval — its id, tool and the line being decided — when it is blocked on one. While a page or card of a plugin granted any `agents` operation is on screen with the app in front, the feed is kept live the way Home keeps it, and every time it changes the plugin receives `{type = "changed", capability = <alias>}`. That frame is quiet: it does not mark the page busy or take its controls away. A change that lands while the plugin is busy or off screen is delivered once, when it is next shown and idle.
+
+`answer` takes an approval's id and `allow`, and `open` takes an item's id. Both are honoured only in the chain of a tap: the frame answering an `action` event and the effects that follow from it, once per tap. A mount, a refresh, a change or a result is not a person, and an `answer` or `open` in its chain is refused. `answer` is refused too for an approval the feed no longer holds, and the engine refuses one already taken at the terminal; it says `allowed` or `denied` when it lands. `open` goes where a tap on that session's inbox row goes — the conversation for an engine session, the pane for a herdr one — and is refused for a session the feed no longer holds.
+
+**Struck stays struck.** An `answer` outside a tap would be the allowlist this document already refuses, written in somebody else's script. The service hands a plugin the buttons and nothing that presses them.
+
+### A plugin page can fill the screen, scroll sideways and keep the screen on
+
+A `page` with `fill = true` hands its one child other than the footer the height left under its header, instead of scrolling the whole page; a `column` with that height shares it between the children that carry `flex`. When the keyboard or the rest of the column leaves those children under 240dp, they keep 240dp and the page scrolls instead. A `list` with `direction = "horizontal"` scrolls sideways, each child as tall as the list, and needs that height handed to it by a filling page or a `height`.
+
+A `page` with `awake = true` keeps the screen on while it is the screen in front and the app is in front, and lets it sleep the moment either stops. It needs `keep_awake` among the manifest's `ui` permissions, which reads `Keep the screen on while its page is open` on review; a page that asks without the grant is refused like a canvas without one.
+
+`opens = "<page id>"` on a button, a list row or a box opens one of the plugin's own declared pages when tapped, natively and without running a frame, and works on a card: it is how a card grows into its page. A page id the manifest does not declare is refused. A `box` takes `onPress` and `args` the way a button does, so a whole card of a plugin's own design is one tap target, and `text` takes `lines`, after which it ends in an ellipsis. An `input` marked `live` sends its value a moment after the typing stops rather than only on submit, stays editable while a frame runs, and keeps what was typed since when its own value comes back. `warning` joins the semantic colours, and the `theme` table names it.
+
+### The agent board is a Luau plugin built from what any plugin has
+
+Kanban is a standalone Luau package shipped with the app, bundled and disabled until the user enables it. It is the agent inbox opened out into columns, and it is written only against the agents service, the page and card nodes and a private preferences dataset: nothing in the app knows it exists.
+
+The page fills the screen with columns that scroll sideways, each a header with its count over the sessions in it, each column scrolling on its own. The columns are grouped by status — blocked, working, done, idle — by machine or by workspace, chosen at the top. A filter narrows the board to one agent, one host or one project, and a search field narrows it, as it is typed, to sessions whose title, prompt, message, directory or agent carry the words. A session outside any workspace takes its directory's last folder as its project. A session is a card: the agent's name and its state in the state's colour, the title, the question, the approval line or the last message cut to three lines, and the workspace and host under it. A blocked card with an approval on it carries `DENY` and `ALLOW`, which answer it there and leave the card at once, before the feed catches up; a tap anywhere else on a card opens it as the inbox row would. A host that did not answer says so above the columns in its failure line. A toggle keeps the screen on while the board is open. The grouping, the filters and the toggle are remembered; the search is not.
+
+Its Home card is the inbox at a glance: how many sessions are blocked, working and done, the blocked ones first with their approval lines, `ALLOW` and `DENY` on each, the age of the last read, and `OPEN BOARD`, which opens the page.
+
+Drops are not on the board. It shows agent sessions and nothing else.
+
 Repository plugins are an Android feature in this target; a future public iOS distribution needs its own distribution decision. WebAssembly is deferred on both sides, the phone's and the host's, and arbitrary background Lua execution on the phone is deferred with it.
 
 ## Routines

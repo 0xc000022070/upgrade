@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:striked/data/repositories/host_repository.dart';
+import 'package:striked/platform/herdr/engine_agents.dart';
 import 'package:striked/platform/herdr/herdr_client.dart';
 import 'package:striked/platform/ssh/host_keys.dart';
 import 'package:striked/platform/ssh/host_links.dart';
@@ -32,11 +33,29 @@ typedef PluginHostTransport = Future<Map<String, Object?>> Function(
   Map<String, Object?> args,
 );
 
+/// One per tap: an effect chain that started from an `action` event carries it, and an
+/// operation that only a person may cause takes it, once.
+class PluginHostGesture {
+  PluginHostGesture(this._open);
+  final void Function(Host host, AgentSnapshot agent) _open;
+  var _spent = false;
+
+  bool take() {
+    if (_spent) return false;
+    _spent = true;
+    return true;
+  }
+
+  void open(Host host, AgentSnapshot agent) => _open(host, agent);
+}
+
 class PluginHostService {
   const PluginHostService({
     required this.operations,
     required this.invoke,
     this.deactivate,
+    this.changes,
+    this.hold,
   });
   final Set<String> operations;
   final Future<Object?> Function(
@@ -45,9 +64,14 @@ class PluginHostService {
     Map<String, Object?> args,
     PluginHostConfirm confirm,
     void Function() check,
+    PluginHostGesture? gesture,
   )
   invoke;
   final Future<void> Function(InstalledPlugin plugin)? deactivate;
+
+  final ProviderListenable<Object?>? changes;
+
+  final VoidCallback Function()? hold;
 }
 
 class PluginHostUsage {
@@ -70,8 +94,9 @@ class PluginHostRegistry {
     InstalledPlugin plugin,
     Map<String, Object?> effect,
     PluginHostConfirm confirm,
-    void Function() check,
-  ) async {
+    void Function() check, {
+    PluginHostGesture? gesture,
+  }) async {
     final alias = effect['capability'];
     final capability = plugin.manifest.hostCapabilities[alias];
     final operation = effect['operation'];
@@ -86,7 +111,7 @@ class PluginHostRegistry {
     usage.calls++;
     try {
       usage.sentBytes += utf8.encode(jsonEncode(effect['args'])).length;
-      final result = await _invoke(plugin, effect, confirm, check);
+      final result = await _invoke(plugin, effect, confirm, check, gesture);
       usage.receivedBytes += utf8.encode(jsonEncode(result)).length;
       return result;
     } catch (_) {
@@ -102,6 +127,7 @@ class PluginHostRegistry {
     Map<String, Object?> effect,
     PluginHostConfirm confirm,
     void Function() check,
+    PluginHostGesture? gesture,
   ) async {
     final alias = effect['capability'];
     final operation = effect['operation'];
@@ -129,6 +155,7 @@ class PluginHostRegistry {
       args,
       confirm,
       check,
+      gesture,
     );
     check();
     return result;
@@ -142,6 +169,60 @@ class PluginHostRegistry {
       await services[service]?.deactivate?.call(plugin);
     }
   }
+}
+
+String pluginAgentId(Host host, AgentSnapshot agent) =>
+    '${host.id}/${agent.source.name}/${agent.session}/${agent.paneId}';
+
+Map<String, Object?> pluginAgentList(AgentPanelState? feed, DateTime now) {
+  if (feed == null) {
+    return {'ready': false, 'hosts': <Object?>[], 'items': <Object?>[]};
+  }
+  final hosts = <String, Map<String, Object?>>{};
+  for (final outcome in feed.outcomes) {
+    final entry = hosts.putIfAbsent(
+      outcome.host.id,
+      () => {'id': outcome.host.id, 'name': outcome.host.name, 'ok': false},
+    );
+    if (outcome.ok) entry['ok'] = true;
+    final at = outcome.lastGoodAt;
+    final kept = entry['read_at'] as String?;
+    if (at != null && (kept == null || DateTime.parse(kept).isBefore(at))) {
+      entry['read_at'] = at.toUtc().toIso8601String();
+      entry['read_ago'] = now.difference(at).inSeconds.clamp(0, 1 << 31);
+    }
+  }
+  for (final failure in feed.failures) {
+    hosts[failure.host.id]?['reason'] ??= failure.namedReason;
+  }
+  return {
+    'ready': true,
+    'hosts': hosts.values.toList(),
+    'items': [
+      for (final outcome in feed.outcomes)
+        for (final agent in outcome.agents)
+          {
+            'id': pluginAgentId(outcome.host, agent),
+            'host': outcome.host.id,
+            'host_name': outcome.host.name,
+            'agent': agent.agent,
+            'state': agent.state.word,
+            'title': agent.terminalTitleStripped,
+            'workspace': agent.workspaceLabel ?? '',
+            'directory': agent.cwd,
+            'question': agent.question ?? '',
+            'message': agent.message ?? '',
+            'source': agent.source.name,
+            'seq': agent.stateChangeSeq,
+            if (agent.approval case final approval?)
+              'approval': {
+                'id': approval.id,
+                'tool': approval.tool,
+                'line': approval.line,
+              },
+          },
+    ],
+  };
 }
 
 String pluginHostOwner(InstalledPlugin plugin) => sha256
@@ -448,7 +529,7 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
     {
       'hosts': PluginHostService(
         operations: const {'list', 'workspaces'},
-        invoke: (plugin, operation, args, confirm, check) async {
+        invoke: (plugin, operation, args, confirm, check, _) async {
           if (operation == 'workspaces') {
             final available = await hosts.all();
             final host = available
@@ -497,7 +578,7 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
           'resume_scope',
         },
         deactivate: (plugin) => pause(pluginHostOwner(plugin)),
-        invoke: (plugin, operation, args, confirm, check) async {
+        invoke: (plugin, operation, args, confirm, check, _) async {
           final hostId = args['host'];
           final available = await hosts.all();
           final matching = available.where((host) => host.id == hostId);
@@ -556,6 +637,61 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
             }
             return result;
           });
+        },
+      ),
+      'agents': PluginHostService(
+        operations: const {'list', 'answer', 'open'},
+        changes: agentsFeedProvider,
+        hold: () {
+          final held = ref.read(pluginAgentsHeldProvider.notifier);
+          held.state++;
+          return () {
+            if (held.mounted) held.state--;
+          };
+        },
+        invoke: (plugin, operation, args, confirm, check, gesture) async {
+          final feed = ref.read(agentsFeedProvider).valueOrNull;
+          if (operation == 'list') return pluginAgentList(feed, DateTime.now());
+          if (gesture == null || !gesture.take()) {
+            throw const PluginException(
+              'Agents are answered and opened only from a tap',
+            );
+          }
+          final found = [
+            for (final outcome in feed?.outcomes ?? const <HostOutcome>[])
+              for (final agent in outcome.agents)
+                if (operation == 'answer'
+                    ? agent.approval?.id == args['approval']
+                    : pluginAgentId(outcome.host, agent) == args['id'])
+                  (host: outcome.host, agent: agent),
+          ].firstOrNull;
+          if (found == null) {
+            throw PluginException(
+              operation == 'answer'
+                  ? 'This approval is no longer pending'
+                  : 'This session is gone',
+            );
+          }
+          if (operation == 'open') {
+            gesture.open(found.host, found.agent);
+            return {'opened': true};
+          }
+          final allow = args['allow'];
+          if (allow is! bool) {
+            throw const PluginException('Answer with allow true or false');
+          }
+          final engine = await ref.read(engineOpenProvider)(found.host);
+          try {
+            check();
+            await engine.answer(found.agent.approval!.id, allow: allow);
+          } on EngineRefused catch (error) {
+            throw PluginException(
+              error.notFound ? 'Already answered' : 'The engine refused',
+            );
+          } finally {
+            engine.session.close();
+          }
+          return {'answer': allow ? 'allowed' : 'denied'};
         },
       ),
     },

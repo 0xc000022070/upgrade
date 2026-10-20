@@ -10,9 +10,11 @@ import 'package:striked/design/components/list_row.dart';
 import 'package:striked/design/components/panel.dart';
 import 'package:striked/design/components/panel_text_action.dart';
 import 'package:striked/design/spacing.dart';
+import 'package:striked/platform/device.dart';
 import 'package:striked/platform/plugins/contributions.dart';
 import 'package:striked/platform/plugins/store.dart';
 import 'package:striked/platform/plugins/ui.dart';
+import 'package:striked/platform/ssh/connection_supervisor.dart';
 import 'package:striked/design/components/screen_scaffold.dart';
 import 'package:striked/features/plugins/plugin_frames.dart';
 import 'package:striked/features/plugins/plugin_management_screen.dart';
@@ -31,6 +33,7 @@ Map<String, Object?> pluginThemeTable(StrikedTokens tokens) => {
   'muted': _hex(tokens.textMuted),
   'accent': _hex(tokens.accent),
   'danger': _hex(tokens.danger),
+  'warning': _hex(tokens.warning),
 };
 
 String _pageLabel(PluginPageRegistration page) {
@@ -69,14 +72,38 @@ class _PluginPageState extends ConsumerState<PluginPage>
       ref.read(pluginsProvider.notifier).frame(plugin.id, input);
 
   @override
-  PluginUiNode parseView(Object? view) =>
-      PluginUiNode.parse(view, allowCanvas: canvasGranted);
+  PluginUiNode parseView(Object? view) => PluginUiNode.parse(
+    view,
+    allowCanvas: canvasGranted,
+    allowAwake: awakeGranted,
+    pages: pageIds,
+  );
 
   @override
   void initState() {
     super.initState();
     Future.microtask(() => dispatch(_mountEvent()));
   }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _awake();
+  }
+
+  @override
+  void framed() => _awake();
+
+  @override
+  void dispose() {
+    Device.keepAwake(this, false);
+    super.dispose();
+  }
+
+  void _awake() => Device.keepAwake(
+    this,
+    onStage && view?.kind == 'page' && view?.props['awake'] == true,
+  );
 
   Map<String, Object?> _mountEvent() => {
     'type': 'mount',
@@ -146,9 +173,12 @@ class _PluginPageState extends ConsumerState<PluginPage>
                 child: PluginUi(
                   node: view!,
                   values: fieldValues,
-                  onEvent: dispatch,
+                  onEvent: UserIntent.onGestureWith(
+                    (intent, event) => dispatch(event, intent: intent),
+                  ),
                   busy: busy,
                   onBack: _goBack,
+                  onOpen: openPage,
                 ),
               ),
             if (view == null && !busy)

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:striked/application/agents/agents.dart';
 import 'package:striked/application/plugins/native_plugins.dart';
 import 'package:striked/application/plugins/plugins.dart';
 import 'package:striked/features/plugins/plugin_card.dart';
@@ -44,6 +47,7 @@ class _CardPlugins extends Plugins {
   _CardPlugins(this.catalog);
   final List<InstalledPlugin> catalog;
   final events = <Map<String, Object?>>[];
+  Completer<void>? changes;
 
   @override
   Future<List<InstalledPlugin>> build() async => catalog;
@@ -54,7 +58,9 @@ class _CardPlugins extends Plugins {
     String widget,
     Map<String, Object?> input,
   ) async {
-    events.add({...input['event']! as Map<String, Object?>, 'card': widget});
+    final event = input['event']! as Map<String, Object?>;
+    events.add({...event, 'card': widget});
+    if (event['type'] == 'changed') await changes?.future;
     return LuauResult(
       loadMicros: 0,
       runMicros: 0,
@@ -86,9 +92,19 @@ Future<void> _drain(WidgetTester tester) async {
   }
 }
 
-Future<(ProviderContainer, _CardPlugins)> _setUp() async {
+const _agents = '''
+[host_capabilities.agents]
+api_version = 1
+service = "agents"
+operations = ["list"]
+''';
+
+Future<(ProviderContainer, _CardPlugins)> _setUp({
+  String extra = '',
+  List<Override> overrides = const [],
+}) async {
   final package = PluginPackage(
-    manifest: PluginManifest.parse(_manifest),
+    manifest: PluginManifest.parse('$_manifest$extra'),
     source: 'return {}',
     origin: 'https://github.com/test/card',
     revision: '1.0.0',
@@ -103,6 +119,7 @@ Future<(ProviderContainer, _CardPlugins)> _setUp() async {
     overrides: [
       pluginBootCatalogProvider.overrideWithValue([plugin]),
       pluginsProvider.overrideWith(() => plugins),
+      ...overrides,
     ],
   );
   addTearDown(container.dispose);
@@ -186,5 +203,92 @@ void main() {
     stage.value = true;
     await _drain(tester);
     expect(plugins.events.map((event) => event['type']), ['mount', 'refresh']);
+  });
+
+  testWidgets('an agent change reaches a shown card once, quietly', (
+    tester,
+  ) async {
+    final feed = StreamController<AgentPanelState>.broadcast();
+    addTearDown(feed.close);
+    final (container, plugins) = await _setUp(
+      extra: _agents,
+      overrides: [agentsFeedProvider.overrideWith((ref) => feed.stream)],
+    );
+    final status = container
+        .read(pluginContributionCatalogProvider)
+        .widgets
+        .first;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final stage = ValueNotifier(true);
+    await tester.pumpWidget(
+      _host(
+        container,
+        ValueListenableBuilder(
+          valueListenable: stage,
+          builder: (_, shown, child) =>
+              TickerMode(enabled: shown, child: child!),
+          child: PluginCard(registration: status),
+        ),
+      ),
+    );
+    await _drain(tester);
+    expect(container.read(pluginAgentsHeldProvider), 1);
+    feed.add(AgentPanelState.linked(const []));
+    await _drain(tester);
+    expect(plugins.events.map((event) => event['type']), ['mount', 'changed']);
+    expect(plugins.events.last['capability'], 'agents');
+    expect(find.text('CONNECTING'), findsNothing);
+
+    stage.value = false;
+    await _drain(tester);
+    expect(container.read(pluginAgentsHeldProvider), 0);
+    feed.add(AgentPanelState.linked(const []));
+    feed.add(AgentPanelState.linked(const []));
+    await tester.pump(const Duration(seconds: 2));
+    await _drain(tester);
+    expect(plugins.events, hasLength(2));
+    stage.value = true;
+    await _drain(tester);
+    await tester.pump(const Duration(seconds: 2));
+    await _drain(tester);
+    expect(plugins.events.map((event) => event['type']), [
+      'mount',
+      'changed',
+      'changed',
+    ]);
+  });
+
+  testWidgets('a tap under a quiet change waits for it and still runs', (
+    tester,
+  ) async {
+    final feed = StreamController<AgentPanelState>.broadcast();
+    addTearDown(feed.close);
+    final (container, plugins) = await _setUp(
+      extra: _agents,
+      overrides: [agentsFeedProvider.overrideWith((ref) => feed.stream)],
+    );
+    final status = container
+        .read(pluginContributionCatalogProvider)
+        .widgets
+        .first;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpWidget(_host(container, PluginCard(registration: status)));
+    await _drain(tester);
+    plugins.changes = Completer();
+    feed.add(AgentPanelState.linked(const []));
+    await _drain(tester);
+    expect(plugins.events.last['type'], 'changed');
+
+    await tester.tap(find.text('GO'));
+    await _drain(tester);
+    expect(plugins.events, hasLength(2));
+    plugins.changes!.complete();
+    await _drain(tester);
+    expect(plugins.events.map((event) => event['type'] ?? event['id']), [
+      'mount',
+      'changed',
+      'action',
+    ]);
+    expect(plugins.events.last['id'], 'go');
   });
 }

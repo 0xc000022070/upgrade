@@ -25,6 +25,17 @@ abstract final class Device {
       .map((event) => event as bool? ?? false)
       .handleError((Object _) {});
 
+  static final _awake = <Object>{};
+
+  static void keepAwake(Object owner, bool on) {
+    final before = _awake.isNotEmpty;
+    on ? _awake.add(owner) : _awake.remove(owner);
+    if (before == _awake.isNotEmpty) return;
+    _channel
+        .invokeMethod<void>('awake', _awake.isNotEmpty)
+        .then((_) {}, onError: (Object _) {});
+  }
+
   static Future<String?> model() async {
     try {
       return await _channel.invokeMethod<String>('model');
