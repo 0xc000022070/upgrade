@@ -105,6 +105,7 @@ class LauncherWidget : AppWidgetProvider() {
         private const val USAGE_FRAME = 32f
         private const val USAGE_PAIR_WIDTH = 400f
         private const val USAGE_COMPACT_PAIR_WIDTH = 300f
+        private const val USAGE_CARD_ROWS = 3
         private const val USAGE_WINDOWS = 3
         private const val USAGE_CELLS = 10
         private const val USAGE_BAR_WIDTH = 100f
@@ -296,7 +297,16 @@ class LauncherWidget : AppWidgetProvider() {
         }
 
         fun sendViews(context: Context, widgetId: Int): RemoteViews =
-            sendViews(context, widgetId, widgetSize(context, widgetId).height >= SEND_LIST_HEIGHT)
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                sendViews(context, widgetId, widgetSize(context, widgetId).height >= SEND_LIST_HEIGHT)
+            } else {
+                RemoteViews(
+                    mapOf(
+                        SizeF(0f, 0f) to sendViews(context, widgetId, false),
+                        SizeF(0f, SEND_LIST_HEIGHT) to sendViews(context, widgetId, true),
+                    ),
+                )
+            }
 
         // Some launchers report these sizes in pixels; a width past the screen's is taken as one.
         private fun widgetSize(context: Context, widgetId: Int): SizeF {
@@ -418,12 +428,31 @@ class LauncherWidget : AppWidgetProvider() {
             else -> R.color.launcher_dim
         }
 
+        // The options can describe the other display of a foldable, so from Android 12 the launcher picks the
+        // layout. Breakpoints form a grid, so the nearest one that fits is the one just below the drawn size.
         fun usageViews(context: Context, widgetId: Int): RemoteViews {
-            val size = widgetSize(context, widgetId)
-            val cards = size.height >= USAGE_CARD_HEIGHT
-            val columns = if (size.width >= if (cards) USAGE_PAIR_WIDTH else USAGE_COMPACT_PAIR_WIDTH) 2 else 1
             val accounts = usage(context)
             val now = System.currentTimeMillis()
+            val bars = HashMap<JSONObject, Bitmap>()
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                return usageViews(context, widgetSize(context, widgetId), accounts, now, bars)
+            }
+            val widths = listOf(0f, USAGE_COMPACT_PAIR_WIDTH, USAGE_PAIR_WIDTH)
+            val heights = listOf(0f, USAGE_CARD_HEIGHT) +
+                (2..USAGE_CARD_ROWS).map { USAGE_FRAME + it * USAGE_CARD_ROW }
+            val sizes = widths.flatMap { width -> heights.map { SizeF(width, it) } }
+            return RemoteViews(sizes.associateWith { usageViews(context, it, accounts, now, bars) })
+        }
+
+        private fun usageViews(
+            context: Context,
+            size: SizeF,
+            accounts: List<JSONObject>,
+            now: Long,
+            bars: MutableMap<JSONObject, Bitmap>,
+        ): RemoteViews {
+            val cards = size.height >= USAGE_CARD_HEIGHT
+            val columns = if (size.width >= if (cards) USAGE_PAIR_WIDTH else USAGE_COMPACT_PAIR_WIDTH) 2 else 1
             return RemoteViews(
                 context.packageName,
                 if (cards) R.layout.usage_widget_tall else R.layout.usage_widget,
@@ -433,7 +462,7 @@ class LauncherWidget : AppWidgetProvider() {
                 setViewVisibility(R.id.usage_rows, if (accounts.isEmpty()) View.GONE else View.VISIBLE)
                 val rows = if (cards) ((size.height - USAGE_FRAME) / USAGE_CARD_ROW).toInt().coerceAtLeast(1) else 1
                 for (pair in accounts.take(rows * columns).chunked(columns)) {
-                    addView(R.id.usage_rows, usagePair(context, pair, now, cards))
+                    addView(R.id.usage_rows, usagePair(context, pair, now, cards, bars))
                 }
                 setOnClickPendingIntent(R.id.usage_field, open(context, HOME))
             }
@@ -454,15 +483,27 @@ class LauncherWidget : AppWidgetProvider() {
             return (0 until windows.length()).mapNotNull { windows.optJSONObject(it) }.take(USAGE_WINDOWS)
         }
 
-        private fun usagePair(context: Context, accounts: List<JSONObject>, now: Long, card: Boolean): RemoteViews =
+        private fun usagePair(
+            context: Context,
+            accounts: List<JSONObject>,
+            now: Long,
+            card: Boolean,
+            bars: MutableMap<JSONObject, Bitmap>,
+        ): RemoteViews =
             RemoteViews(context.packageName, R.layout.usage_pair).apply {
                 for ((index, account) in accounts.withIndex()) {
                     if (index > 0) addView(R.id.usage_pair, RemoteViews(context.packageName, R.layout.usage_divider))
-                    addView(R.id.usage_pair, usageAccount(context, account, now, card))
+                    addView(R.id.usage_pair, usageAccount(context, account, now, card, bars))
                 }
             }
 
-        private fun usageAccount(context: Context, account: JSONObject, now: Long, card: Boolean): RemoteViews {
+        private fun usageAccount(
+            context: Context,
+            account: JSONObject,
+            now: Long,
+            card: Boolean,
+            bars: MutableMap<JSONObject, Bitmap>,
+        ): RemoteViews {
             val windows = usageWindows(account)
             val captured = account.optLong("captured", 0L)
             val brand = brandColour(account.optString("agent"))
@@ -495,7 +536,7 @@ class LauncherWidget : AppWidgetProvider() {
                         },
                     )
                 }
-                for (window in windows) addView(R.id.usage_lines, windowRow(context, window, now, brand))
+                for (window in windows) addView(R.id.usage_lines, windowRow(context, window, now, brand, bars))
             }
         }
 
@@ -549,12 +590,18 @@ class LauncherWidget : AppWidgetProvider() {
             return line
         }
 
-        private fun windowRow(context: Context, window: JSONObject, now: Long, brand: Int?): RemoteViews {
+        private fun windowRow(
+            context: Context,
+            window: JSONObject,
+            now: Long,
+            brand: Int?,
+            bars: MutableMap<JSONObject, Bitmap>,
+        ): RemoteViews {
             val colour = context.getColor(windowColour(window, now, brand))
             val resets = window.optLong("resets", 0L)
             return RemoteViews(context.packageName, R.layout.usage_window).apply {
                 setTextViewText(R.id.usage_window_label, window.optString("label"))
-                setImageViewBitmap(R.id.usage_window_bar, cellsBitmap(context, window, now, colour))
+                setImageViewBitmap(R.id.usage_window_bar, bars.getOrPut(window) { cellsBitmap(context, window, now, colour) })
                 setTextViewText(R.id.usage_window_share, "${window.optInt("used")}%")
                 setTextColor(R.id.usage_window_share, colour)
                 setTextViewText(R.id.usage_window_reset, if (resets > 0) "↻ ${clock(resets)}" else "")
