@@ -205,7 +205,7 @@ void main() {
     expect(find.text('AGENT TASKS · AGENT TASKS'), findsNothing);
     expect(find.text('ARCHIVE · PROJECTS'), findsOneWidget);
     final launchers = tester.widgetList<ListRow>(find.byType(ListRow));
-    expect(launchers, hasLength(3));
+    expect(launchers, hasLength(4));
     expect(launchers.every((row) => row.node && row.onTap != null), isTrue);
     expect(find.text(schedules.manifest.purpose), findsOneWidget);
     expect(find.text(projects.manifest.purpose), findsOneWidget);

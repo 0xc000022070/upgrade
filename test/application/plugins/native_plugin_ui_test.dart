@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:striked/app/builtin_plugins.dart';
@@ -52,6 +53,16 @@ Future<void> drainUntil(
   } while (!condition() && waited.elapsed < within);
 }
 
+// The usage flush timer fires under the fake clock; writes chained from there
+// would park runAsync callers on microtasks nothing pumps.
+class _RootZoneUsageFile extends NativeUsageFile {
+  _RootZoneUsageFile(super.file);
+
+  @override
+  Future<void> write(Map<String, Object?> usage) =>
+      Zone.root.run(() => super.write(usage));
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory root;
@@ -91,12 +102,13 @@ void main() {
           ),
         ),
         nativeUsageFileProvider.overrideWith(
-          (ref) async => NativeUsageFile(File('${root.path}/usage.json')),
+          (ref) async => _RootZoneUsageFile(File('${root.path}/usage.json')),
         ),
         nativeDatasetReportProvider.overrideWith((ref, id) async => []),
       ],
     );
     await container.read(pluginsProvider.future);
+    await container.read(nativeUsageFileProvider.future);
   });
 
   tearDown(() async {
