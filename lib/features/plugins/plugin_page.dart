@@ -17,6 +17,7 @@ import 'package:striked/platform/plugins/ui.dart';
 import 'package:striked/platform/ssh/connection_supervisor.dart';
 import 'package:striked/design/components/screen_scaffold.dart';
 import 'package:striked/features/plugins/plugin_frames.dart';
+import 'package:striked/features/plugins/plugin_development_screen.dart';
 import 'package:striked/features/plugins/plugin_management_screen.dart';
 
 String _hex(Color color) =>
@@ -235,6 +236,16 @@ class PluginLibraryScreen extends ConsumerWidget {
                       titleMaxLines: 2,
                       node: true,
                       onTap: () => openPluginManagement(context),
+                    ),
+                  ),
+                  Semantics(
+                    button: true,
+                    child: ListRow(
+                      title: 'DEVELOP PLUGIN',
+                      titleMaxLines: 2,
+                      subtitle: 'PREVIEW A WORKSPACE ON A HOST',
+                      node: true,
+                      onTap: () => openPluginDevelopment(context),
                     ),
                   ),
                 ],

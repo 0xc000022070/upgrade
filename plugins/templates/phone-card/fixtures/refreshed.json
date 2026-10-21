@@ -1,0 +1,7 @@
+{
+  "widget": "status",
+  "events": [
+    {"type": "refresh", "widget": "status"},
+    {"type": "refresh", "widget": "status"}
+  ]
+}
