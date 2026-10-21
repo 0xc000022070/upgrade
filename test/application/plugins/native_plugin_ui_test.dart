@@ -287,7 +287,7 @@ void main() {
       );
       await drainUntil(
         tester,
-        () => find.byType(CaptureBar).evaluate().isNotEmpty,
+        () => find.text('Preserved drop').evaluate().isNotEmpty,
       );
       expect(find.byType(CaptureBar), findsOneWidget);
       expect(find.text('Preserved drop'), findsOneWidget);
