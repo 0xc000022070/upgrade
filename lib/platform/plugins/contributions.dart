@@ -94,6 +94,7 @@ class PluginWidgetContribution {
     required this.defaultLocation,
     required this.sizes,
     required this.defaultSize,
+    this.fill = false,
     this.refresh,
   });
 
@@ -106,6 +107,7 @@ class PluginWidgetContribution {
   final PluginPlacementLocation defaultLocation;
   final List<PluginWidgetSize> sizes;
   final String defaultSize;
+  final bool fill;
   final Duration? refresh;
 
   PluginWidgetSize size(String id) =>

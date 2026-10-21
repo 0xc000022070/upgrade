@@ -181,6 +181,52 @@ void main() {
     );
   });
 
+  test('Home cards open, join and leave columns', () async {
+    var scope = container();
+    final initial = await scope.read(pluginPlacementsProvider.future);
+    final [agents, first, second] = initial.homeOrder;
+    final controller = scope.read(pluginPlacementsProvider.notifier);
+    List<List<String>> columns() => [
+      for (final column
+          in scope.read(pluginPlacementsProvider).requireValue.columnsOf(1))
+        column.cards,
+    ];
+    expect(columns(), [
+      [agents],
+      [first, second],
+    ]);
+    await controller.moveHome(second, space: 1, column: 2, newColumn: true);
+    expect(columns(), [
+      [agents],
+      [first],
+      [second],
+    ]);
+    await controller.moveHome(agents, space: 1, column: 2);
+    expect(columns(), [
+      [first],
+      [second, agents],
+    ]);
+    await controller.moveHome(first, space: 1, column: 1);
+    expect(columns(), [
+      [second, agents, first],
+    ]);
+    await controller.moveHome(agents, space: 1, column: 0, newColumn: true);
+    await controller.setColumnWeights(1, [1, 3]);
+    await expectLater(
+      controller.setColumnWeights(1, [1]),
+      throwsA(isA<PluginPlacementException>()),
+    );
+    scope.dispose();
+    scope = container();
+    addTearDown(scope.dispose);
+    final state = await scope.read(pluginPlacementsProvider.future);
+    expect(columns(), [
+      [agents],
+      [second, first],
+    ]);
+    expect([for (final column in state.columnsOf(1)) column.weight], [1, 3]);
+  });
+
   test('Home cards move between places and numbered workspaces', () async {
     var scope = container();
     final initial = await scope.read(pluginPlacementsProvider.future);
@@ -236,7 +282,7 @@ void main() {
     final scope = container();
     final initial = await scope.read(pluginPlacementsProvider.future);
     scope.dispose();
-    final old = initial.encode()
+    final old = _legacy(initial)
       ..remove('home_spaces')
       ..remove('home_space');
     await file.writeAsString(jsonEncode(old));
@@ -254,7 +300,7 @@ void main() {
     final initial = await scope.read(pluginPlacementsProvider.future);
     scope.dispose();
     final [_, first, second] = initial.homeOrder;
-    final old = initial.encode()
+    final old = _legacy(initial)
       ..['home_order'] = [first, 'striked:home:agents', second]
       ..['home_spaces'] = {first: 1, 'striked:home:agents': 2, second: 1}
       ..['known_widgets'] = [first, second]
@@ -266,8 +312,18 @@ void main() {
     final reopened = container();
     addTearDown(reopened.dispose);
     final state = await reopened.read(pluginPlacementsProvider.future);
-    expect(state.homeOrder, [first, agentsCardId, second]);
-    expect(state.spaceOf(agentsCardId), 2);
+    expect(
+      [for (final column in state.columnsOf(1)) column.cards],
+      [
+        [first, second],
+      ],
+    );
+    expect(
+      [for (final column in state.columnsOf(2)) column.cards],
+      [
+        [agentsCardId],
+      ],
+    );
     expect(state.placements[agentsCardId], PluginPlacementLocation.homeCard);
   });
 
@@ -277,7 +333,7 @@ void main() {
     final initial = await scope.read(pluginPlacementsProvider.future);
     scope.dispose();
     final [_, first, second] = initial.homeOrder;
-    final old = initial.encode()
+    final old = _legacy(initial)
       ..['home_order'] = [second, first]
       ..['known_widgets'] = [first, second]
       ..remove('home_spaces')
@@ -713,3 +769,9 @@ class _FailingPlacementRepository extends PluginPlacementRepository {
     return super.write(state);
   }
 }
+
+Map<String, Object?> _legacy(PluginPlacementState state) => state.encode()
+  ..['version'] = 1
+  ..remove('home')
+  ..['home_order'] = state.homeOrder
+  ..['home_spaces'] = {for (final id in state.homeOrder) id: state.spaceOf(id)};

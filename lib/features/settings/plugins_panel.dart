@@ -1033,11 +1033,11 @@ class _PluginAddsState extends ConsumerState<_PluginAdds> {
     final size = contribution.size(
       state.selectedSizes[id] ?? contribution.defaultSize,
     );
-    final space = state.spaceOf(id);
-    final neighbours = [
-      for (final entry in state.homeOrder)
-        if (state.spaceOf(entry) == space) entry,
-    ];
+    final (space, column) = state.columnOf(id) ?? (state.homeSpace, 0);
+    final columns = state.columnsOf(space);
+    final neighbours = column < columns.length
+        ? columns[column].cards
+        : const <String>[];
     final order = neighbours.indexOf(id);
     return [
       _Choice(
@@ -1061,11 +1061,30 @@ class _PluginAddsState extends ConsumerState<_PluginAdds> {
           onSelected: (index) =>
               _run(() => controller.setHomeHidden(id, index == 1)),
         ),
-        if (neighbours.length > 1 && order >= 0) ...[
+        if ((neighbours.length > 1 || columns.length > 1) && order >= 0) ...[
           Text(
-            'CARD ${order + 1} OF ${neighbours.length} ON WORKSPACE $space',
+            'CARD ${order + 1} OF ${neighbours.length} · COLUMN ${column + 1} OF ${columns.length} · WORKSPACE $space',
             style: context.tokens.label,
           ),
+          if (column > 0)
+            PanelTextAction(
+              label: 'MOVE LEFT',
+              onTap: () => _run(
+                () => controller.moveHome(id, space: space, column: column - 1),
+              ),
+            ),
+          if (column < columns.length - 1 || neighbours.length > 1)
+            PanelTextAction(
+              label: 'MOVE RIGHT',
+              onTap: () => _run(
+                () => controller.moveHome(
+                  id,
+                  space: space,
+                  column: column + 1,
+                  newColumn: column == columns.length - 1,
+                ),
+              ),
+            ),
           if (order > 0)
             PanelTextAction(
               label: 'MOVE UP',

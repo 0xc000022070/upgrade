@@ -89,17 +89,10 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
       if (occupant != null) placements.remove(occupant.key);
     }
     placements[id] = location;
-    final homeOrder = [...current.homeOrder]..remove(id);
-    final spaces = Map.of(current.homeSpaces)..remove(id);
-    if (location == PluginPlacementLocation.homeCard) {
-      homeOrder.add(id);
-      spaces[id] = current.homeSpace;
-    }
-    return current.copyWith(
-      placements: placements,
-      homeOrder: homeOrder,
-      homeSpaces: spaces,
-    );
+    final next = current.withoutHomeCard(id).copyWith(placements: placements);
+    return location == PluginPlacementLocation.homeCard
+        ? next.withHomeCard(id, space: current.homeSpace)
+        : next;
   });
 
   Future<void> setWidgetPlaced(String id, bool placed) => _change((current) {
@@ -109,40 +102,80 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
         'Choose one of ${registration.contribution.locations.map((value) => value.id).join(', ')}',
       );
     }
-    final placements = Map.of(current.placements)..remove(id);
-    final order = [...current.homeOrder]..remove(id);
-    final hidden = {...current.hiddenHome}..remove(id);
-    return current.copyWith(
-      placements: placements,
-      homeOrder: order,
-      hiddenHome: hidden,
-      homeSpaces: Map.of(current.homeSpaces)..remove(id),
-    );
+    return current
+        .withoutHomeCard(id)
+        .copyWith(
+          placements: Map.of(current.placements)..remove(id),
+          hiddenHome: {...current.hiddenHome}..remove(id),
+        );
   });
 
-  Future<void> moveHome(String id, {String? over, int? space}) => _change((
-    current,
-  ) {
-    final order = [...current.homeOrder];
-    final from = order.indexOf(id);
-    if (from < 0 ||
+  /// Drops [id] beside [over], or into [space]: onto its last column, onto
+  /// [column], or as a new column at [column] when [newColumn] is set.
+  Future<void> moveHome(
+    String id, {
+    String? over,
+    int? space,
+    int? column,
+    bool newColumn = false,
+  }) => _change((current) {
+    final from = current.columnOf(id);
+    final target = over == null ? null : current.columnOf(over);
+    if (from == null ||
         current.placements[id] != PluginPlacementLocation.homeCard ||
         (over == null) == (space == null) ||
-        over != null && !order.contains(over) ||
-        space != null && (space < 1 || space > homeSpaceCount)) {
+        over != null && (target == null || column != null || newColumn) ||
+        space != null && (space < 1 || space > homeSpaceCount) ||
+        column != null && column < 0) {
       throw const PluginPlacementException('Invalid Home widget order');
     }
     if (over == id) return current;
-    order.removeAt(from);
-    if (over == null) {
-      order.add(id);
-    } else {
-      final to = order.indexOf(over);
-      order.insert(from <= to ? to + 1 : to, id);
+    final rest = current.withoutHomeCard(id);
+    if (target case (final toSpace, _)?) {
+      final order = [
+        for (final column in current.columnsOf(toSpace)) ...column.cards,
+      ];
+      final at = order.indexOf(id);
+      final after = at >= 0 && at < order.indexOf(over!);
+      final (_, landing) = rest.columnOf(over!)!;
+      final index = rest.columnsOf(toSpace)[landing].cards.indexOf(over);
+      return rest.withHomeCard(
+        id,
+        space: toSpace,
+        column: landing,
+        index: after ? index + 1 : index,
+      );
+    }
+    final (fromSpace, fromColumn) = from;
+    final collapsed =
+        fromSpace == space &&
+        current.columnsOf(fromSpace)[fromColumn].cards.length == 1 &&
+        column != null &&
+        fromColumn < column;
+    return rest.withHomeCard(
+      id,
+      space: space!,
+      column: column == null ? null : column - (collapsed ? 1 : 0),
+      newColumn: newColumn,
+    );
+  });
+
+  Future<void> setColumnWeights(int space, List<double> weights) => _change((
+    current,
+  ) {
+    final columns = current.columnsOf(space);
+    if (weights.length != columns.length ||
+        weights.any((weight) => !weight.isFinite || weight <= 0)) {
+      throw const PluginPlacementException('Invalid Home column widths');
     }
     return current.copyWith(
-      homeOrder: order,
-      homeSpaces: {...current.homeSpaces, id: space ?? current.spaceOf(over!)},
+      homeTiles: {
+        ...current.homeTiles,
+        space: [
+          for (var i = 0; i < columns.length; i++)
+            HomeColumn(columns[i].cards, weight: weights[i].clamp(0.1, 100)),
+        ],
+      },
     );
   });
 
@@ -345,8 +378,7 @@ PluginPlacementState _withDefaults(
 ) {
   final placements = Map.of(stored.placements);
   final sizes = Map.of(stored.selectedSizes);
-  final order = [...stored.homeOrder];
-  final spaces = Map.of(stored.homeSpaces);
+  final arrivals = <String>[];
   final knownWidgets = {...stored.knownWidgets};
   final enabled = {
     for (final widget in catalog.widgets)
@@ -370,8 +402,7 @@ PluginPlacementState _withDefaults(
         if (location.exclusive) occupied[location] = widget.stableId;
       }
       if (location == PluginPlacementLocation.homeCard) {
-        order.add(widget.stableId);
-        spaces[widget.stableId] = stored.homeSpace;
+        arrivals.add(widget.stableId);
       }
     }
   }
@@ -384,13 +415,29 @@ PluginPlacementState _withDefaults(
       pinned.add(page.stableId);
     }
   }
-  return stored.copyWith(
+  var next = stored.copyWith(
     placements: placements,
     selectedSizes: sizes,
-    homeOrder: order,
-    homeSpaces: spaces,
     pinnedPages: pinned,
     knownWidgets: knownWidgets,
     knownPages: knownPages,
   );
+  final space = stored.homeSpace;
+  final agentsFirst = [
+    ...arrivals.where((id) => id == agentsCardId),
+    ...arrivals.where((id) => id != agentsCardId),
+  ];
+  for (final id in agentsFirst) {
+    if (next.columnOf(id) != null) continue;
+    final last = next.columnsOf(space).lastOrNull?.cards;
+    next = id == agentsCardId
+        ? next.withHomeCard(id, space: space, column: 0, newColumn: true)
+        : next.withHomeCard(
+            id,
+            space: space,
+            newColumn: last?.length == 1 && last!.single == agentsCardId,
+            weight: 2,
+          );
+  }
+  return next;
 }

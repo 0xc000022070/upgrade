@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/plugins/plugin_placements.dart';
+import 'package:striked/data/repositories/plugin_placement_repository.dart';
+import 'package:striked/design/components/panel.dart';
 import 'package:striked/data/database.dart';
 import 'package:striked/data/repositories/activity_repository.dart';
 import 'package:striked/data/repositories/project_repository.dart';
@@ -64,6 +67,7 @@ Future<void> _ready(WidgetTester tester) =>
     _drain(tester, step: const Duration(milliseconds: 100));
 
 Finder _space(String label) => find.byKey(ValueKey('home-space-$label'));
+Finder _seam(int at) => find.byKey(ValueKey('home-seam-$at'));
 
 Future<void> _hold(WidgetTester tester, Finder card, Finder onto) async {
   final from = tester.getCenter(card);
@@ -168,6 +172,42 @@ void main() {
     expect(find.text('AGENTS'), findsOneWidget);
     expect(scope.read(homeAgentsVisibleProvider), isTrue);
     expect(find.text('DROPS'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a card dropped on an edge opens a column, a seam resizes', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 900);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    Rect card(String title) => tester.getRect(
+      find.ancestor(of: find.text(title), matching: find.byType(Panel)).first,
+    );
+    final scope = ProviderScope.containerOf(
+      tester.element(find.byType(HomeScreen)),
+    );
+    List<HomeColumn> columns() =>
+        scope.read(pluginPlacementsProvider).requireValue.columnsOf(1);
+    expect(card('DROPS').left, greaterThan(card('AGENTS').right));
+    expect(columns(), hasLength(2));
+
+    await _hold(tester, find.text('DROPS'), _seam(2));
+    expect(columns(), hasLength(3));
+    expect(columns().last.cards, ['striked.drops:widget:drops']);
+    expect(card('DROPS').top, card('AGENTS').top);
+
+    final before = card('AGENTS').width;
+    await tester.drag(_seam(1), const Offset(80, 0));
+    await _ready(tester);
+    expect(card('AGENTS').width, moreOrLessEquals(before + 80, epsilon: 1));
+    expect(
+      columns().first.weight * 100,
+      moreOrLessEquals(before + 80, epsilon: 1),
+    );
 
     await unmount(tester);
   });

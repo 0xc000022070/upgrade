@@ -141,7 +141,8 @@ void main() {
     expect(find.bySemanticsLabel('SETTINGS'), findsOneWidget);
     final agents = tester.getRect(find.byType(AgentsPanel));
     final drops = tester.getRect(find.byType(DropsPanel));
-    if (surface.width >= 792) {
+    if (math.min(surface.width, 1100) - 2 * Spacing.screenEdge >=
+        240 + 280 + 2 * 16) {
       expect(drops.left, greaterThan(agents.right));
       expect(drops.top, agents.top);
     } else {

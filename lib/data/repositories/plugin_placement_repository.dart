@@ -9,6 +9,18 @@ const _legacyAgentsId = 'striked:home:agents';
 
 const homeSpaceCount = 9;
 
+class HomeColumn {
+  HomeColumn(List<String> cards, {this.weight = 1})
+    : cards = List.unmodifiable(cards);
+
+  final List<String> cards;
+  final double weight;
+
+  HomeColumn withCards(List<String> cards) => HomeColumn(cards, weight: weight);
+
+  Map<String, Object?> encode() => {'cards': cards, 'weight': weight};
+}
+
 class PluginPlacementState {
   PluginPlacementState({
     Map<String, PluginPlacementLocation> placements = const {},
@@ -16,19 +28,23 @@ class PluginPlacementState {
     Map<String, double> selectedWidths = const {},
     Set<String> knownWidgets = const {},
     Set<String> knownPages = const {},
-    List<String> homeOrder = const [],
+    Map<int, List<HomeColumn>> homeTiles = const {},
     Set<String> hiddenHome = const {},
-    Map<String, int> homeSpaces = const {},
     this.homeSpace = 1,
     List<String> pinnedPages = const [],
   }) : placements = Map.unmodifiable(placements),
-       homeOrder = List.unmodifiable(homeOrder),
+       homeTiles = Map.unmodifiable({
+         for (final space in homeTiles.keys.toList()..sort())
+           if (homeTiles[space]!.any((column) => column.cards.isNotEmpty))
+             space: List<HomeColumn>.unmodifiable(
+               homeTiles[space]!.where((column) => column.cards.isNotEmpty),
+             ),
+       }),
        selectedSizes = Map.unmodifiable(selectedSizes),
        selectedWidths = Map.unmodifiable(selectedWidths),
        knownWidgets = Set.unmodifiable(knownWidgets),
        knownPages = Set.unmodifiable(knownPages),
        hiddenHome = Set.unmodifiable(hiddenHome),
-       homeSpaces = Map.unmodifiable(homeSpaces),
        pinnedPages = List.unmodifiable(pinnedPages);
 
   final Map<String, PluginPlacementLocation> placements;
@@ -36,13 +52,66 @@ class PluginPlacementState {
   final Map<String, double> selectedWidths;
   final Set<String> knownWidgets;
   final Set<String> knownPages;
-  final List<String> homeOrder;
+  final Map<int, List<HomeColumn>> homeTiles;
   final Set<String> hiddenHome;
-  final Map<String, int> homeSpaces;
   final int homeSpace;
   final List<String> pinnedPages;
 
-  int spaceOf(String id) => homeSpaces[id] ?? 1;
+  List<String> get homeOrder => [
+    for (final columns in homeTiles.values)
+      for (final column in columns) ...column.cards,
+  ];
+
+  List<HomeColumn> columnsOf(int space) => homeTiles[space] ?? const [];
+
+  int spaceOf(String id) => _find(id)?.$1 ?? 1;
+
+  (int, int)? columnOf(String id) => switch (_find(id)) {
+    (final space, final column)? => (space, column),
+    null => null,
+  };
+
+  (int, int)? _find(String id) {
+    for (final MapEntry(key: space, value: columns) in homeTiles.entries) {
+      for (var i = 0; i < columns.length; i++) {
+        if (columns[i].cards.contains(id)) return (space, i);
+      }
+    }
+    return null;
+  }
+
+  PluginPlacementState withoutHomeCard(String id) => copyWith(
+    homeTiles: {
+      for (final MapEntry(key: space, value: columns) in homeTiles.entries)
+        space: [
+          for (final column in columns)
+            column.withCards([...column.cards]..remove(id)),
+        ],
+    },
+  );
+
+  PluginPlacementState withHomeCard(
+    String id, {
+    required int space,
+    int? column,
+    int? index,
+    bool newColumn = false,
+    double weight = 1,
+  }) {
+    final columns = [...columnsOf(space)];
+    final at = column ?? columns.length - (newColumn ? 0 : 1);
+    if (newColumn || at < 0 || at >= columns.length) {
+      columns.insert(
+        at.clamp(0, columns.length),
+        HomeColumn([id], weight: weight),
+      );
+    } else {
+      final cards = [...columns[at].cards];
+      cards.insert((index ?? cards.length).clamp(0, cards.length), id);
+      columns[at] = columns[at].withCards(cards);
+    }
+    return copyWith(homeTiles: {...homeTiles, space: columns});
+  }
 
   PluginPlacementState copyWith({
     Map<String, PluginPlacementLocation>? placements,
@@ -50,9 +119,8 @@ class PluginPlacementState {
     Map<String, double>? selectedWidths,
     Set<String>? knownWidgets,
     Set<String>? knownPages,
-    List<String>? homeOrder,
+    Map<int, List<HomeColumn>>? homeTiles,
     Set<String>? hiddenHome,
-    Map<String, int>? homeSpaces,
     int? homeSpace,
     List<String>? pinnedPages,
   }) => PluginPlacementState(
@@ -61,15 +129,14 @@ class PluginPlacementState {
     selectedWidths: selectedWidths ?? this.selectedWidths,
     knownWidgets: knownWidgets ?? this.knownWidgets,
     knownPages: knownPages ?? this.knownPages,
-    homeOrder: homeOrder ?? this.homeOrder,
+    homeTiles: homeTiles ?? this.homeTiles,
     hiddenHome: hiddenHome ?? this.hiddenHome,
-    homeSpaces: homeSpaces ?? this.homeSpaces,
     homeSpace: homeSpace ?? this.homeSpace,
     pinnedPages: pinnedPages ?? this.pinnedPages,
   );
 
   Map<String, Object?> encode() => {
-    'version': 1,
+    'version': 2,
     'placements': {
       for (final entry in placements.entries) entry.key: entry.value.id,
     },
@@ -77,38 +144,38 @@ class PluginPlacementState {
     'selected_widths': selectedWidths,
     'known_widgets': knownWidgets.toList(),
     'known_pages': knownPages.toList(),
-    'home_order': homeOrder,
+    'home': {
+      for (final MapEntry(key: space, value: columns) in homeTiles.entries)
+        '$space': [for (final column in columns) column.encode()],
+    },
     'hidden_home': hiddenHome.toList(),
-    'home_spaces': homeSpaces,
     'home_space': homeSpace,
     'pinned_pages': pinnedPages,
   };
 
   static PluginPlacementState decode(Object? value) {
-    if (value is! Map<String, Object?> || value['version'] != 1) {
+    if (value is! Map<String, Object?> ||
+        value['version'] != 1 && value['version'] != 2) {
       throw const PluginPlacementException(
         'Unsupported plugin placement format',
       );
     }
+    final legacy = value['version'] == 1;
     final rawPlacements = value['placements'];
     final rawSizes = value['selected_sizes'] ?? <String, Object?>{};
     final rawWidths = value['selected_widths'] ?? <String, Object?>{};
     final rawKnownWidgets = value['known_widgets'] ?? <Object?>[];
     final rawKnownPages = value['known_pages'] ?? <Object?>[];
-    final rawOrder = value['home_order'];
     final rawHidden = value['hidden_home'];
     final rawPinned = value['pinned_pages'];
-    final rawSpaces = value['home_spaces'] ?? <String, Object?>{};
     final homeSpace = value['home_space'] ?? 1;
     if (rawPlacements is! Map<String, Object?> ||
         rawSizes is! Map<String, Object?> ||
         rawWidths is! Map<String, Object?> ||
         rawKnownWidgets is! List<Object?> ||
         rawKnownPages is! List<Object?> ||
-        rawOrder is! List<Object?> ||
         rawHidden is! List<Object?> ||
         rawPinned is! List<Object?> ||
-        rawSpaces is! Map<String, Object?> ||
         !_validSpace(homeSpace)) {
       throw const PluginPlacementException('Invalid plugin placement data');
     }
@@ -117,10 +184,8 @@ class PluginPlacementState {
         rawWidths.length > 256 ||
         rawKnownWidgets.length > 256 ||
         rawKnownPages.length > 256 ||
-        rawOrder.length > 256 ||
         rawHidden.length > 256 ||
-        rawPinned.length > 256 ||
-        rawSpaces.length > 256) {
+        rawPinned.length > 256) {
       throw const PluginPlacementException('Too many plugin placements');
     }
     final placements = <String, PluginPlacementLocation>{};
@@ -154,60 +219,115 @@ class PluginPlacementState {
       }
       selectedWidths[entry.key] = width.toDouble();
     }
-    final homeSpaces = <String, int>{};
-    for (final entry in rawSpaces.entries) {
-      final space = entry.value;
-      if (!_validStableId(entry.key) || !_validSpace(space)) {
-        throw const PluginPlacementException('Invalid Home workspace');
-      }
-      homeSpaces[entry.key] = space! as int;
-    }
-    final homeOrder = _stringList(rawOrder, 'home order');
-    final hiddenHome = _stringList(rawHidden, 'hidden home widgets').toSet();
-    final pinnedPages = _stringList(rawPinned, 'pinned pages');
-    final knownWidgets = _stringList(rawKnownWidgets, 'known widgets').toSet();
-    final knownPages = _stringList(rawKnownPages, 'known pages').toSet();
-    return _withAgentsCard(
-      PluginPlacementState(
-        placements: placements,
-        selectedSizes: selectedSizes,
-        selectedWidths: selectedWidths,
-        homeOrder: homeOrder,
-        hiddenHome: hiddenHome,
-        homeSpaces: homeSpaces,
-        homeSpace: homeSpace as int,
-        pinnedPages: pinnedPages,
-        knownWidgets: knownWidgets,
-        knownPages: knownPages,
-      ),
+    final state = PluginPlacementState(
+      placements: placements,
+      selectedSizes: selectedSizes,
+      selectedWidths: selectedWidths,
+      hiddenHome: _stringList(rawHidden, 'hidden home widgets').toSet(),
+      homeSpace: homeSpace as int,
+      pinnedPages: _stringList(rawPinned, 'pinned pages'),
+      knownWidgets: _stringList(rawKnownWidgets, 'known widgets').toSet(),
+      knownPages: _stringList(rawKnownPages, 'known pages').toSet(),
     );
+    if (legacy) return _fromFlatOrder(state, value);
+    final tiles = _homeTiles(value['home'] ?? <String, Object?>{});
+    _stringList([
+      for (final columns in tiles.values)
+        for (final column in columns) ...column.cards,
+    ], 'home order');
+    return state.copyWith(homeTiles: tiles);
   }
 }
 
-PluginPlacementState _withAgentsCard(PluginPlacementState state) {
-  if (state.knownWidgets.contains(agentsCardId)) return state;
-  final order = [...state.homeOrder];
-  final at = order.indexOf(_legacyAgentsId);
-  if (order.contains(agentsCardId)) {
-    if (at >= 0) order.removeAt(at);
-  } else if (at < 0) {
-    order.insert(0, agentsCardId);
-  } else {
-    order[at] = agentsCardId;
+Map<int, List<HomeColumn>> _homeTiles(Object? raw) {
+  if (raw is! Map<String, Object?> || raw.length > homeSpaceCount) {
+    throw const PluginPlacementException('Invalid Home workspace');
   }
-  final spaces = Map.of(state.homeSpaces);
-  if (spaces.remove(_legacyAgentsId) case final space?) {
-    spaces.putIfAbsent(agentsCardId, () => space);
+  final tiles = <int, List<HomeColumn>>{};
+  for (final MapEntry(:key, :value) in raw.entries) {
+    final space = int.tryParse(key);
+    if (!_validSpace(space) || value is! List<Object?> || value.length > 32) {
+      throw const PluginPlacementException('Invalid Home workspace');
+    }
+    tiles[space!] = [
+      for (final column in value)
+        switch (column) {
+          {'cards': final List<Object?> cards, 'weight': final num weight}
+              when cards.length <= 256 &&
+                  weight.isFinite &&
+                  weight > 0 &&
+                  weight <= 100 =>
+            HomeColumn(
+              _stringList(cards, 'home order'),
+              weight: weight.toDouble(),
+            ),
+          _ => throw const PluginPlacementException('Invalid Home column'),
+        },
+    ];
+  }
+  return tiles;
+}
+
+PluginPlacementState _fromFlatOrder(
+  PluginPlacementState state,
+  Map<String, Object?> value,
+) {
+  final rawOrder = value['home_order'];
+  final rawSpaces = value['home_spaces'] ?? <String, Object?>{};
+  if (rawOrder is! List<Object?> ||
+      rawSpaces is! Map<String, Object?> ||
+      rawOrder.length > 256 ||
+      rawSpaces.length > 256) {
+    throw const PluginPlacementException('Invalid plugin placement data');
+  }
+  final spaces = <String, int>{};
+  for (final entry in rawSpaces.entries) {
+    final space = entry.value;
+    if (!_validStableId(entry.key) || !_validSpace(space)) {
+      throw const PluginPlacementException('Invalid Home workspace');
+    }
+    spaces[entry.key] = space! as int;
+  }
+  final order = _stringList(rawOrder, 'home order');
+  var known = state.knownWidgets;
+  var placements = state.placements;
+  var sizes = state.selectedSizes;
+  if (!known.contains(agentsCardId)) {
+    final at = order.indexOf(_legacyAgentsId);
+    if (order.contains(agentsCardId)) {
+      if (at >= 0) order.removeAt(at);
+    } else if (at < 0) {
+      order.insert(0, agentsCardId);
+    } else {
+      order[at] = agentsCardId;
+    }
+    if (spaces.remove(_legacyAgentsId) case final space?) {
+      spaces.putIfAbsent(agentsCardId, () => space);
+    }
+    known = {...known, agentsCardId};
+    placements = {
+      ...placements,
+      agentsCardId: PluginPlacementLocation.homeCard,
+    };
+    sizes = {...sizes, agentsCardId: 'auto'};
+  }
+  final bySpace = <int, List<String>>{};
+  for (final id in order) {
+    (bySpace[spaces[id] ?? 1] ??= []).add(id);
   }
   return state.copyWith(
-    placements: {
-      ...state.placements,
-      agentsCardId: PluginPlacementLocation.homeCard,
+    knownWidgets: known,
+    placements: placements,
+    selectedSizes: sizes,
+    homeTiles: {
+      for (final MapEntry(key: space, value: cards) in bySpace.entries)
+        space: cards.length > 1 && cards.contains(agentsCardId)
+            ? [
+                HomeColumn([agentsCardId]),
+                HomeColumn([...cards]..remove(agentsCardId), weight: 2),
+              ]
+            : [HomeColumn(cards)],
     },
-    selectedSizes: {...state.selectedSizes, agentsCardId: 'auto'},
-    knownWidgets: {...state.knownWidgets, agentsCardId},
-    homeOrder: order,
-    homeSpaces: spaces,
   );
 }
 

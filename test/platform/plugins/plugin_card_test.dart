@@ -34,11 +34,12 @@ void main() {
   test('a script plugin declares a Home card and its refresh is a grant', () {
     final manifest = PluginManifest.parse(
       _manifest(
-        widget: 'locations = ["home.card"]\ndefault_location = "home.card"\nrefresh_minutes = 30',
+        widget: 'locations = ["home.card"]\ndefault_location = "home.card"\nrefresh_minutes = 30\nfill = true',
       ),
     );
     final widget = manifest.widgets.single;
     expect(widget.surface, isNull);
+    expect(widget.fill, isTrue);
     expect(widget.refresh, const Duration(minutes: 30));
     expect(widget.locations, {PluginPlacementLocation.homeCard});
     expect(manifest.permissions.map((p) => p.id), {
@@ -59,6 +60,9 @@ void main() {
       ),
       _manifest(
         widget: 'locations = ["home.card"]\ndefault_location = "home.card"\nrefresh_minutes = 5',
+      ),
+      _manifest(
+        widget: 'locations = ["home.card"]\ndefault_location = "home.card"\nfill = "yes"',
       ),
     ]) {
       expect(

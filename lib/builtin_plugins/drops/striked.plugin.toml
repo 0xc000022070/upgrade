@@ -42,6 +42,7 @@ surfaces = ["item.detail"]
 id = "drops"
 title = "Drops"
 surface = "home.drops"
+fill = true
 locations = ["home.card"]
 default_location = "home.card"
 default_size = "auto"

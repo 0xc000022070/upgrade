@@ -827,6 +827,7 @@ List<PluginWidgetContribution> _widgetContributions(
           'default_location',
           'sizes',
           'default_size',
+          'fill',
           if (!native) 'refresh_minutes',
         });
         final id = _identifier(widget['id']);
@@ -920,6 +921,8 @@ List<PluginWidgetContribution> _widgetContributions(
         if (!sizeIds.contains(defaultSize)) {
           throw const PluginException('Invalid default widget size');
         }
+        final fill = widget['fill'] ?? false;
+        if (fill is! bool) throw const PluginException('Invalid widget fill');
         final minutes = widget['refresh_minutes'];
         if (minutes != null &&
             (minutes is! int ||
@@ -937,6 +940,7 @@ List<PluginWidgetContribution> _widgetContributions(
           defaultLocation: defaultLocation,
           sizes: List.unmodifiable(sizes),
           defaultSize: defaultSize,
+          fill: fill,
           refresh: minutes is int ? Duration(minutes: minutes) : null,
         );
       })(),
