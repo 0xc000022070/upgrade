@@ -31,6 +31,8 @@ enum PluginPlacementLocation {
   }
 }
 
+typedef CardWidth = ({double min, double max});
+
 class PluginWidgetSize {
   const PluginWidgetSize.fixed({
     required this.id,
@@ -63,13 +65,17 @@ class PluginWidgetSize {
         : width >= minWidth! && width <= maxWidth!;
   }
 
-  double resolveWidth(double available, {double? selected}) {
+  bool supportsRange(CardWidth range) =>
+      range.min <= range.max &&
+      supportsWidth(range.min) &&
+      supportsWidth(range.max);
+
+  double resolveWidth(double available, {CardWidth? selected}) {
     if (!available.isFinite || available <= 0) {
       throw const PluginPlacementException('Available width is invalid');
     }
-    final fixed = fixedWidth;
-    final width =
-        fixed ?? selected ?? (available > maxWidth! ? maxWidth! : available);
+    final ceiling = selected?.max ?? maxWidth;
+    final width = fixedWidth ?? (available > ceiling! ? ceiling : available);
     if (!supportsWidth(width) || width > available) {
       throw PluginPlacementException(unsupportedWidthMessage(width));
     }

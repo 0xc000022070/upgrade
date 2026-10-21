@@ -195,23 +195,15 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
     return current.copyWith(hiddenHome: values);
   });
 
-  Future<void> setWidgetSize(String id, String sizeId, {double? width}) =>
+  Future<void> setWidgetSize(String id, String sizeId, {CardWidth? width}) =>
       _change((current) => _withWidgetSize(current, id, sizeId, width));
 
-  Future<void> setWidgetWidth(String id, double? width) => _change((current) {
-    final contribution = _widget(id).contribution;
-    final sizeId = current.selectedSizes[id] ?? contribution.defaultSize;
-    return _withWidgetSize(current, id, sizeId, width);
-  });
-
-  double resolveWidgetWidth(String id, double available) {
-    final current = state.requireValue;
-    final contribution = _widget(id).contribution;
-    final size = contribution.size(
-      current.selectedSizes[id] ?? contribution.defaultSize,
-    );
-    return size.resolveWidth(available, selected: current.selectedWidths[id]);
-  }
+  Future<void> setWidgetWidth(String id, CardWidth? width) =>
+      _change((current) {
+        final contribution = _widget(id).contribution;
+        final sizeId = current.selectedSizes[id] ?? contribution.defaultSize;
+        return _withWidgetSize(current, id, sizeId, width);
+      });
 
   Future<void> setPagePinned(
     String id,
@@ -271,7 +263,7 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
     PluginPlacementState current,
     String id,
     String sizeId,
-    double? width,
+    CardWidth? width,
   ) {
     final contribution = _widget(id).contribution;
     final matches = contribution.sizes.where((size) => size.id == sizeId);
@@ -280,10 +272,8 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
         '${contribution.title} does not declare size $sizeId',
       );
     }
-    if (width != null && !matches.single.supportsWidth(width)) {
-      throw PluginPlacementException(
-        matches.single.unsupportedWidthMessage(width),
-      );
+    if (width != null && !matches.single.supportsRange(width)) {
+      throw PluginPlacementException(_rangeMessage(matches.single, width));
     }
     final sizes = {...current.selectedSizes, id: sizeId};
     final widths = Map.of(current.selectedWidths);
@@ -362,15 +352,20 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
           );
         }
         final width = value.selectedWidths[id];
-        if (width != null && !sizes.single.supportsWidth(width)) {
-          throw PluginPlacementException(
-            sizes.single.unsupportedWidthMessage(width),
-          );
+        if (width != null && !sizes.single.supportsRange(width)) {
+          throw PluginPlacementException(_rangeMessage(sizes.single, width));
         }
       }
     }
   }
 }
+
+String _rangeMessage(PluginWidgetSize size, CardWidth width) =>
+    switch ((size.supportsWidth(width.min), size.supportsWidth(width.max))) {
+      (false, _) => size.unsupportedWidthMessage(width.min),
+      (_, false) => size.unsupportedWidthMessage(width.max),
+      _ => 'Minimum width is over the maximum',
+    };
 
 PluginPlacementState _withDefaults(
   PluginPlacementState stored,

@@ -52,7 +52,7 @@ sizes = [{ id = "auto", title = "Automatic", min_width = 280, max_width = 720 }]
 id = "capture"
 title = "Capture"
 surface = "home.capture"
-locations = ["home.composer"]
+locations = ["home.composer", "home.card"]
 default_location = "home.composer"
 default_size = "auto"
 sizes = [{ id = "auto", title = "Automatic", min_width = 280, max_width = 720 }]

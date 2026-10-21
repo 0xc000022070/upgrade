@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:striked/application/agents/agents.dart';
 import 'package:striked/application/plugins/plugin_placements.dart';
 import 'package:striked/data/repositories/plugin_placement_repository.dart';
+import 'package:striked/platform/plugins/contributions.dart';
 import 'package:striked/design/components/panel.dart';
 import 'package:striked/data/database.dart';
 import 'package:striked/data/repositories/activity_repository.dart';
@@ -208,6 +209,33 @@ void main() {
       columns().first.weight * 100,
       moreOrLessEquals(before + 80, epsilon: 1),
     );
+
+    await unmount(tester);
+  });
+
+  testWidgets('the input bar tiles into a column', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 900);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    const capture = 'striked.drops:widget:capture';
+    final scope = ProviderScope.containerOf(
+      tester.element(find.byType(HomeScreen)),
+    );
+    final layout = scope.read(pluginPlacementsProvider.notifier);
+    final bottom = tester.getRect(find.byType(CaptureBar)).bottom;
+
+    await tester.runAsync(
+      () => layout.placeWidget(capture, PluginPlacementLocation.homeCard),
+    );
+    await _ready(tester);
+    final state = scope.read(pluginPlacementsProvider).requireValue;
+    expect(state.columnsOf(1).last.cards.last, capture);
+    expect(find.byType(CaptureBar), findsOneWidget);
+    final bar = tester.getRect(find.byType(CaptureBar));
+    expect(bar.bottom, lessThan(bottom));
+    expect(bar.top, greaterThan(tester.getRect(find.text('DROPS')).top));
 
     await unmount(tester);
   });

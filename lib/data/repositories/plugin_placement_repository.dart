@@ -25,7 +25,7 @@ class PluginPlacementState {
   PluginPlacementState({
     Map<String, PluginPlacementLocation> placements = const {},
     Map<String, String> selectedSizes = const {},
-    Map<String, double> selectedWidths = const {},
+    Map<String, CardWidth> selectedWidths = const {},
     Set<String> knownWidgets = const {},
     Set<String> knownPages = const {},
     Map<int, List<HomeColumn>> homeTiles = const {},
@@ -49,7 +49,7 @@ class PluginPlacementState {
 
   final Map<String, PluginPlacementLocation> placements;
   final Map<String, String> selectedSizes;
-  final Map<String, double> selectedWidths;
+  final Map<String, CardWidth> selectedWidths;
   final Set<String> knownWidgets;
   final Set<String> knownPages;
   final Map<int, List<HomeColumn>> homeTiles;
@@ -116,7 +116,7 @@ class PluginPlacementState {
   PluginPlacementState copyWith({
     Map<String, PluginPlacementLocation>? placements,
     Map<String, String>? selectedSizes,
-    Map<String, double>? selectedWidths,
+    Map<String, CardWidth>? selectedWidths,
     Set<String>? knownWidgets,
     Set<String>? knownPages,
     Map<int, List<HomeColumn>>? homeTiles,
@@ -141,7 +141,10 @@ class PluginPlacementState {
       for (final entry in placements.entries) entry.key: entry.value.id,
     },
     'selected_sizes': selectedSizes,
-    'selected_widths': selectedWidths,
+    'selected_widths': {
+      for (final MapEntry(key: id, value: width) in selectedWidths.entries)
+        id: [width.min, width.max],
+    },
     'known_widgets': knownWidgets.toList(),
     'known_pages': knownPages.toList(),
     'home': {
@@ -207,17 +210,25 @@ class PluginPlacementState {
       }
       selectedSizes[entry.key] = entry.value! as String;
     }
-    final selectedWidths = <String, double>{};
+    final selectedWidths = <String, CardWidth>{};
     for (final entry in rawWidths.entries) {
-      final width = entry.value;
+      // A single width is the version 1 shape: the range it pins.
+      final width = switch (entry.value) {
+        final num single => (min: single.toDouble(), max: single.toDouble()),
+        [final num min, final num max] => (
+          min: min.toDouble(),
+          max: max.toDouble(),
+        ),
+        _ => null,
+      };
       if (!_validStableId(entry.key) ||
-          width is! num ||
-          !width.isFinite ||
-          width <= 0 ||
-          width > 4096) {
+          width == null ||
+          !_validWidth(width.min) ||
+          !_validWidth(width.max) ||
+          width.min > width.max) {
         throw const PluginPlacementException('Invalid plugin widget width');
       }
-      selectedWidths[entry.key] = width.toDouble();
+      selectedWidths[entry.key] = width;
     }
     final state = PluginPlacementState(
       placements: placements,
@@ -395,6 +406,8 @@ List<String> _stringList(List<Object?> values, String field) {
   }
   return result;
 }
+
+bool _validWidth(double width) => width.isFinite && width > 0 && width <= 4096;
 
 bool _validStableId(String value) =>
     value.isNotEmpty &&

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1114,26 +1115,68 @@ class _PluginAddsState extends ConsumerState<_PluginAdds> {
             () => controller.setWidgetSize(id, contribution.sizes[index].id),
           ),
         ),
-      if (size.fixedWidth == null)
-        _Choice(
-          label: 'WIDTH',
-          options: const ['AUTO', 'NARROW', 'WIDE'],
-          selected: switch (state.selectedWidths[id]) {
-            null => 0,
-            final width when width == size.minWidth => 1,
-            final width when width == size.maxWidth => 2,
-            _ => -1,
-          },
-          onSelected: (index) => _run(
-            () => controller.setWidgetWidth(id, switch (index) {
-              1 => size.minWidth,
-              2 => size.maxWidth,
-              _ => null,
-            }),
+      if (size.fixedWidth == null) ...[
+        for (final edge in _Edge.values)
+          _Choice(
+            label: edge.label,
+            options: [
+              for (final width in _widthSteps(size)) width.toStringAsFixed(0),
+            ],
+            selected: _widthSteps(size).indexOf(
+              edge.of(
+                state.selectedWidths[id] ??
+                    (min: size.minWidth!, max: size.maxWidth!),
+              ),
+            ),
+            onSelected: (index) => _run(
+              () => controller.setWidgetWidth(
+                id,
+                _withEdge(
+                  size,
+                  state.selectedWidths[id],
+                  edge,
+                  _widthSteps(size)[index],
+                ),
+              ),
+            ),
           ),
-        ),
+      ],
     ];
   }
+}
+
+enum _Edge {
+  min('MIN WIDTH'),
+  max('MAX WIDTH');
+
+  const _Edge(this.label);
+
+  final String label;
+
+  double of(CardWidth width) => this == min ? width.min : width.max;
+}
+
+List<double> _widthSteps(PluginWidgetSize size) => [
+  for (var i = 0; i < 5; i++)
+    (size.minWidth! + (size.maxWidth! - size.minWidth!) * i / 4)
+        .roundToDouble(),
+];
+
+CardWidth? _withEdge(
+  PluginWidgetSize size,
+  CardWidth? current,
+  _Edge edge,
+  double width,
+) {
+  final min = edge == _Edge.min
+      ? width
+      : math.min(current?.min ?? size.minWidth!, width);
+  final max = edge == _Edge.max
+      ? width
+      : math.max(current?.max ?? size.maxWidth!, width);
+  return min == size.minWidth && max == size.maxWidth
+      ? null
+      : (min: min, max: max);
 }
 
 String _shortPlace(PluginPlacementLocation location) => switch (location) {
@@ -1214,14 +1257,19 @@ class _PlacementPreview extends StatelessWidget {
     final size = contribution.size(
       state.selectedSizes[widget.stableId] ?? contribution.defaultSize,
     );
-    final width = size.fixedWidth ?? state.selectedWidths[widget.stableId];
+    final range = state.selectedWidths[widget.stableId];
     final shape = switch (location) {
       final placed? => _longPlace(placed),
       null => 'NOT PLACED',
     };
-    final dimensions = width == null
-        ? 'AUTO WIDTH'
-        : '${width.toStringAsFixed(0)} WIDE';
+    final dimensions = switch ((size.fixedWidth, range)) {
+      (final fixed?, _) => '${fixed.toStringAsFixed(0)} WIDE',
+      (_, (:final min, :final max)?) when min == max =>
+        '${min.toStringAsFixed(0)} WIDE',
+      (_, (:final min, :final max)?) =>
+        '${min.toStringAsFixed(0)}-${max.toStringAsFixed(0)} WIDE',
+      _ => 'AUTO WIDTH',
+    };
     return Text(
       '${contribution.title.toUpperCase()} · $shape · $dimensions',
       style: context.tokens.rowSubtitle,

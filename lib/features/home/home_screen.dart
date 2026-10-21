@@ -276,9 +276,9 @@ const _maxContentWidth = 1100.0;
   final size = contribution.size(
     placements.selectedSizes[registration.stableId] ?? contribution.defaultSize,
   );
-  final chosen =
-      size.fixedWidth ?? placements.selectedWidths[registration.stableId];
-  return (chosen ?? size.minWidth!, chosen ?? size.maxWidth!);
+  if (size.fixedWidth case final fixed?) return (fixed, fixed);
+  final chosen = placements.selectedWidths[registration.stableId];
+  return (chosen?.min ?? size.minWidth!, chosen?.max ?? size.maxWidth!);
 }
 
 class _Tile {
@@ -679,24 +679,21 @@ class _PlacedPluginBounds extends StatelessWidget {
     );
     return LayoutBuilder(
       builder: (context, constraints) {
-        final available = constraints.maxWidth;
-        final selected = placements.selectedWidths[registration.stableId];
-        final candidate =
-            size.fixedWidth ??
-            selected ??
-            available.clamp(size.minWidth!, size.maxWidth!);
-        if (candidate > available || !size.supportsWidth(candidate)) {
-          final reason = candidate > available
-              ? 'CHOSEN WIDTH ${candidate.toStringAsFixed(0)} DOES NOT FIT ${available.toStringAsFixed(0)} AVAILABLE'
-              : size.unsupportedWidthMessage(available);
+        final double width;
+        try {
+          width = size.resolveWidth(
+            constraints.maxWidth,
+            selected: placements.selectedWidths[registration.stableId],
+          );
+        } on PluginPlacementException catch (error) {
           return Panel(
             title: contribution.title.toUpperCase(),
-            child: Text(reason, style: context.tokens.rowSubtitle),
+            child: Text(error.message, style: context.tokens.rowSubtitle),
           );
         }
         return Align(
           alignment: Alignment.topCenter,
-          child: SizedBox(width: candidate, height: size.height, child: child),
+          child: SizedBox(width: width, height: size.height, child: child),
         );
       },
     );

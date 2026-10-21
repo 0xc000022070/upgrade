@@ -68,7 +68,12 @@ void main() {
     final file = File('${root.path}/placements.json');
     final invalid = jsonEncode(
       initial
-          .copyWith(selectedWidths: {...initial.selectedWidths, drops: 900})
+          .copyWith(
+            selectedWidths: {
+              ...initial.selectedWidths,
+              drops: (min: 280, max: 900),
+            },
+          )
           .encode(),
     );
     await file.writeAsString(invalid);
@@ -81,6 +86,23 @@ void main() {
     expect(await file.readAsString(), invalid);
   });
 
+  test('a single stored width reads as the range it pins', () async {
+    var scope = container();
+    final initial = await scope.read(pluginPlacementsProvider.future);
+    final drops = initial.homeOrder[1];
+    scope.dispose();
+    final file = File('${root.path}/placements.json');
+    final stored = initial.encode()..['selected_widths'] = {drops: 420};
+    await file.writeAsString(jsonEncode(stored));
+    scope = container();
+    addTearDown(scope.dispose);
+    final state = await scope.read(pluginPlacementsProvider.future);
+    expect(state.selectedWidths[drops], (min: 420, max: 420));
+    expect(state.encode()['selected_widths'], {
+      drops: [420, 420],
+    });
+  });
+
   test(
     'size width and Home order reject values outside the contract',
     () async {
@@ -91,7 +113,7 @@ void main() {
       final controller = scope.read(pluginPlacementsProvider.notifier);
 
       await expectLater(
-        controller.setWidgetWidth(drops, 900),
+        controller.setWidgetWidth(drops, (min: 280, max: 900)),
         throwsA(
           isA<PluginPlacementException>().having(
             (error) => error.message,
@@ -104,10 +126,14 @@ void main() {
         controller.moveHome(drops, space: homeSpaceCount + 1),
         throwsA(isA<PluginPlacementException>()),
       );
-      await controller.setWidgetWidth(drops, 420);
+      await expectLater(
+        controller.setWidgetWidth(drops, (min: 600, max: 400)),
+        throwsA(isA<PluginPlacementException>()),
+      );
+      await controller.setWidgetWidth(drops, (min: 320, max: 420));
       expect(
         scope.read(pluginPlacementsProvider).requireValue.selectedWidths[drops],
-        420,
+        (min: 320, max: 420),
       );
     },
   );
@@ -126,7 +152,8 @@ void main() {
     );
     expect(ranged.resolveWidth(800), 720);
     expect(ranged.resolveWidth(500), 500);
-    expect(ranged.resolveWidth(500, selected: 420), 420);
+    expect(ranged.resolveWidth(500, selected: (min: 300, max: 420)), 420);
+    expect(ranged.resolveWidth(360, selected: (min: 400, max: 420)), 360);
     expect(
       () => ranged.resolveWidth(200),
       throwsA(isA<PluginPlacementException>()),
@@ -154,16 +181,16 @@ void main() {
     final controller = scope.read(pluginPlacementsProvider.notifier);
     await Future.wait([
       controller.setHomeHidden(drops, true),
-      controller.setWidgetWidth(drops, 420),
+      controller.setWidgetWidth(drops, (min: 420, max: 420)),
     ]);
     final settled = scope.read(pluginPlacementsProvider).requireValue;
     expect(settled.hiddenHome, contains(drops));
-    expect(settled.selectedWidths[drops], 420);
+    expect(settled.selectedWidths[drops], (min: 420, max: 420));
     expect(
       (await PluginPlacementRepository(
         File('${root.path}/placements.json'),
       ).read()).selectedWidths[drops],
-      420,
+      (min: 420, max: 420),
     );
   });
 
@@ -479,7 +506,7 @@ void main() {
       final controller = scope.read(pluginPlacementsProvider.notifier);
       await Future.wait([
         controller.setWidgetSize(id, 'fixed'),
-        controller.setWidgetWidth(id, 320),
+        controller.setWidgetWidth(id, (min: 320, max: 320)),
       ]);
       expect(
         scope.read(pluginPlacementsProvider).requireValue.selectedSizes[id],
