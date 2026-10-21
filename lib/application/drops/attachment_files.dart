@@ -21,6 +21,7 @@ class AttachmentFiles {
     if (kept.isEmpty) return const [];
     return _lease.call(() => ImageAttachments.store(kept));
   }
+
   Future<void> remove(String relative) =>
       _lease.call(() => ImageAttachments.remove(relative));
 }
