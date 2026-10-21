@@ -6,7 +6,10 @@ Future<void> openPluginDetails(
   String id,
   Future<void> Function(WidgetTester tester) drain,
 ) async {
-  await tester.tap(find.byKey(ValueKey('key-$id')));
+  final key = find.byKey(ValueKey('key-$id'));
+  await tester.ensureVisible(key);
+  await tester.pump();
+  await tester.tap(key);
   await drain(tester);
   final details = find.descendant(
     of: find.byKey(ValueKey('node-card-$id')),

@@ -5,8 +5,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/agent_usage.dart';
-import 'package:striked/application/agents/agents.dart';
 import 'package:striked/application/drops/drop_selection.dart';
 import 'package:striked/application/drops/fresh_drops.dart';
 import 'package:striked/application/navigation.dart';
@@ -29,8 +27,6 @@ import 'package:striked/features/tasks/selection_bar.dart';
 import 'package:striked/features/plugins/plugin_card.dart';
 import 'package:striked/features/plugins/plugin_management_screen.dart';
 import 'package:striked/features/plugins/plugin_promise.dart';
-import 'package:striked/features/home/agents_panel.dart';
-import 'package:striked/features/home/usage_panel.dart';
 import 'package:striked/features/home/home_card_viewport.dart';
 import 'package:striked/features/home/home_actions.dart';
 
@@ -48,38 +44,9 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  late final _visible = ref.read(homeAgentsVisibleProvider.notifier);
-  late final _usageVisible = ref.read(homeUsageVisibleProvider.notifier);
-  final _agentsKey = GlobalKey();
   final _cardsKey = GlobalKey();
-  bool _agentsHere = true;
+  final _entryKeys = <String, GlobalKey>{};
   double _swipe = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncVisible());
-  }
-
-  bool _onStage = true;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final onStage = TickerMode.valuesOf(context).enabled;
-    if (onStage == _onStage) return;
-    _onStage = onStage;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncVisible());
-  }
-
-  void _syncVisible() {
-    if (mounted) {
-      _visible.state = _usageVisible.state =
-          _onStage &&
-          _agentsHere &&
-          ref.read(navIndexProvider) == HomeScreen.navIndex;
-    }
-  }
 
   void _leave() {
     ref.read(dropSelectionProvider.notifier).clear();
@@ -99,19 +66,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   @override
-  void dispose() {
-    if (_visible.mounted) _visible.state = false;
-    if (_usageVisible.mounted) _usageVisible.state = false;
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     ref.listen<int>(navIndexProvider, (previous, next) {
       if (previous == HomeScreen.navIndex && next != HomeScreen.navIndex) {
         _leave();
       }
-      _syncVisible();
     });
     final catalog = ref.watch(pluginContributionCatalogProvider);
     final search = ref.watch(nativeSurfaceOwnerProvider('item.detail')) != null;
@@ -120,17 +79,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final selecting = ref
         .watch(dropSelectionProvider)
         .ownedBy(DropSelection.homeScope);
-    bool shown(String id) =>
-        id == homeAgentsId ||
-        switch (catalog.widget(id)) {
-          final widget? =>
-            widget.enabled &&
-                placements!.placements[id] ==
-                    PluginPlacementLocation.homeCard &&
-                !placements.hiddenHome.contains(id),
-          null => false,
-        };
-    final order = placements?.homeOrder ?? const [homeAgentsId];
+    bool shown(String id) => switch (catalog.widget(id)) {
+      final widget? =>
+        widget.enabled &&
+            placements!.placements[id] == PluginPlacementLocation.homeCard &&
+            !placements.hiddenHome.contains(id),
+      null => false,
+    };
+    final order = placements?.homeOrder ?? const <String>[];
     final space = placements?.homeSpace ?? 1;
     final live = [
       for (final id in order)
@@ -148,11 +104,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       for (var n = 1; n <= homeSpaceCount; n++)
         if (!numbers.contains(n)) n,
     ].firstOrNull;
-    final agentsHere = here.contains(homeAgentsId);
-    if (agentsHere != _agentsHere) {
-      _agentsHere = agentsHere;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _syncVisible());
-    }
     void move(String id, String over) =>
         unawaited(_layout.moveHome(id, over: over));
     final composer = placements == null
@@ -188,23 +139,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
       for (final id in here)
-        if (id == homeAgentsId)
-          _HomeEntry(
-            key: ValueKey(id),
-            id: id,
-            title: 'AGENTS',
-            order: here,
-            onMove: move,
-            child: KeyedSubtree(
-              key: _agentsKey,
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [AgentsPanel(), UsagePanel()],
-              ),
-            ),
-          )
-        else if (catalog.widget(id) case final widget?)
+        if (catalog.widget(id) case final widget?)
           _HomeEntry(
             key: ValueKey(id),
             id: id,
@@ -212,14 +147,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             order: here,
             onMove: move,
             fills: widget.contribution.surface == 'home.drops',
-            child: _PlacedPluginWidget(
-              registration: widget,
-              placements: placements!,
+            child: KeyedSubtree(
+              key: _entryKeys.putIfAbsent(id, GlobalKey.new),
+              child: _PlacedPluginWidget(
+                registration: widget,
+                placements: placements!,
+              ),
             ),
           ),
       if (here.isEmpty) const _EmptySpace(),
       if (placements != null &&
-          !live.any((id) => id != homeAgentsId) &&
+          !live.any((id) => id != agentsCardId) &&
           composer == null)
         _PluginsOffPanel(catalog: catalog),
     ];
@@ -304,7 +242,7 @@ class _HomeColumns extends StatelessWidget {
 
   static bool isWide(double width, List<Widget> children) =>
       width - 2 * Spacing.screenEdge >= 760 &&
-      children.any((child) => child is! _HomeEntry || child.id != homeAgentsId);
+      children.any((child) => child is! _HomeEntry || child.id != agentsCardId);
 
   final bool wide;
   final GlobalKey cardsKey;
@@ -314,7 +252,7 @@ class _HomeColumns extends StatelessWidget {
   Widget build(BuildContext context) {
     final agents = children
         .whereType<_HomeEntry>()
-        .where((entry) => entry.id == homeAgentsId)
+        .where((entry) => entry.id == agentsCardId)
         .firstOrNull;
     final column = wide
         ? [

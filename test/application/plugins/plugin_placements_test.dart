@@ -27,6 +27,7 @@ void main() {
     root = await Directory.systemTemp.createTemp('striked-placements-');
     store = PluginStore(root);
     catalog = await store.synchronizeBuiltins([
+      builtinFixture('agents'),
       builtinFixture('drops'),
       builtinFixture('projects'),
     ], adoptEnabled: true);
@@ -184,19 +185,21 @@ void main() {
     var scope = container();
     final initial = await scope.read(pluginPlacementsProvider.future);
     final [agents, first, second] = initial.homeOrder;
-    expect(agents, homeAgentsId);
+    expect(agents, agentsCardId);
     final controller = scope.read(pluginPlacementsProvider.notifier);
 
     await controller.moveHome(agents, over: second);
-    expect(
-      scope.read(pluginPlacementsProvider).requireValue.homeOrder,
-      [first, second, agents],
-    );
+    expect(scope.read(pluginPlacementsProvider).requireValue.homeOrder, [
+      first,
+      second,
+      agents,
+    ]);
     await controller.moveHome(agents, over: first);
-    expect(
-      scope.read(pluginPlacementsProvider).requireValue.homeOrder,
-      [agents, first, second],
-    );
+    expect(scope.read(pluginPlacementsProvider).requireValue.homeOrder, [
+      agents,
+      first,
+      second,
+    ]);
     await controller.moveHome(first, space: 3);
     await controller.showHomeSpace(3);
     var state = scope.read(pluginPlacementsProvider).requireValue;
@@ -236,14 +239,54 @@ void main() {
     final old = initial.encode()
       ..remove('home_spaces')
       ..remove('home_space');
-    old['home_order'] = initial.homeOrder.skip(1).toList();
     await file.writeAsString(jsonEncode(old));
     final reopened = container();
     addTearDown(reopened.dispose);
     final state = await reopened.read(pluginPlacementsProvider.future);
-    expect(state.homeOrder.first, homeAgentsId);
+    expect(state.homeOrder, initial.homeOrder);
     expect(state.homeSpace, 1);
     expect(state.homeOrder.map(state.spaceOf).toSet(), {1});
+  });
+
+  test('AGENTS from before its plugin keeps its place and workspace', () async {
+    final file = File('${root.path}/placements.json');
+    final scope = container();
+    final initial = await scope.read(pluginPlacementsProvider.future);
+    scope.dispose();
+    final [_, first, second] = initial.homeOrder;
+    final old = initial.encode()
+      ..['home_order'] = [first, 'striked:home:agents', second]
+      ..['home_spaces'] = {first: 1, 'striked:home:agents': 2, second: 1}
+      ..['known_widgets'] = [first, second]
+      ..['placements'] = {
+        for (final entry in (initial.encode()['placements']! as Map).entries)
+          if (entry.key != agentsCardId) entry.key: entry.value,
+      };
+    await file.writeAsString(jsonEncode(old));
+    final reopened = container();
+    addTearDown(reopened.dispose);
+    final state = await reopened.read(pluginPlacementsProvider.future);
+    expect(state.homeOrder, [first, agentsCardId, second]);
+    expect(state.spaceOf(agentsCardId), 2);
+    expect(state.placements[agentsCardId], PluginPlacementLocation.homeCard);
+  });
+
+  test('a file older than AGENTS in the order puts it first', () async {
+    final file = File('${root.path}/placements.json');
+    final scope = container();
+    final initial = await scope.read(pluginPlacementsProvider.future);
+    scope.dispose();
+    final [_, first, second] = initial.homeOrder;
+    final old = initial.encode()
+      ..['home_order'] = [second, first]
+      ..['known_widgets'] = [first, second]
+      ..remove('home_spaces')
+      ..remove('home_space');
+    await file.writeAsString(jsonEncode(old));
+    final reopened = container();
+    addTearDown(reopened.dispose);
+    final state = await reopened.read(pluginPlacementsProvider.future);
+    expect(state.homeOrder, [agentsCardId, second, first]);
   });
 
   test(
@@ -536,7 +579,7 @@ void main() {
           builtinFixture('prompt'),
         ],
         adoptEnabled: true,
-        shipOff: {'striked.prompt'},
+        arrivals: {'striked.prompt': BuiltinArrival.off},
       );
     });
 

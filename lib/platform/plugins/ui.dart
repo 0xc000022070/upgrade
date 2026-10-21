@@ -112,7 +112,9 @@ class PluginUiNode {
       // anything that fills its parent needs one handed to it.
       final wide =
           props['width'] is num ||
-          (parent == 'row' ? inRow && flex is num && flex.toInt() > 0 : bounded);
+          (parent == 'row'
+              ? inRow && flex is num && flex.toInt() > 0
+              : bounded);
       if (card &&
           (!_cardKinds.contains(kind) ||
               depth == 0 && kind != 'panel' ||

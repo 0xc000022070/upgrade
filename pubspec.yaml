@@ -70,6 +70,8 @@ flutter:
   uses-material-design: true
 
   assets:
+    - lib/builtin_plugins/agents/striked.plugin.toml
+    - lib/builtin_plugins/agents/main.dart
     - lib/builtin_plugins/drops/striked.plugin.toml
     - lib/builtin_plugins/drops/main.dart
     - lib/builtin_plugins/projects/striked.plugin.toml

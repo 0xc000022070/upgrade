@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import 'package:striked/builtin_plugins/agents/main.dart';
 import 'package:striked/builtin_plugins/drops/main.dart';
 import 'package:striked/builtin_plugins/projects/main.dart';
 import 'package:striked/builtin_plugins/prompt/main.dart';
@@ -8,6 +9,7 @@ import 'package:striked/platform/plugins/module.dart';
 import 'package:striked/platform/plugins/store.dart';
 
 const builtinModules = <NativePluginModule>[
+  agentsPlugin,
   dropsPlugin,
   projectsPlugin,
   promptPlugin,

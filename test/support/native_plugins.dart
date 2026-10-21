@@ -22,7 +22,7 @@ PluginPackage builtinFixture(String name) => PluginPackage(
 );
 
 List<InstalledPlugin> builtinFixtures({bool enabled = true}) => [
-  for (final name in ['drops', 'projects'])
+  for (final name in ['agents', 'drops', 'projects'])
     InstalledPlugin(
       builtinFixture(name),
       builtinFixture(name).manifest.permissions,

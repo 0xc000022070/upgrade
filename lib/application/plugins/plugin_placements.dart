@@ -126,8 +126,7 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
     final order = [...current.homeOrder];
     final from = order.indexOf(id);
     if (from < 0 ||
-        id != homeAgentsId &&
-            current.placements[id] != PluginPlacementLocation.homeCard ||
+        current.placements[id] != PluginPlacementLocation.homeCard ||
         (over == null) == (space == null) ||
         over != null && !order.contains(over) ||
         space != null && (space < 1 || space > homeSpaceCount)) {
@@ -348,7 +347,6 @@ PluginPlacementState _withDefaults(
   final sizes = Map.of(stored.selectedSizes);
   final order = [...stored.homeOrder];
   final spaces = Map.of(stored.homeSpaces);
-  if (!order.contains(homeAgentsId)) order.insert(0, homeAgentsId);
   final knownWidgets = {...stored.knownWidgets};
   final enabled = {
     for (final widget in catalog.widgets)

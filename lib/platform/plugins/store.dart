@@ -224,6 +224,10 @@ Set<String> withDependents(Iterable<InstalledPlugin> plugins, Set<String> ids) {
   return closure;
 }
 
+/// How a built-in arrives on an installation that has not had it before:
+/// [adopted] follows whether the installation predates built-in plugins.
+enum BuiltinArrival { adopted, off, on }
+
 class PluginStore {
   PluginStore(this.directory);
   final Directory directory;
@@ -234,7 +238,7 @@ class PluginStore {
   Future<List<InstalledPlugin>> synchronizeBuiltins(
     List<PluginPackage> packages, {
     required bool adoptEnabled,
-    Set<String> shipOff = const {},
+    Map<String, BuiltinArrival> arrivals = const {},
   }) => _change((entries) {
     final ids = packages.map((p) => p.manifest.id).toSet();
     if (ids.length != packages.length ||
@@ -255,9 +259,12 @@ class PluginStore {
         _adoptBuiltin(
           package,
           retained[package.manifest.id],
-          adoptEnabled &&
-              package.manifest.native &&
-              !shipOff.contains(package.manifest.id),
+          switch (arrivals[package.manifest.id]) {
+            BuiltinArrival.on => true,
+            BuiltinArrival.off => false,
+            BuiltinArrival.adopted ||
+            null => adoptEnabled && package.manifest.native,
+          },
         ),
     ];
     var reduced = true;

@@ -338,11 +338,9 @@ Widget inheritPluginScope(
   final String? owner;
   try {
     final container = ProviderScope.containerOf(context, listen: false);
-    owner =
-        container.read(currentPluginProvider) ??
-        (surface == null
-            ? null
-            : container.read(nativeSurfaceOwnerProvider(surface))?.id);
+    owner = surface == null
+        ? container.read(currentPluginProvider)
+        : container.read(nativeSurfaceOwnerProvider(surface))?.id;
   } on StateError {
     return child;
   }

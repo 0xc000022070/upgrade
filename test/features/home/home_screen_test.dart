@@ -126,7 +126,9 @@ void main() {
     expect(find.text('DROPS CARD · CAPTURE BAR'), findsOneWidget);
     expect(find.text('Projects'), findsOneWidget);
     expect(find.text('PROJECTS TAB · NEXT ACTION CARD'), findsOneWidget);
-    expect(find.text('OFF'), findsNWidgets(2));
+    expect(find.text('Agents'), findsOneWidget);
+    expect(find.text('AGENTS CARD'), findsOneWidget);
+    expect(find.text('OFF'), findsNWidgets(3));
     expect(find.text('MANAGE PLUGINS'), findsOneWidget);
     expect(find.textContaining('ADD HOME CARDS'), findsNothing);
     expect(find.text('DROPS'), findsNothing);

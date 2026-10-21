@@ -10,7 +10,7 @@ const promptPlugin = NativePluginModule(
   directory: 'lib/builtin_plugins/prompt',
   surfaces: {'home.prompt': _prompt},
   deactivate: _deactivate,
-  shipsOff: true,
+  arrives: BuiltinArrival.off,
 );
 
 Widget _prompt(BuildContext context) => const PromptBar(hidable: true);

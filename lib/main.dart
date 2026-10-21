@@ -140,9 +140,8 @@ _loadPlugins(AppDatabase db) async {
       packages,
       adoptEnabled: await SettingsRepository(db)
           .flag('builtin_auto_enable', orElse: true),
-      shipOff: {
-        for (final module in builtinModules)
-          if (module.shipsOff) module.id,
+      arrivals: {
+        for (final module in builtinModules) module.id: module.arrives,
       },
     );
   } catch (error) {

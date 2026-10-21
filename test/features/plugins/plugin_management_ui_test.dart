@@ -154,7 +154,7 @@ void main() {
     expect(find.text('[ BOARD ]'), findsOneWidget);
     expect(find.byKey(const ValueKey('key-striked.drops')), findsOneWidget);
     expect(find.byKey(const ValueKey('key-striked.projects')), findsOneWidget);
-    expect(find.text('DROPS CARD · CAPTURE BAR'), findsOneWidget);
+    expect(find.text('AGENTS CARD'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await openPluginDetails(tester, 'striked.drops', _drain);
@@ -279,7 +279,7 @@ void main() {
       ),
     );
     await _drain(tester);
-    expect(find.text('0 ON · 2 OFF'), findsOneWidget);
+    expect(find.text('0 ON · 3 OFF'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('key-striked.projects')));
     await _drain(tester);
@@ -307,7 +307,7 @@ void main() {
     await tester.tap(projectsSwitch);
     await _drain(tester);
     expect(plugins.switched, ['striked.drops', 'striked.projects']);
-    expect(find.text('2 ON · 0 OFF'), findsOneWidget);
+    expect(find.text('2 ON · 1 OFF'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('key-striked.drops')));
     await _drain(tester);
@@ -318,7 +318,7 @@ void main() {
     await tester.tap(dropsSwitch);
     await _drain(tester);
     expect(plugins.switched.skip(2), ['striked.projects', 'striked.drops']);
-    expect(find.text('0 ON · 2 OFF'), findsOneWidget);
+    expect(find.text('0 ON · 3 OFF'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -355,7 +355,7 @@ void main() {
     await tester.tap(again);
     await _drain(tester);
     expect(plugins.switched, ['striked.projects', 'striked.drops']);
-    expect(find.text('0 ON · 2 OFF'), findsOneWidget);
+    expect(find.text('1 ON · 2 OFF'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());

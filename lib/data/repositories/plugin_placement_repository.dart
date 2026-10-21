@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:striked/platform/plugins/contributions.dart';
 
-const homeAgentsId = 'striked:home:agents';
+const agentsCardId = 'striked.agents:widget:agents';
+
+const _legacyAgentsId = 'striked:home:agents';
 
 const homeSpaceCount = 9;
 
@@ -165,19 +167,48 @@ class PluginPlacementState {
     final pinnedPages = _stringList(rawPinned, 'pinned pages');
     final knownWidgets = _stringList(rawKnownWidgets, 'known widgets').toSet();
     final knownPages = _stringList(rawKnownPages, 'known pages').toSet();
-    return PluginPlacementState(
-      placements: placements,
-      selectedSizes: selectedSizes,
-      selectedWidths: selectedWidths,
-      homeOrder: homeOrder,
-      hiddenHome: hiddenHome,
-      homeSpaces: homeSpaces,
-      homeSpace: homeSpace as int,
-      pinnedPages: pinnedPages,
-      knownWidgets: knownWidgets,
-      knownPages: knownPages,
+    return _withAgentsCard(
+      PluginPlacementState(
+        placements: placements,
+        selectedSizes: selectedSizes,
+        selectedWidths: selectedWidths,
+        homeOrder: homeOrder,
+        hiddenHome: hiddenHome,
+        homeSpaces: homeSpaces,
+        homeSpace: homeSpace as int,
+        pinnedPages: pinnedPages,
+        knownWidgets: knownWidgets,
+        knownPages: knownPages,
+      ),
     );
   }
+}
+
+PluginPlacementState _withAgentsCard(PluginPlacementState state) {
+  if (state.knownWidgets.contains(agentsCardId)) return state;
+  final order = [...state.homeOrder];
+  final at = order.indexOf(_legacyAgentsId);
+  if (order.contains(agentsCardId)) {
+    if (at >= 0) order.removeAt(at);
+  } else if (at < 0) {
+    order.insert(0, agentsCardId);
+  } else {
+    order[at] = agentsCardId;
+  }
+  final spaces = Map.of(state.homeSpaces);
+  if (spaces.remove(_legacyAgentsId) case final space?) {
+    spaces.putIfAbsent(agentsCardId, () => space);
+  }
+  return state.copyWith(
+    placements: {
+      ...state.placements,
+      agentsCardId: PluginPlacementLocation.homeCard,
+    },
+    selectedSizes: {...state.selectedSizes, agentsCardId: 'auto'},
+    knownWidgets: {...state.knownWidgets, agentsCardId},
+    homeOrder: order,
+    homeSpaces: spaces,
+  );
 }
 
 class PluginPlacementRepository {

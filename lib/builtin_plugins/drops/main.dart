@@ -14,10 +14,7 @@ import 'package:striked/application/alerts/toasts.dart';
 const dropsPlugin = NativePluginModule(
   id: 'striked.drops',
   directory: 'lib/builtin_plugins/drops',
-  surfaces: {
-    'home.drops': _drops,
-    'home.capture': _capture,
-  },
+  surfaces: {'home.drops': _drops, 'home.capture': _capture},
   deactivate: _deactivate,
 );
 

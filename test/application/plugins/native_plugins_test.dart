@@ -244,63 +244,78 @@ void main() {
     },
   );
 
-  test('prompt ships off on fresh and existing installs alike', () async {
-    final root = await Directory.systemTemp.createTemp('striked-prompt-off-');
-    addTearDown(() => root.delete(recursive: true));
-    final shipOff = {
-      for (final module in builtinModules)
-        if (module.shipsOff) module.id,
-    };
-    expect(shipOff, {'striked.prompt'});
-    final older = [builtinFixture('drops'), builtinFixture('projects')];
-    final packages = [...older, builtinFixture('prompt')];
-    Map<String, bool> enabled(List<InstalledPlugin> catalog) => {
-      for (final plugin in catalog) plugin.id: plugin.enabled,
-    };
+  test(
+    'prompt ships off and agents on, on fresh and existing installs alike',
+    () async {
+      final root = await Directory.systemTemp.createTemp('striked-prompt-off-');
+      addTearDown(() => root.delete(recursive: true));
+      final arrivals = {
+        for (final module in builtinModules) module.id: module.arrives,
+      };
+      expect(arrivals, {
+        'striked.agents': BuiltinArrival.on,
+        'striked.drops': BuiltinArrival.adopted,
+        'striked.projects': BuiltinArrival.adopted,
+        'striked.prompt': BuiltinArrival.off,
+      });
+      final older = [builtinFixture('drops'), builtinFixture('projects')];
+      final packages = [
+        builtinFixture('agents'),
+        ...older,
+        builtinFixture('prompt'),
+      ];
+      Map<String, bool> enabled(List<InstalledPlugin> catalog) => {
+        for (final plugin in catalog) plugin.id: plugin.enabled,
+      };
 
-    final fresh = PluginStore(Directory('${root.path}/fresh'));
-    expect(
-      enabled(
-        await fresh.synchronizeBuiltins(
-          packages,
-          adoptEnabled: false,
-          shipOff: shipOff,
+      final fresh = PluginStore(Directory('${root.path}/fresh'));
+      expect(
+        enabled(
+          await fresh.synchronizeBuiltins(
+            packages,
+            adoptEnabled: false,
+            arrivals: arrivals,
+          ),
         ),
-      ),
-      {
-        'striked.drops': false,
-        'striked.projects': false,
-        'striked.prompt': false,
-      },
-    );
+        {
+          'striked.agents': true,
+          'striked.drops': false,
+          'striked.projects': false,
+          'striked.prompt': false,
+        },
+      );
 
-    final existing = PluginStore(Directory('${root.path}/existing'));
-    await existing.synchronizeBuiltins(older, adoptEnabled: true);
-    expect(
-      enabled(
-        await existing.synchronizeBuiltins(
-          packages,
-          adoptEnabled: true,
-          shipOff: shipOff,
+      final existing = PluginStore(Directory('${root.path}/existing'));
+      await existing.synchronizeBuiltins(older, adoptEnabled: true);
+      expect(
+        enabled(
+          await existing.synchronizeBuiltins(
+            packages,
+            adoptEnabled: true,
+            arrivals: arrivals,
+          ),
         ),
-      ),
-      {
-        'striked.drops': true,
-        'striked.projects': true,
-        'striked.prompt': false,
-      },
-    );
+        {
+          'striked.agents': true,
+          'striked.drops': true,
+          'striked.projects': true,
+          'striked.prompt': false,
+        },
+      );
 
-    await existing.setEnabled('striked.prompt', true);
-    expect(
-      enabled(
-        await PluginStore(
-          existing.directory,
-        ).synchronizeBuiltins(packages, adoptEnabled: true, shipOff: shipOff),
-      )['striked.prompt'],
-      isTrue,
-    );
-  });
+      await existing.setEnabled('striked.prompt', true);
+      expect(
+        enabled(
+          await PluginStore(existing.directory).synchronizeBuiltins(
+            packages,
+            adoptEnabled: true,
+            arrivals: arrivals,
+          ),
+        )['striked.prompt'],
+        isTrue,
+      );
+    },
+  );
 
   test('grants isolate datasets and stale handles never reactivate', () async {
     final authority = PluginAuthority();

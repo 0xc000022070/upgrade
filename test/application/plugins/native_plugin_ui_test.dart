@@ -179,6 +179,40 @@ void main() {
     },
   );
 
+  testWidgets('a detail surface runs as its owner, whoever opens it', (
+    tester,
+  ) async {
+    await tester.runAsync(
+      () => container
+          .read(pluginsProvider.notifier)
+          .setEnabled('striked.drops', true),
+    );
+    await tester.pumpWidget(
+      host(
+        ProviderScope(
+          overrides: [
+            currentPluginProvider.overrideWithValue('striked.agents'),
+          ],
+          child: Builder(
+            builder: (context) => inheritPluginScope(
+              context,
+              Consumer(
+                builder: (_, ref, _) =>
+                    Text(ref.watch(currentPluginProvider) ?? 'none'),
+              ),
+              surface: 'item.detail',
+            ),
+          ),
+        ),
+      ),
+    );
+    await drain(tester);
+    expect(find.text('striked.drops'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.runAsync(closeContainer);
+    await drain(tester);
+  });
+
   testWidgets('Board Back returns through its list to the Tools tab', (
     tester,
   ) async {
