@@ -12,6 +12,13 @@ let
   port = toString sshPort;
   vmName = nixos.config.system.name;
   runner = "${nixos.config.system.build.vm}/bin/run-${vmName}-vm";
+  # The nixpkgs runner otherwise mktemps /tmp/nix-vm.* per boot, writes the
+  # store image there and execs qemu without cleanup, leaking it every run.
+  vmTmp = ''
+    vm_tmp="$state_dir/vm-tmp${suffix}"
+    rm -rf "$vm_tmp"
+    mkdir -p "$vm_tmp"
+  '';
 in
 {
   "host-vm${suffix}" = nixos.config.system.build.vm;
@@ -37,8 +44,9 @@ in
     text = ''
       state_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/striked"
       mkdir -p "$state_dir"
+      ${vmTmp}
       export NIX_DISK_IMAGE="$state_dir/host-vm${suffix}.qcow2"
-      exec ${runner} "$@"
+      TMPDIR="$vm_tmp" USE_TMPDIR=1 exec ${runner} "$@"
     '';
   };
 
@@ -58,6 +66,8 @@ in
       mkdir -p "$state_dir"
       log="''${TMPDIR:-/tmp}/${vmName}.log"
       echo "${vmName}: booting, log $log"
+      ${vmTmp}
+      TMPDIR="$vm_tmp" USE_TMPDIR=1 \
       NIX_DISK_IMAGE="$state_dir/host-vm${suffix}.qcow2" \
         nohup ${lib.optionalString pkgs.stdenv.isLinux "setsid "}${runner} -nographic </dev/null >"$log" 2>&1 &
       vm=$!
