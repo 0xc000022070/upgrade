@@ -136,6 +136,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     // runs, and this is the store the listener has to come off.
     _store = ref.read(shellSessionsProvider);
     _store.addListener(_onStore);
+    _unshow = _store.show(widget.host.id);
     // Both notifiers: the strip is drawn from the set, and the header, the exit
     // sheet and the pop that follows the last tab are all drawn from what the tabs
     // themselves report.
@@ -203,6 +204,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     _follower.dispose();
     _view.dispose();
     _store.removeListener(_onStore);
+    _unshow();
     _clips.removeListener(_onClips);
     _dictation
       ..removeListener(_onDictation)
@@ -213,6 +215,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   }
 
   late final ShellSessions _store;
+  late final VoidCallback _unshow;
   late final ShellFollower _follower;
   late final ShellFollower _view;
   Object? _drawn;

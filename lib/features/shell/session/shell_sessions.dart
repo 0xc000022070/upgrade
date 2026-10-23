@@ -151,6 +151,10 @@ const shellRehomeSettle = Duration(seconds: 1);
 
 const shellWaitingWatch = Duration(seconds: 10);
 
+const shellLookedAtWait = Duration(seconds: 5);
+
+const shellLookedAtWatch = Duration(seconds: 3);
+
 const agentProbeDeadline = Duration(seconds: 3);
 
 /// Written into the terminal above each new shell. A prompt appearing under a dead
@@ -586,6 +590,7 @@ class ShellSession extends ChangeNotifier {
   /// user deciding what happens next instead of the schedule.
   Timer? _reconnect;
   DateTime? _due;
+  Reconnect? _retry;
 
   Reconnect? _waitingOn;
 
@@ -674,6 +679,7 @@ class ShellSessions extends ChangeNotifier {
     this.links,
     Future<LinkResult> Function(String address, int port)? probeHost,
     this.waitingWatch = shellWaitingWatch,
+    this.lookedAtWatch = shellLookedAtWatch,
   }) : _override = open,
        _probeHost = probeHost ?? probeLink,
        udpVerdicts = udpVerdicts ?? UdpVerdicts();
@@ -684,7 +690,10 @@ class ShellSessions extends ChangeNotifier {
 
   final Duration waitingWatch;
 
+  final Duration lookedAtWatch;
+
   Timer? _watch;
+  Duration? _watchEvery;
   final _watching = <String>{};
 
   final PinNotifier? notifier;
@@ -778,6 +787,8 @@ class ShellSessions extends ChangeNotifier {
   /// How many sheets are up. Nothing is woken while this is above zero.
   int _held = 0;
 
+  final _shown = <String>[];
+
   List<ShellSession> forHost(String hostId) =>
       List.unmodifiable(_byHost[hostId] ?? const <ShellSession>[]);
 
@@ -843,6 +854,7 @@ class ShellSessions extends ChangeNotifier {
     _active[hostId] = session.number;
     _parkedHostId = hostId;
     notifyListeners();
+    _lookedAtMoved();
     unawaited(tabs?.activate(hostId, session.number));
   }
 
@@ -1224,6 +1236,7 @@ class ShellSessions extends ChangeNotifier {
         _wakeUp(session, reason);
       }
     }
+    _lookedAtMoved();
   }
 
   void _fallAsleep() {
@@ -2318,8 +2331,51 @@ class ShellSessions extends ChangeNotifier {
       );
 
   void _watchWaiting() {
-    if (_away || _watch != null || _watched.isEmpty) return;
-    _watch = Timer(waitingWatch, _askWaiting);
+    if (_away || _watched.isEmpty) return;
+    final looked = _lookedAt;
+    final every = looked != null && _watched.contains(looked)
+        ? lookedAtWatch
+        : waitingWatch;
+    final armed = _watchEvery;
+    if (_watch != null && armed != null && armed <= every) return;
+    _watch?.cancel();
+    _watchEvery = every;
+    _watch = Timer(every, _askWaiting);
+  }
+
+  VoidCallback show(String hostId) {
+    _shown.add(hostId);
+    _lookedAtMoved();
+    var released = false;
+    return () {
+      if (released) return;
+      released = true;
+      _shown.remove(hostId);
+    };
+  }
+
+  ShellSession? get _lookedAt =>
+      _away || _shown.isEmpty ? null : activeFor(_shown.last);
+
+  /// A tab coming into view does not sit out a wait meant for nobody watching: a schedule
+  /// wait is cut to [shellLookedAtWait] from now, and a waiting tab's host is asked at once.
+  void _lookedAtMoved() {
+    final session = _lookedAt;
+    if (session == null) return;
+    final due = session._due;
+    final retry = session._retry;
+    if (session._reconnect != null &&
+        due != null &&
+        retry != null &&
+        due.isAfter(now().add(shellLookedAtWait))) {
+      session._reconnect?.cancel();
+      _arm(session, retry, shellLookedAtWait);
+    }
+    if (session.state is ShellWaiting && session._waitingOn != null) {
+      _watch?.cancel();
+      _watch = null;
+      _askWaiting();
+    }
   }
 
   void _unwatchIdle() {
@@ -2484,8 +2540,19 @@ class ShellSessions extends ChangeNotifier {
     session.clearAgentInput();
     session.clearEngineForeground();
     session.changed();
-    final delay = shellReconnectDelays[attempt - 1];
+    final step = shellReconnectDelays[attempt - 1];
+    _arm(
+      session,
+      retry,
+      identical(session, _lookedAt) && step > shellLookedAtWait
+          ? shellLookedAtWait
+          : step,
+    );
+  }
+
+  void _arm(ShellSession session, Reconnect retry, Duration delay) {
     session._due = now().add(delay);
+    session._retry = retry;
     session._reconnect = Timer(delay, () => unawaited(_redial(session, retry)));
   }
 
@@ -2495,6 +2562,7 @@ class ShellSessions extends ChangeNotifier {
   Future<void> _redial(ShellSession session, OpenReason reason) async {
     session._reconnect = null;
     session._due = null;
+    session._retry = null;
     if (session.state is! ShellDropped) return;
     final previous = session.connection;
     final ended = previous?.ended;

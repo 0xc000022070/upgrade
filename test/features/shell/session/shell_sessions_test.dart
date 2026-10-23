@@ -2042,6 +2042,92 @@ void main() {
     await sessions.close(intent: testIntent(), _rose.id, session);
   });
 
+  testWidgets('a tab on screen waits no more than five seconds between dials', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(intent: testIntent(), _rose)!;
+    await _pumpDial(tester);
+    final unshow = sessions.show(_rose.id);
+
+    transport.refuse = const ShellFailure(ShellFailureKind.unreachable);
+    transport.opened.single.drop();
+    await tester.pump();
+    for (final step in shellReconnectDelays) {
+      final spent = transport.verifiers.length;
+      final wait = step > shellLookedAtWait ? shellLookedAtWait : step;
+      await tester.pump(wait);
+      await _pumpDial(tester);
+      expect(transport.verifiers, hasLength(spent + 1));
+    }
+    expect(session.state, isA<ShellWaiting>());
+
+    unshow();
+    await sessions.close(intent: testIntent(), _rose.id, session);
+  });
+
+  testWidgets('a tab coming into view cuts the wait it is on', (tester) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    final session = sessions.open(intent: testIntent(), _rose)!;
+    await _pumpDial(tester);
+
+    transport.refuse = const ShellFailure(ShellFailureKind.unreachable);
+    transport.opened.single.drop();
+    await tester.pump();
+    for (final step in shellReconnectDelays.take(4)) {
+      await tester.pump(step);
+      await _pumpDial(tester);
+    }
+    final spent = transport.verifiers.length;
+
+    final unshow = sessions.show(_rose.id);
+    await tester.pump(shellLookedAtWait);
+    await _pumpDial(tester);
+    expect(transport.verifiers, hasLength(spent + 1));
+    expect(session.state, isA<ShellDropped>());
+
+    unshow();
+    await sessions.close(intent: testIntent(), _rose.id, session);
+  });
+
+  testWidgets('a waiting tab on screen asks at once and then more often', (
+    tester,
+  ) async {
+    final asked = <String>[];
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(
+      transport,
+      probeHost: (address, port) async {
+        asked.add('$address:$port');
+        return const LinkResult(LinkStatus.noRoute);
+      },
+    );
+    final session = sessions.open(intent: testIntent(), _rose)!;
+    await _pumpDial(tester);
+    await _spend(tester, transport, session);
+    expect(asked, isEmpty);
+
+    final unshow = sessions.show(_rose.id);
+    await _pumpDial(tester);
+    expect(asked, hasLength(1));
+    await tester.pump(shellLookedAtWatch);
+    await _pumpDial(tester);
+    expect(asked, hasLength(2));
+
+    unshow();
+    await tester.pump(shellLookedAtWatch);
+    await _pumpDial(tester);
+    expect(asked, hasLength(3));
+    await tester.pump(shellLookedAtWatch);
+    await _pumpDial(tester);
+    expect(asked, hasLength(3));
+
+    await sessions.close(intent: testIntent(), _rose.id, session);
+    await tester.pump(shellWaitingWatch);
+  });
+
   testWidgets('a waiting tab asks nothing while the app is away', (
     tester,
   ) async {
