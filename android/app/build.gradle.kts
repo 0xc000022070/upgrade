@@ -47,6 +47,14 @@ android {
     }
 }
 
+// --target-platform only trims Flutter's own libraries, and a build-type abiFilters
+// never reaches packaging: plugin libraries kept every ABI in the release apk.
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.packaging.jniLibs.excludes.addAll("lib/x86_64/**", "lib/armeabi-v7a/**")
+    }
+}
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("org.tukaani:xz:1.10")
