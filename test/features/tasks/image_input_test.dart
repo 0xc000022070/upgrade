@@ -47,7 +47,8 @@ void main() {
 
   PhotoReview keeping(List<Rect?> keeps) =>
       (paths) async => [
-        for (var i = 0; i < keeps.length; i++) (path: paths[i], keep: keeps[i]),
+        for (var i = 0; i < keeps.length; i++)
+          (path: paths[i], keep: keeps[i], marks: const <PhotoMark>[]),
       ];
 
   test('every picked photo is asked for at the size a host is sent', () async {
@@ -65,9 +66,7 @@ void main() {
   });
 
   test('a cropped photo keeps only the part inside the box', () async {
-    final stored = await pick(
-      keeping([const Rect.fromLTRB(0.25, 0, 0.75, 1)]),
-    );
+    final stored = await pick(keeping([const Rect.fromLTRB(0.25, 0, 0.75, 1)]));
 
     expect(stored, hasLength(1));
     expect(p.extension(stored.single), '.png');

@@ -39,6 +39,23 @@ void main() {
     );
   });
 
+  test('a mark is burned in at its place and the photo is not cut', () async {
+    final source = encodePng(
+      PreviewFrame(width: 400, height: 400, rgb: Uint8List(400 * 400 * 3)),
+    );
+    final out = await cutImage(source, null, const [
+      (shape: MarkShape.box, from: Offset(0.2, 0.2), to: Offset(0.8, 0.8)),
+    ]);
+
+    final image = await decodeImageFromList(out!);
+    final pixels = (await image.toByteData())!;
+    int red(int x, int y) => pixels.getUint8((y * 400 + x) * 4);
+    expect((image.width, image.height), (400, 400));
+    expect(red(80, 200), 0xB7);
+    expect(red(200, 200), 0);
+    expect(await cutImage(source, null, const []), isNull);
+  });
+
   group('review', () {
     late Directory dir;
     late List<String> paths;
@@ -109,7 +126,9 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('review-send')));
       await tester.pumpAndSettle();
 
-      expect(result, [(path: paths[1], keep: null)]);
+      expect(result, [
+        (path: paths[1], keep: null, marks: const <PhotoMark>[]),
+      ]);
     });
 
     testWidgets('a crop is kept as fractions of the photo', (tester) async {
@@ -135,6 +154,93 @@ void main() {
       expect(keep.left, moreOrLessEquals(0.5, epsilon: 0.05));
       expect((keep.top, keep.right, keep.bottom), (0.0, 1.0, 1.0));
       expect(result![1].keep, isNull);
+    });
+
+    Rect shownPhoto(WidgetTester tester) => tester.getRect(
+      find.descendant(
+        of: find.byKey(const ValueKey('review-photo-0')),
+        matching: find.byType(Image),
+      ),
+    );
+
+    testWidgets('marks are drawn by drag, undone from the last, and sent', (
+      tester,
+    ) async {
+      await open(tester);
+      await tester.tap(find.byKey(const ValueKey('review-mark')));
+      await tester.pump();
+      final photo = shownPhoto(tester);
+      await tester.tap(find.byKey(const ValueKey('mark-arrow')));
+      await tester.pump();
+      await tester.dragFrom(photo.center, Offset(photo.width / 4, 0));
+      await tester.pump();
+      await tester.dragFrom(
+        photo.topLeft + const Offset(4, 4),
+        const Offset(4, 0),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('mark-ring')));
+      await tester.pump();
+      await tester.dragFrom(photo.topLeft, photo.size.bottomRight(Offset.zero));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('mark-undo')));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('mark-done')));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('review-send')));
+      await tester.pumpAndSettle();
+
+      final mark = result!.first.marks.single;
+      expect(mark.shape, MarkShape.arrow);
+      expect(mark.from.dx, moreOrLessEquals(0.5, epsilon: 0.05));
+      expect(mark.to.dx, moreOrLessEquals(0.75, epsilon: 0.05));
+      expect(result!.first.keep, isNull);
+      expect(result![1].marks, isEmpty);
+    });
+
+    testWidgets('back while marking forgets what this round drew', (
+      tester,
+    ) async {
+      await open(tester);
+      await tester.tap(find.byKey(const ValueKey('review-mark')));
+      await tester.pump();
+      final photo = shownPhoto(tester);
+      await tester.dragFrom(photo.topLeft, photo.size.bottomRight(Offset.zero));
+      await tester.pump();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('review-send')));
+      await tester.pumpAndSettle();
+
+      expect(result!.first.marks, isEmpty);
+    });
+
+    testWidgets('a loupe follows a held crop corner and goes on lift', (
+      tester,
+    ) async {
+      await open(tester);
+      await tester.tap(find.byKey(const ValueKey('review-crop')));
+      await tester.pump();
+      final photo = shownPhoto(tester);
+      final loupe = find.byKey(const ValueKey('review-loupe'));
+
+      final gesture = await tester.startGesture(
+        photo.bottomRight - const Offset(2, 2),
+      );
+      await gesture.moveBy(const Offset(-40, -40));
+      await tester.pump();
+      expect(loupe, findsOneWidget);
+      final focus =
+          tester
+              .widget<RawMagnifier>(find.byType(RawMagnifier))
+              .focalPointOffset +
+          tester.getCenter(loupe);
+      expect(focus.dx, moreOrLessEquals(photo.right - 40, epsilon: 2));
+      expect(focus.dy, moreOrLessEquals(photo.bottom - 40, epsilon: 2));
+
+      await gesture.up();
+      await tester.pump();
+      expect(loupe, findsNothing);
     });
 
     testWidgets('back while cropping leaves the crop, not the review', (

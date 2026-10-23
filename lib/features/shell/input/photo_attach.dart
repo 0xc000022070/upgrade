@@ -12,8 +12,9 @@ Future<List<Uint8List>> pickPhotos(PhotoReview review) async {
   final photos = <Uint8List>[];
   for (final photo in await pickReviewed(review)) {
     final bytes = await File(photo.path).readAsBytes();
-    final keep = photo.keep;
-    final cut = keep == null ? null : await cutImage(bytes, keep);
+    final cut = untouched(photo)
+        ? null
+        : await cutImage(bytes, photo.keep, photo.marks);
     photos.add(
       cut ?? (pngSize(bytes) != null ? bytes : await transcodeToPng(bytes)),
     );

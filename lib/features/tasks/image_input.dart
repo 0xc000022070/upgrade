@@ -38,10 +38,13 @@ abstract final class ImageAttachments {
     if (_root == null) await init();
     final stored = <String>[];
     for (final photo in kept) {
-      final keep = photo.keep;
-      final cut = keep == null
+      final cut = untouched(photo)
           ? null
-          : await cutImage(await File(photo.path).readAsBytes(), keep);
+          : await cutImage(
+              await File(photo.path).readAsBytes(),
+              photo.keep,
+              photo.marks,
+            );
       final extension = cut != null
           ? '.png'
           : p.extension(photo.path).toLowerCase();

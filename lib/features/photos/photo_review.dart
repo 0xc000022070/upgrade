@@ -107,6 +107,8 @@ class _Photo {
 
   Rect? keep;
 
+  List<PhotoMark> marks = const [];
+
   ImageProvider at(int width) =>
       ResizeImage(FileImage(File(path)), width: width);
 }
@@ -127,6 +129,9 @@ class _PhotoReviewState extends State<_PhotoReview> {
   static const _thumb = 48.0;
   static const _thumbPixels = 256;
   static const _ghost = 0.35;
+  static const _shortestMark = 24.0;
+  static const _loupeSide = 112.0;
+  static const _loupeLift = 72.0;
 
   late final List<_Photo> _photos = [for (final p in widget.paths) _Photo(p)];
   final _pages = PageController();
@@ -135,6 +140,14 @@ class _PhotoReviewState extends State<_PhotoReview> {
 
   Rect? _draft;
   TrimGrip? _grip;
+
+  List<PhotoMark>? _marking;
+  MarkShape _shape = MarkShape.box;
+  PhotoMark? _stroke;
+
+  final _canvas = GlobalKey();
+  final _screen = GlobalKey();
+  Offset? _loupe;
 
   @override
   void initState() {
@@ -197,9 +210,9 @@ class _PhotoReviewState extends State<_PhotoReview> {
     });
   }
 
-  void _send() =>
-      Navigator.of(context)
-          .pop([for (final p in _photos) (path: p.path, keep: p.keep)]);
+  void _send() => Navigator.of(context).pop([
+    for (final p in _photos) (path: p.path, keep: p.keep, marks: p.marks),
+  ]);
 
   void _crop() => setState(() => _draft = _photos[_at].keep ?? _whole);
 
@@ -211,13 +224,56 @@ class _PhotoReviewState extends State<_PhotoReview> {
       }
       _draft = null;
       _grip = null;
+      _loupe = null;
     });
   }
 
-  void _grab(Offset at, Size shown) =>
-      _grip = gripAt(_scaled(_draft!, shown), at, _reach);
+  void _mark() => setState(() => _marking = _photos[_at].marks);
 
-  void _drag(Offset delta, Size shown) {
+  void _closeMarks({required bool keep}) {
+    setState(() {
+      final marking = _marking;
+      if (keep && marking != null) _photos[_at].marks = marking;
+      _marking = null;
+      _stroke = null;
+      _loupe = null;
+    });
+  }
+
+  void _undo() =>
+      setState(() => _marking = _marking!.sublist(0, _marking!.length - 1));
+
+  Offset? _onScreen(Offset local) {
+    final canvas = _canvas.currentContext?.findRenderObject() as RenderBox?;
+    final screen = _screen.currentContext?.findRenderObject() as RenderBox?;
+    if (canvas == null || screen == null) return null;
+    return screen.globalToLocal(canvas.localToGlobal(local));
+  }
+
+  void _grab(Offset at, Size shown) {
+    final marking = _marking;
+    if (marking != null) {
+      final point = _unit(at, shown);
+      setState(() {
+        _stroke = (shape: _shape, from: point, to: point);
+        _loupe = _onScreen(_scaledPoint(point, shown));
+      });
+      return;
+    }
+    _grip = gripAt(_scaled(_draft!, shown), at, _reach);
+    _follow(at, shown);
+  }
+
+  void _drag(Offset delta, Offset at, Size shown) {
+    final stroke = _stroke;
+    if (stroke != null) {
+      final point = _unit(at, shown);
+      setState(() {
+        _stroke = (shape: stroke.shape, from: stroke.from, to: point);
+        _loupe = _onScreen(_scaledPoint(point, shown));
+      });
+      return;
+    }
     final grip = _grip;
     final draft = _draft;
     if (grip == null || draft == null) return;
@@ -236,75 +292,170 @@ class _PhotoReviewState extends State<_PhotoReview> {
         box.bottom / shown.height,
       ),
     );
+    _follow(at, shown);
+  }
+
+  /// The loupe sits on the edge or corner held, not under the finger, which is a
+  /// reach away from it.
+  void _follow(Offset at, Size shown) {
+    final grip = _grip;
+    final draft = _draft;
+    if (grip == null || draft == null || grip == trimBody) return;
+    final box = _scaled(draft, shown);
+    final point = Offset(
+      grip.left
+          ? box.left
+          : grip.right
+          ? box.right
+          : at.dx.clamp(box.left, box.right),
+      grip.top
+          ? box.top
+          : grip.bottom
+          ? box.bottom
+          : at.dy.clamp(box.top, box.bottom),
+    );
+    setState(() => _loupe = _onScreen(point));
+  }
+
+  void _letGo(Size shown) {
+    final stroke = _stroke;
+    final marking = _marking;
+    setState(() {
+      if (stroke != null && marking != null) {
+        final drawn =
+            _scaledPoint(stroke.to, shown) - _scaledPoint(stroke.from, shown);
+        if (drawn.distance >= _shortestMark) _marking = [...marking, stroke];
+      }
+      _stroke = null;
+      _grip = null;
+      _loupe = null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final cropping = _draft != null;
+    final marking = _marking != null;
+    final editing = cropping || marking;
     final insets = MediaQuery.systemGestureInsetsOf(context);
     final pixels =
         (MediaQuery.sizeOf(context).width *
                 MediaQuery.devicePixelRatioOf(context))
             .round();
     return PopScope(
-      canPop: !cropping,
+      canPop: !editing,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _closeCrop(keep: false);
+        if (didPop) return;
+        if (marking) {
+          _closeMarks(keep: false);
+        } else {
+          _closeCrop(keep: false);
+        }
       },
       child: ColoredBox(
+        key: _screen,
         color: context.tokens.mediaBackdrop,
-        child: SafeArea(
-          child: Column(
-            children: [
-              _ghosts(cropping),
-              Expanded(
-                child: PageView.builder(
-                  controller: _pages,
-                  physics: cropping
-                      ? const NeverScrollableScrollPhysics()
-                      : null,
-                  itemCount: _photos.length,
-                  onPageChanged: _turned,
-                  itemBuilder: (context, index) {
-                    final here = cropping && index == _at;
-                    return Padding(
-                      // A side handle inside the system's edge strip is a back swipe.
-                      padding: EdgeInsets.symmetric(
-                        vertical: Spacing.xxl,
-                        horizontal:
-                            Spacing.xxl + math.max(insets.left, insets.right),
-                      ),
-                      child: _Framed(
-                        key: ValueKey('review-photo-$index'),
-                        photo: _photos[index],
-                        keep: here ? _draft : _photos[index].keep,
-                        pixels: pixels,
-                        cropping: here,
-                        onGrab: _grab,
-                        onDrag: _drag,
-                        onLetGo: () => _grip = null,
-                      ),
-                    );
-                  },
-                ),
-              ),
-              SizedBox(
-                height: TapTargets.minHeight,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.screenEdge,
+        child: Stack(
+          children: [
+            SafeArea(
+              child: Column(
+                children: [
+                  _ghosts(editing),
+                  Expanded(
+                    child: PageView.builder(
+                      controller: _pages,
+                      physics: editing
+                          ? const NeverScrollableScrollPhysics()
+                          : null,
+                      itemCount: _photos.length,
+                      onPageChanged: _turned,
+                      itemBuilder: (context, index) {
+                        final here = editing && index == _at;
+                        final stroke = _stroke;
+                        return Padding(
+                          // A side handle inside the system's edge strip is a back swipe.
+                          padding: EdgeInsets.symmetric(
+                            vertical: Spacing.xxl,
+                            horizontal:
+                                Spacing.xxl +
+                                math.max(insets.left, insets.right),
+                          ),
+                          child: _Framed(
+                            key: ValueKey('review-photo-$index'),
+                            photo: _photos[index],
+                            canvasKey: here ? _canvas : null,
+                            keep: here && cropping
+                                ? _draft
+                                : _photos[index].keep,
+                            marks: here && marking
+                                ? [..._marking!, ?stroke]
+                                : _photos[index].marks,
+                            pixels: pixels,
+                            cropping: here && cropping,
+                            editing: here,
+                            onGrab: _grab,
+                            onDrag: _drag,
+                            onLetGo: _letGo,
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                  child: cropping ? _cropBar() : _reviewBar(),
-                ),
+                  SizedBox(
+                    height: TapTargets.minHeight,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Spacing.screenEdge,
+                      ),
+                      child: cropping
+                          ? _cropBar()
+                          : marking
+                          ? _markBar()
+                          : _reviewBar(),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            if (_loupe case final focus?) _loupeAt(focus),
+          ],
         ),
       ),
     );
   }
 
-  Widget _ghosts(bool cropping) {
+  Widget _loupeAt(Offset focus) {
+    const half = _loupeSide / 2;
+    final screen = MediaQuery.sizeOf(context);
+    final top = MediaQuery.paddingOf(context).top;
+    final above = focus.dy - _loupeLift - half;
+    final center = Offset(
+      focus.dx.clamp(half, math.max(half, screen.width - half)),
+      above - half >= top ? above : focus.dy + _loupeLift + half,
+    );
+    final accent = context.tokens.accent;
+    return Positioned(
+      key: const ValueKey('review-loupe'),
+      left: center.dx - half,
+      top: center.dy - half,
+      child: IgnorePointer(
+        child: RawMagnifier(
+          size: const Size.square(_loupeSide),
+          magnificationScale: 2.5,
+          focalPointOffset: focus - center,
+          clipBehavior: Clip.hardEdge,
+          decoration: MagnifierDecoration(
+            shape: CircleBorder(
+              side: BorderSide(color: accent, width: Borders.hairline),
+            ),
+          ),
+          child: CustomPaint(painter: _CrossPainter(accent)),
+        ),
+      ),
+    );
+  }
+
+  Widget _ghosts(bool editing) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         Spacing.screenEdge,
@@ -329,7 +480,7 @@ class _PhotoReviewState extends State<_PhotoReview> {
                     child: GestureDetector(
                       key: ValueKey('review-ghost-$index'),
                       behavior: HitTestBehavior.opaque,
-                      onTap: cropping || current ? null : () => _jump(index),
+                      onTap: editing || current ? null : () => _jump(index),
                       child: Opacity(
                         opacity: current ? 1 : _ghost,
                         child: DecoratedBox(
@@ -345,9 +496,12 @@ class _PhotoReviewState extends State<_PhotoReview> {
                             padding: const EdgeInsets.all(Spacing.xs),
                             child: _Framed(
                               photo: _photos[index],
-                              keep: current && cropping
+                              keep: current && _draft != null
                                   ? _draft
                                   : _photos[index].keep,
+                              marks: current && _marking != null
+                                  ? _marking!
+                                  : _photos[index].marks,
                               pixels: _thumbPixels,
                             ),
                           ),
@@ -391,6 +545,11 @@ class _PhotoReviewState extends State<_PhotoReview> {
           onTap: _photos[_at].aspect == null ? null : _crop,
         ),
         _Tool(
+          StrikedIcons.mark,
+          key: const ValueKey('review-mark'),
+          onTap: _photos[_at].aspect == null ? null : _mark,
+        ),
+        _Tool(
           StrikedIcons.close,
           key: const ValueKey('review-remove'),
           onTap: _remove,
@@ -431,12 +590,59 @@ class _PhotoReviewState extends State<_PhotoReview> {
       ],
     );
   }
+
+  Widget _markBar() {
+    return Row(
+      children: [
+        PanelAffordance(
+          'CANCEL',
+          key: const ValueKey('mark-cancel'),
+          showIcon: false,
+          onTap: () => _closeMarks(keep: false),
+        ),
+        const Spacer(),
+        for (final (shape, icon) in const [
+          (MarkShape.box, StrikedIcons.shapeBox),
+          (MarkShape.ring, StrikedIcons.shapeRing),
+          (MarkShape.arrow, StrikedIcons.shapeArrow),
+        ])
+          _Tool(
+            icon,
+            key: ValueKey('mark-${shape.name}'),
+            lit: shape == _shape,
+            onTap: () => setState(() => _shape = shape),
+          ),
+        _Tool(
+          StrikedIcons.undo,
+          key: const ValueKey('mark-undo'),
+          onTap: _marking!.isEmpty ? null : _undo,
+        ),
+        const Spacer(),
+        PanelAffordance(
+          'DONE',
+          key: const ValueKey('mark-done'),
+          showIcon: false,
+          color: context.tokens.accent,
+          onTap: () => _closeMarks(keep: true),
+        ),
+      ],
+    );
+  }
 }
 
+Offset _unit(Offset at, Size shown) => Offset(
+  (at.dx / shown.width).clamp(0.0, 1.0),
+  (at.dy / shown.height).clamp(0.0, 1.0),
+);
+
+Offset _scaledPoint(Offset unit, Size size) =>
+    Offset(unit.dx * size.width, unit.dy * size.height);
+
 class _Tool extends StatelessWidget {
-  const _Tool(this.icon, {super.key, this.onTap});
+  const _Tool(this.icon, {super.key, this.lit = false, this.onTap});
 
   final StrikedIcons icon;
+  final bool lit;
   final VoidCallback? onTap;
 
   @override
@@ -452,6 +658,8 @@ class _Tool extends StatelessWidget {
             size: IconSizes.toolbar,
             color: onTap == null
                 ? context.tokens.textDisabled
+                : lit
+                ? context.tokens.accent
                 : context.tokens.textSecondary,
           ),
         ),
@@ -465,8 +673,11 @@ class _Framed extends StatelessWidget {
     super.key,
     required this.photo,
     required this.keep,
+    required this.marks,
     required this.pixels,
+    this.canvasKey,
     this.cropping = false,
+    this.editing = false,
     this.onGrab,
     this.onDrag,
     this.onLetGo,
@@ -474,11 +685,14 @@ class _Framed extends StatelessWidget {
 
   final _Photo photo;
   final Rect? keep;
+  final List<PhotoMark> marks;
   final int pixels;
+  final Key? canvasKey;
   final bool cropping;
+  final bool editing;
   final void Function(Offset at, Size shown)? onGrab;
-  final void Function(Offset delta, Size shown)? onDrag;
-  final VoidCallback? onLetGo;
+  final void Function(Offset delta, Offset at, Size shown)? onDrag;
+  final void Function(Size shown)? onLetGo;
 
   @override
   Widget build(BuildContext context) {
@@ -491,10 +705,12 @@ class _Framed extends StatelessWidget {
             ? Size(space.height * aspect, space.height)
             : Size(space.width, space.width / aspect);
         Widget framed = SizedBox.fromSize(
+          key: canvasKey,
           size: shown,
           child: CustomPaint(
             foregroundPainter: _KeepPainter(
               keep: keep,
+              marks: marks,
               cropping: cropping,
               scrim: context.tokens.scrim,
               accent: context.tokens.accent,
@@ -506,13 +722,14 @@ class _Framed extends StatelessWidget {
             ),
           ),
         );
-        if (cropping) {
+        if (editing) {
           framed = GestureDetector(
             behavior: HitTestBehavior.opaque,
             onPanStart: (details) => onGrab?.call(details.localPosition, shown),
-            onPanUpdate: (details) => onDrag?.call(details.delta, shown),
-            onPanEnd: (_) => onLetGo?.call(),
-            onPanCancel: onLetGo,
+            onPanUpdate: (details) =>
+                onDrag?.call(details.delta, details.localPosition, shown),
+            onPanEnd: (_) => onLetGo?.call(shown),
+            onPanCancel: () => onLetGo?.call(shown),
             child: framed,
           );
         }
@@ -525,12 +742,14 @@ class _Framed extends StatelessWidget {
 class _KeepPainter extends CustomPainter {
   const _KeepPainter({
     required this.keep,
+    required this.marks,
     required this.cropping,
     required this.scrim,
     required this.accent,
   });
 
   final Rect? keep;
+  final List<PhotoMark> marks;
   final bool cropping;
   final Color scrim;
   final Color accent;
@@ -539,6 +758,7 @@ class _KeepPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    paintMarks(canvas, size, marks, color: accent);
     final unit = keep;
     if (unit == null) return;
     final box = _scaled(unit, size);
@@ -578,7 +798,32 @@ class _KeepPainter extends CustomPainter {
   @override
   bool shouldRepaint(_KeepPainter old) =>
       old.keep != keep ||
+      old.marks != marks ||
       old.cropping != cropping ||
       old.scrim != scrim ||
       old.accent != accent;
+}
+
+class _CrossPainter extends CustomPainter {
+  const _CrossPainter(this.color);
+
+  final Color color;
+
+  static const _gap = 3.0;
+  static const _arm = 6.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final paint = Paint()
+      ..strokeWidth = Borders.hairline
+      ..color = color;
+    for (final (dx, dy) in [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)]) {
+      final along = Offset(dx, dy);
+      canvas.drawLine(c + along * _gap, c + along * (_gap + _arm), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CrossPainter old) => old.color != color;
 }
