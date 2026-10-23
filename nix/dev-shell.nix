@@ -36,6 +36,7 @@ pkgs.mkShell {
     pkgs.clippy
     pkgs.rustfmt
     pkgs.zig
+    pkgs.zstd
   ];
 
   nativeBuildInputs = [
@@ -74,6 +75,7 @@ pkgs.mkShell {
   JAVA_HOME = "${jdk}";
   PROOT_ANDROID_LIBS = prootAndroid;
   ENGINE_ANDROID_LIBS = engineAndroid;
+  DEPLOY_ZSTD_ANDROID = "${pkgs.pkgsCross.aarch64-multiplatform-musl.pkgsStatic.zstd.bin}/bin/zstd";
 
   shellHook = ''
     export STRIKED_BUILD="$(${pkgs.git}/bin/git rev-parse --short HEAD 2>/dev/null || echo dev)"

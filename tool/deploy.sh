@@ -302,7 +302,7 @@ once() {
   for line in "${pending[@]}"; do
     IFS=$'\t' read -r label serial have <<<"$line"
     was=$(updated_at "$(dumpsys "$serial")")
-    if ! serve "$label" "$apk"; then
+    if ! serve "$label" "$serial" "$apk"; then
       warn "$label: install failed"
       failed=1
       continue
@@ -320,6 +320,7 @@ once() {
       continue
     fi
     record "$label" "$code" "$sha"
+    mkdir -p "$OUT/installed" && ln -f "$apk" "$OUT/installed/$label.apk"
     say "$label: $have -> $name+$code ($sha), $(grep -oE 'firstInstallTime=[^ ]+ [^ ]+' <<<"$pkg" | head -1)"
   done
   if ((failed)); then
@@ -330,13 +331,59 @@ once() {
   return $failed
 }
 
+on() {
+  local label=$1 serial=$2
+  shift 2
+  phone run -t "$label" -- adb -s "$serial" "$@"
+}
+
+# Sends a zstd patch against the apk the handset already holds, which it rebuilds
+# from its own base.apk. Any miss returns 1 and the caller sends the whole apk.
+patch_install() {
+  local label=$1 serial=$2 apk=$3 dir=/data/local/tmp/striked-deploy
+  local zstd_android=${DEPLOY_ZSTD_ANDROID:-} base have old cand want patch
+  [[ -x $zstd_android ]] && command -v zstd >/dev/null || return 1
+  base=$(on "$label" "$serial" shell pm path "$PKG" | sed -n 's/^package:\(.*\/base\.apk\)\r*$/\1/p')
+  [[ -n $base ]] || return 1
+  have=$(on "$label" "$serial" shell sha256sum "$base" | cut -d' ' -f1)
+  for cand in "$OUT/installed/$label.apk" "$OUT"/striked-*.apk; do
+    [[ -f $cand && $(sha256sum "$cand" | cut -d' ' -f1) == "$have" ]] && old=$cand && break
+  done
+  [[ -n ${old:-} ]] || return 1
+
+  patch="$OUT/patch-$label.zst"
+  zstd -q -f -19 -T0 --long=27 --patch-from="$old" "$apk" -o "$patch" || return 1
+  (($(stat -c %s "$patch") * 2 < $(stat -c %s "$apk"))) || return 1
+  echo "deploy: $label: patch of $(du -h "$patch" | cut -f1) against $(basename "$old")"
+
+  want=$(sha256sum "$zstd_android" | cut -d' ' -f1)
+  if [[ $(on "$label" "$serial" shell sha256sum "$dir/zstd" 2>/dev/null | cut -d' ' -f1) != "$want" ]]; then
+    on "$label" "$serial" shell mkdir -p "$dir" &&
+      on "$label" "$serial" push "$zstd_android" "$dir/zstd" >/dev/null &&
+      on "$label" "$serial" shell chmod 755 "$dir/zstd" || return 1
+  fi
+  on "$label" "$serial" push "$patch" "$dir/apk.zst" >/dev/null || return 1
+  want=$(sha256sum "$apk" | cut -d' ' -f1)
+  on "$label" "$serial" shell "
+    $dir/zstd -q -f -d --long=27 --patch-from='$base' $dir/apk.zst -o $dir/new.apk &&
+    [ \"\$(sha256sum $dir/new.apk | cut -d' ' -f1)\" = $want ] &&
+    pm install -r $dir/new.apk
+    rc=\$?; rm -f $dir/apk.zst $dir/new.apk; exit \$rc"
+}
+
+deliver() {
+  patch_install "$@" && return
+  echo "deploy: $1: sending the whole apk"
+  phone app install -t "$1" "$3"
+}
+
 serve() {
-  local label=$1 apk=$2 tick=0 out="$OUT/install.log"
+  local label=$1 serial=$2 apk=$3 tick=0 out="$OUT/install.log"
   if ! ((CHEF_ON)); then
-    phone app install -t "$label" "$apk"
+    deliver "$label" "$serial" "$apk"
     return
   fi
-  phone app install -t "$label" "$apk" >"$out" 2>&1 &
+  deliver "$label" "$serial" "$apk" >"$out" 2>&1 &
   local installing=$!
   while kill -0 "$installing" 2>/dev/null; do
     chef_draw walk "$tick" "Plating for $label, coming through!"
