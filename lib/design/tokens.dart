@@ -77,6 +77,7 @@ class StrikedTokens extends ThemeExtension<StrikedTokens> {
     required this.warning,
     required this.warningMuted,
     required this.danger,
+    required this.markInk,
     required this.syntax,
     required this.scrim,
     required this.mediaBackdrop,
@@ -130,6 +131,7 @@ class StrikedTokens extends ThemeExtension<StrikedTokens> {
   final Color warning;
   final Color warningMuted;
   final Color danger;
+  final Color markInk;
   final SyntaxPalette syntax;
 
   final Color scrim;
@@ -190,6 +192,7 @@ class StrikedTokens extends ThemeExtension<StrikedTokens> {
     warning: StrikedColors.warning,
     warningMuted: StrikedColors.warningMuted,
     danger: StrikedColors.danger,
+    markInk: StrikedColors.markInk,
     syntax: SyntaxPalette.house,
     scrim: Color(0x99000000),
     mediaBackdrop: Color(0xFF000000),
@@ -268,6 +271,7 @@ class StrikedTokens extends ThemeExtension<StrikedTokens> {
     Color? warning,
     Color? warningMuted,
     Color? danger,
+    Color? markInk,
     SyntaxPalette? syntax,
     Color? scrim,
     Color? mediaBackdrop,
@@ -320,6 +324,7 @@ class StrikedTokens extends ThemeExtension<StrikedTokens> {
       warning: warning ?? this.warning,
       warningMuted: warningMuted ?? this.warningMuted,
       danger: danger ?? this.danger,
+      markInk: markInk ?? this.markInk,
       syntax: syntax ?? this.syntax,
       scrim: scrim ?? this.scrim,
       mediaBackdrop: mediaBackdrop ?? this.mediaBackdrop,
@@ -382,6 +387,7 @@ class StrikedTokens extends ThemeExtension<StrikedTokens> {
       warning: c(warning, other.warning),
       warningMuted: c(warningMuted, other.warningMuted),
       danger: c(danger, other.danger),
+      markInk: c(markInk, other.markInk),
       syntax: syntax.lerpTo(other.syntax, t),
       scrim: c(scrim, other.scrim),
       mediaBackdrop: c(mediaBackdrop, other.mediaBackdrop),

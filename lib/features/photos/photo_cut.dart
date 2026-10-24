@@ -27,7 +27,7 @@ void paintMarks(
     ..style = PaintingStyle.stroke
     ..strokeWidth = weight
     ..strokeJoin = StrokeJoin.miter
-    ..color = color ?? StrikedTokens.house.accent;
+    ..color = color ?? StrikedTokens.house.markInk;
   for (final mark in marks) {
     final from = Offset(
       mark.from.dx * whole.width,

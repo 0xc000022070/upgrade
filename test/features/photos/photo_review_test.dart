@@ -51,7 +51,7 @@ void main() {
     final pixels = (await image.toByteData())!;
     int red(int x, int y) => pixels.getUint8((y * 400 + x) * 4);
     expect((image.width, image.height), (400, 400));
-    expect(red(80, 200), 0xB7);
+    expect(red(80, 200), 0xFF);
     expect(red(200, 200), 0);
     expect(await cutImage(source, null, const []), isNull);
   });

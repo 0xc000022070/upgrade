@@ -21,6 +21,8 @@ abstract final class StrikedColors {
   static const warning = Color(0xFFD6A34B);
   static const warningMuted = Color(0xFF9C7739);
   static const danger = Color(0xFFB84A4A);
+
+  static const markInk = Color(0xFFFF3B30);
 }
 
 abstract final class SyntaxColors {

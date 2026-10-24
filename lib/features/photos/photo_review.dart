@@ -714,6 +714,7 @@ class _Framed extends StatelessWidget {
               cropping: cropping,
               scrim: context.tokens.scrim,
               accent: context.tokens.accent,
+              ink: context.tokens.markInk,
             ),
             child: Image(
               image: photo.at(pixels),
@@ -746,6 +747,7 @@ class _KeepPainter extends CustomPainter {
     required this.cropping,
     required this.scrim,
     required this.accent,
+    required this.ink,
   });
 
   final Rect? keep;
@@ -753,12 +755,13 @@ class _KeepPainter extends CustomPainter {
   final bool cropping;
   final Color scrim;
   final Color accent;
+  final Color ink;
 
   static const _tick = 12.0;
 
   @override
   void paint(Canvas canvas, Size size) {
-    paintMarks(canvas, size, marks, color: accent);
+    paintMarks(canvas, size, marks, color: ink);
     final unit = keep;
     if (unit == null) return;
     final box = _scaled(unit, size);
@@ -801,7 +804,8 @@ class _KeepPainter extends CustomPainter {
       old.marks != marks ||
       old.cropping != cropping ||
       old.scrim != scrim ||
-      old.accent != accent;
+      old.accent != accent ||
+      old.ink != ink;
 }
 
 class _CrossPainter extends CustomPainter {

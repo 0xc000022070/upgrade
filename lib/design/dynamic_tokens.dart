@@ -32,6 +32,7 @@ StrikedTokens strikedTokensFromScheme(ColorScheme scheme) {
     warning: scheme.tertiary,
     warningMuted: scheme.tertiary.withValues(alpha: 0.7),
     danger: scheme.error,
+    markInk: StrikedColors.markInk,
     syntax: SyntaxPalette.house,
     scrim: StrikedTokens.house.scrim,
     mediaBackdrop: StrikedTokens.house.mediaBackdrop,
