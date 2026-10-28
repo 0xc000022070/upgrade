@@ -29,12 +29,15 @@ final pluginComponents = [
       useCases: [
         for (final frame in _frames[id]!)
           WidgetbookUseCase(
-            name: frame,
+            name: _title(frame),
             builder: (context) => _PluginFrame(plugin: id, frame: frame),
           ),
       ],
     ),
 ];
+
+String _title(String frame) =>
+    '${frame[0].toUpperCase()}${frame.substring(1).replaceAll('-', ' ')}';
 
 final class _Frame {
   _Frame(this.node, {required this.card});

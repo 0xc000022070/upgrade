@@ -13,6 +13,7 @@ import 'package:striked_widgetbook/components/rows.dart';
 import 'package:striked_widgetbook/foundations/colors.dart';
 import 'package:striked_widgetbook/foundations/geometry.dart';
 import 'package:striked_widgetbook/foundations/typography.dart';
+import 'package:striked_widgetbook/notes.dart';
 import 'package:striked_widgetbook/plugins/plugins.dart';
 import 'package:striked_widgetbook/screens/screens.dart';
 import 'package:striked_widgetbook/themes.dart';
@@ -25,6 +26,34 @@ const pixel7 = ViewportData(
   platform: TargetPlatform.android,
   safeAreas: EdgeInsets.only(top: 24, bottom: 24),
 );
+
+final directories = <WidgetbookNode>[
+  WidgetbookFolder(
+    name: 'Foundations',
+    children: [
+      WidgetbookComponent(name: 'Colors', useCases: colorUseCases),
+      WidgetbookComponent(name: 'Typography', useCases: typographyUseCases),
+      WidgetbookComponent(name: 'Geometry', useCases: geometryUseCases),
+    ],
+  ),
+  WidgetbookFolder(
+    name: 'Components',
+    children: [
+      WidgetbookCategory(name: 'Actions', children: actionComponents),
+      WidgetbookCategory(name: 'Rows', children: rowComponents),
+      WidgetbookCategory(name: 'Containers', children: containerComponents),
+      WidgetbookCategory(name: 'Inputs', children: inputComponents),
+      WidgetbookCategory(name: 'Feedback', children: feedbackComponents),
+      WidgetbookCategory(name: 'Graphics', children: graphicComponents),
+    ],
+  ),
+  WidgetbookFolder(
+    name: 'Assets',
+    children: [WidgetbookComponent(name: 'Bundle', useCases: assetUseCases)],
+  ),
+  WidgetbookFolder(name: 'Screens', children: screenComponents),
+  WidgetbookFolder(name: 'Plugins', children: pluginComponents),
+];
 
 class StrikedCatalog extends StatelessWidget {
   const StrikedCatalog({super.key});
@@ -39,6 +68,7 @@ class StrikedCatalog extends StatelessWidget {
         home: Material(child: child),
       ),
       addons: [
+        NotesAddon(),
         MaterialThemeAddon(themes: strikedThemes),
         ViewportAddon([
           pixel7,
@@ -51,41 +81,7 @@ class StrikedCatalog extends StatelessWidget {
         TextScaleAddon(min: 0.85, max: 2, divisions: 23),
         GridAddon(8),
       ],
-      directories: [
-        WidgetbookFolder(
-          name: 'Foundations',
-          children: [
-            WidgetbookComponent(name: 'Colors', useCases: colorUseCases),
-            WidgetbookComponent(
-              name: 'Typography',
-              useCases: typographyUseCases,
-            ),
-            WidgetbookComponent(name: 'Geometry', useCases: geometryUseCases),
-          ],
-        ),
-        WidgetbookFolder(
-          name: 'Components',
-          children: [
-            WidgetbookCategory(name: 'Actions', children: actionComponents),
-            WidgetbookCategory(name: 'Rows', children: rowComponents),
-            WidgetbookCategory(
-              name: 'Containers',
-              children: containerComponents,
-            ),
-            WidgetbookCategory(name: 'Inputs', children: inputComponents),
-            WidgetbookCategory(name: 'Feedback', children: feedbackComponents),
-            WidgetbookCategory(name: 'Graphics', children: graphicComponents),
-          ],
-        ),
-        WidgetbookFolder(
-          name: 'Assets',
-          children: [
-            WidgetbookComponent(name: 'Bundle', useCases: assetUseCases),
-          ],
-        ),
-        WidgetbookFolder(name: 'Screens', children: screenComponents),
-        WidgetbookFolder(name: 'Plugins', children: pluginComponents),
-      ],
+      directories: directories,
     );
   }
 }

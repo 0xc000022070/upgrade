@@ -46,6 +46,7 @@ SYSTEM · LIGHT), viewport (Pixel 7 `pixel_7-api36` first), text scale
 | path                     | holds                                             |
 |--------------------------|---------------------------------------------------|
 | `lib/catalog.dart`       | the tree and the addons                           |
+| `lib/notes.dart`         | the note strip over each use case                 |
 | `lib/themes.dart`        | the theme addon's entries                         |
 | `lib/frame.dart`         | `Stage`, `Specimen`, `SheetStage`                 |
 | `lib/foundations/`       | colors, typography, spacing, radii, shadows       |
@@ -83,6 +84,11 @@ WidgetbookComponent(
 ),
 ```
 
+- Every component gets a line in `lib/notes.dart`, keyed by its path in
+  the tree (`components/actions/actionblock`): what it is and where the app
+  shows it. A use case can have one too; `Playground`, `States` and
+  `Interactive` fall back to a shared line. `test/notes_test.dart` fails on a
+  component without a note or a note without a node.
 - One use case per thing to play with (`Playground`, all knobs) and one that
   lays every state side by side (`States`), each state a `Specimen`.
 - `Stage` paints the theme's background and keeps the app's screen edge and
