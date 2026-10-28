@@ -454,6 +454,46 @@ fn cancel_stops_a_job_and_says_it_was_cancelled() {
 }
 
 #[test]
+fn submitting_twice_under_one_id_runs_once() {
+    let sandbox = Sandbox::new("submit");
+    let owner = sandbox.owner();
+    let ran = sandbox.work().join("ran");
+    let submit = json!({
+        "service": "run/1", "op": "submit", "owner": owner,
+        "args": {
+            "id": "plugin-req-1",
+            "tag": "attachment-a",
+            "argv": ["sh", "-c", format!("echo x >> {}", ran.display())]
+        }
+    });
+
+    let first = sandbox.call(submit.clone());
+    assert_eq!(first["result"]["submitted"], json!(true), "got {first}");
+    let again = sandbox.call(submit);
+    assert_eq!(again["result"]["submitted"], json!(false), "got {again}");
+    assert_eq!(again["result"]["id"], json!("plugin-req-1"));
+
+    let settled = sandbox.wait_for_exit(&owner, "plugin-req-1");
+    assert_eq!(settled["result"]["code"], json!(0));
+    assert_eq!(std::fs::read_to_string(&ran).unwrap(), "x\n");
+
+    let listed = sandbox.call(json!({
+        "service": "run/1", "op": "list", "owner": owner,
+        "args": { "tag": "attachment-a" }
+    }));
+    let jobs = listed["result"]["jobs"].as_array().unwrap();
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(jobs[0]["id"], json!("plugin-req-1"));
+    assert_eq!(jobs[0]["state"], json!("exited"));
+
+    let other = sandbox.call(json!({
+        "service": "run/1", "op": "list", "owner": owner,
+        "args": { "tag": "attachment-b" }
+    }));
+    assert_eq!(other["result"]["jobs"], json!([]));
+}
+
+#[test]
 fn a_job_that_outstays_its_timeout_is_stopped() {
     let sandbox = Sandbox::new("timeout");
     let owner = sandbox.owner();

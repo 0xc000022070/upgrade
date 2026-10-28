@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 pub const SERVICE: &str = "run/1";
-pub const OPS: &[&str] = &["start", "status", "output", "cancel"];
+pub const OPS: &[&str] = &["start", "submit", "list", "status", "output", "cancel"];
 
 const DEFAULT_OUTPUT_LINES: u64 = 200;
 const MAX_OUTPUT_BYTES: u64 = 1024 * 1024;
@@ -35,6 +35,8 @@ pub struct JobSpec {
     /// through argv, where the process table of the machine would carry it.
     #[serde(default)]
     pub stdin_file: Option<String>,
+    #[serde(default)]
+    pub tag: Option<String>,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -111,6 +113,8 @@ pub fn new_id() -> String {
 pub fn dispatch(op: &str, args: &Value, state_root: &Path, policy: &Policy) -> EngineResult<Value> {
     match op {
         "start" => start(args, state_root, policy),
+        "submit" => submit(args, state_root, policy),
+        "list" => list(args, state_root),
         "status" => status(args, state_root),
         "output" => output(args, state_root),
         "cancel" => cancel(args, state_root),
@@ -140,7 +144,7 @@ pub fn env_pairs(args: &Value) -> EngineResult<Vec<(String, String)>> {
         .collect()
 }
 
-fn start(args: &Value, state_root: &Path, policy: &Policy) -> EngineResult<Value> {
+fn requested_spec(args: &Value, policy: &Policy) -> EngineResult<JobSpec> {
     let argv = arg_str_list(args, "argv")?;
     let Some(program) = argv.first() else {
         return Err(EngineError::bad_request(
@@ -153,18 +157,88 @@ fn start(args: &Value, state_root: &Path, policy: &Policy) -> EngineResult<Value
         Some(raw) => Some(paths::display(&paths::expand(raw)?)),
         None => None,
     };
-    let spec = JobSpec {
+    Ok(JobSpec {
         argv,
         cwd,
         env: env_pairs(args)?,
         timeout_ms: arg_u64_opt(args, "timeout_ms")?,
         created: now_millis(),
         stdin_file: None,
-    };
+        tag: arg_str_opt(args, "tag")?.map(str::to_owned),
+    })
+}
 
+fn start(args: &Value, state_root: &Path, policy: &Policy) -> EngineResult<Value> {
+    let spec = requested_spec(args, policy)?;
     let id = new_id();
     launch(state_root, &id, &spec)?;
     Ok(json!({ "id": id, "state": "starting" }))
+}
+
+fn submit(args: &Value, state_root: &Path, policy: &Policy) -> EngineResult<Value> {
+    let id = arg_str(args, "id")?;
+    let dir = job_dir(state_root, id)?;
+    let spec = requested_spec(args, policy)?;
+
+    // The job is written down beside its place and renamed into it, so a directory
+    // under the id is always a complete job and only one caller wins the rename.
+    let staged = jobs_root(state_root).join(format!(".{id}.{}", new_id()));
+    fs::create_dir(&staged)?;
+    if let Err(err) = write_job(&staged, &spec) {
+        let _ = fs::remove_dir_all(&staged);
+        return Err(err);
+    }
+    match fs::rename(&staged, &dir) {
+        Ok(()) => {
+            spawn_supervisor(&dir)?;
+            Ok(json!({ "id": id, "state": "starting", "submitted": true }))
+        }
+        Err(err) => {
+            let _ = fs::remove_dir_all(&staged);
+            let taken = matches!(
+                err.raw_os_error().map(Errno::from_raw),
+                Some(Errno::EEXIST | Errno::ENOTEMPTY)
+            );
+            if !taken {
+                return Err(err.into());
+            }
+            let status = liveness_checked(&dir, read_status(&dir)?);
+            let mut value = status_value(id, &status);
+            value["submitted"] = json!(false);
+            Ok(value)
+        }
+    }
+}
+
+fn list(args: &Value, state_root: &Path) -> EngineResult<Value> {
+    let tag = arg_str(args, "tag")?;
+    let mut jobs = Vec::new();
+    for entry in fs::read_dir(jobs_root(state_root))? {
+        let entry = entry?;
+        let name = entry.file_name();
+        let Some(id) = name.to_str() else { continue };
+        if id.starts_with('.') {
+            continue;
+        }
+        let dir = entry.path();
+        let Ok(raw) = fs::read_to_string(dir.join("spec.json")) else {
+            continue;
+        };
+        let Ok(spec) = serde_json::from_str::<JobSpec>(&raw) else {
+            continue;
+        };
+        if spec.tag.as_deref() != Some(tag) {
+            continue;
+        }
+        let Ok(status) = read_status(&dir) else {
+            continue;
+        };
+        let mut value = status_value(id, &liveness_checked(&dir, status));
+        value["created"] = json!(spec.created);
+        jobs.push(value);
+    }
+    jobs.sort_by_key(|job| job["created"].as_u64());
+    Ok(json!({ "jobs": jobs }))
 }
 
 /// Writes a job down and hands it to a detached copy of the engine.
@@ -175,31 +249,39 @@ fn start(args: &Value, state_root: &Path, policy: &Policy) -> EngineResult<Value
 pub fn launch(state_root: &Path, id: &str, spec: &JobSpec) -> EngineResult<PathBuf> {
     let dir = job_dir(state_root, id)?;
     fs::create_dir_all(&dir)?;
+    write_job(&dir, spec)?;
+    spawn_supervisor(&dir)?;
+    Ok(dir)
+}
+
+fn write_job(dir: &Path, spec: &JobSpec) -> EngineResult<()> {
     fs::write(
         dir.join("spec.json"),
         serde_json::to_vec(spec).map_err(|err| EngineError::failed(err.to_string()))?,
     )?;
     write_status(
-        &dir,
+        dir,
         &JobStatus {
             state: JobState::Starting,
             ..JobStatus::default()
         },
-    )?;
+    )
+}
 
+fn spawn_supervisor(dir: &Path) -> EngineResult<()> {
     let executable = std::env::current_exe()
         .map_err(|err| EngineError::failed(format!("the engine cannot locate itself: {err}")))?;
     let mut supervisor = Command::new(executable);
     supervisor
         .arg("__supervise")
-        .arg(&dir)
+        .arg(dir)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     supervisor
         .spawn()
         .map_err(|err| EngineError::failed(format!("the supervisor did not start: {err}")))?;
-    Ok(dir)
+    Ok(())
 }
 
 /// How long a job may sit at `starting` before the supervisor that owes it a pid is

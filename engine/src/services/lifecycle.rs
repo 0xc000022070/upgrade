@@ -97,24 +97,7 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
         }));
     }
 
-    let mut jobs_removed = 0u64;
-    let mut jobs_signalled = 0u64;
-    if let Ok(entries) = fs::read_dir(run_service::jobs_root(state_root)) {
-        for entry in entries.flatten() {
-            jobs_removed += 1;
-            // A job still running would outlive the directory recording it, leaving a
-            // process nothing on this machine could name again.
-            if let Ok(status) = run_service::read_status(&entry.path()) {
-                if status.state.is_live() {
-                    if let Some(pgid) = status.pgid {
-                        let _ = killpg(Pid::from_raw(pgid), Signal::SIGTERM);
-                        jobs_signalled += 1;
-                    }
-                }
-            }
-        }
-    }
-
+    let (jobs_removed, jobs_signalled) = signal_jobs(state_root);
     fs::remove_dir_all(state_root)?;
     Ok(json!({
         "state_root": paths::display(state_root),
@@ -125,4 +108,27 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
         "hooks_removed": hooks_removed,
             "shells_stopped": shells_stopped,
     }))
+}
+
+/// A job still running would outlive the directory recording it, leaving a process
+/// nothing on this machine could name again.
+fn signal_jobs(state_root: &Path) -> (u64, u64) {
+    let (mut removed, mut signalled) = (0u64, 0u64);
+    let Ok(entries) = fs::read_dir(run_service::jobs_root(state_root)) else {
+        return (removed, signalled);
+    };
+    for entry in entries.flatten() {
+        if entry.file_name().to_string_lossy().starts_with('.') {
+            continue;
+        }
+        removed += 1;
+        let Ok(status) = run_service::read_status(&entry.path()) else {
+            continue;
+        };
+        if let (true, Some(pgid)) = (status.state.is_live(), status.pgid) {
+            let _ = killpg(Pid::from_raw(pgid), Signal::SIGTERM);
+            signalled += 1;
+        }
+    }
+    (removed, signalled)
 }

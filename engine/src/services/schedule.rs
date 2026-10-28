@@ -1041,6 +1041,7 @@ fn dispatch_run(store: &mut Store, run_id: &str) -> EngineResult<()> {
         timeout_ms: Some(job.timeout * 1000),
         created: now_millis(),
         stdin_file: Some(paths::display(&prompt)),
+        tag: None,
     };
 
     // Persist the handoff before spawning. A crash here becomes interrupted, never
