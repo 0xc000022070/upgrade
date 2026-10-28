@@ -106,7 +106,7 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
         "jobs_signalled": jobs_signalled,
         "timers_removed": timers_removed,
         "hooks_removed": hooks_removed,
-            "shells_stopped": shells_stopped,
+        "shells_stopped": shells_stopped,
     }))
 }
 
