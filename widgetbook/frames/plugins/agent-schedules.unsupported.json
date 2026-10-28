@@ -1,0 +1,45 @@
+{
+ "kind": "page",
+ "props": {
+  "title": "AGENT TASKS",
+  "key": "page_history",
+  "breadcrumb": "/ TOOLS"
+ },
+ "children": [
+  {
+   "kind": "select",
+   "props": {
+    "onChange": "choose_host",
+    "key": "host",
+    "label": "Run on",
+    "value": "host1",
+    "options": [
+     {
+      "value": "host1",
+      "label": "Development"
+     }
+    ]
+   },
+   "children": []
+  },
+  {
+   "kind": "text",
+   "props": {
+    "color": "muted",
+    "text": "Linger required",
+    "key": "setup_reason"
+   },
+   "children": []
+  },
+  {
+   "kind": "button",
+   "props": {
+    "onPress": "inspect",
+    "text": "Check host again",
+    "key": "setup",
+    "background": "accent"
+   },
+   "children": []
+  }
+ ]
+}

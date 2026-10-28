@@ -1,0 +1,916 @@
+{
+ "kind": "page",
+ "props": {
+  "title": "KANBAN",
+  "breadcrumb": "/ TOOLS",
+  "awake": false,
+  "key": "page",
+  "fill": true
+ },
+ "children": [
+  {
+   "kind": "column",
+   "props": {
+    "align": "stretch",
+    "key": "body",
+    "gap": 8.0
+   },
+   "children": [
+    {
+     "kind": "input",
+     "props": {
+      "onChange": "search",
+      "key": "search",
+      "label": "Search",
+      "value": "",
+      "live": true,
+      "hint": "Title, prompt, message, directory or agent"
+     },
+     "children": []
+    },
+    {
+     "kind": "disclosure",
+     "props": {
+      "subtitle": "3 columns",
+      "key": "columns",
+      "title": "Columns"
+     },
+     "children": [
+      {
+       "kind": "row",
+       "props": {
+        "key": "e_1",
+        "gap": 6.0
+       },
+       "children": [
+        {
+         "kind": "input",
+         "props": {
+          "onChange": "rename",
+          "key": "e_1name",
+          "label": "Column 1",
+          "value": "Inbox",
+          "flex": 1.0,
+          "args": {
+           "col": 1.0
+          }
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": false,
+          "key": "e_1left",
+          "args": {
+           "col": 1.0
+          },
+          "text": "←",
+          "onPress": "left"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": true,
+          "key": "e_1right",
+          "args": {
+           "col": 1.0
+          },
+          "text": "→",
+          "onPress": "right"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": true,
+          "key": "e_1delete",
+          "args": {
+           "col": 1.0
+          },
+          "color": "danger",
+          "text": "×",
+          "onPress": "delete"
+         },
+         "children": []
+        }
+       ]
+      },
+      {
+       "kind": "row",
+       "props": {
+        "key": "e_2",
+        "gap": 6.0
+       },
+       "children": [
+        {
+         "kind": "input",
+         "props": {
+          "onChange": "rename",
+          "key": "e_2name",
+          "label": "Column 2",
+          "value": "Doing",
+          "flex": 1.0,
+          "args": {
+           "col": 2.0
+          }
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": true,
+          "key": "e_2left",
+          "args": {
+           "col": 2.0
+          },
+          "text": "←",
+          "onPress": "left"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": true,
+          "key": "e_2right",
+          "args": {
+           "col": 2.0
+          },
+          "text": "→",
+          "onPress": "right"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": true,
+          "key": "e_2delete",
+          "args": {
+           "col": 2.0
+          },
+          "color": "danger",
+          "text": "×",
+          "onPress": "delete"
+         },
+         "children": []
+        }
+       ]
+      },
+      {
+       "kind": "row",
+       "props": {
+        "key": "e_3",
+        "gap": 6.0
+       },
+       "children": [
+        {
+         "kind": "input",
+         "props": {
+          "onChange": "rename",
+          "key": "e_3name",
+          "label": "Column 3",
+          "value": "Done",
+          "flex": 1.0,
+          "args": {
+           "col": 3.0
+          }
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": true,
+          "key": "e_3left",
+          "args": {
+           "col": 3.0
+          },
+          "text": "←",
+          "onPress": "left"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": false,
+          "key": "e_3right",
+          "args": {
+           "col": 3.0
+          },
+          "text": "→",
+          "onPress": "right"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": true,
+          "key": "e_3delete",
+          "args": {
+           "col": 3.0
+          },
+          "color": "danger",
+          "text": "×",
+          "onPress": "delete"
+         },
+         "children": []
+        }
+       ]
+      },
+      {
+       "kind": "row",
+       "props": {
+        "key": "add",
+        "gap": 6.0
+       },
+       "children": [
+        {
+         "kind": "input",
+         "props": {
+          "onChange": "add",
+          "flex": 1.0,
+          "key": "newcol_3",
+          "label": "New column"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "text": "ADD",
+          "key": "addcol",
+          "onPress": "add"
+         },
+         "children": []
+        }
+       ]
+      },
+      {
+       "kind": "toggle",
+       "props": {
+        "value": false,
+        "onChange": "awake",
+        "key": "awake",
+        "label": "Keep screen on"
+       },
+       "children": []
+      }
+     ]
+    },
+    {
+     "kind": "text",
+     "props": {
+      "color": "danger",
+      "text": "FARADAY · unreachable",
+      "key": "down_h3",
+      "lines": 2.0
+     },
+     "children": []
+    },
+    {
+     "kind": "list",
+     "props": {
+      "gap": 12.0,
+      "direction": "horizontal",
+      "key": "board",
+      "flex": 1.0
+     },
+     "children": [
+      {
+       "kind": "column",
+       "props": {
+        "key": "l_1",
+        "args": {
+         "col": 1.0
+        },
+        "align": "stretch",
+        "onDrop": "drop_column",
+        "gap": 8.0,
+        "width": 280.0
+       },
+       "children": [
+        {
+         "kind": "box",
+         "props": {
+          "key": "l_1head",
+          "padding": 8.0
+         },
+         "children": [
+          {
+           "kind": "row",
+           "props": {
+            "key": "l_1row",
+            "gap": 8.0
+           },
+           "children": [
+            {
+             "kind": "text",
+             "props": {
+              "lines": 1.0,
+              "key": "l_1name",
+              "bold": true,
+              "text": "INBOX",
+              "flex": 1.0
+             },
+             "children": []
+            },
+            {
+             "kind": "text",
+             "props": {
+              "color": "muted",
+              "text": "5",
+              "key": "l_1count"
+             },
+             "children": []
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "kind": "list",
+         "props": {
+          "flex": 1.0,
+          "key": "l_1cards",
+          "gap": 8.0
+         },
+         "children": [
+          {
+           "kind": "box",
+           "props": {
+            "key": "c_a",
+            "args": {
+             "id": "a"
+            },
+            "onPress": "open",
+            "onDrop": "drop_card",
+            "padding": 10.0,
+            "drag": "a"
+           },
+           "children": [
+            {
+             "kind": "column",
+             "props": {
+              "align": "stretch",
+              "key": "c_arows",
+              "gap": 6.0
+             },
+             "children": [
+              {
+               "kind": "row",
+               "props": {
+                "key": "c_ahead",
+                "gap": 8.0
+               },
+               "children": [
+                {
+                 "kind": "text",
+                 "props": {
+                  "lines": 1.0,
+                  "key": "c_aagent",
+                  "bold": true,
+                  "text": "CLAUDE",
+                  "flex": 1.0,
+                  "color": "muted"
+                 },
+                 "children": []
+                },
+                {
+                 "kind": "status_tag",
+                 "props": {
+                  "color": "warning",
+                  "key": "c_astate",
+                  "label": "WORKING"
+                 },
+                 "children": []
+                }
+               ]
+              },
+              {
+               "kind": "text",
+               "props": {
+                "bold": true,
+                "text": "refactor parser",
+                "key": "c_atitle",
+                "lines": 2.0
+               },
+               "children": []
+              },
+              {
+               "kind": "text",
+               "props": {
+                "fontSize": 11.0,
+                "key": "c_aplace",
+                "color": "muted",
+                "text": "striked · nyx",
+                "lines": 1.0
+               },
+               "children": []
+              }
+             ]
+            }
+           ]
+          },
+          {
+           "kind": "box",
+           "props": {
+            "onPress": "open",
+            "key": "c_b",
+            "args": {
+             "id": "b"
+            },
+            "padding": 10.0,
+            "onDrop": "drop_card",
+            "border": "danger",
+            "drag": "b"
+           },
+           "children": [
+            {
+             "kind": "column",
+             "props": {
+              "align": "stretch",
+              "key": "c_brows",
+              "gap": 6.0
+             },
+             "children": [
+              {
+               "kind": "row",
+               "props": {
+                "key": "c_bhead",
+                "gap": 8.0
+               },
+               "children": [
+                {
+                 "kind": "text",
+                 "props": {
+                  "lines": 1.0,
+                  "key": "c_bagent",
+                  "bold": true,
+                  "text": "CLAUDE",
+                  "flex": 1.0,
+                  "color": "muted"
+                 },
+                 "children": []
+                },
+                {
+                 "kind": "status_tag",
+                 "props": {
+                  "color": "danger",
+                  "key": "c_bstate",
+                  "label": "BLOCKED"
+                 },
+                 "children": []
+                }
+               ]
+              },
+              {
+               "kind": "text",
+               "props": {
+                "bold": true,
+                "text": "deploy",
+                "key": "c_btitle",
+                "lines": 2.0
+               },
+               "children": []
+              },
+              {
+               "kind": "text",
+               "props": {
+                "color": "danger",
+                "text": "bash · rm -rf build",
+                "key": "c_bdetail",
+                "lines": 3.0
+               },
+               "children": []
+              },
+              {
+               "kind": "text",
+               "props": {
+                "fontSize": 11.0,
+                "key": "c_bplace",
+                "color": "muted",
+                "text": "striked · nyx",
+                "lines": 1.0
+               },
+               "children": []
+              },
+              {
+               "kind": "row",
+               "props": {
+                "key": "c_banswer",
+                "gap": 8.0
+               },
+               "children": [
+                {
+                 "kind": "button",
+                 "props": {
+                  "key": "c_bdeny",
+                  "args": {
+                   "approval": "ap1"
+                  },
+                  "color": "danger",
+                  "text": "DENY",
+                  "flex": 1.0,
+                  "onPress": "deny"
+                 },
+                 "children": []
+                },
+                {
+                 "kind": "button",
+                 "props": {
+                  "key": "c_ballow",
+                  "args": {
+                   "approval": "ap1"
+                  },
+                  "flex": 1.0,
+                  "onPress": "allow",
+                  "background": "accent",
+                  "text": "ALLOW"
+                 },
+                 "children": []
+                }
+               ]
+              }
+             ]
+            }
+           ]
+          },
+          {
+           "kind": "box",
+           "props": {
+            "key": "c_c",
+            "args": {
+             "id": "c"
+            },
+            "onPress": "open",
+            "onDrop": "drop_card",
+            "padding": 10.0,
+            "drag": "c"
+           },
+           "children": [
+            {
+             "kind": "column",
+             "props": {
+              "align": "stretch",
+              "key": "c_crows",
+              "gap": 6.0
+             },
+             "children": [
+              {
+               "kind": "row",
+               "props": {
+                "key": "c_chead",
+                "gap": 8.0
+               },
+               "children": [
+                {
+                 "kind": "text",
+                 "props": {
+                  "lines": 1.0,
+                  "key": "c_cagent",
+                  "bold": true,
+                  "text": "CODEX",
+                  "flex": 1.0,
+                  "color": "muted"
+                 },
+                 "children": []
+                },
+                {
+                 "kind": "status_tag",
+                 "props": {
+                  "key": "c_cstate",
+                  "label": "DONE"
+                 },
+                 "children": []
+                }
+               ]
+              },
+              {
+               "kind": "text",
+               "props": {
+                "bold": true,
+                "text": "Untitled session",
+                "key": "c_ctitle",
+                "lines": 2.0
+               },
+               "children": []
+              },
+              {
+               "kind": "text",
+               "props": {
+                "fontSize": 11.0,
+                "key": "c_cplace",
+                "color": "muted",
+                "text": "striked · rose",
+                "lines": 1.0
+               },
+               "children": []
+              }
+             ]
+            }
+           ]
+          },
+          {
+           "kind": "box",
+           "props": {
+            "key": "c_e",
+            "args": {
+             "id": "e"
+            },
+            "onPress": "open",
+            "onDrop": "drop_card",
+            "padding": 10.0,
+            "drag": "e"
+           },
+           "children": [
+            {
+             "kind": "column",
+             "props": {
+              "align": "stretch",
+              "key": "c_erows",
+              "gap": 6.0
+             },
+             "children": [
+              {
+               "kind": "row",
+               "props": {
+                "key": "c_ehead",
+                "gap": 8.0
+               },
+               "children": [
+                {
+                 "kind": "text",
+                 "props": {
+                  "lines": 1.0,
+                  "key": "c_eagent",
+                  "bold": true,
+                  "text": "CLAUDE",
+                  "flex": 1.0,
+                  "color": "muted"
+                 },
+                 "children": []
+                },
+                {
+                 "kind": "status_tag",
+                 "props": {
+                  "color": "muted",
+                  "key": "c_estate",
+                  "label": "IDLE"
+                 },
+                 "children": []
+                }
+               ]
+              },
+              {
+               "kind": "text",
+               "props": {
+                "bold": true,
+                "text": "Untitled session",
+                "key": "c_etitle",
+                "lines": 2.0
+               },
+               "children": []
+              },
+              {
+               "kind": "text",
+               "props": {
+                "fontSize": 11.0,
+                "key": "c_eplace",
+                "color": "muted",
+                "text": "tools · rose",
+                "lines": 1.0
+               },
+               "children": []
+              }
+             ]
+            }
+           ]
+          },
+          {
+           "kind": "box",
+           "props": {
+            "key": "c_d",
+            "args": {
+             "id": "d"
+            },
+            "onPress": "open",
+            "onDrop": "drop_card",
+            "padding": 10.0,
+            "drag": "d"
+           },
+           "children": [
+            {
+             "kind": "column",
+             "props": {
+              "align": "stretch",
+              "key": "c_drows",
+              "gap": 6.0
+             },
+             "children": [
+              {
+               "kind": "row",
+               "props": {
+                "key": "c_dhead",
+                "gap": 8.0
+               },
+               "children": [
+                {
+                 "kind": "text",
+                 "props": {
+                  "lines": 1.0,
+                  "key": "c_dagent",
+                  "bold": true,
+                  "text": "CLAUDE",
+                  "flex": 1.0,
+                  "color": "muted"
+                 },
+                 "children": []
+                },
+                {
+                 "kind": "status_tag",
+                 "props": {
+                  "color": "muted",
+                  "key": "c_dstate",
+                  "label": "IDLE"
+                 },
+                 "children": []
+                }
+               ]
+              },
+              {
+               "kind": "text",
+               "props": {
+                "bold": true,
+                "text": "Untitled session",
+                "key": "c_dtitle",
+                "lines": 2.0
+               },
+               "children": []
+              },
+              {
+               "kind": "text",
+               "props": {
+                "color": "muted",
+                "text": "flaky test fixed",
+                "key": "c_ddetail",
+                "lines": 3.0
+               },
+               "children": []
+              },
+              {
+               "kind": "text",
+               "props": {
+                "fontSize": 11.0,
+                "key": "c_dplace",
+                "color": "muted",
+                "text": "fixture · rose",
+                "lines": 1.0
+               },
+               "children": []
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "column",
+       "props": {
+        "key": "l_2",
+        "args": {
+         "col": 2.0
+        },
+        "align": "stretch",
+        "onDrop": "drop_column",
+        "gap": 8.0,
+        "width": 280.0
+       },
+       "children": [
+        {
+         "kind": "box",
+         "props": {
+          "key": "l_2head",
+          "padding": 8.0
+         },
+         "children": [
+          {
+           "kind": "row",
+           "props": {
+            "key": "l_2row",
+            "gap": 8.0
+           },
+           "children": [
+            {
+             "kind": "text",
+             "props": {
+              "lines": 1.0,
+              "key": "l_2name",
+              "bold": true,
+              "text": "DOING",
+              "flex": 1.0
+             },
+             "children": []
+            },
+            {
+             "kind": "text",
+             "props": {
+              "color": "muted",
+              "text": "0",
+              "key": "l_2count"
+             },
+             "children": []
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "kind": "list",
+         "props": {
+          "flex": 1.0,
+          "key": "l_2cards",
+          "gap": 8.0
+         },
+         "children": []
+        }
+       ]
+      },
+      {
+       "kind": "column",
+       "props": {
+        "key": "l_3",
+        "args": {
+         "col": 3.0
+        },
+        "align": "stretch",
+        "onDrop": "drop_column",
+        "gap": 8.0,
+        "width": 280.0
+       },
+       "children": [
+        {
+         "kind": "box",
+         "props": {
+          "key": "l_3head",
+          "padding": 8.0
+         },
+         "children": [
+          {
+           "kind": "row",
+           "props": {
+            "key": "l_3row",
+            "gap": 8.0
+           },
+           "children": [
+            {
+             "kind": "text",
+             "props": {
+              "lines": 1.0,
+              "key": "l_3name",
+              "bold": true,
+              "text": "DONE",
+              "flex": 1.0
+             },
+             "children": []
+            },
+            {
+             "kind": "text",
+             "props": {
+              "color": "muted",
+              "text": "0",
+              "key": "l_3count"
+             },
+             "children": []
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "kind": "list",
+         "props": {
+          "flex": 1.0,
+          "key": "l_3cards",
+          "gap": 8.0
+         },
+         "children": []
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

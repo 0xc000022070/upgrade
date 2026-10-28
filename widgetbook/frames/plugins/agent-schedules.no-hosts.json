@@ -1,0 +1,28 @@
+{
+ "kind": "page",
+ "props": {
+  "title": "AGENT TASKS",
+  "key": "page_history",
+  "breadcrumb": "/ TOOLS"
+ },
+ "children": [
+  {
+   "kind": "text",
+   "props": {
+    "color": "muted",
+    "text": "Add and verify a machine in Hosts. Tasks run there while your phone is offline.",
+    "key": "no_hosts"
+   },
+   "children": []
+  },
+  {
+   "kind": "button",
+   "props": {
+    "text": "Refresh hosts",
+    "key": "reload_hosts",
+    "onPress": "reload_hosts"
+   },
+   "children": []
+  }
+ ]
+}

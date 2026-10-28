@@ -1,0 +1,140 @@
+{
+ "kind": "page",
+ "props": {
+  "title": "AGENT TASKS",
+  "key": "page_history",
+  "breadcrumb": "/ TOOLS"
+ },
+ "children": [
+  {
+   "kind": "select",
+   "props": {
+    "onChange": "choose_host",
+    "key": "host",
+    "label": "Run on",
+    "value": "host1",
+    "options": [
+     {
+      "value": "host1",
+      "label": "Development"
+     }
+    ]
+   },
+   "children": []
+  },
+  {
+   "kind": "choice",
+   "props": {
+    "onChange": "tab",
+    "key": "tab",
+    "label": "Tasks",
+    "value": "history",
+    "options": [
+     {
+      "value": "history",
+      "label": "Activity"
+     },
+     {
+      "value": "list",
+      "label": "Schedules"
+     }
+    ]
+   },
+   "children": []
+  },
+  {
+   "kind": "panel",
+   "props": {
+    "key": "r_job1"
+   },
+   "children": [
+    {
+     "kind": "status_tag",
+     "props": {
+      "color": "accent",
+      "key": "r_job1status"
+     },
+     "children": []
+    },
+    {
+     "kind": "list_row",
+     "props": {
+      "key": "r_job1open",
+      "args": {
+       "id": "job1"
+      },
+      "caption": " UTC",
+      "onPress": "output",
+      "node": true,
+      "title": "Review"
+     },
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "button",
+   "props": {
+    "text": "Refresh",
+    "key": "refresh",
+    "onPress": "refresh"
+   },
+   "children": []
+  },
+  {
+   "kind": "disclosure",
+   "props": {
+    "key": "host_controls",
+    "title": "Host controls"
+   },
+   "children": [
+    {
+     "kind": "text",
+     "props": {
+      "color": "muted",
+      "text": "Pause prevents queued and future tasks from starting. Running tasks continue.",
+      "key": "pause_note"
+     },
+     "children": []
+    },
+    {
+     "kind": "button",
+     "props": {
+      "text": "Pause queue",
+      "key": "pause_all",
+      "onPress": "pause_scope"
+     },
+     "children": []
+    },
+    {
+     "kind": "button",
+     "props": {
+      "text": "Update host runner",
+      "key": "repair_runner",
+      "onPress": "setup"
+     },
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "footer",
+   "props": {
+    "key": "create"
+   },
+   "children": [
+    {
+     "kind": "button",
+     "props": {
+      "enabled": true,
+      "key": "new",
+      "background": "accent",
+      "onPress": "new",
+      "text": "New task"
+     },
+     "children": []
+    }
+   ]
+  }
+ ]
+}

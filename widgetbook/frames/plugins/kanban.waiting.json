@@ -1,0 +1,477 @@
+{
+ "kind": "page",
+ "props": {
+  "title": "KANBAN",
+  "breadcrumb": "/ TOOLS",
+  "awake": false,
+  "key": "page",
+  "fill": true
+ },
+ "children": [
+  {
+   "kind": "column",
+   "props": {
+    "align": "stretch",
+    "key": "body",
+    "gap": 8.0
+   },
+   "children": [
+    {
+     "kind": "input",
+     "props": {
+      "onChange": "search",
+      "key": "search",
+      "label": "Search",
+      "value": "",
+      "live": true,
+      "hint": "Title, prompt, message, directory or agent"
+     },
+     "children": []
+    },
+    {
+     "kind": "disclosure",
+     "props": {
+      "subtitle": "3 columns",
+      "key": "columns",
+      "title": "Columns"
+     },
+     "children": [
+      {
+       "kind": "row",
+       "props": {
+        "key": "e_1",
+        "gap": 6.0
+       },
+       "children": [
+        {
+         "kind": "input",
+         "props": {
+          "onChange": "rename",
+          "key": "e_1name",
+          "label": "Column 1",
+          "value": "Inbox",
+          "flex": 1.0,
+          "args": {
+           "col": 1.0
+          }
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": false,
+          "key": "e_1left",
+          "args": {
+           "col": 1.0
+          },
+          "text": "←",
+          "onPress": "left"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": true,
+          "key": "e_1right",
+          "args": {
+           "col": 1.0
+          },
+          "text": "→",
+          "onPress": "right"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": true,
+          "key": "e_1delete",
+          "args": {
+           "col": 1.0
+          },
+          "color": "danger",
+          "text": "×",
+          "onPress": "delete"
+         },
+         "children": []
+        }
+       ]
+      },
+      {
+       "kind": "row",
+       "props": {
+        "key": "e_2",
+        "gap": 6.0
+       },
+       "children": [
+        {
+         "kind": "input",
+         "props": {
+          "onChange": "rename",
+          "key": "e_2name",
+          "label": "Column 2",
+          "value": "Doing",
+          "flex": 1.0,
+          "args": {
+           "col": 2.0
+          }
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": true,
+          "key": "e_2left",
+          "args": {
+           "col": 2.0
+          },
+          "text": "←",
+          "onPress": "left"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": true,
+          "key": "e_2right",
+          "args": {
+           "col": 2.0
+          },
+          "text": "→",
+          "onPress": "right"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": true,
+          "key": "e_2delete",
+          "args": {
+           "col": 2.0
+          },
+          "color": "danger",
+          "text": "×",
+          "onPress": "delete"
+         },
+         "children": []
+        }
+       ]
+      },
+      {
+       "kind": "row",
+       "props": {
+        "key": "e_3",
+        "gap": 6.0
+       },
+       "children": [
+        {
+         "kind": "input",
+         "props": {
+          "onChange": "rename",
+          "key": "e_3name",
+          "label": "Column 3",
+          "value": "Done",
+          "flex": 1.0,
+          "args": {
+           "col": 3.0
+          }
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": true,
+          "key": "e_3left",
+          "args": {
+           "col": 3.0
+          },
+          "text": "←",
+          "onPress": "left"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": false,
+          "key": "e_3right",
+          "args": {
+           "col": 3.0
+          },
+          "text": "→",
+          "onPress": "right"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "enabled": true,
+          "key": "e_3delete",
+          "args": {
+           "col": 3.0
+          },
+          "color": "danger",
+          "text": "×",
+          "onPress": "delete"
+         },
+         "children": []
+        }
+       ]
+      },
+      {
+       "kind": "row",
+       "props": {
+        "key": "add",
+        "gap": 6.0
+       },
+       "children": [
+        {
+         "kind": "input",
+         "props": {
+          "onChange": "add",
+          "flex": 1.0,
+          "key": "newcol_3",
+          "label": "New column"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "text": "ADD",
+          "key": "addcol",
+          "onPress": "add"
+         },
+         "children": []
+        }
+       ]
+      },
+      {
+       "kind": "toggle",
+       "props": {
+        "value": false,
+        "onChange": "awake",
+        "key": "awake",
+        "label": "Keep screen on"
+       },
+       "children": []
+      }
+     ]
+    },
+    {
+     "kind": "text",
+     "props": {
+      "color": "muted",
+      "text": "Reading hosts…",
+      "key": "waiting"
+     },
+     "children": []
+    },
+    {
+     "kind": "list",
+     "props": {
+      "gap": 12.0,
+      "direction": "horizontal",
+      "key": "board",
+      "flex": 1.0
+     },
+     "children": [
+      {
+       "kind": "column",
+       "props": {
+        "key": "l_1",
+        "args": {
+         "col": 1.0
+        },
+        "align": "stretch",
+        "onDrop": "drop_column",
+        "gap": 8.0,
+        "width": 280.0
+       },
+       "children": [
+        {
+         "kind": "box",
+         "props": {
+          "key": "l_1head",
+          "padding": 8.0
+         },
+         "children": [
+          {
+           "kind": "row",
+           "props": {
+            "key": "l_1row",
+            "gap": 8.0
+           },
+           "children": [
+            {
+             "kind": "text",
+             "props": {
+              "lines": 1.0,
+              "key": "l_1name",
+              "bold": true,
+              "text": "INBOX",
+              "flex": 1.0
+             },
+             "children": []
+            },
+            {
+             "kind": "text",
+             "props": {
+              "color": "muted",
+              "text": "0",
+              "key": "l_1count"
+             },
+             "children": []
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "kind": "list",
+         "props": {
+          "flex": 1.0,
+          "key": "l_1cards",
+          "gap": 8.0
+         },
+         "children": []
+        }
+       ]
+      },
+      {
+       "kind": "column",
+       "props": {
+        "key": "l_2",
+        "args": {
+         "col": 2.0
+        },
+        "align": "stretch",
+        "onDrop": "drop_column",
+        "gap": 8.0,
+        "width": 280.0
+       },
+       "children": [
+        {
+         "kind": "box",
+         "props": {
+          "key": "l_2head",
+          "padding": 8.0
+         },
+         "children": [
+          {
+           "kind": "row",
+           "props": {
+            "key": "l_2row",
+            "gap": 8.0
+           },
+           "children": [
+            {
+             "kind": "text",
+             "props": {
+              "lines": 1.0,
+              "key": "l_2name",
+              "bold": true,
+              "text": "DOING",
+              "flex": 1.0
+             },
+             "children": []
+            },
+            {
+             "kind": "text",
+             "props": {
+              "color": "muted",
+              "text": "0",
+              "key": "l_2count"
+             },
+             "children": []
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "kind": "list",
+         "props": {
+          "flex": 1.0,
+          "key": "l_2cards",
+          "gap": 8.0
+         },
+         "children": []
+        }
+       ]
+      },
+      {
+       "kind": "column",
+       "props": {
+        "key": "l_3",
+        "args": {
+         "col": 3.0
+        },
+        "align": "stretch",
+        "onDrop": "drop_column",
+        "gap": 8.0,
+        "width": 280.0
+       },
+       "children": [
+        {
+         "kind": "box",
+         "props": {
+          "key": "l_3head",
+          "padding": 8.0
+         },
+         "children": [
+          {
+           "kind": "row",
+           "props": {
+            "key": "l_3row",
+            "gap": 8.0
+           },
+           "children": [
+            {
+             "kind": "text",
+             "props": {
+              "lines": 1.0,
+              "key": "l_3name",
+              "bold": true,
+              "text": "DONE",
+              "flex": 1.0
+             },
+             "children": []
+            },
+            {
+             "kind": "text",
+             "props": {
+              "color": "muted",
+              "text": "0",
+              "key": "l_3count"
+             },
+             "children": []
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "kind": "list",
+         "props": {
+          "flex": 1.0,
+          "key": "l_3cards",
+          "gap": 8.0
+         },
+         "children": []
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

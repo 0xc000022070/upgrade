@@ -192,6 +192,9 @@ widgetbook port="8095": pub-build
 widgetbook-build: pub-build
     cd widgetbook && flutter build web --no-wasm-dry-run
 
+widgetbook-frames:
+    flutter test tool/plugin_frames_test.dart
+
 pub-build: mosh-build ssh-build flterm-build libghostty-build
 
 pub-verify: mosh-verify ssh-verify flterm-verify

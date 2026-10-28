@@ -14,6 +14,7 @@ nix develop
 just widgetbook          # http://127.0.0.1:8095, any browser
 just widgetbook 9000     # another port
 just widgetbook-build    # static site in widgetbook/build/web
+just widgetbook-frames   # recapture the plugin frames
 ```
 
 Without `just`:
@@ -51,6 +52,8 @@ SYSTEM · LIGHT), viewport (Pixel 7 `pixel_7-api36` first), text scale
 | `lib/components/`        | one file per category; `knobs.dart` is shared     |
 | `lib/assets/gallery.dart`| the asset gallery                                 |
 | `lib/screens/`           | screens and `fixtures.dart`                       |
+| `lib/plugins/`           | plugin frames drawn by `PluginUi`                 |
+| `frames/plugins/`        | captured plugin views and `index.json`            |
 
 ## Register
 
@@ -113,12 +116,26 @@ drawn as the mascot.
 - Screens: usage panel, host key sheet, hook sheet, device sheet (listed,
   none, no tools, unreachable, loading), link preview card, project icon
   picker, diff stat.
+- Plugins: Board, Kanban (page and inbox card) and Agent tasks, each frame a
+  view the bundled plugin's Luau returned, drawn by the app's `PluginUi`.
+
+## Plugin frames
+
+A browser cannot run Luau, so the views are captured on the host:
+`tool/plugin_frames_test.dart` drives each bundled plugin through the
+`LuauWorker` with the flows its tests use and writes every view to
+`frames/plugins/`, with the parse flags (card, canvas, awake, pages) in
+`index.json`. Rerun `just widgetbook-frames` after a plugin's UI changes; a new
+frame is one more `_write` there and one more name in `_frames` in
+`lib/plugins/plugins.dart`. Events go nowhere: a tap does not advance the
+frame.
 
 ## Limitations
 
 - Not in the catalog, because they load native code a browser cannot: the
-  terminal and shell (flterm, libghostty), voice (sherpa), plugin pages and
-  boards (Luau), and the main tabs that build those. `DiffBody` is left out:
+  terminal and shell (flterm, libghostty), voice (sherpa), the plugin runtime
+  and the screens around it (library, management, development, the home
+  board), and the main tabs that build those. `DiffBody` is left out:
   it needs a parsed diff document and its jump index.
 - `ActionBlock` and `SolidActionBar` draw no pressed state; `PanelAffordance`,
   `KeyCell` and `ToolbarIconAction` show it only while pressed. `ActionBlock`

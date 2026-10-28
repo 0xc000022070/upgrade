@@ -1,0 +1,95 @@
+{
+ "kind": "screen",
+ "props": {
+  "key": "screen",
+  "padding": 16.0
+ },
+ "children": [
+  {
+   "kind": "row",
+   "props": {
+    "key": "heading",
+    "gap": 12.0
+   },
+   "children": [
+    {
+     "kind": "text",
+     "props": {
+      "fontSize": 27.0,
+      "key": "title",
+      "bold": true,
+      "text": "BOARD_",
+      "style": "heading",
+      "flex": 1.0
+     },
+     "children": []
+    },
+    {
+     "kind": "spacer",
+     "props": {
+      "key": "no_back",
+      "width": 1.0
+     },
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "text",
+   "props": {
+    "color": "muted",
+    "text": "NOTES AND LINKS / TAP TO ARRANGE",
+    "key": "subtitle",
+    "fontSize": 11.0
+   },
+   "children": []
+  },
+  {
+   "kind": "spacer",
+   "props": {
+    "key": "head_space",
+    "height": 14.0
+   },
+   "children": []
+  },
+  {
+   "kind": "button",
+   "props": {
+    "key": "new_board",
+    "color": "background",
+    "background": "accent",
+    "onPress": "new_board",
+    "text": "+ NEW BOARD"
+   },
+   "children": []
+  },
+  {
+   "kind": "spacer",
+   "props": {
+    "key": "boards_space",
+    "height": 12.0
+   },
+   "children": []
+  },
+  {
+   "kind": "list",
+   "props": {
+    "flex": 1.0,
+    "key": "boards_list",
+    "gap": 10.0
+   },
+   "children": [
+    {
+     "kind": "text",
+     "props": {
+      "color": "muted",
+      "text": "No boards yet. Create one to start arranging notes.",
+      "key": "empty",
+      "fontSize": 11.0
+     },
+     "children": []
+    }
+   ]
+  }
+ ]
+}

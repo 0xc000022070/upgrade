@@ -1,0 +1,125 @@
+[
+ {
+  "plugin": "board",
+  "frame": "mounted",
+  "file": "frames/plugins/board.mounted.json",
+  "card": false,
+  "canvas": true,
+  "awake": false,
+  "pages": []
+ },
+ {
+  "plugin": "board",
+  "frame": "empty-board",
+  "file": "frames/plugins/board.empty-board.json",
+  "card": false,
+  "canvas": true,
+  "awake": false,
+  "pages": []
+ },
+ {
+  "plugin": "board",
+  "frame": "note-selected",
+  "file": "frames/plugins/board.note-selected.json",
+  "card": false,
+  "canvas": true,
+  "awake": false,
+  "pages": []
+ },
+ {
+  "plugin": "board",
+  "frame": "linked",
+  "file": "frames/plugins/board.linked.json",
+  "card": false,
+  "canvas": true,
+  "awake": false,
+  "pages": []
+ },
+ {
+  "plugin": "board",
+  "frame": "boards",
+  "file": "frames/plugins/board.boards.json",
+  "card": false,
+  "canvas": true,
+  "awake": false,
+  "pages": []
+ },
+ {
+  "plugin": "kanban",
+  "frame": "waiting",
+  "file": "frames/plugins/kanban.waiting.json",
+  "card": false,
+  "canvas": false,
+  "awake": true,
+  "pages": [
+   "main"
+  ]
+ },
+ {
+  "plugin": "kanban",
+  "frame": "board",
+  "file": "frames/plugins/kanban.board.json",
+  "card": false,
+  "canvas": false,
+  "awake": true,
+  "pages": [
+   "main"
+  ]
+ },
+ {
+  "plugin": "kanban",
+  "frame": "inbox-card",
+  "file": "frames/plugins/kanban.inbox-card.json",
+  "card": true,
+  "canvas": false,
+  "awake": true,
+  "pages": [
+   "main"
+  ]
+ },
+ {
+  "plugin": "agent-schedules",
+  "frame": "no-hosts",
+  "file": "frames/plugins/agent-schedules.no-hosts.json",
+  "card": false,
+  "canvas": true,
+  "awake": false,
+  "pages": []
+ },
+ {
+  "plugin": "agent-schedules",
+  "frame": "unsupported",
+  "file": "frames/plugins/agent-schedules.unsupported.json",
+  "card": false,
+  "canvas": true,
+  "awake": false,
+  "pages": []
+ },
+ {
+  "plugin": "agent-schedules",
+  "frame": "setup",
+  "file": "frames/plugins/agent-schedules.setup.json",
+  "card": false,
+  "canvas": true,
+  "awake": false,
+  "pages": []
+ },
+ {
+  "plugin": "agent-schedules",
+  "frame": "tasks",
+  "file": "frames/plugins/agent-schedules.tasks.json",
+  "card": false,
+  "canvas": true,
+  "awake": false,
+  "pages": []
+ },
+ {
+  "plugin": "agent-schedules",
+  "frame": "composer",
+  "file": "frames/plugins/agent-schedules.composer.json",
+  "card": false,
+  "canvas": true,
+  "awake": false,
+  "pages": []
+ }
+]

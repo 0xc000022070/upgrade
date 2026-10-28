@@ -1,0 +1,349 @@
+{
+ "kind": "screen",
+ "props": {
+  "key": "screen",
+  "padding": 16.0
+ },
+ "children": [
+  {
+   "kind": "row",
+   "props": {
+    "key": "heading",
+    "gap": 12.0
+   },
+   "children": [
+    {
+     "kind": "text",
+     "props": {
+      "fontSize": 27.0,
+      "key": "title",
+      "bold": true,
+      "text": "BOARD_",
+      "style": "heading",
+      "flex": 1.0
+     },
+     "children": []
+    },
+    {
+     "kind": "button",
+     "props": {
+      "color": "muted",
+      "text": "BOARDS",
+      "key": "back_boards",
+      "onPress": "boards"
+     },
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "text",
+   "props": {
+    "color": "muted",
+    "text": "BOARD 1 / 2 NOTES / 1 LINKS",
+    "key": "subtitle",
+    "fontSize": 11.0
+   },
+   "children": []
+  },
+  {
+   "kind": "spacer",
+   "props": {
+    "key": "head_space",
+    "height": 14.0
+   },
+   "children": []
+  },
+  {
+   "kind": "row",
+   "props": {
+    "key": "tools",
+    "gap": 6.0
+   },
+   "children": [
+    {
+     "kind": "button",
+     "props": {
+      "key": "t_select",
+      "args": {
+       "tool": "select"
+      },
+      "color": "muted",
+      "text": "SELECT",
+      "onPress": "tool",
+      "flex": 1.0
+     },
+     "children": []
+    },
+    {
+     "kind": "button",
+     "props": {
+      "key": "t_note",
+      "args": {
+       "tool": "note"
+      },
+      "color": "muted",
+      "text": "+ NOTE",
+      "onPress": "tool",
+      "flex": 1.0
+     },
+     "children": []
+    },
+    {
+     "kind": "button",
+     "props": {
+      "onPress": "tool",
+      "key": "t_link",
+      "args": {
+       "tool": "link"
+      },
+      "color": "background",
+      "background": "accent",
+      "flex": 1.0,
+      "text": "LINK"
+     },
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "spacer",
+   "props": {
+    "key": "tools_space",
+    "height": 8.0
+   },
+   "children": []
+  },
+  {
+   "kind": "text",
+   "props": {
+    "color": "muted",
+    "text": "Tap two notes to link them.",
+    "key": "hint",
+    "fontSize": 11.0
+   },
+   "children": []
+  },
+  {
+   "kind": "spacer",
+   "props": {
+    "key": "surface_space",
+    "height": 10.0
+   },
+   "children": []
+  },
+  {
+   "kind": "canvas",
+   "props": {
+    "commands": [
+     {
+      "y": 0.0,
+      "op": "rect",
+      "height": 900.0,
+      "color": "surface",
+      "x": 0.0,
+      "width": 4096.0
+     },
+     {
+      "y": 150.0,
+      "op": "line",
+      "y2": 150.0,
+      "color": "border",
+      "stroke": 1.0,
+      "x2": 4096.0,
+      "x": 0.0
+     },
+     {
+      "y": 300.0,
+      "op": "line",
+      "y2": 300.0,
+      "color": "border",
+      "stroke": 1.0,
+      "x2": 4096.0,
+      "x": 0.0
+     },
+     {
+      "y": 450.0,
+      "op": "line",
+      "y2": 450.0,
+      "color": "border",
+      "stroke": 1.0,
+      "x2": 4096.0,
+      "x": 0.0
+     },
+     {
+      "y": 600.0,
+      "op": "line",
+      "y2": 600.0,
+      "color": "border",
+      "stroke": 1.0,
+      "x2": 4096.0,
+      "x": 0.0
+     },
+     {
+      "y": 750.0,
+      "op": "line",
+      "y2": 750.0,
+      "color": "border",
+      "stroke": 1.0,
+      "x2": 4096.0,
+      "x": 0.0
+     },
+     {
+      "y": 900.0,
+      "op": "line",
+      "y2": 900.0,
+      "color": "border",
+      "stroke": 1.0,
+      "x2": 4096.0,
+      "x": 0.0
+     },
+     {
+      "y": 100.0,
+      "op": "line",
+      "y2": 400.0,
+      "color": "accent",
+      "stroke": 2.0,
+      "x2": 80.0,
+      "x": 80.0
+     },
+     {
+      "y": 67.0,
+      "op": "rect",
+      "height": 66.0,
+      "color": "accent",
+      "x": 13.0,
+      "width": 134.0
+     },
+     {
+      "y": 68.0,
+      "op": "rect",
+      "height": 64.0,
+      "color": "background",
+      "x": 14.0,
+      "width": 132.0
+     },
+     {
+      "y": 76.0,
+      "op": "text",
+      "text": "ROUTINE",
+      "x": 22.0,
+      "size": 11.0
+     },
+     {
+      "y": 367.0,
+      "op": "rect",
+      "height": 66.0,
+      "color": "border",
+      "x": 13.0,
+      "width": 134.0
+     },
+     {
+      "y": 368.0,
+      "op": "rect",
+      "height": 64.0,
+      "color": "background",
+      "x": 14.0,
+      "width": 132.0
+     },
+     {
+      "y": 376.0,
+      "op": "text",
+      "color": "muted",
+      "text": "EMPTY",
+      "x": 22.0,
+      "size": 11.0
+     }
+    ],
+    "key": "board_seed",
+    "flex": 1.0,
+    "height": 900.0,
+    "onPress": "tap",
+    "interactive": true,
+    "width": 4096.0
+   },
+   "children": []
+  },
+  {
+   "kind": "input",
+   "props": {
+    "value": "ROUTINE",
+    "lines": 2.0,
+    "key": "note_note1",
+    "label": "Note"
+   },
+   "children": []
+  },
+  {
+   "kind": "row",
+   "props": {
+    "key": "note_actions",
+    "gap": 8.0
+   },
+   "children": [
+    {
+     "kind": "button",
+     "props": {
+      "key": "save_note",
+      "color": "background",
+      "background": "accent",
+      "onPress": "save_note",
+      "text": "SAVE"
+     },
+     "children": []
+    },
+    {
+     "kind": "button",
+     "props": {
+      "color": "muted",
+      "text": "CLOSE",
+      "key": "close_note",
+      "onPress": "close_note"
+     },
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "disclosure",
+   "props": {
+    "key": "note_more",
+    "title": "Note actions"
+   },
+   "children": [
+    {
+     "kind": "row",
+     "props": {
+      "key": "note_secondary",
+      "gap": 8.0
+     },
+     "children": [
+      {
+       "kind": "button",
+       "props": {
+        "key": "move_note",
+        "args": {
+         "tool": "move"
+        },
+        "color": "muted",
+        "text": "MOVE",
+        "onPress": "tool"
+       },
+       "children": []
+      },
+      {
+       "kind": "button",
+       "props": {
+        "color": "muted",
+        "text": "DELETE NOTE",
+        "key": "erase_note",
+        "onPress": "erase_note"
+       },
+       "children": []
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,294 @@
+{
+ "kind": "panel",
+ "props": {
+  "key": "inbox",
+  "title": "AGENTS"
+ },
+ "children": [
+  {
+   "kind": "column",
+   "props": {
+    "align": "stretch",
+    "key": "inboxrows",
+    "gap": 8.0
+   },
+   "children": [
+    {
+     "kind": "box",
+     "props": {
+      "key": "a_b",
+      "args": {
+       "id": "b"
+      },
+      "padding": 8.0,
+      "border": "danger",
+      "onPress": "open"
+     },
+     "children": [
+      {
+       "kind": "column",
+       "props": {
+        "align": "stretch",
+        "key": "a_brows",
+        "gap": 4.0
+       },
+       "children": [
+        {
+         "kind": "text",
+         "props": {
+          "bold": true,
+          "text": "CLAUDE · deploy",
+          "key": "a_btitle",
+          "lines": 1.0
+         },
+         "children": []
+        },
+        {
+         "kind": "text",
+         "props": {
+          "color": "danger",
+          "text": "bash · rm -rf build",
+          "key": "a_bline",
+          "lines": 2.0
+         },
+         "children": []
+        },
+        {
+         "kind": "row",
+         "props": {
+          "key": "a_banswer",
+          "gap": 8.0
+         },
+         "children": [
+          {
+           "kind": "button",
+           "props": {
+            "key": "a_bdeny",
+            "args": {
+             "approval": "ap1"
+            },
+            "color": "danger",
+            "text": "DENY",
+            "flex": 1.0,
+            "onPress": "deny"
+           },
+           "children": []
+          },
+          {
+           "kind": "button",
+           "props": {
+            "key": "a_ballow",
+            "args": {
+             "approval": "ap1"
+            },
+            "flex": 1.0,
+            "onPress": "allow",
+            "background": "accent",
+            "text": "ALLOW"
+           },
+           "children": []
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "kind": "row",
+     "props": {
+      "align": "start",
+      "key": "mini",
+      "gap": 6.0
+     },
+     "children": [
+      {
+       "kind": "column",
+       "props": {
+        "align": "stretch",
+        "flex": 1.0,
+        "key": "m_1",
+        "gap": 4.0
+       },
+       "children": [
+        {
+         "kind": "text",
+         "props": {
+          "lines": 1.0,
+          "key": "m_1name",
+          "bold": true,
+          "text": "INBOX 5",
+          "fontSize": 12.0,
+          "color": "muted"
+         },
+         "children": []
+        },
+        {
+         "kind": "box",
+         "props": {
+          "onPress": "open",
+          "padding": 6.0,
+          "key": "m_1_a",
+          "args": {
+           "id": "a"
+          }
+         },
+         "children": [
+          {
+           "kind": "text",
+           "props": {
+            "lines": 1.0,
+            "key": "m_1_at",
+            "color": "warning",
+            "text": "refactor parser",
+            "fontSize": 12.0
+           },
+           "children": []
+          }
+         ]
+        },
+        {
+         "kind": "box",
+         "props": {
+          "key": "m_1_b",
+          "args": {
+           "id": "b"
+          },
+          "padding": 6.0,
+          "border": "danger",
+          "onPress": "open"
+         },
+         "children": [
+          {
+           "kind": "text",
+           "props": {
+            "lines": 1.0,
+            "key": "m_1_bt",
+            "color": "danger",
+            "text": "deploy",
+            "fontSize": 12.0
+           },
+           "children": []
+          }
+         ]
+        },
+        {
+         "kind": "box",
+         "props": {
+          "onPress": "open",
+          "padding": 6.0,
+          "key": "m_1_c",
+          "args": {
+           "id": "c"
+          }
+         },
+         "children": [
+          {
+           "kind": "text",
+           "props": {
+            "fontSize": 12.0,
+            "lines": 1.0,
+            "key": "m_1_ct",
+            "text": "Untitled session"
+           },
+           "children": []
+          }
+         ]
+        },
+        {
+         "kind": "box",
+         "props": {
+          "onPress": "open",
+          "padding": 6.0,
+          "key": "m_1_e",
+          "args": {
+           "id": "e"
+          }
+         },
+         "children": [
+          {
+           "kind": "text",
+           "props": {
+            "lines": 1.0,
+            "key": "m_1_et",
+            "color": "muted",
+            "text": "Untitled session",
+            "fontSize": 12.0
+           },
+           "children": []
+          }
+         ]
+        },
+        {
+         "kind": "text",
+         "props": {
+          "color": "muted",
+          "text": "+1",
+          "key": "m_1more",
+          "fontSize": 11.0
+         },
+         "children": []
+        }
+       ]
+      },
+      {
+       "kind": "column",
+       "props": {
+        "align": "stretch",
+        "flex": 1.0,
+        "key": "m_2",
+        "gap": 4.0
+       },
+       "children": [
+        {
+         "kind": "text",
+         "props": {
+          "lines": 1.0,
+          "key": "m_2name",
+          "bold": true,
+          "text": "DOING 0",
+          "fontSize": 12.0,
+          "color": "muted"
+         },
+         "children": []
+        }
+       ]
+      },
+      {
+       "kind": "column",
+       "props": {
+        "align": "stretch",
+        "flex": 1.0,
+        "key": "m_3",
+        "gap": 4.0
+       },
+       "children": [
+        {
+         "kind": "text",
+         "props": {
+          "lines": 1.0,
+          "key": "m_3name",
+          "bold": true,
+          "text": "DONE 0",
+          "fontSize": 12.0,
+          "color": "muted"
+         },
+         "children": []
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "kind": "button",
+     "props": {
+      "text": "OPEN BOARD",
+      "key": "open_board",
+      "opens": "main"
+     },
+     "children": []
+    }
+   ]
+  }
+ ]
+}

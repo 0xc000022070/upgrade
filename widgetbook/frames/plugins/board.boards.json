@@ -1,0 +1,160 @@
+{
+ "kind": "screen",
+ "props": {
+  "key": "screen",
+  "padding": 16.0
+ },
+ "children": [
+  {
+   "kind": "row",
+   "props": {
+    "key": "heading",
+    "gap": 12.0
+   },
+   "children": [
+    {
+     "kind": "text",
+     "props": {
+      "fontSize": 27.0,
+      "key": "title",
+      "bold": true,
+      "text": "BOARD_",
+      "style": "heading",
+      "flex": 1.0
+     },
+     "children": []
+    },
+    {
+     "kind": "spacer",
+     "props": {
+      "key": "no_back",
+      "width": 1.0
+     },
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "text",
+   "props": {
+    "color": "muted",
+    "text": "NOTES AND LINKS / TAP TO ARRANGE",
+    "key": "subtitle",
+    "fontSize": 11.0
+   },
+   "children": []
+  },
+  {
+   "kind": "spacer",
+   "props": {
+    "key": "head_space",
+    "height": 14.0
+   },
+   "children": []
+  },
+  {
+   "kind": "button",
+   "props": {
+    "key": "new_board",
+    "color": "background",
+    "background": "accent",
+    "onPress": "new_board",
+    "text": "+ NEW BOARD"
+   },
+   "children": []
+  },
+  {
+   "kind": "spacer",
+   "props": {
+    "key": "boards_space",
+    "height": 12.0
+   },
+   "children": []
+  },
+  {
+   "kind": "list",
+   "props": {
+    "flex": 1.0,
+    "key": "boards_list",
+    "gap": 10.0
+   },
+   "children": [
+    {
+     "kind": "box",
+     "props": {
+      "key": "b_seed",
+      "padding": 12.0
+     },
+     "children": [
+      {
+       "kind": "input",
+       "props": {
+        "value": "BOARD 1",
+        "key": "bn_seed",
+        "label": "Name"
+       },
+       "children": []
+      },
+      {
+       "kind": "spacer",
+       "props": {
+        "key": "s_seed",
+        "height": 8.0
+       },
+       "children": []
+      },
+      {
+       "kind": "row",
+       "props": {
+        "key": "a_seed",
+        "gap": 8.0
+       },
+       "children": [
+        {
+         "kind": "button",
+         "props": {
+          "key": "o_seed",
+          "args": {
+           "id": "seed"
+          },
+          "color": "background",
+          "text": "OPEN",
+          "onPress": "open_board",
+          "background": "accent"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "key": "r_seed",
+          "args": {
+           "id": "seed"
+          },
+          "color": "muted",
+          "text": "RENAME",
+          "onPress": "rename_board"
+         },
+         "children": []
+        },
+        {
+         "kind": "button",
+         "props": {
+          "key": "d_seed",
+          "args": {
+           "id": "seed"
+          },
+          "color": "muted",
+          "text": "DELETE",
+          "onPress": "delete_board"
+         },
+         "children": []
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,212 @@
+{
+ "kind": "screen",
+ "props": {
+  "key": "screen",
+  "padding": 16.0
+ },
+ "children": [
+  {
+   "kind": "row",
+   "props": {
+    "key": "heading",
+    "gap": 12.0
+   },
+   "children": [
+    {
+     "kind": "text",
+     "props": {
+      "fontSize": 27.0,
+      "key": "title",
+      "bold": true,
+      "text": "BOARD_",
+      "style": "heading",
+      "flex": 1.0
+     },
+     "children": []
+    },
+    {
+     "kind": "button",
+     "props": {
+      "color": "muted",
+      "text": "BOARDS",
+      "key": "back_boards",
+      "onPress": "boards"
+     },
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "text",
+   "props": {
+    "color": "muted",
+    "text": "BOARD 1 / 0 NOTES / 0 LINKS",
+    "key": "subtitle",
+    "fontSize": 11.0
+   },
+   "children": []
+  },
+  {
+   "kind": "spacer",
+   "props": {
+    "key": "head_space",
+    "height": 14.0
+   },
+   "children": []
+  },
+  {
+   "kind": "row",
+   "props": {
+    "key": "tools",
+    "gap": 6.0
+   },
+   "children": [
+    {
+     "kind": "button",
+     "props": {
+      "onPress": "tool",
+      "key": "t_select",
+      "args": {
+       "tool": "select"
+      },
+      "color": "background",
+      "background": "accent",
+      "flex": 1.0,
+      "text": "SELECT"
+     },
+     "children": []
+    },
+    {
+     "kind": "button",
+     "props": {
+      "key": "t_note",
+      "args": {
+       "tool": "note"
+      },
+      "color": "muted",
+      "text": "+ NOTE",
+      "onPress": "tool",
+      "flex": 1.0
+     },
+     "children": []
+    },
+    {
+     "kind": "button",
+     "props": {
+      "key": "t_link",
+      "args": {
+       "tool": "link"
+      },
+      "color": "muted",
+      "text": "LINK",
+      "onPress": "tool",
+      "flex": 1.0
+     },
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "spacer",
+   "props": {
+    "key": "tools_space",
+    "height": 8.0
+   },
+   "children": []
+  },
+  {
+   "kind": "text",
+   "props": {
+    "color": "muted",
+    "text": "Tap a note to edit. Drag to pan; pinch to zoom.",
+    "key": "hint",
+    "fontSize": 11.0
+   },
+   "children": []
+  },
+  {
+   "kind": "spacer",
+   "props": {
+    "key": "surface_space",
+    "height": 10.0
+   },
+   "children": []
+  },
+  {
+   "kind": "canvas",
+   "props": {
+    "commands": [
+     {
+      "y": 0.0,
+      "op": "rect",
+      "height": 900.0,
+      "color": "surface",
+      "x": 0.0,
+      "width": 4096.0
+     },
+     {
+      "y": 150.0,
+      "op": "line",
+      "y2": 150.0,
+      "color": "border",
+      "stroke": 1.0,
+      "x2": 4096.0,
+      "x": 0.0
+     },
+     {
+      "y": 300.0,
+      "op": "line",
+      "y2": 300.0,
+      "color": "border",
+      "stroke": 1.0,
+      "x2": 4096.0,
+      "x": 0.0
+     },
+     {
+      "y": 450.0,
+      "op": "line",
+      "y2": 450.0,
+      "color": "border",
+      "stroke": 1.0,
+      "x2": 4096.0,
+      "x": 0.0
+     },
+     {
+      "y": 600.0,
+      "op": "line",
+      "y2": 600.0,
+      "color": "border",
+      "stroke": 1.0,
+      "x2": 4096.0,
+      "x": 0.0
+     },
+     {
+      "y": 750.0,
+      "op": "line",
+      "y2": 750.0,
+      "color": "border",
+      "stroke": 1.0,
+      "x2": 4096.0,
+      "x": 0.0
+     },
+     {
+      "y": 900.0,
+      "op": "line",
+      "y2": 900.0,
+      "color": "border",
+      "stroke": 1.0,
+      "x2": 4096.0,
+      "x": 0.0
+     }
+    ],
+    "key": "board_seed",
+    "flex": 1.0,
+    "height": 900.0,
+    "onPress": "tap",
+    "interactive": true,
+    "width": 4096.0
+   },
+   "children": []
+  }
+ ]
+}

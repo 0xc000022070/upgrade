@@ -1,0 +1,223 @@
+{
+ "kind": "page",
+ "props": {
+  "title": "NEW TASK",
+  "key": "page_edit",
+  "breadcrumb": "/ BACK TO TASKS"
+ },
+ "children": [
+  {
+   "kind": "input",
+   "props": {
+    "lines": 4.0,
+    "key": "prompt",
+    "label": "What should the agent do?",
+    "value": "",
+    "hint": "Describe the outcome and how to verify it"
+   },
+   "children": []
+  },
+  {
+   "kind": "panel",
+   "props": {
+    "key": "workspace_empty"
+   },
+   "children": [
+    {
+     "kind": "list_row",
+     "props": {
+      "subtitle": "Find a project on this host",
+      "key": "find_workspaces",
+      "onPress": "workspaces",
+      "node": true,
+      "title": "Choose workspace"
+     },
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "choice",
+   "props": {
+    "onChange": "frequency",
+    "key": "repeat",
+    "label": "Start",
+    "value": "now",
+    "options": [
+     {
+      "value": "now",
+      "label": "Now"
+     },
+     {
+      "value": "once",
+      "label": "Later"
+     },
+     {
+      "value": "daily",
+      "label": "Daily"
+     }
+    ]
+   },
+   "children": []
+  },
+  {
+   "kind": "text",
+   "props": {
+    "color": "muted",
+    "text": "Your host keeps working when you close Striked.",
+    "key": "queue_note"
+   },
+   "children": []
+  },
+  {
+   "kind": "disclosure",
+   "props": {
+    "title": "Agent and options",
+    "subtitle": "CODEX · up to 4h",
+    "key": "options",
+    "gap": 12.0
+   },
+   "children": [
+    {
+     "kind": "select",
+     "props": {
+      "value": "codex",
+      "key": "agent",
+      "options": [
+       {
+        "value": "codex",
+        "label": "CODEX"
+       },
+       {
+        "value": "claude",
+        "label": "CLAUDE"
+       }
+      ],
+      "label": "Agent"
+     },
+     "children": []
+    },
+    {
+     "kind": "input",
+     "props": {
+      "value": "",
+      "label": "Model",
+      "key": "model",
+      "hint": "Host default"
+     },
+     "children": []
+    },
+    {
+     "kind": "select",
+     "props": {
+      "value": "14400",
+      "key": "timeout",
+      "options": [
+       {
+        "value": "900",
+        "label": "15 minutes"
+       },
+       {
+        "value": "3600",
+        "label": "1 hour"
+       },
+       {
+        "value": "7200",
+        "label": "2 hours"
+       },
+       {
+        "value": "14400",
+        "label": "4 hours"
+       }
+      ],
+      "label": "Time limit"
+     },
+     "children": []
+    },
+    {
+     "kind": "input",
+     "props": {
+      "value": "",
+      "label": "Task name",
+      "key": "title",
+      "hint": "Uses your instruction if empty"
+     },
+     "children": []
+    },
+    {
+     "kind": "input",
+     "props": {
+      "value": "",
+      "label": "Custom workspace path",
+      "key": "directory",
+      "hint": "/home/user/project"
+     },
+     "children": []
+    },
+    {
+     "kind": "button",
+     "props": {
+      "text": "Find other workspaces",
+      "key": "refresh_workspaces",
+      "onPress": "workspaces"
+     },
+     "children": []
+    },
+    {
+     "kind": "input",
+     "props": {
+      "value": "America/Lima",
+      "key": "timezone",
+      "label": "Timezone"
+     },
+     "children": []
+    },
+    {
+     "kind": "text",
+     "props": {
+      "color": "muted",
+      "text": "Uses the agent's existing host authentication and permissions.",
+      "key": "permission_note"
+     },
+     "children": []
+    },
+    {
+     "kind": "text",
+     "props": {
+      "color": "muted",
+      "text": "Two execution slots for this plugin. Tasks wait for a slot and run one at a time per workspace.",
+      "key": "capacity_note"
+     },
+     "children": []
+    },
+    {
+     "kind": "button",
+     "props": {
+      "text": "Discard draft",
+      "key": "discard",
+      "onPress": "discard"
+     },
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "footer",
+   "props": {
+    "key": "submit"
+   },
+   "children": [
+    {
+     "kind": "button",
+     "props": {
+      "onPress": "save",
+      "text": "Start task",
+      "key": "save",
+      "background": "accent"
+     },
+     "children": []
+    }
+   ]
+  }
+ ]
+}

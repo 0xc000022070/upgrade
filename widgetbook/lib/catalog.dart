@@ -13,6 +13,7 @@ import 'package:striked_widgetbook/components/rows.dart';
 import 'package:striked_widgetbook/foundations/colors.dart';
 import 'package:striked_widgetbook/foundations/geometry.dart';
 import 'package:striked_widgetbook/foundations/typography.dart';
+import 'package:striked_widgetbook/plugins/plugins.dart';
 import 'package:striked_widgetbook/screens/screens.dart';
 import 'package:striked_widgetbook/themes.dart';
 
@@ -83,6 +84,7 @@ class StrikedCatalog extends StatelessWidget {
           ],
         ),
         WidgetbookFolder(name: 'Screens', children: screenComponents),
+        WidgetbookFolder(name: 'Plugins', children: pluginComponents),
       ],
     );
   }
