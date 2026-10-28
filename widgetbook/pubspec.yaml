@@ -1,0 +1,78 @@
+name: striked_widgetbook
+description: Striked's design system, components, assets and screens in Widgetbook.
+publish_to: 'none'
+
+version: 0.1.0
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  flutter_svg: ^2.3.0
+  flutter_web_plugins:
+    sdk: flutter
+  striked:
+    path: ..
+  widgetbook: ^3.25.0
+
+dependency_overrides:
+  libghostty:
+    path: ../.dart_tool/libghostty
+  dart_mosh:
+    path: ../.dart_tool/dart_mosh
+  dartssh2:
+    path: ../.dart_tool/dartssh2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Striked loads assets by bare key, which a dependency's assets do not get.
+  # Declared again over the linked directory, they land on the same keys.
+  assets:
+    - assets/icons/
+    - assets/icons/signal/
+    - assets/project_emblems/
+    - assets/plugin_emblems/
+    - assets/sprites/mascot/
+    - assets/textures/
+    - assets/linux/catalog.json
+
+  fonts:
+    - family: Barlow Condensed
+      fonts:
+        - asset: assets/fonts/barlow_condensed/BarlowCondensed-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/barlow_condensed/BarlowCondensed-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/barlow_condensed/BarlowCondensed-Bold.ttf
+          weight: 700
+    - family: IBM Plex Sans
+      fonts:
+        - asset: assets/fonts/ibm_plex_sans/IBMPlexSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/ibm_plex_sans/IBMPlexSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/ibm_plex_sans/IBMPlexSans-SemiBold.ttf
+          weight: 600
+    - family: IBM Plex Mono
+      fonts:
+        - asset: assets/fonts/ibm_plex_mono/IBMPlexMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/ibm_plex_mono/IBMPlexMono-Medium.ttf
+          weight: 500
+    - family: Symbols Nerd Font Mono
+      fonts:
+        - asset: assets/fonts/nerd_font_symbols/SymbolsNerdFontMono-Regular.ttf
+
+hooks:
+  user_defines:
+    libghostty:
+      source: compile

@@ -186,6 +186,12 @@ review:
 desktop: pub-build
     flutter run -d linux --dart-define=STRIKED_BUILD=${STRIKED_BUILD:-dev}
 
+widgetbook port="8095": pub-build
+    cd widgetbook && flutter run -d web-server --web-hostname 127.0.0.1 --web-port {{port}}
+
+widgetbook-build: pub-build
+    cd widgetbook && flutter build web --no-wasm-dry-run
+
 pub-build: mosh-build ssh-build flterm-build libghostty-build
 
 pub-verify: mosh-verify ssh-verify flterm-verify
