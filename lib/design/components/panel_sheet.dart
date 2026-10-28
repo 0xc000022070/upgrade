@@ -2,7 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'package:striked/application/plugins/native_plugins.dart';
+import 'package:striked/application/plugins/plugin_scope_stub.dart'
+    if (dart.library.ffi) 'package:striked/application/plugins/native_plugins.dart'
+    show inheritPluginScope;
 
 import 'package:striked/design/tokens.dart';
 import 'package:striked/design/layout.dart';

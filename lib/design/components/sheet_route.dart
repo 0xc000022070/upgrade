@@ -10,8 +10,11 @@ Future<T?> showSheetRoute<T>(
   required String title,
   required Widget child,
 }) {
+  // The nearest navigator rather than the root: the app has one, so they are the same
+  // there, and a host that nests the app's widgets keeps the sheet under its theme.
   return showGeneralDialog<T>(
     context: context,
+    useRootNavigator: false,
     barrierDismissible: true,
     barrierLabel: 'DISMISS $title',
     barrierColor: sheetScrim,
