@@ -34,6 +34,8 @@ void openPluginSheet(
   InstalledPlugin? installed,
   String? repository,
   String? ref,
+  PluginPackage? package,
+  String? source,
 }) {
   showPanelSheet<void>(
     context,
@@ -42,15 +44,25 @@ void openPluginSheet(
       installed: installed,
       initialRepository: repository,
       initialRef: ref,
+      package: package,
+      source: source,
     ),
   );
 }
 
 class _PluginSheet extends ConsumerStatefulWidget {
-  const _PluginSheet({this.installed, this.initialRepository, this.initialRef});
+  const _PluginSheet({
+    this.installed,
+    this.initialRepository,
+    this.initialRef,
+    this.package,
+    this.source,
+  });
   final InstalledPlugin? installed;
   final String? initialRepository;
   final String? initialRef;
+  final PluginPackage? package;
+  final String? source;
   @override
   ConsumerState<_PluginSheet> createState() => _PluginSheetState();
 }
@@ -66,6 +78,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
   final _repository = TextEditingController();
   final _revision = TextEditingController();
   PluginPackage? _candidate;
+  InstalledPlugin? _installed;
   bool _busy = false;
   bool _updating = false;
   bool _diagnostics = false;
@@ -76,6 +89,8 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
   @override
   void initState() {
     super.initState();
+    _installed = widget.installed;
+    _candidate = widget.package;
     _repository.text =
         widget.initialRepository ?? widget.installed?.package.origin ?? '';
     _revision.text = widget.initialRef ?? '';
@@ -113,11 +128,38 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
     });
     try {
       final candidate = await load();
-      if (widget.installed != null &&
-          candidate.manifest.id != widget.installed!.id) {
+      if (_installed != null && candidate.manifest.id != _installed!.id) {
         throw const PluginException('Updated manifest must keep the plugin ID');
       }
       if (mounted) setState(() => _candidate = candidate);
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _install(PluginPackage package) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(pluginsProvider.notifier).install(package);
+      final installed = ref
+          .read(effectivePluginsProvider)
+          .where((plugin) => plugin.id == package.manifest.id)
+          .firstOrNull;
+      if (!mounted) return;
+      if (installed == null) {
+        Navigator.of(context).pop();
+      } else {
+        setState(() {
+          _installed = installed;
+          _candidate = null;
+          _updating = false;
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
     } finally {
@@ -142,7 +184,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final installed = widget.installed;
+    final installed = _installed;
     final package = _candidate ?? (_updating ? null : installed?.package);
     final manifest = package?.manifest;
     final reports = (
@@ -215,7 +257,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
               );
             },
     ),
-    if (widget.installed != null) ...[
+    if (_installed != null) ...[
       const SizedBox(height: Spacing.md),
       ActionBlock(
         label: _busy ? 'FETCHING' : 'USE LATEST',
@@ -239,7 +281,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
     List<InstalledPlugin> catalog, {
     required InstalledPlugin? shown,
   }) {
-    final installed = widget.installed;
+    final installed = _installed;
     return [
       _ItemHeader(
         manifest: manifest,
@@ -276,13 +318,16 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
 
   List<Widget> _review(PluginPackage package, List<InstalledPlugin> catalog) {
     final manifest = package.manifest;
-    final installed = widget.installed;
+    final installed = _installed;
     final old = installed?.manifest.permissions ?? <PluginPermission>{};
     return [
       if (_error != null) ...[_errorText(), const SheetRule()],
       ..._overview(manifest, catalog, shown: null),
-      _TrustNote(origin: package.origin),
-      _fact('SOURCE REVISION', '${package.origin}\n${package.revision}'),
+      _TrustNote(origin: widget.source ?? package.origin),
+      _fact(
+        'SOURCE REVISION',
+        '${widget.source ?? package.origin}\n${package.revision}',
+      ),
       SheetField(
         label: 'REQUESTED CAPABILITIES',
         child: Column(
@@ -310,7 +355,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
         label: _busy ? 'INSTALLING' : 'INSTALL',
         tone: context.tokens.accent,
         filled: true,
-        onTap: _busy ? null : () => _change((p) => p.install(package)),
+        onTap: _busy ? null : () => _install(package),
       ),
     ];
   }
@@ -433,7 +478,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
 
   List<Widget> _diagnosticsSection(PluginPackage package) {
     final manifest = package.manifest;
-    final installed = widget.installed;
+    final installed = _installed;
     final old = installed?.manifest.permissions ?? <PluginPermission>{};
     return [
       const SheetRule(),

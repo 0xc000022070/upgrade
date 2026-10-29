@@ -12,6 +12,7 @@ import 'package:striked/design/components/action_block.dart';
 import 'package:striked/design/components/list_row.dart';
 import 'package:striked/features/plugins/plugin_management_screen.dart';
 import 'package:striked/features/plugins/plugin_page.dart';
+import 'package:striked/features/settings/plugins_panel.dart';
 import 'package:striked/platform/plugins/index.dart';
 import 'package:striked/platform/plugins/manifest.dart';
 import 'package:striked/platform/plugins/store.dart';
@@ -80,6 +81,34 @@ class _RefusingPlugins extends _FixturePlugins {
   @override
   Future<void> setEnabled(String id, bool enabled) async =>
       throw const PluginException('Projects needs striked.drops ^1.0.0');
+}
+
+class _InstallingPlugins extends _FixturePlugins {
+  _InstallingPlugins(super.catalog);
+  final installed = <PluginPackage>[];
+  @override
+  Future<void> install(PluginPackage package) async {
+    installed.add(package);
+    state = AsyncData([
+      for (final plugin in state.requireValue)
+        if (plugin.id != package.manifest.id) plugin,
+      InstalledPlugin(package, package.manifest.permissions),
+    ]);
+  }
+}
+
+PluginPackage _workspace() {
+  const dir = 'plugins/templates/phone-card';
+  final manifest = PluginManifest.parse(
+    File('$dir/striked.plugin.toml').readAsStringSync(),
+  );
+  return PluginPackage(
+    manifest: manifest,
+    source: File('$dir/main.luau').readAsStringSync(),
+    origin: 'development:${manifest.id}',
+    revision: 'r1',
+    files: {'lib/card.luau': File('$dir/lib/card.luau').readAsStringSync()},
+  );
 }
 
 List<Override> _catalogOverrides(
@@ -582,6 +611,50 @@ void main() {
       tester.widget<TextField>(find.byType(TextField).at(1)).controller!.text,
       'v2.0.0',
     );
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('a workspace install stays open on ADDS with its dev source', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final plugins = _InstallingPlugins(const []);
+    final package = _workspace();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _catalogOverrides(db, const [], plugins: () => plugins),
+        child: MaterialApp(
+          theme: testTheme,
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => openPluginSheet(
+                context,
+                package: package,
+                source: 'DEV · VM:~/hello',
+              ),
+              child: const Text('OPEN'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await _drain(tester);
+    await tester.tap(find.text('OPEN'));
+    await _drain(tester);
+
+    expect(find.textContaining('DEV · VM:~/hello\nr1'), findsOneWidget);
+    final install = find.widgetWithText(ActionBlock, 'INSTALL');
+    await tester.ensureVisible(install);
+    await tester.tap(install);
+    await _drain(tester);
+
+    expect(plugins.installed.single.digest, package.digest);
+    expect(find.text('[ ADDS ]'), findsOneWidget);
+    expect(find.widgetWithText(ActionBlock, 'REMOVE'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());

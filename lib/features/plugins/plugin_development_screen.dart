@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:striked/application/agents/agents.dart';
+import 'package:striked/application/plugins/native_plugins.dart';
 import 'package:striked/application/plugins/plugin_development.dart';
 import 'package:striked/design/components/list_row.dart';
 import 'package:striked/design/components/panel.dart';
@@ -14,6 +15,7 @@ import 'package:striked/design/components/striked_field.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/design/tokens.dart';
 import 'package:striked/features/plugins/plugin_page.dart';
+import 'package:striked/features/settings/plugins_panel.dart';
 import 'package:striked/platform/plugins/plugin_check.dart';
 import 'package:striked/platform/plugins/plugin_sdk.dart';
 import 'package:striked/platform/plugins/ui.dart';
@@ -133,6 +135,16 @@ class _PluginDevelopmentScreenState
       PluginDevPhase.watching when check!.ok => 'PREVIEW READY',
       PluginDevPhase.watching => 'CHECK FAILED',
     };
+    final package = check != null && check.ok ? check.package : null;
+    final same = package == null
+        ? null
+        : ref
+              .watch(effectivePluginsProvider)
+              .where((plugin) => plugin.id == package.manifest.id)
+              .firstOrNull;
+    final taken = same != null && same.package.origin != package!.origin;
+    final installed = taken ? null : same;
+    final current = installed?.package.digest == package?.digest;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -148,6 +160,26 @@ class _PluginDevelopmentScreenState
         ),
         if (check != null) ListRow(title: 'REVISION', value: check.revision),
         const ListRow(title: 'MODE', value: 'FIXTURES'),
+        if (taken)
+          ListRow(
+            title: 'ID IN USE',
+            value: same.package.origin.toUpperCase(),
+            valueColor: context.tokens.danger,
+          )
+        else if (package != null)
+          SolidActionBar(
+            label: installed == null
+                ? 'INSTALL'
+                : current
+                ? 'INSTALLED · OPEN'
+                : 'INSTALL THIS REVISION',
+            onTap: () => openPluginSheet(
+              context,
+              installed: installed,
+              package: installed != null && current ? null : package,
+              source: 'DEV · ${session.host.name}:${session.path}',
+            ),
+          ),
         if (session.phase == PluginDevPhase.failed)
           SolidActionBar(
             label: 'START AGAIN',
