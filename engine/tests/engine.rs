@@ -427,9 +427,15 @@ fn cancel_stops_a_job_and_says_it_was_cancelled() {
     let owner = sandbox.owner();
     let started = sandbox.call(json!({
         "service": "run/1", "op": "start", "owner": owner,
-        "args": { "argv": ["sh", "-c", "sleep 120"] }
+        "args": { "argv": ["sh", "-c", "sleep 120"], "tag": "cancel" }
     }));
     let id = started["result"]["id"].as_str().unwrap().to_owned();
+
+    let live = sandbox.call(json!({
+        "service": "run/1", "op": "list", "owner": owner,
+        "args": { "tag": "cancel", "live": true }
+    }));
+    assert_eq!(live["result"]["jobs"][0]["id"], json!(id), "got {live}");
 
     // The supervisor has to have recorded a pgid before cancelling can reach the tree.
     for _ in 0..100 {
@@ -485,6 +491,12 @@ fn submitting_twice_under_one_id_runs_once() {
     assert_eq!(jobs.len(), 1);
     assert_eq!(jobs[0]["id"], json!("plugin-req-1"));
     assert_eq!(jobs[0]["state"], json!("exited"));
+
+    let live = sandbox.call(json!({
+        "service": "run/1", "op": "list", "owner": owner,
+        "args": { "tag": "attachment-a", "live": true }
+    }));
+    assert_eq!(live["result"]["jobs"], json!([]));
 
     let other = sandbox.call(json!({
         "service": "run/1", "op": "list", "owner": owner,

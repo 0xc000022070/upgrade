@@ -23,6 +23,9 @@ const MAX_OUTPUT_BYTES: u64 = 1024 * 1024;
 /// A tail of a log the engine never has to hold whole: only this much of the end
 /// of the file is ever read into memory.
 const MAX_SCAN_BYTES: u64 = 16 * 1024 * 1024;
+/// Finished jobs are never deleted, so a list keeps only the newest, well inside
+/// what a client reads in one response.
+const MAX_LISTED_JOBS: usize = 200;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JobSpec {
@@ -212,6 +215,7 @@ fn submit(args: &Value, state_root: &Path, policy: &Policy) -> EngineResult<Valu
 
 fn list(args: &Value, state_root: &Path) -> EngineResult<Value> {
     let tag = arg_str(args, "tag")?;
+    let live = args.get("live").and_then(Value::as_bool).unwrap_or(false);
     let mut jobs = Vec::new();
     for entry in fs::read_dir(jobs_root(state_root))? {
         let entry = entry?;
@@ -233,12 +237,18 @@ fn list(args: &Value, state_root: &Path) -> EngineResult<Value> {
         let Ok(status) = read_status(&dir) else {
             continue;
         };
-        let mut value = status_value(id, &liveness_checked(&dir, status));
+        let status = liveness_checked(&dir, status);
+        if live && !status.state.is_live() {
+            continue;
+        }
+        let mut value = status_value(id, &status);
         value["created"] = json!(spec.created);
         jobs.push(value);
     }
     jobs.sort_by_key(|job| job["created"].as_u64());
-    Ok(json!({ "jobs": jobs }))
+    let truncated = jobs.len() > MAX_LISTED_JOBS;
+    let jobs = jobs.split_off(jobs.len().saturating_sub(MAX_LISTED_JOBS));
+    Ok(json!({ "jobs": jobs, "truncated": truncated }))
 }
 
 /// Writes a job down and hands it to a detached copy of the engine.
