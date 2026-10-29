@@ -164,6 +164,11 @@ void main() {
     );
 
     await openPluginDetails(tester, 'striked.projects', _drain);
+    await adjustPlacement(
+      tester,
+      'striked.projects:widget:next-action',
+      _drain,
+    );
 
     final layout = find.byKey(
       const ValueKey('layout-striked.projects:widget:next-action'),
@@ -221,6 +226,7 @@ void main() {
     );
 
     await openPluginDetails(tester, 'striked.drops', _drain);
+    await adjustPlacement(tester, 'striked.drops:widget:drops', _drain);
 
     final layout = find.byKey(
       const ValueKey('layout-striked.drops:widget:drops'),

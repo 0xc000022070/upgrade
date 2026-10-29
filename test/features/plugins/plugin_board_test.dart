@@ -2,6 +2,10 @@ import 'dart:io';
 
 import 'package:striked/data/plugin_emblems.dart';
 import 'package:striked/features/plugins/plugin_board.dart';
+import 'package:striked/features/plugins/plugin_catalog.dart';
+import 'package:striked/features/plugins/plugin_graph.dart';
+import 'package:striked/features/plugins/plugin_reach.dart';
+import 'package:striked/platform/plugins/manifest.dart';
 import 'package:striked/platform/plugins/store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -17,47 +21,63 @@ InstalledPlugin _plugin(String name, {required bool enabled}) {
 }
 
 void main() {
-  test('a plugin hangs under its first dependency', () {
-    final rows = boardRows([
+  test('a plugin sits one row below what it needs', () {
+    final graph = pluginGraph([
       _plugin('projects', enabled: false),
       _plugin('drops', enabled: false),
+      _plugin('agents', enabled: false),
     ]);
-    expect(rows.map((r) => r.id), ['striked.drops', 'striked.projects']);
-    expect(rows.map((r) => r.depth), [0, 1]);
-    expect(rows.first.hasChildren, isTrue);
-    expect(rows.any((r) => r.elbowLit || r.childLit || r.topLit), isFalse);
+    expect(graph.rows, [
+      ['striked.drops'],
+      ['striked.projects'],
+    ]);
+    expect(graph.edges, [(from: 'striked.drops', to: 'striked.projects')]);
+    expect(graph.unlinked, ['striked.agents']);
+    expect(graph.missing, isEmpty);
   });
 
-  test('wires light only along a chain that is on from the bus', () {
-    final lit = boardRows([
-      _plugin('drops', enabled: true),
-      _plugin('projects', enabled: true),
+  test('a missing dependency is a node and blocks its dependent', () {
+    final projects = _plugin('projects', enabled: false);
+    final graph = pluginGraph([projects]);
+    expect(graph.missing, {'striked.drops'});
+    expect(graph.rows, [
+      ['striked.drops'],
+      ['striked.projects'],
     ]);
-    expect(lit.map((r) => r.elbowLit), [true, true]);
-    expect(lit.first.childLit, isTrue);
-
-    final cut = boardRows([
-      _plugin('drops', enabled: true),
-      _plugin('projects', enabled: false),
-    ]);
-    expect(cut.map((r) => r.elbowLit), [true, false]);
-    expect(cut.first.childLit, isFalse);
+    expect(
+      blockedReason(projects, {projects.id: projects}),
+      'NEEDS striked.drops · NOT INSTALLED',
+    );
   });
 
-  test(
-    'a missing dependency is a hollow root slot and blocks its dependent',
-    () {
-      final projects = _plugin('projects', enabled: false);
-      final rows = boardRows([projects]);
-      expect(rows.map((r) => r.id), ['striked.drops', 'striked.projects']);
-      expect(rows.first.plugin, isNull);
-      expect(rows.last.depth, 1);
-      expect(
-        blockedReason(projects, {projects.id: projects}),
-        'NEEDS striked.drops · NOT INSTALLED',
-      );
-    },
-  );
+  test('the catalog search wants every word somewhere in the plugin', () {
+    final drops = _plugin('drops', enabled: false);
+    expect(pluginMatches(drops, ''), isTrue);
+    expect(pluginMatches(drops, 'DROPS'), isTrue);
+    expect(pluginMatches(drops, 'striked drops'), isTrue);
+    expect(pluginMatches(drops, 'drops nonsense'), isFalse);
+  });
+
+  test('reach groups a host service into one line', () {
+    final manifest = PluginManifest.parse(
+      File('plugins/agent-schedules/striked.plugin.toml').readAsStringSync(),
+    );
+    final reach = pluginReach(manifest);
+    final scheduler = reach.singleWhere(
+      (r) => r.line.startsWith('USE SCHEDULER ON YOUR HOSTS'),
+    );
+    expect(scheduler.line, contains('PAUSE SCOPE'));
+    expect(
+      reach.map((r) => r.line),
+      contains('READ AND CHANGE ITS OWN PREFERENCES'),
+    );
+    expect(reach.map((r) => r.line), contains('OPEN ITS OWN PAGES'));
+    expect({for (final r in reach) ...r.grants}, manifest.permissions.toSet());
+    expect(
+      reach.fold<int>(0, (sum, r) => sum + r.grants.length),
+      manifest.permissions.length,
+    );
+  });
 
   test('an installed dependency leaves its dependent unblocked', () {
     final drops = _plugin('drops', enabled: false);
@@ -66,6 +86,53 @@ void main() {
       blockedReason(projects, {drops.id: drops, projects.id: projects}),
       isNull,
     );
+  });
+
+  test('an update marks only the run command it adds as new', () {
+    PluginManifest runner(String commands) => PluginManifest.parse('''
+manifest_version = 5
+id = "dev.local.runner"
+name = "Runner"
+purpose = "Run declared commands."
+version = "0.1.0"
+striked_api = "^2.1.0"
+ui_api = 2
+
+[runtime]
+kind = "luau"
+entry = "main.luau"
+
+[permissions]
+ui = ["page"]
+
+[[contributes.pages]]
+id = "main"
+title = "Runner"
+
+[host_capabilities.jobs]
+api_version = 1
+service = "run"
+operations = ["submit", "list", "status", "output", "cancel"]
+$commands
+''');
+    const test = '''
+[host_capabilities.jobs.commands.test]
+argv = ["just", "test"]
+timeout_seconds = 60
+''';
+    const build = '''
+[host_capabilities.jobs.commands.build]
+argv = ["just", "build"]
+timeout_seconds = 60
+''';
+    final old = pluginReach(runner(test));
+    final now = pluginReach(runner('$test$build'));
+    final fresh = [
+      for (final reach in now)
+        if (reachIsNew(reach, old)) reach.line,
+    ];
+    expect(fresh, hasLength(1));
+    expect(fresh.single, contains('just build'));
   });
 
   test('switching carries dependencies on and dependents off first', () {

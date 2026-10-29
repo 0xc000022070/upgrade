@@ -3,11 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:striked/app/static_surface.dart';
 import 'package:striked/application/plugins/plugins.dart';
-import 'package:striked/design/components/segment_switch.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/design/components/screen_scaffold.dart';
 import 'package:striked/features/settings/plugins_panel.dart';
-import 'package:striked/features/plugins/plugin_board.dart';
+import 'package:striked/features/plugins/plugin_catalog.dart';
 
 void openPluginManagement(BuildContext context) {
   Navigator.of(context, rootNavigator: true).push(
@@ -15,24 +14,11 @@ void openPluginManagement(BuildContext context) {
   );
 }
 
-class PluginManagementScreen extends ConsumerStatefulWidget {
+class PluginManagementScreen extends ConsumerWidget {
   const PluginManagementScreen({super.key});
 
   @override
-  ConsumerState<PluginManagementScreen> createState() =>
-      _PluginManagementScreenState();
-}
-
-class _PluginManagementScreenState
-    extends ConsumerState<PluginManagementScreen> {
-  static const _board = 0;
-  static const _browse = 1;
-  static const _sources = 2;
-
-  int _tab = _board;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ready = ref.watch(pluginsProvider).hasValue;
     return Scaffold(
       body: StaticSurface(
@@ -40,26 +26,38 @@ class _PluginManagementScreenState
           title: 'PLUGINS',
           breadcrumb: '/ STRIKED / PLUGINS',
           onBack: () => Navigator.of(context).pop(),
-          header: Padding(
-            padding: const EdgeInsets.only(bottom: Spacing.panelGap),
-            child: SegmentSwitch(
-              labels: const ['BOARD', 'BROWSE', 'SOURCES'],
-              currentIndex: _tab,
-              onSelected: (tab) => setState(() => _tab = tab),
-            ),
-          ),
           children: [
-            switch (_tab) {
-              _browse => PluginBrowseView(
-                onAddSource: () => setState(() => _tab = _sources),
+            PluginCatalogView(
+              onOpen: (plugin) => openPluginSheet(context, installed: plugin),
+              onBrowse: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const PluginBrowseScreen(),
+                ),
               ),
-              _sources => const PluginSourcesView(),
-              _ => PluginBoard(
-                onOpen: (plugin) => openPluginSheet(context, installed: plugin),
-                onAdd: ready ? () => openPluginSheet(context) : null,
-                onBrowse: () => setState(() => _tab = _browse),
-              ),
-            },
+              onAdd: ready ? () => openPluginSheet(context) : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PluginBrowseScreen extends StatelessWidget {
+  const PluginBrowseScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: StaticSurface(
+        child: ScreenScaffold(
+          title: 'BROWSE',
+          breadcrumb: '/ STRIKED / PLUGINS / BROWSE',
+          onBack: () => Navigator.of(context).pop(),
+          children: const [
+            PluginBrowseView(),
+            SizedBox(height: Spacing.panelGap),
+            PluginSourcesView(),
           ],
         ),
       ),

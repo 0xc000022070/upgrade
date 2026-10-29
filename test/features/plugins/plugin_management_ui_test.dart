@@ -4,12 +4,17 @@ import 'package:striked/app/builtin_plugins.dart';
 import 'package:striked/application/plugins/native_plugins.dart';
 import 'package:striked/application/plugins/plugin_placements.dart';
 import 'package:striked/application/plugins/plugins.dart';
+import 'package:striked/application/drops/drop_selection.dart';
+import 'package:striked/application/drops/fresh_drops.dart';
+import 'package:striked/application/home/composer_focus.dart';
 import 'package:striked/application/providers.dart';
 import 'package:striked/data/database.dart';
 import 'package:striked/data/repositories/plugin_placement_repository.dart';
 import 'package:striked/design/colors.dart';
 import 'package:striked/design/components/action_block.dart';
 import 'package:striked/design/components/list_row.dart';
+import 'package:striked/features/home/prompt_bar.dart';
+import 'package:striked/features/plugins/plugin_board.dart';
 import 'package:striked/features/plugins/plugin_management_screen.dart';
 import 'package:striked/features/plugins/plugin_page.dart';
 import 'package:striked/features/settings/plugins_panel.dart';
@@ -180,24 +185,25 @@ void main() {
     );
     await _drain(tester);
 
-    expect(find.text('[ BOARD ]'), findsOneWidget);
-    expect(find.byKey(const ValueKey('key-striked.drops')), findsOneWidget);
-    expect(find.byKey(const ValueKey('key-striked.projects')), findsOneWidget);
-    expect(find.text('AGENTS CARD'), findsOneWidget);
+    expect(find.text('[ INSTALLED ]'), findsOneWidget);
+    expect(find.byKey(const ValueKey('node-striked.drops')), findsOneWidget);
+    expect(find.byKey(const ValueKey('node-striked.projects')), findsOneWidget);
+    expect(find.byKey(const ValueKey('node-striked.agents')), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await openPluginDetails(tester, 'striked.drops', _drain);
 
-    expect(find.text('[ ADDS ]'), findsOneWidget);
-    expect(find.text('NOTHING · RUNS ON ITS OWN'), findsOneWidget);
-    expect(find.text('[ UNLOCKS ]'), findsOneWidget);
-    expect(find.text('ACTIONS'), findsOneWidget);
+    expect(find.text('[ PREVIEW ]'), findsOneWidget);
+    expect(find.text('[ WHERE IT SITS ]'), findsOneWidget);
+    expect(find.text('[ NEEDED BY ]'), findsOneWidget);
+    expect(find.text('[ NEEDS ]'), findsNothing);
     expect(find.text('SHOW TECHNICAL DIAGNOSTICS'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     final captureLayout = find.byKey(
       const ValueKey('layout-striked.drops:widget:capture'),
     );
+    await adjustPlacement(tester, 'striked.drops:widget:capture', _drain);
     final remove = find.descendant(
       of: captureLayout,
       matching: find.text('OFF'),
@@ -206,6 +212,96 @@ void main() {
     await tester.tap(remove);
     await _drain(tester);
     expect(find.textContaining('CAPTURE · NOT PLACED'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('a bar in the preview leaves the Home bar alone', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final prompt = builtinFixture('prompt');
+    final catalog = [
+      InstalledPlugin(prompt, prompt.manifest.permissions, enabled: true),
+    ];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _catalogOverrides(db, catalog),
+        child: MaterialApp(
+          theme: testTheme,
+          home: const PluginManagementScreen(),
+        ),
+      ),
+    );
+    await _drain(tester);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(PluginManagementScreen)),
+    );
+    final home = Object();
+    container.read(promptDraftProvider).text = 'home draft';
+    container.read(composerSummaryProvider.notifier).report(home, 'HOME');
+    final focus = container.read(composerFocusRequestProvider);
+
+    await openPluginDetails(tester, 'striked.prompt', _drain);
+    final specimen = find.byKey(const ValueKey('specimen-prompt'));
+    expect(
+      find.descendant(of: specimen, matching: find.text('LIVE')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: specimen, matching: find.byType(PromptBar)),
+      findsOneWidget,
+    );
+
+    Navigator.of(tester.element(specimen)).pop();
+    await _drain(tester);
+    expect(find.byType(PromptBar), findsNothing);
+    expect(container.read(composerSummaryProvider), 'HOME');
+    expect(container.read(promptDraftProvider).text, 'home draft');
+    expect(container.read(composerFocusRequestProvider), focus);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('a drops card in the preview keeps Home\'s fresh marks', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: featureTestOverrides(db),
+        child: MaterialApp(
+          theme: testTheme,
+          home: const PluginManagementScreen(),
+        ),
+      ),
+    );
+    await _drain(tester);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(PluginManagementScreen)),
+    );
+    container
+        .read(freshDropsProvider.notifier)
+        .add(DropSelection.homeScope, 'drop-1');
+
+    await openPluginDetails(tester, 'striked.drops', _drain);
+    final specimen = find.byKey(const ValueKey('specimen-drops'));
+    expect(
+      find.descendant(of: specimen, matching: find.text('LIVE')),
+      findsOneWidget,
+    );
+    Navigator.of(tester.element(specimen)).pop();
+    await _drain(tester);
+    expect(
+      container
+          .read(freshDropsProvider)
+          .holds(DropSelection.homeScope, 'drop-1'),
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
@@ -282,7 +378,7 @@ void main() {
     );
     expect(
       tester.getTopLeft(failure).dy,
-      lessThan(tester.getTopLeft(find.text('[ ADDS ]')).dy),
+      lessThan(tester.getTopLeft(find.text('[ WHERE IT SITS ]')).dy),
     );
     expect(
       tester.getTopLeft(failure).dy,
@@ -294,7 +390,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets('a key that carries a dependency arms before it switches', (
+  testWidgets('an enable that carries a dependency arms before it switches', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(420, 1400));
@@ -310,53 +406,33 @@ void main() {
     await _drain(tester);
     expect(find.text('0 ON · 3 OFF'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('key-striked.projects')));
-    await _drain(tester);
-    expect(plugins.switched, isEmpty);
-    final projectsSwitch = find.byKey(
-      const ValueKey('switch-striked.projects'),
-    );
-    expect(
-      find.descendant(of: projectsSwitch, matching: find.text('POWER UP')),
-      findsOneWidget,
-    );
+    await openPluginDetails(tester, 'striked.projects', _drain);
     expect(find.text('ALSO TURNS ON DROPS'), findsOneWidget);
-
-    await tester.tap(projectsSwitch);
+    final enable = find.widgetWithText(ActionBlock, 'ENABLE');
+    await tester.ensureVisible(enable);
+    await tester.pump();
+    await tester.tap(enable);
     await _drain(tester);
-    expect(find.text('GOES ON'), findsNWidgets(2));
     expect(plugins.switched, isEmpty);
-    expect(find.text('TAP AGAIN · SWITCH 2'), findsOneWidget);
+    final again = find.widgetWithText(ActionBlock, 'TAP AGAIN · SWITCH 2');
+    expect(again, findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 3));
-    expect(find.text('GOES ON'), findsNothing);
+    await tester.pump(pluginArmWindow);
+    expect(again, findsNothing);
 
-    await tester.tap(projectsSwitch);
+    await tester.tap(enable);
     await _drain(tester);
-    await tester.tap(projectsSwitch);
+    await tester.tap(again);
     await _drain(tester);
     expect(plugins.switched, ['striked.drops', 'striked.projects']);
     expect(find.text('2 ON · 1 OFF'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('key-striked.drops')));
-    await _drain(tester);
-    final dropsSwitch = find.byKey(const ValueKey('switch-striked.drops'));
-    await tester.tap(dropsSwitch);
-    await _drain(tester);
-    expect(find.text('GOES OFF'), findsNWidgets(2));
-    await tester.tap(dropsSwitch);
-    await _drain(tester);
-    expect(plugins.switched.skip(2), ['striked.projects', 'striked.drops']);
-    expect(find.text('0 ON · 3 OFF'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets('the sheet switch carries dependents the way the board does', (
-    tester,
-  ) async {
+  testWidgets('the sheet switch carries dependents off first', (tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 1400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final catalog = builtinFixtures(enabled: true);
@@ -370,7 +446,7 @@ void main() {
     await _drain(tester);
 
     await openPluginDetails(tester, 'striked.drops', _drain);
-    expect(find.text('ALSO TURNS OFF PROJECTS'), findsNWidgets(2));
+    expect(find.text('ALSO TURNS OFF PROJECTS'), findsOneWidget);
 
     final disable = find.widgetWithText(ActionBlock, 'DISABLE');
     await tester.ensureVisible(disable);
@@ -391,7 +467,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets('a missing dependency is a hollow slot that opens BROWSE', (
+  testWidgets('a missing dependency is a graph node that opens BROWSE', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(420, 1400));
@@ -411,18 +487,27 @@ void main() {
       ),
     );
     await _drain(tester);
-    expect(find.text('MISSING'), findsOneWidget);
-    expect(find.text('NEEDS striked.drops · NOT INSTALLED'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('node-striked.projects')),
+        matching: find.text('LOCKED'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('0 ON · 0 OFF · 1 BLOCKED'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('key-striked.projects')));
+    final missing = find.byKey(const ValueKey('node-striked.drops'));
+    expect(
+      find.descendant(of: missing, matching: find.text('MISSING')),
+      findsOneWidget,
+    );
+    await tester.tap(missing);
     await _drain(tester);
     expect(plugins.switched, isEmpty);
-
-    await tester.tap(find.byKey(const ValueKey('key-striked.drops')));
-    await _drain(tester);
     expect(
-      find.text('No plugins to browse. Add a source to load its catalog.'),
+      find.text(
+        'No plugins to browse. Add a source below to load its catalog.',
+      ),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
@@ -431,7 +516,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets('empty browse offers ADD SOURCE, which switches to SOURCES', (
+  testWidgets('BROWSE opens the index with its sources under it', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(420, 1400));
@@ -452,11 +537,11 @@ void main() {
     await tester.tap(find.text('BROWSE'));
     await _drain(tester);
     expect(
-      find.text('No plugins to browse. Add a source to load its catalog.'),
+      find.text(
+        'No plugins to browse. Add a source below to load its catalog.',
+      ),
       findsOneWidget,
     );
-    await tester.tap(find.text('ADD SOURCE'));
-    await _drain(tester);
     expect(find.text('[ SOURCES ]'), findsOneWidget);
     expect(find.byType(TextField), findsNWidgets(2));
     expect(tester.takeException(), isNull);
@@ -464,7 +549,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets('sources are added and removed under SOURCES', (tester) async {
+  testWidgets('sources are added and removed under BROWSE', (tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 1400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final existing = PluginSource(
@@ -485,7 +570,7 @@ void main() {
     );
     await _drain(tester);
 
-    await tester.tap(find.text('SOURCES'));
+    await tester.tap(find.text('BROWSE'));
     await _drain(tester);
     expect(find.text('https://github.com/x/existing'), findsOneWidget);
 
@@ -603,61 +688,59 @@ void main() {
 
     await tester.tap(find.text('test.new'));
     await _drain(tester);
-    expect(
-      tester.widget<TextField>(find.byType(TextField).first).controller!.text,
-      'https://github.com/x/new',
+    Finder holding(String text) => find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.controller?.text == text,
     );
-    expect(
-      tester.widget<TextField>(find.byType(TextField).at(1)).controller!.text,
-      'v2.0.0',
-    );
+    expect(holding('https://github.com/x/new'), findsOneWidget);
+    expect(holding('v2.0.0'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets('a workspace install stays open on ADDS with its dev source', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(420, 1400));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final plugins = _InstallingPlugins(const []);
-    final package = _workspace();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: _catalogOverrides(db, const [], plugins: () => plugins),
-        child: MaterialApp(
-          theme: testTheme,
-          home: Builder(
-            builder: (context) => TextButton(
-              onPressed: () => openPluginSheet(
-                context,
-                package: package,
-                source: 'DEV · VM:~/hello',
+  testWidgets(
+    'a workspace install stays open on its sheet with its dev source',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(420, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final plugins = _InstallingPlugins(const []);
+      final package = _workspace();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: _catalogOverrides(db, const [], plugins: () => plugins),
+          child: MaterialApp(
+            theme: testTheme,
+            home: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => openPluginSheet(
+                  context,
+                  package: package,
+                  source: 'DEV · VM:~/hello',
+                ),
+                child: const Text('OPEN'),
               ),
-              child: const Text('OPEN'),
             ),
           ),
         ),
-      ),
-    );
-    await _drain(tester);
-    await tester.tap(find.text('OPEN'));
-    await _drain(tester);
+      );
+      await _drain(tester);
+      await tester.tap(find.text('OPEN'));
+      await _drain(tester);
 
-    expect(find.textContaining('DEV · VM:~/hello\nr1'), findsOneWidget);
-    final install = find.widgetWithText(ActionBlock, 'INSTALL');
-    await tester.ensureVisible(install);
-    await tester.tap(install);
-    await _drain(tester);
+      expect(find.textContaining('DEV · VM:~/hello\nr1'), findsOneWidget);
+      final install = find.widgetWithText(ActionBlock, 'INSTALL');
+      await tester.ensureVisible(install);
+      await tester.tap(install);
+      await _drain(tester);
 
-    expect(plugins.installed.single.digest, package.digest);
-    expect(find.text('[ ADDS ]'), findsOneWidget);
-    expect(find.widgetWithText(ActionBlock, 'REMOVE'), findsOneWidget);
-    expect(tester.takeException(), isNull);
+      expect(plugins.installed.single.digest, package.digest);
+      expect(find.text('[ WHERE IT SITS ]'), findsOneWidget);
+      expect(find.widgetWithText(ActionBlock, 'REMOVE'), findsOneWidget);
+      expect(tester.takeException(), isNull);
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(milliseconds: 1));
-  });
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
 }

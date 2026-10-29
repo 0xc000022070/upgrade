@@ -185,7 +185,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final split = _HomeTiles.splits(
-                math.min(constraints.maxWidth, _maxContentWidth) -
+                math.min(constraints.maxWidth, homeMaxContentWidth) -
                     2 * Spacing.screenEdge,
                 tiles,
               );
@@ -197,7 +197,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onHorizontalDragCancel: () => _swipe = 0,
                 child: ScreenScaffold(
                   fill: split,
-                  maxContentWidth: _maxContentWidth,
+                  maxContentWidth: homeMaxContentWidth,
                   breadcrumbTrailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -266,7 +266,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-const _maxContentWidth = 1100.0;
+const homeMaxContentWidth = 1100.0;
 
 (double, double) _bounds(
   PluginWidgetRegistration registration,

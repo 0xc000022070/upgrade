@@ -45,7 +45,7 @@ String _pageLabel(PluginPageRegistration page) {
       : '${title.toUpperCase()} · ${plugin.toUpperCase()}';
 }
 
-void _openPage(BuildContext context, PluginPageRegistration page) {
+void openPluginPage(BuildContext context, PluginPageRegistration page) {
   Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => page.native
@@ -226,7 +226,7 @@ class PluginLibraryScreen extends ConsumerWidget {
                         titleMaxLines: 2,
                         subtitle: page.owner.manifest.purpose,
                         node: true,
-                        onTap: () => _openPage(context, page),
+                        onTap: () => openPluginPage(context, page),
                       ),
                     ),
                   Semantics(

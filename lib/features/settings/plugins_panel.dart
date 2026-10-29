@@ -27,7 +27,17 @@ import 'package:striked/platform/plugins/contributions.dart';
 import 'package:striked/platform/plugins/index.dart';
 import 'package:striked/platform/plugins/store.dart';
 import 'package:striked/features/plugins/plugin_board.dart';
+import 'package:striked/application/drops/capture_visibility.dart';
+import 'package:striked/application/drops/drop_selection.dart';
+import 'package:striked/application/drops/fresh_drops.dart';
+import 'package:striked/application/home/composer_focus.dart';
+import 'package:striked/features/home/capture_draft.dart';
+import 'package:striked/features/home/home_card_viewport.dart';
+import 'package:striked/features/home/home_screen.dart';
+import 'package:striked/features/home/prompt_bar.dart';
+import 'package:striked/features/plugins/plugin_card.dart';
 import 'package:striked/features/plugins/plugin_page.dart';
+import 'package:striked/features/plugins/plugin_reach.dart';
 
 void openPluginSheet(
   BuildContext context, {
@@ -276,7 +286,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
     ],
   ];
 
-  List<Widget> _overview(
+  List<Widget> _head(
     PluginManifest manifest,
     List<InstalledPlugin> catalog, {
     required InstalledPlugin? shown,
@@ -293,8 +303,12 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
               }),
       ),
       const SizedBox(height: Spacing.lg),
-      _ItemStats(manifest: manifest, on: installed?.enabled ?? false),
-      const SizedBox(height: Spacing.lg),
+    ];
+  }
+
+  List<Widget> _links(PluginManifest manifest, List<InstalledPlugin> catalog) {
+    final installed = _installed;
+    return [
       _ItemChain(
         manifest: manifest,
         catalog: catalog,
@@ -308,7 +322,6 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                   )
                   .toList(),
       ),
-      const SizedBox(height: Spacing.lg),
       if (manifest.summary != null) _fact('SUMMARY', manifest.summary!),
       if (manifest.author != null) _fact('AUTHOR', manifest.author!),
       if (manifest.homepage != null) _fact('HOMEPAGE', manifest.homepage!),
@@ -316,40 +329,39 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
     ];
   }
 
+  Widget _reach(
+    PluginManifest manifest,
+    List<InstalledPlugin> catalog, {
+    PluginManifest? old,
+  }) {
+    final names = {
+      for (final plugin in catalog) plugin.id: plugin.manifest.name,
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.lg),
+      child: SheetField(
+        label: 'IT CAN',
+        child: _ItCan(
+          reach: pluginReach(manifest, names: names),
+          old: old == null ? null : pluginReach(old, names: names),
+        ),
+      ),
+    );
+  }
+
   List<Widget> _review(PluginPackage package, List<InstalledPlugin> catalog) {
     final manifest = package.manifest;
-    final installed = _installed;
-    final old = installed?.manifest.permissions ?? <PluginPermission>{};
     return [
       if (_error != null) ...[_errorText(), const SheetRule()],
-      ..._overview(manifest, catalog, shown: null),
+      ..._head(manifest, catalog, shown: null),
+      _PluginPreview(manifest: manifest, installed: null),
+      ..._links(manifest, catalog),
       _TrustNote(origin: widget.source ?? package.origin),
       _fact(
         'SOURCE REVISION',
         '${widget.source ?? package.origin}\n${package.revision}',
       ),
-      SheetField(
-        label: 'REQUESTED CAPABILITIES',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (manifest.permissions.isEmpty)
-              Text('NONE', style: context.tokens.rowSubtitle),
-            for (final permission in manifest.permissions)
-              Padding(
-                padding: const EdgeInsets.only(bottom: Spacing.md),
-                child: Text(
-                  '${installed != null && !old.contains(permission) ? 'NEW · ' : ''}${permission.id}\n${permission.description}',
-                  style: installed != null && !old.contains(permission)
-                      ? context.tokens.rowSubtitle.copyWith(
-                          color: context.tokens.warning,
-                        )
-                      : context.tokens.rowSubtitle,
-                ),
-              ),
-          ],
-        ),
-      ),
+      _reach(manifest, catalog, old: _installed?.manifest),
       ..._diagnosticsSection(package),
       ActionBlock(
         label: _busy ? 'INSTALLING' : 'INSTALL',
@@ -380,7 +392,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
               id,
     ];
     return [
-      ..._overview(manifest, catalog, shown: installed),
+      ..._head(manifest, catalog, shown: installed),
       ActionBlock(
         label: _busy
             ? 'UPDATING'
@@ -404,13 +416,12 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
           ),
         ),
       ],
-      if (_error != null) ...[
-        const SizedBox(height: Spacing.md),
-        _errorText(),
-        const SizedBox(height: Spacing.md),
-      ],
+      if (_error != null) ...[const SizedBox(height: Spacing.md), _errorText()],
       const SizedBox(height: Spacing.lg),
-      _PluginAdds(plugin: installed),
+      _PluginPreview(manifest: manifest, installed: installed),
+      _WhereItSits(plugin: installed),
+      _reach(manifest, catalog),
+      ..._links(manifest, catalog),
       ..._diagnosticsSection(installed.package),
       if (_diagnostics)
         ...manifest.native
@@ -434,20 +445,6 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                 ),
         ),
       ],
-      if (installed.enabled)
-        for (final page in manifest.pages)
-          PanelTextAction(
-            label: 'OPEN ${page.title.toUpperCase()}',
-            onTap: () {
-              final navigator = Navigator.of(context);
-              navigator.pop();
-              navigator.push(
-                MaterialPageRoute<void>(
-                  builder: (_) => PluginPage(plugin: installed, page: page),
-                ),
-              );
-            },
-          ),
       Wrap(
         spacing: Spacing.md,
         runSpacing: Spacing.md,
@@ -671,7 +668,7 @@ class _TrustNote extends StatelessWidget {
         const SizedBox(height: Spacing.sm),
         Text(
           'This runs code from ${origin.replaceFirst('https://github.com/', '')} on this phone. '
-          'It reaches only the capabilities below. Its limits are cooperative, '
+          'It reaches only what IT CAN lists below. Its limits are cooperative, '
           'not an operating-system boundary: install what you would run yourself.',
           style: context.tokens.rowSubtitle,
         ),
@@ -811,9 +808,7 @@ class _PluginSourcesViewState extends ConsumerState<PluginSourcesView> {
 }
 
 class PluginBrowseView extends ConsumerWidget {
-  const PluginBrowseView({super.key, required this.onAddSource});
-
-  final VoidCallback onAddSource;
+  const PluginBrowseView({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -838,14 +833,11 @@ class PluginBrowseView extends ConsumerWidget {
                   ),
                 ),
               ),
-            if (data.entries.isEmpty && data.failedSources.isEmpty) ...[
+            if (data.entries.isEmpty && data.failedSources.isEmpty)
               Text(
-                'No plugins to browse. Add a source to load its catalog.',
+                'No plugins to browse. Add a source below to load its catalog.',
                 style: context.tokens.rowSubtitle,
               ),
-              const SizedBox(height: Spacing.md),
-              ActionBlock(label: 'ADD SOURCE', onTap: onAddSource),
-            ],
             for (final browseEntry in data.entries)
               ListRow(
                 leading: _browseBadge(browseEntry.entry, installed),
@@ -887,17 +879,18 @@ Widget _browseBadge(PluginIndexEntry entry, List<InstalledPlugin> installed) {
   );
 }
 
-class _PluginAdds extends ConsumerStatefulWidget {
-  const _PluginAdds({required this.plugin});
+class _WhereItSits extends ConsumerStatefulWidget {
+  const _WhereItSits({required this.plugin});
 
   final InstalledPlugin plugin;
 
   @override
-  ConsumerState<_PluginAdds> createState() => _PluginAddsState();
+  ConsumerState<_WhereItSits> createState() => _WhereItSitsState();
 }
 
-class _PluginAddsState extends ConsumerState<_PluginAdds> {
+class _WhereItSitsState extends ConsumerState<_WhereItSits> {
   String? _error;
+  String? _open;
 
   Future<void> _run(Future<void> Function() action) async {
     try {
@@ -975,88 +968,108 @@ class _PluginAddsState extends ConsumerState<_PluginAdds> {
         .where((owner) => owner.plugin.id == widget.plugin.id)
         .firstOrNull;
     final actions = widget.plugin.manifest.actions;
-    return SheetField(
-      label: 'ADDS',
-      child: placements.when(
-        loading: () => const DelayedSpinner(),
-        error: (error, _) => Text('$error', style: context.tokens.rowSubtitle),
-        data: (state) {
-          final widgets = owner?.widgets ?? const <PluginWidgetRegistration>[];
-          final pages = owner?.pages ?? const <PluginPageRegistration>[];
-          if (widgets.isEmpty && pages.isEmpty && actions.isEmpty) {
-            return Text(
-              'NOTHING TO PLACE · IT WORKS IN THE BACKGROUND',
-              style: context.tokens.rowSubtitle,
-            );
-          }
-          final controller = ref.read(pluginPlacementsProvider.notifier);
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_error != null) ...[
-                Text(
-                  _error!,
-                  style: context.tokens.rowSubtitle.copyWith(
-                    color: context.tokens.danger,
+    return placements.when(
+      loading: () => const DelayedSpinner(),
+      error: (error, _) => Text('$error', style: context.tokens.rowSubtitle),
+      data: (state) {
+        final widgets = owner?.widgets ?? const <PluginWidgetRegistration>[];
+        final pages = owner?.pages ?? const <PluginPageRegistration>[];
+        if (widgets.isEmpty && pages.isEmpty && actions.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        final controller = ref.read(pluginPlacementsProvider.notifier);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: Spacing.lg),
+          child: SheetField(
+            label: 'WHERE IT SITS',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_error != null) ...[
+                  Text(
+                    _error!,
+                    style: context.tokens.rowSubtitle.copyWith(
+                      color: context.tokens.danger,
+                    ),
                   ),
-                ),
-                const SizedBox(height: Spacing.md),
-              ],
-              for (final registration in widgets)
-                _AddsBlock(
-                  key: ValueKey('layout-${registration.stableId}'),
-                  heading: _PlacementPreview(
-                    widget: registration,
-                    state: state,
-                  ),
-                  children: _widgetControls(registration, state, controller),
-                ),
-              for (final page in pages)
-                _AddsBlock(
-                  key: ValueKey('layout-${page.stableId}'),
-                  heading: Text(
-                    '${page.contribution.title.toUpperCase()} · PAGE',
-                    style: context.tokens.rowSubtitle,
-                  ),
-                  children: [
-                    _Choice(
-                      label: 'OPENS FROM',
-                      options: const ['TAB', 'TOOLS'],
-                      selected: state.pinnedPages.contains(page.stableId)
-                          ? 0
-                          : 1,
-                      onSelected: (index) => index == 0
-                          ? _pin(page, state)
-                          : _run(
-                              () => controller.setPagePinned(
-                                page.stableId,
-                                false,
-                              ),
+                  const SizedBox(height: Spacing.md),
+                ],
+                for (final registration in widgets)
+                  _AddsBlock(
+                    key: ValueKey('layout-${registration.stableId}'),
+                    heading: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _PlacementSummary(widget: registration, state: state),
+                        PanelTextAction(
+                          key: ValueKey('adjust-${registration.stableId}'),
+                          label: _open == registration.stableId
+                              ? 'DONE'
+                              : 'ADJUST',
+                          onTap: () => setState(
+                            () => _open = _open == registration.stableId
+                                ? null
+                                : registration.stableId,
+                          ),
+                        ),
+                      ],
+                    ),
+                    children: _open == registration.stableId
+                        ? [
+                            ..._widgetControls(registration, state, controller),
+                            Text(
+                              'CHANGES SAVE AS YOU TAP',
+                              style: context.tokens.label,
                             ),
-                    ),
-                  ],
-                ),
-              for (final action in actions)
-                _AddsBlock(
-                  key: ValueKey('adds-action-${action.id}'),
-                  heading: Text(
-                    '${action.title.toUpperCase()} · ACTION',
-                    style: context.tokens.rowSubtitle,
+                          ]
+                        : const [],
                   ),
-                  children: [
-                    Text(
-                      widget.plugin.enabled
-                          ? 'RUNS FROM A DROP · YOU APPROVE WHAT IT CHANGES'
-                          : 'APPEARS ON DROPS ONCE THIS PLUGIN IS ON',
-                      style: context.tokens.label,
+                for (final page in pages)
+                  _AddsBlock(
+                    key: ValueKey('layout-${page.stableId}'),
+                    heading: Text(
+                      '${page.contribution.title.toUpperCase()} · PAGE',
+                      style: context.tokens.rowSubtitle,
                     ),
-                  ],
-                ),
-              Text('CHANGES SAVE AS YOU TAP', style: context.tokens.label),
-            ],
-          );
-        },
-      ),
+                    children: [
+                      _Choice(
+                        label: 'OPENS FROM',
+                        options: const ['TAB', 'TOOLS'],
+                        selected: state.pinnedPages.contains(page.stableId)
+                            ? 0
+                            : 1,
+                        onSelected: (index) => index == 0
+                            ? _pin(page, state)
+                            : _run(
+                                () => controller.setPagePinned(
+                                  page.stableId,
+                                  false,
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
+                for (final action in actions)
+                  _AddsBlock(
+                    key: ValueKey('adds-action-${action.id}'),
+                    heading: Text(
+                      '${action.title.toUpperCase()} · ACTION',
+                      style: context.tokens.rowSubtitle,
+                    ),
+                    children: [
+                      Text(
+                        widget.plugin.enabled
+                            ? 'RUNS FROM A DROP · YOU APPROVE WHAT IT CHANGES'
+                            : 'APPEARS ON DROPS ONCE THIS PLUGIN IS ON',
+                        style: context.tokens.label,
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1289,8 +1302,8 @@ class _Choice extends StatelessWidget {
   );
 }
 
-class _PlacementPreview extends StatelessWidget {
-  const _PlacementPreview({required this.widget, required this.state});
+class _PlacementSummary extends StatelessWidget {
+  const _PlacementSummary({required this.widget, required this.state});
 
   final PluginWidgetRegistration widget;
   final PluginPlacementState state;
@@ -1298,15 +1311,12 @@ class _PlacementPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final contribution = widget.contribution;
-    final location = state.placements[widget.stableId];
+    final id = widget.stableId;
+    final location = state.placements[id];
     final size = contribution.size(
-      state.selectedSizes[widget.stableId] ?? contribution.defaultSize,
+      state.selectedSizes[id] ?? contribution.defaultSize,
     );
-    final range = state.selectedWidths[widget.stableId];
-    final shape = switch (location) {
-      final placed? => _longPlace(placed),
-      null => 'NOT PLACED',
-    };
+    final range = state.selectedWidths[id];
     final dimensions = switch ((size.fixedWidth, range)) {
       (final fixed?, _) => '${fixed.toStringAsFixed(0)} WIDE',
       (_, (:final min, :final max)?) when min == max =>
@@ -1316,7 +1326,17 @@ class _PlacementPreview extends StatelessWidget {
       _ => 'AUTO WIDTH',
     };
     return Text(
-      '${contribution.title.toUpperCase()} · $shape · $dimensions',
+      [
+        contribution.title.toUpperCase(),
+        switch (location) {
+          final placed? => _longPlace(placed),
+          null => 'NOT PLACED',
+        },
+        if (location == PluginPlacementLocation.homeCard) ...[
+          state.hiddenHome.contains(id) ? 'HIDDEN' : 'SHOWN',
+          dimensions,
+        ],
+      ].join(' · '),
       style: context.tokens.rowSubtitle,
     );
   }
@@ -1373,75 +1393,6 @@ class _ItemHeader extends StatelessWidget {
   }
 }
 
-class _ItemStats extends StatelessWidget {
-  const _ItemStats({required this.manifest, required this.on});
-
-  final PluginManifest manifest;
-  final bool on;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final stats = [
-      ('PAGES', manifest.pages.length),
-      ('WIDGETS', manifest.widgets.length),
-      ('ACTIONS', manifest.actions.length),
-      ('CAPABILITIES', manifest.permissions.length),
-    ];
-    return Wrap(
-      spacing: Spacing.sm,
-      runSpacing: Spacing.sm,
-      children: [
-        for (final (name, count) in stats)
-          Container(
-            constraints: const BoxConstraints(minWidth: 72),
-            padding: const EdgeInsets.symmetric(
-              horizontal: Spacing.md,
-              vertical: Spacing.sm,
-            ),
-            margin: const EdgeInsets.only(bottom: 4),
-            decoration: BoxDecoration(
-              color: tokens.surfaceSecondary,
-              borderRadius: BorderRadius.circular(2),
-              border: Border.all(
-                color: on && count > 0 ? tokens.accent : tokens.borderNormal,
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: on && count > 0
-                      ? Color.lerp(
-                          tokens.accent,
-                          tokens.backgroundPrimary,
-                          0.6,
-                        )!
-                      : tokens.backgroundPrimary,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$count',
-                  style: tokens.heroName.copyWith(
-                    color: count == 0
-                        ? tokens.textDisabled
-                        : on
-                        ? tokens.accent
-                        : tokens.textPrimary,
-                  ),
-                ),
-                Text(name, style: tokens.label),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 class _ItemChain extends StatelessWidget {
   const _ItemChain({
     required this.manifest,
@@ -1455,68 +1406,70 @@ class _ItemChain extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = context.tokens;
     InstalledPlugin? find(String id) =>
         catalog.where((plugin) => plugin.id == id).firstOrNull;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SheetField(
-          label: 'REQUIRES',
-          child: manifest.dependencies.isEmpty
-              ? Text('NOTHING · RUNS ON ITS OWN', style: tokens.label)
-              : Wrap(
-                  spacing: Spacing.md,
-                  runSpacing: Spacing.sm,
-                  children: [
-                    for (final entry in manifest.dependencies.entries)
-                      switch (find(entry.key)) {
-                        null => _ChainChip(
-                          id: entry.key,
-                          name: entry.key,
-                          state: 'MISSING',
-                          missing: true,
-                        ),
-                        final target
-                            when !entry.value.allows(target.manifest.version) =>
-                          _ChainChip(
-                            id: target.id,
-                            emblem: target.manifest.emblem,
-                            name: target.manifest.name,
-                            state: 'NEEDS ${entry.value}',
-                            blocked: true,
-                          ),
-                        final target => _ChainChip(
+        if (manifest.dependencies.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: Spacing.lg),
+            child: SheetField(
+              label: 'NEEDS',
+              child: Wrap(
+                spacing: Spacing.md,
+                runSpacing: Spacing.sm,
+                children: [
+                  for (final entry in manifest.dependencies.entries)
+                    switch (find(entry.key)) {
+                      null => _ChainChip(
+                        id: entry.key,
+                        name: entry.key,
+                        state: 'MISSING',
+                        missing: true,
+                      ),
+                      final target
+                          when !entry.value.allows(target.manifest.version) =>
+                        _ChainChip(
                           id: target.id,
                           emblem: target.manifest.emblem,
                           name: target.manifest.name,
-                          state: target.enabled ? 'ON' : 'OFF',
-                          on: target.enabled,
+                          state: 'NEEDS ${entry.value}',
+                          blocked: true,
                         ),
-                      },
-                  ],
-                ),
-        ),
-        if (usedBy.isNotEmpty) ...[
-          const SizedBox(height: Spacing.md),
-          SheetField(
-            label: 'UNLOCKS',
-            child: Wrap(
-              spacing: Spacing.md,
-              runSpacing: Spacing.sm,
-              children: [
-                for (final plugin in usedBy)
-                  _ChainChip(
-                    id: plugin.id,
-                    emblem: plugin.manifest.emblem,
-                    name: plugin.manifest.name,
-                    state: plugin.enabled ? 'ON' : 'OFF',
-                    on: plugin.enabled,
-                  ),
-              ],
+                      final target => _ChainChip(
+                        id: target.id,
+                        emblem: target.manifest.emblem,
+                        name: target.manifest.name,
+                        state: target.enabled ? 'ON' : 'OFF',
+                        on: target.enabled,
+                      ),
+                    },
+                ],
+              ),
             ),
           ),
-        ],
+        if (usedBy.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: Spacing.lg),
+            child: SheetField(
+              label: 'NEEDED BY',
+              child: Wrap(
+                spacing: Spacing.md,
+                runSpacing: Spacing.sm,
+                children: [
+                  for (final plugin in usedBy)
+                    _ChainChip(
+                      id: plugin.id,
+                      emblem: plugin.manifest.emblem,
+                      name: plugin.manifest.name,
+                      state: plugin.enabled ? 'ON' : 'OFF',
+                      on: plugin.enabled,
+                    ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1568,6 +1521,438 @@ class _ChainChip extends StatelessWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _ItCan extends StatelessWidget {
+  const _ItCan({required this.reach, required this.old});
+
+  final List<PluginReach> reach;
+
+  final List<PluginReach>? old;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    if (reach.isEmpty) {
+      return Text('NOTHING BEYOND WHAT IT DRAWS', style: tokens.label);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final entry in reach)
+          if (old != null && reachIsNew(entry, old!))
+            Padding(
+              padding: const EdgeInsets.only(bottom: Spacing.sm),
+              child: Text(
+                'NEW · ${entry.line}',
+                style: tokens.label.copyWith(color: tokens.warning),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(bottom: Spacing.sm),
+              child: Text(
+                entry.line,
+                style: tokens.label.copyWith(color: tokens.textPrimary),
+              ),
+            ),
+      ],
+    );
+  }
+}
+
+class _PluginPreview extends ConsumerWidget {
+  const _PluginPreview({required this.manifest, required this.installed});
+
+  final PluginManifest manifest;
+  final InstalledPlugin? installed;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final placements = ref.watch(pluginPlacementsProvider).valueOrNull;
+    final owner = installed == null
+        ? null
+        : ref
+              .watch(pluginContributionCatalogProvider)
+              .owners
+              .where((owner) => owner.plugin.id == installed!.id)
+              .firstOrNull;
+    final live = installed?.enabled ?? false;
+    final registrations = {
+      for (final registration in owner?.widgets ?? <PluginWidgetRegistration>[])
+        registration.contribution.id: registration,
+    };
+    final pages = {
+      for (final page in owner?.pages ?? <PluginPageRegistration>[])
+        page.contribution.id: page,
+    };
+    final idle = installed == null
+        ? 'INSTALL TO SEE IT LIVE'
+        : 'TURN IT ON TO SEE IT LIVE';
+    var serial = 0;
+    String label(String name) =>
+        'SPECIMEN ${(++serial).toString().padLeft(2, '0')} · $name';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.lg),
+      child: SheetField(
+        label: 'PREVIEW',
+        child: manifest.widgets.isEmpty && manifest.pages.isEmpty
+            ? Text(
+                'NOTHING TO SEE · IT WORKS IN THE BACKGROUND',
+                style: context.tokens.label,
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final contribution in manifest.widgets)
+                    _Specimen(
+                      key: ValueKey('specimen-${contribution.id}'),
+                      label: label(
+                        '${contribution.title.toUpperCase()} '
+                        '${_shortPlace(contribution.defaultLocation)}',
+                      ),
+                      live:
+                          live &&
+                          registrations[contribution.id] != null &&
+                          _WidgetSpecimen.fit(
+                                context,
+                                contribution,
+                                registrations[contribution.id],
+                                placements,
+                              ).refusal ==
+                              null,
+                      child: _WidgetSpecimen(
+                        contribution: contribution,
+                        registration: live
+                            ? registrations[contribution.id]
+                            : null,
+                        placements: placements,
+                        idle: idle,
+                      ),
+                    ),
+                  for (final contribution in manifest.pages)
+                    _Specimen(
+                      key: ValueKey('specimen-${contribution.id}'),
+                      label: label('${contribution.title.toUpperCase()} PAGE'),
+                      live: live && pages[contribution.id] != null,
+                      child: _PageSpecimen(
+                        page: live ? pages[contribution.id] : null,
+                        pinned: switch (pages[contribution.id]) {
+                          final page? when placements != null =>
+                            placements.pinnedPages.contains(page.stableId),
+                          _ => contribution.defaultPinned,
+                        },
+                      ),
+                    ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+class _Specimen extends StatelessWidget {
+  const _Specimen({
+    super.key,
+    required this.label,
+    required this.live,
+    required this.child,
+  });
+
+  final String label;
+  final bool live;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final ink = tokens.backgroundPrimary;
+    return Container(
+      margin: const EdgeInsets.only(bottom: Spacing.md),
+      decoration: BoxDecoration(border: Border.all(color: ink, width: 2)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            color: ink,
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.sm,
+              vertical: 4,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: tokens.label.copyWith(color: tokens.textPrimary),
+                  ),
+                ),
+                Text(
+                  live ? 'LIVE' : 'OFF',
+                  style: tokens.label.copyWith(
+                    color: live ? tokens.accent : tokens.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          CustomPaint(
+            painter: _LabPlate(
+              ground: tokens.textPrimary,
+              rule: Color.lerp(tokens.textPrimary, ink, 0.09)!,
+              mark: ink,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(Spacing.lg),
+              child: DefaultTextStyle.merge(
+                style: TextStyle(color: ink),
+                child: child,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LabPlate extends CustomPainter {
+  _LabPlate({required this.ground, required this.rule, required this.mark});
+
+  final Color ground;
+  final Color rule;
+  final Color mark;
+
+  static const _cell = 16.0;
+  static const _crop = 10.0;
+  static const _inset = 5.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(Offset.zero & size, Paint()..color = ground);
+    final grid = Paint()
+      ..color = rule
+      ..strokeWidth = 1;
+    for (var x = _cell; x < size.width; x += _cell) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
+    }
+    for (var y = _cell; y < size.height; y += _cell) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+    final crop = Paint()
+      ..color = mark
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    for (final (cx, sx) in [(_inset, 1.0), (size.width - _inset, -1.0)]) {
+      for (final (cy, sy) in [(_inset, 1.0), (size.height - _inset, -1.0)]) {
+        canvas.drawPath(
+          Path()
+            ..moveTo(cx, cy + _crop * sy)
+            ..lineTo(cx, cy)
+            ..lineTo(cx + _crop * sx, cy),
+          crop,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_LabPlate old) =>
+      old.ground != ground || old.rule != rule || old.mark != mark;
+}
+
+class _WidgetSpecimen extends StatelessWidget {
+  const _WidgetSpecimen({
+    required this.contribution,
+    required this.registration,
+    required this.placements,
+    required this.idle,
+  });
+
+  static const _tallest = 420.0;
+
+  final PluginWidgetContribution contribution;
+  final PluginWidgetRegistration? registration;
+  final PluginPlacementState? placements;
+  final String idle;
+
+  static ({PluginWidgetSize size, double home, double width, String? refusal})
+  fit(
+    BuildContext context,
+    PluginWidgetContribution contribution,
+    PluginWidgetRegistration? registration,
+    PluginPlacementState? placements,
+  ) {
+    final id = registration?.stableId;
+    final size = contribution.size(
+      (id == null ? null : placements?.selectedSizes[id]) ??
+          contribution.defaultSize,
+    );
+    final home =
+        math.min(MediaQuery.sizeOf(context).width, homeMaxContentWidth) -
+        2 * Spacing.screenEdge;
+    try {
+      final width = size.resolveWidth(
+        home,
+        selected: id == null ? null : placements?.selectedWidths[id],
+      );
+      return (size: size, home: home, width: width, refusal: null);
+    } on PluginPlacementException catch (error) {
+      return (size: size, home: home, width: home, refusal: error.message);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final (:size, :home, :width, :refusal) = fit(
+      context,
+      contribution,
+      registration,
+      placements,
+    );
+    final shown = registration;
+    final Widget body;
+    if (shown == null || refusal != null) {
+      body = _Outline(
+        width: math.min(size.fixedWidth ?? width, home),
+        height: size.height ?? 120,
+        text: shown == null ? idle : refusal!,
+      );
+    } else {
+      body = SizedBox(
+        width: width,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: _tallest),
+          child: ClipRect(
+            child: IgnorePointer(
+              child: SingleChildScrollView(
+                physics: const NeverScrollableScrollPhysics(),
+                child: HomeCardViewport(
+                  height: _tallest,
+                  child: SizedBox(
+                    width: width,
+                    height: size.height,
+                    child: ProviderScope(
+                      overrides: _specimenOverrides(),
+                      child: shown.luau
+                          ? PluginCard(registration: shown)
+                          : NativeContributionSurface.widget(shown),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return Align(
+      alignment: Alignment.topLeft,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.topLeft,
+        child: body,
+      ),
+    );
+  }
+}
+
+// A drops card clears Home's selection and fresh marks when it leaves, and a
+// bar would share Home's draft and focus, so the specimen gets its own.
+List<Override> _specimenOverrides() => [
+  composerSummaryProvider.overrideWith(ComposerSummary.new),
+  composerFocusRequestProvider.overrideWith(ComposerFocusRequest.new),
+  captureHiddenProvider.overrideWith((ref) => false),
+  promptDraftProvider.overrideWith((ref) {
+    final controller = TextEditingController();
+    ref.onDispose(controller.dispose);
+    return controller;
+  }),
+  dropSelectionProvider.overrideWith(DropSelectionNotifier.new),
+  freshDropsProvider.overrideWith(FreshDropsNotifier.new),
+  captureDraftProvider.overrideWith((ref, scope) {
+    final draft = CaptureDraft();
+    ref.onDispose(draft.dispose);
+    return draft;
+  }),
+];
+
+class _Outline extends StatelessWidget {
+  const _Outline({
+    required this.width,
+    required this.height,
+    required this.text,
+  });
+
+  final double width;
+  final double height;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final ink = tokens.backgroundPrimary;
+    return Container(
+      width: width,
+      height: height,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(Spacing.md),
+      decoration: BoxDecoration(
+        border: Border.all(color: ink.withAlpha(150), width: 1.5),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: tokens.label.copyWith(color: ink),
+      ),
+    );
+  }
+}
+
+class _PageSpecimen extends StatelessWidget {
+  const _PageSpecimen({required this.page, required this.pinned});
+
+  final PluginPageRegistration? page;
+  final bool pinned;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final ink = tokens.backgroundPrimary;
+    final open = page;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          pinned ? 'OPENS FROM ITS TAB' : 'OPENS FROM TOOLS',
+          style: tokens.label.copyWith(color: ink),
+        ),
+        if (open != null) ...[
+          const SizedBox(height: Spacing.sm),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              final navigator = Navigator.of(context);
+              navigator.pop();
+              openPluginPage(navigator.context, open);
+            },
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 40),
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+              alignment: Alignment.center,
+              color: ink,
+              child: Text(
+                'OPEN',
+                style: tokens.label.copyWith(color: tokens.accent),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

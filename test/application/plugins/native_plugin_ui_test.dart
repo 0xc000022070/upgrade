@@ -335,12 +335,12 @@ void main() {
   );
 
   testWidgets(
-    'the plugin board exposes real builtins and the enable action works',
+    'the plugin catalog exposes real builtins and the enable action works',
     (tester) async {
       await tester.pumpWidget(host(const PluginManagementScreen()));
       await drain(tester);
-      final dropsRow = find.byKey(const ValueKey('key-striked.drops'));
-      final projectsRow = find.byKey(const ValueKey('key-striked.projects'));
+      final dropsRow = find.byKey(const ValueKey('node-striked.drops'));
+      final projectsRow = find.byKey(const ValueKey('node-striked.projects'));
       expect(
         find.descendant(of: dropsRow, matching: find.text('OFF')),
         findsOne,

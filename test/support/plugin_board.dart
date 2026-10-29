@@ -6,17 +6,21 @@ Future<void> openPluginDetails(
   String id,
   Future<void> Function(WidgetTester tester) drain,
 ) async {
-  final key = find.byKey(ValueKey('key-$id'));
-  await tester.ensureVisible(key);
+  final tile = find.byKey(ValueKey('node-$id'));
+  await tester.ensureVisible(tile);
   await tester.pump();
-  await tester.tap(key);
+  await tester.tap(tile);
   await drain(tester);
-  final details = find.descendant(
-    of: find.byKey(ValueKey('node-card-$id')),
-    matching: find.text('DETAILS'),
-  );
-  await tester.ensureVisible(details);
+}
+
+Future<void> adjustPlacement(
+  WidgetTester tester,
+  String stableId,
+  Future<void> Function(WidgetTester tester) drain,
+) async {
+  final adjust = find.byKey(ValueKey('adjust-$stableId'));
+  await tester.ensureVisible(adjust);
   await tester.pump();
-  await tester.tap(details);
+  await tester.tap(adjust);
   await drain(tester);
 }
