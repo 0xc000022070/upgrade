@@ -33,14 +33,100 @@ class PluginPermission {
 }
 
 class PluginHostCapability {
-  const PluginHostCapability(this.alias, this.service, this.operations);
+  const PluginHostCapability(
+    this.alias,
+    this.service,
+    this.operations, {
+    this.commands = const {},
+  });
   final String alias;
   final String service;
   final Set<String> operations;
+
+  final Map<String, PluginRunCommand> commands;
+
   PluginPermission permission(String operation) => PluginPermission(
     'host.$alias.$operation',
-    '$operation on $service; host API 1',
+    operation == 'submit' && commands.isNotEmpty
+        ? 'Run from a tap, as the host account: '
+              '${commands.values.map((command) => command.shown).join(' · ')}'
+        : '$operation on $service; host API 1',
   );
+}
+
+final _placeholder = RegExp(r'^\{([a-z][a-z0-9_]{0,31})\}$');
+
+final _runInterpreters =
+    ('sh bash zsh dash ksh mksh csh tcsh fish nu node deno bun tsx ts-node '
+            'perl ruby php lua luajit python ipython bpython pypy micropython '
+            'pwsh powershell tclsh expect awk gawk sed osascript Rscript env '
+            'npx bunx pnpx uvx pipx xargs timeout nice ionice taskset chrt '
+            'nohup sudo doas su pkexec runuser setsid stdbuf busybox exec '
+            'command ssh flock watch time hyperfine chroot unshare nsenter '
+            'strace gdb parallel systemd-run xvfb-run dbus-run-session tmux '
+            'screen open arch caffeinate xcrun')
+        .split(' ')
+        .toSet();
+
+const _runLaunchers = {
+  'npm': {'exec', 'x', 'install', 'i', 'add'},
+  'pnpm': {'dlx', 'exec', 'add', 'install', 'i'},
+  'yarn': {'dlx', 'exec', 'add'},
+  'bun': {'x', 'add', 'install', 'i'},
+  'uv': {'run', 'tool', 'pip', 'add'},
+  'pip': {'install'},
+  'cargo': {'install'},
+  'gem': {'install'},
+  'go': {'run', 'install'},
+  'docker': {'run', 'exec'},
+  'podman': {'run', 'exec'},
+  'kubectl': {'exec', 'run', 'debug'},
+  'nix': {'run', 'shell', 'develop'},
+};
+
+String _quoted(String word) =>
+    word.contains(RegExp("[ ']")) ? "'${word.replaceAll("'", r"'\''")}'" : word;
+
+final pluginRunValue = RegExp(r'^[A-Za-z0-9_.][A-Za-z0-9_.,/-]{0,127}$');
+
+class PluginRunCommand {
+  const PluginRunCommand(
+    this.argv,
+    this.cwd,
+    this.timeout, {
+    this.choices = const {},
+  });
+
+  final List<String> argv;
+  final String? cwd;
+  final Duration timeout;
+
+  final Map<String, List<String>> choices;
+
+  Set<String> get parameters => {
+    for (final word in argv)
+      if (_placeholder.firstMatch(word) case final match?) match.group(1)!,
+  };
+
+  String get shown => [
+    for (final word in argv)
+      switch (_placeholder.firstMatch(word)?.group(1)) {
+        final name? when choices.containsKey(name) =>
+          '{$name: ${choices[name]!.join('|')}}',
+        final _? => '$word (any word)',
+        null => _quoted(word),
+      },
+    if (cwd case final cwd?) 'in ${_quoted(cwd)}',
+    'for up to ${timeout.inSeconds} s',
+  ].join(' ');
+
+  List<String> resolve(Map<String, String> values) => [
+    for (final word in argv)
+      switch (_placeholder.firstMatch(word)) {
+        final match? => values[match.group(1)]!,
+        null => word,
+      },
+  ];
 }
 
 class PluginDataset {
@@ -716,7 +802,7 @@ Map<String, PluginHostCapability> _hostCapabilities(Map<String, Object?> root) {
   for (final entry in hostFields.entries) {
     final alias = _dataName(entry.key);
     final fields = _map(entry.value, 'host capability');
-    _keys(fields, {'api_version', 'service', 'operations'});
+    _keys(fields, {'api_version', 'service', 'operations', 'commands'});
     if (fields['api_version'] is! int || fields['api_version'] != 1) {
       throw const PluginException('Unsupported host API version');
     }
@@ -731,13 +817,141 @@ Map<String, PluginHostCapability> _hostCapabilities(Map<String, Object?> root) {
     if (operations.length != declaredOps.length) {
       throw const PluginException('Duplicate host operation');
     }
+    if ((service == 'run') != fields.containsKey('commands')) {
+      throw const PluginException('A run capability declares its commands');
+    }
+    final commands = service == 'run'
+        ? _runCommands(fields['commands'])
+        : const <String, PluginRunCommand>{};
+    if (hostCapabilities.values.any(
+      (capability) => capability.commands.keys.any(commands.containsKey),
+    )) {
+      throw const PluginException('A run command name is declared twice');
+    }
     hostCapabilities[alias] = PluginHostCapability(
       alias,
       service,
       Set.unmodifiable(operations),
+      commands: commands,
     );
   }
   return hostCapabilities;
+}
+
+Map<String, PluginRunCommand> _runCommands(Object? value) {
+  final declared = _map(value, 'run commands');
+  if (declared.isEmpty || declared.length > 16) {
+    throw const PluginException('Declare 1 to 16 run commands');
+  }
+  return Map.unmodifiable({
+    for (final MapEntry(:key, :value) in declared.entries)
+      _dataName(key): _runCommand(value),
+  });
+}
+
+PluginRunCommand _runCommand(Object? value) {
+  final fields = _map(value, 'run command');
+  _keys(fields, {'argv', 'cwd', 'timeout_seconds', 'choices'});
+  final argv = fields['argv'];
+  if (argv is! List<Object?> || argv.isEmpty || argv.length > 32) {
+    throw const PluginException('A run command needs 1 to 32 argv words');
+  }
+  final words = [for (final word in argv) _runText(word, 'argv word')];
+  for (final (index, word) in words.indexed) {
+    final parameter = _placeholder.hasMatch(word);
+    if (!parameter && (word.contains('{') || word.contains('}'))) {
+      throw const PluginException('A parameter is a whole argv word: {name}');
+    }
+    if (parameter && index == 0) {
+      throw const PluginException('A parameter cannot name the program');
+    }
+  }
+  final cwd = fields['cwd'] == null ? null : _runText(fields['cwd'], 'run cwd');
+  if (cwd != null && (cwd.contains('{') || cwd.contains('}'))) {
+    throw const PluginException('A run cwd is literal');
+  }
+  final command = PluginRunCommand(
+    List.unmodifiable(words),
+    cwd,
+    Duration(seconds: _integer(fields['timeout_seconds'], 'run timeout', 3600)),
+  );
+  final choices = <String, List<String>>{
+    for (final MapEntry(:key, :value) in _map(
+      fields['choices'] ?? <String, Object?>{},
+      'run choices',
+    ).entries)
+      key: _runChoices(value),
+  };
+  if (!command.parameters.containsAll(choices.keys)) {
+    throw const PluginException('Choices name parameters of the command');
+  }
+  final program = words.first
+      .split('/')
+      .last
+      .replaceFirst(RegExp(r'[0-9.-]+$'), '')
+      .toLowerCase();
+  bool free(String word) => switch (_placeholder.firstMatch(word)?.group(1)) {
+    final name? => !choices.containsKey(name),
+    null => false,
+  };
+  List<String> values(String word) =>
+      switch (_placeholder.firstMatch(word)?.group(1)) {
+        final name? => choices[name] ?? const [],
+        null => [word],
+      };
+  final verbs = _runLaunchers[program] ?? const <String>{};
+  if (verbs.isNotEmpty) {
+    // Up to the subcommand, the first word that is neither a flag nor its value.
+    for (final (index, word) in words.indexed.skip(1)) {
+      if (free(word)) {
+        throw PluginException(
+          'A free parameter could pick a $program subcommand that runs anything; give it choices',
+        );
+      }
+      if (!word.startsWith('-') && !words[index - 1].startsWith('-')) break;
+    }
+  }
+  final verb = words.skip(1).expand(values).where(verbs.contains).firstOrNull;
+  if (_runInterpreters.contains(program) || verb != null) {
+    for (final word in words.where(free)) {
+      throw PluginException(
+        '$word could make ${[program, ?verb].join(' ')} run anything; give it choices',
+      );
+    }
+  }
+  return PluginRunCommand(
+    command.argv,
+    cwd,
+    command.timeout,
+    choices: Map.unmodifiable(choices),
+  );
+}
+
+List<String> _runChoices(Object? value) {
+  if (value is! List<Object?> || value.isEmpty || value.length > 32) {
+    throw const PluginException('A parameter lists 1 to 32 choices');
+  }
+  final choices = [
+    for (final choice in value)
+      if (choice is String && pluginRunValue.hasMatch(choice))
+        choice
+      else
+        throw const PluginException('A choice is a word a parameter may take'),
+  ];
+  if (choices.toSet().length != choices.length) {
+    throw const PluginException('Duplicate choice');
+  }
+  return List.unmodifiable(choices);
+}
+
+String _runText(Object? value, String field) {
+  if (value is! String ||
+      value.trim().isEmpty ||
+      value.length > 256 ||
+      !RegExp(r'^[\x20-\x7e]+$').hasMatch(value)) {
+    throw PluginException('Invalid $field');
+  }
+  return value;
 }
 
 Map<String, Object?> _map(Object? value, String field) {

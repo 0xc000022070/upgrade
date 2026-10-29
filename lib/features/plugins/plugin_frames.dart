@@ -180,6 +180,8 @@ mixin PluginFrames<T extends ConsumerStatefulWidget> on ConsumerState<T> {
       confirmLabel: 'ALLOW',
       message: service == 'hosts'
           ? 'Find workspaces on ${host.name}?\n\nOnly workspace paths are returned to this plugin. No tasks will start.'
+          : service == 'run'
+          ? 'Run on ${host.user}@${host.name}?\n\n${operations.join('\n')}\n\nOnly these commands, each from a tap. They run with this host account’s permissions and may change files.'
           : '${host.name}\n${host.user}@${host.address}:${host.port}\n\n$service API 1\n${operations.join(', ')}\n\nScheduling setup installs a namespaced host runner and user timer. Existing host jobs remain untouched.\n\nAgent runs use this host account’s CLI permissions. They may read or modify files outside plugin storage.',
     );
     _check();

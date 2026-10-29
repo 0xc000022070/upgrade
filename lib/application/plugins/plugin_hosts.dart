@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -29,6 +30,12 @@ typedef PluginHostConfirm = Future<bool> Function(
 typedef PluginHostTransport = Future<Map<String, Object?>> Function(
   Host host,
   String scope,
+  String operation,
+  Map<String, Object?> args,
+);
+typedef PluginEngineCall = Future<Map<String, Object?>> Function(
+  Host host,
+  String service,
   String operation,
   Map<String, Object?> args,
 );
@@ -161,13 +168,15 @@ class PluginHostRegistry {
     return result;
   }
 
-  Future<void> deactivate(InstalledPlugin plugin) async {
-    for (final service
-        in plugin.manifest.hostCapabilities.values
-            .map((c) => c.service)
-            .toSet()) {
-      await services[service]?.deactivate?.call(plugin);
-    }
+  Future<void> deactivate(InstalledPlugin plugin, {String? only}) async {
+    await Future.wait([
+      for (final service
+          in plugin.manifest.hostCapabilities.values
+              .map((c) => c.service)
+              .where((service) => only == null || service == only)
+              .toSet())
+        ?services[service]?.deactivate?.call(plugin),
+    ]);
   }
 }
 
@@ -246,9 +255,15 @@ Object? wholeNumbers(Object? value) => switch (value) {
 };
 
 final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
+  final engine = ref.watch(pluginEngineProvider);
+  return (host, scope, operation, args) =>
+      engine(host, 'schedule/1', operation, {...args, 'scope': scope});
+});
+
+final pluginEngineProvider = Provider<PluginEngineCall>((ref) {
   final keys = ref.watch(privateKeyStoreProvider);
   final links = ref.read(hostLinksProvider);
-  return (host, scope, operation, args) async {
+  return (host, service, operation, args) async {
     if (host.hostKey == null) {
       throw const PluginException(
         'Verify the host key in MACHINES before connecting',
@@ -272,10 +287,10 @@ final schedulerTransportProvider = Provider<PluginHostTransport>((ref) {
       throw PluginException(error.reason(host.name));
     }
     try {
-      return await scheduleOver(
+      return await engineOver(
         (command) => lease.execute(command),
+        service,
         host.user,
-        scope,
         operation,
         args,
       );
@@ -292,6 +307,17 @@ Future<Map<String, Object?>> scheduleOver(
   Future<SSHSession> Function(String command) execute,
   String owner,
   String scope,
+  String operation,
+  Map<String, Object?> args,
+) => engineOver(execute, 'schedule/1', owner, operation, {
+  ...args,
+  'scope': scope,
+});
+
+Future<Map<String, Object?>> engineOver(
+  Future<SSHSession> Function(String command) execute,
+  String service,
+  String owner,
   String operation,
   Map<String, Object?> args,
 ) async {
@@ -319,10 +345,10 @@ Future<Map<String, Object?>> scheduleOver(
       Uint8List.fromList(
         utf8.encode(
           jsonEncode({
-            'service': 'schedule/1',
+            'service': service,
             'op': operation,
             'owner': owner,
-            'args': wholeNumbers({...args, 'scope': scope}),
+            'args': wholeNumbers(args),
           }),
         ),
       ),
@@ -354,10 +380,10 @@ Future<Map<String, Object?>> scheduleOver(
           : const <String, Object?>{};
       final message = failure['message'] is String
           ? failure['message']! as String
-          : 'Host scheduling failed';
+          : 'Host engine failed';
       throw PluginException(
         failure['kind'] == 'unsupported'
-            ? "This host's engine does not carry scheduling. $message"
+            ? "This host's engine does not carry $service. $message"
             : message,
       );
     }
@@ -470,6 +496,316 @@ final pendingHostPausesProvider = FutureProvider.autoDispose<int>(
       .where((binding) => binding.pending)
       .length,
 );
+
+final _runNonce = RegExp(r'^[A-Za-z0-9]{1,32}$');
+const _runLive = 4;
+
+Iterable<Map<String, Object?>> _liveJobs(Map<String, Object?> listed) =>
+    (listed['jobs'] as List<Object?>? ?? const [])
+        .whereType<Map<String, Object?>>()
+        .where(
+          (job) => job['state'] == 'starting' || job['state'] == 'running',
+        );
+
+/// The engine checks no owner on a job id, so every id is held to the plugin's tag.
+class PluginRunHosts {
+  PluginRunHosts(this.file);
+  final Future<File> Function() file;
+  Future<void> _tail = Future.value();
+
+  Future<Map<String, Set<String>>> _read() async {
+    final target = await file();
+    if (!await target.exists()) return {};
+    if (await target.length() > 256 * 1024) {
+      return _setAside(target);
+    }
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(await target.readAsString());
+    } on FormatException {
+      return _setAside(target);
+    } on FileSystemException {
+      return _setAside(target);
+    }
+    final owners = decoded is Map<String, Object?> && decoded['version'] == 1
+        ? decoded['owners']
+        : null;
+    if (owners is! Map<String, Object?> ||
+        owners.values.any(
+          (hosts) =>
+              hosts is! List<Object?> || hosts.any((id) => id is! String),
+        )) {
+      return _setAside(target);
+    }
+    return {
+      for (final MapEntry(:key, :value) in owners.entries)
+        key: (value! as List<Object?>).cast<String>().toSet(),
+    };
+  }
+
+  Future<Never> _setAside(File target) async {
+    try {
+      await target.rename('${target.path}.corrupt');
+    } on FileSystemException {
+      // ignored: a racing read already moved the file aside.
+    }
+    throw PluginException(
+      'Run hosts were unreadable; moved to ${target.path}.corrupt',
+    );
+  }
+
+  Future<Set<String>> read(String owner) {
+    final read = _tail.then(
+      (_) async => (await _read())[owner] ?? const <String>{},
+    );
+    _tail = read.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return read;
+  }
+
+  Future<void> _change(void Function(Map<String, Set<String>> state) change) {
+    final changed = _tail.then((_) async {
+      final state = await _read();
+      change(state);
+      final target = await file();
+      await target.parent.create(recursive: true);
+      final next = File('${target.path}.next');
+      await next.writeAsString(
+        jsonEncode({
+          'version': 1,
+          'owners': {
+            for (final MapEntry(:key, :value) in state.entries)
+              if (value.isNotEmpty) key: value.toList(),
+          },
+        }),
+        flush: true,
+      );
+      await next.rename(target.path);
+    });
+    _tail = changed.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return changed;
+  }
+
+  Future<void> add(String owner, String host) =>
+      _change((state) => (state[owner] ??= {}).add(host));
+
+  Future<void> remove(String owner, Iterable<String> hosts) =>
+      _change((state) => state[owner]?.removeAll(hosts));
+}
+
+final pluginRunHostsProvider = Provider(
+  (ref) => PluginRunHosts(() async {
+    final support = await getApplicationSupportDirectory();
+    return File('${support.path}/plugins/run-hosts.json');
+  }),
+);
+
+@visibleForTesting
+PluginHostService pluginRunService(
+  HostRepository hosts,
+  PluginEngineCall engine,
+  PluginRunHosts used, {
+  Random? random,
+}) {
+  final nonces = random ?? Random.secure();
+  final allowed = <String>{};
+  final refused = <String>{};
+  final queues = <String, Future<void>>{};
+  Future<T> serialized<T>(String owner, Future<T> Function() work) {
+    final result = (queues[owner] ?? Future<void>.value()).then((_) => work());
+    queues[owner] = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
+  }
+
+  Future<Host> pick(Object? id) async {
+    final host = (await hosts.all()).where((host) => host.id == id).firstOrNull;
+    if (host == null) throw const PluginException('Choose an existing host');
+    return host;
+  }
+
+  String tagOf(InstalledPlugin plugin) =>
+      'p${pluginHostOwner(plugin).substring(0, 16)}';
+
+  String jobOf(String tag, Object? id) {
+    if (id is! String || !id.startsWith('$tag-')) {
+      throw const PluginException('Not a job this plugin started');
+    }
+    return id;
+  }
+
+  Map<String, Object?> clamped(Map<String, Object?> args) {
+    int? lines(Object? value) => value is num && value.isFinite
+        ? value.toInt().clamp(1, 500)
+        : value == null
+        ? null
+        : throw const PluginException('head and tail are line counts');
+    final grep = args['grep'];
+    if (grep != null && (grep is! String || grep.length > 128)) {
+      throw const PluginException('grep is a string of at most 128 characters');
+    }
+    final stream = args['stream'];
+    if (stream != null && stream != 'stdout' && stream != 'stderr') {
+      throw const PluginException('stream is stdout or stderr');
+    }
+    final limit = args['limit'];
+    return {
+      'stream': ?stream,
+      'grep': ?grep,
+      if (args['ignore_case'] == true) 'ignore_case': true,
+      if (args['invert'] == true) 'invert': true,
+      'head': ?lines(args['head']),
+      'tail': ?lines(args['tail']),
+      'limit': limit is num && limit.isFinite
+          ? limit.toInt().clamp(1, 64 * 1024)
+          : 32 * 1024,
+    };
+  }
+
+  return PluginHostService(
+    operations: const {'submit', 'list', 'status', 'output', 'cancel'},
+    deactivate: (plugin) async {
+      final owner = pluginHostOwner(plugin);
+      final tag = tagOf(plugin);
+      allowed.removeWhere((key) => key.startsWith('$owner/'));
+      refused.removeWhere((key) => key.startsWith('$owner/'));
+      Set<String> ran;
+      try {
+        ran = await used.read(owner);
+      } on PluginException {
+        ran = {for (final host in await hosts.all()) host.id};
+      }
+      final reached = await Future.wait([
+        for (final id in ran)
+          () async {
+            final host = (await hosts.all())
+                .where((host) => host.id == id)
+                .firstOrNull;
+            if (host == null) return id;
+            try {
+              await serialized('$owner/$id', () async {
+                final listed = await engine(host, 'run/1', 'list', {
+                  'tag': tag,
+                  'live': true,
+                });
+                for (final job in _liveJobs(listed)) {
+                  await engine(host, 'run/1', 'cancel', {'id': job['id']});
+                }
+              });
+              return id;
+            } on Object {
+              // ignored: an unreachable host stays in the file and its jobs end at their timeouts.
+              return null;
+            }
+          }(),
+      ]);
+      await used.remove(owner, reached.nonNulls);
+    },
+    invoke: (plugin, operation, args, confirm, check, gesture) async {
+      final host = await pick(args['host']);
+      final owner = pluginHostOwner(plugin);
+      final tag = tagOf(plugin);
+      final capabilities = plugin.manifest.hostCapabilities.values.where(
+        (capability) =>
+            capability.service == 'run' &&
+            plugin.grants.contains(capability.permission('submit')),
+      );
+      final key = '$owner/${plugin.package.digest}/${host.id}';
+      var tapped = false;
+      if (!allowed.contains(key)) {
+        if (refused.contains(key)) {
+          if (operation != 'submit' || gesture == null || !gesture.take()) {
+            throw const PluginException('Host access was not granted');
+          }
+          tapped = true;
+        }
+        final shown = {
+          for (final capability in capabilities)
+            for (final command in capability.commands.values) command.shown,
+        };
+        if (!await confirm(host, 'run', shown)) {
+          refused.add(key);
+          throw const PluginException('Host access was not granted');
+        }
+        check();
+        refused.remove(key);
+        allowed.add(key);
+      }
+      Future<Map<String, Object?>> call(String op, Map<String, Object?> body) =>
+          engine(host, 'run/1', op, body);
+      switch (operation) {
+        case 'list':
+          return call('list', {'tag': tag});
+        case 'status':
+          return call('status', {'id': jobOf(tag, args['id'])});
+        case 'cancel':
+          return call('cancel', {'id': jobOf(tag, args['id'])});
+        case 'output':
+          return call('output', {
+            'id': jobOf(tag, args['id']),
+            ...clamped(args),
+          });
+      }
+      final name = args['command'];
+      final command = name is String
+          ? capabilities
+                .map((capability) => capability.commands[name])
+                .nonNulls
+                .firstOrNull
+          : null;
+      if (command == null) {
+        throw const PluginException('Not a command this plugin declares');
+      }
+      final given = args['params'] ?? const <String, Object?>{};
+      if (given is! Map<String, Object?> ||
+          !setEquals(given.keys.toSet(), command.parameters)) {
+        throw PluginException(
+          'Pass exactly the parameters ${command.parameters.join(', ')}',
+        );
+      }
+      final values = <String, String>{};
+      for (final MapEntry(:key, :value) in given.entries) {
+        if (value is! String || !pluginRunValue.hasMatch(value)) {
+          throw PluginException(
+            '$key is one word of letters, digits and _.,/- that does not start with -',
+          );
+        }
+        if (command.choices[key] case final choices?
+            when !choices.contains(value)) {
+          throw PluginException('$key is one of ${choices.join(', ')}');
+        }
+        values[key] = value;
+      }
+      final nonce = args['id'];
+      if (nonce != null && (nonce is! String || !_runNonce.hasMatch(nonce))) {
+        throw const PluginException('A job id is 1 to 32 letters and digits');
+      }
+      if (!tapped && (gesture == null || !gesture.take())) {
+        throw const PluginException('Commands run only from a tap');
+      }
+      return serialized('$owner/${host.id}', () async {
+        final listed = await call('list', {'tag': tag, 'live': true});
+        check();
+        if (_liveJobs(listed).length >= _runLive) {
+          throw const PluginException(
+            '$_runLive commands are already running on this host',
+          );
+        }
+        await used.add(owner, host.id);
+        check();
+        return call('submit', {
+          'id':
+              '$tag-${nonce ?? [for (var i = 0; i < 8; i++) nonces.nextInt(256).toRadixString(16).padLeft(2, '0')].join()}',
+          'argv': command.resolve(values),
+          'cwd': ?command.cwd,
+          'timeout_ms': command.timeout.inMilliseconds,
+          'tag': tag,
+        });
+      });
+    },
+  );
+}
 
 final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
   final hosts = ref.watch(hostRepositoryProvider);
@@ -638,6 +974,11 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
             return result;
           });
         },
+      ),
+      'run': pluginRunService(
+        hosts,
+        ref.watch(pluginEngineProvider),
+        ref.watch(pluginRunHostsProvider),
       ),
       'agents': PluginHostService(
         operations: const {'list', 'answer', 'open'},

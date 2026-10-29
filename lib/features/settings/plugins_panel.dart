@@ -430,7 +430,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
               : () => _change(
                   (_) => ref
                       .read(pluginHostRegistryProvider)
-                      .deactivate(installed),
+                      .deactivate(installed, only: 'scheduler'),
                 ),
         ),
       ],

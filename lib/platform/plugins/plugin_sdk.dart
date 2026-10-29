@@ -509,7 +509,13 @@ Map<String, Object?> pluginSdkInventory() => {
     },
     'host_capabilities': {
       'api_version': 1,
-      'services': ['hosts', 'scheduler', 'agents'],
+      'services': ['hosts', 'scheduler', 'agents', 'run'],
+      'run': {
+        'operations': ['submit', 'list', 'status', 'output', 'cancel'],
+        'commands': '{name = {argv = ["word", "{param}"], cwd?, timeout_seconds 1..3600, choices? = {param = ["word"]}}}',
+        'submit': '{host, command, params = {param = word}, id?} from a tap',
+        'output': '{host, id, stream?, grep?, ignore_case?, invert?, head?, tail?, limit?}',
+      },
     },
     'ui': {
       'kinds': {
