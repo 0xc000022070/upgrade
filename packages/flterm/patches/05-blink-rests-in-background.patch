@@ -1,6 +1,6 @@
 # the cursor blink rests while the app is not resumed
 #
-# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just flterm-patches`.
+# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just pub flterm generate`.
 
 diff --git a/lib/src/view/view_attachment.dart b/lib/src/view/view_attachment.dart
 index ff39d53..f995560 100644

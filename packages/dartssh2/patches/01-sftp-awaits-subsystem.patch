@@ -1,6 +1,6 @@
 # sftp awaits the subsystem reply and throws on refusal
 #
-# Against dartssh2 4.0.0. Regenerate with `just ssh-patches`.
+# Against dartssh2 4.0.0. Regenerate with `just pub dartssh2 generate`.
 
 diff --git a/lib/src/ssh_client.dart b/lib/src/ssh_client.dart
 index 85bc4e9..fd844fa 100644

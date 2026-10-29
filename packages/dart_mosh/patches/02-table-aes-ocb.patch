@@ -1,6 +1,6 @@
 # aes-ocb on word tables with no allocation per block
 #
-# Against dart_mosh 0.0.4. Regenerate with `just mosh-patches`.
+# Against dart_mosh 0.0.4. Regenerate with `just pub dart_mosh generate`.
 
 diff --git a/lib/src/crypto/aes_ocb.dart b/lib/src/crypto/aes_ocb.dart
 index b7b8903..2adfcb7 100644

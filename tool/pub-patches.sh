@@ -25,10 +25,10 @@ EOF
 
 pin() {
   case "$1" in
-  dart_mosh) VERSION=0.0.4 RECIPE=mosh ;;
-  dartssh2) VERSION=4.0.0 RECIPE=ssh ;;
+  dart_mosh) VERSION=0.0.4 ;;
+  dartssh2) VERSION=4.0.0 ;;
   flterm)
-    VERSION=${LIBGHOSTTY_REV:?run inside the nix dev shell} RECIPE=flterm
+    VERSION=${LIBGHOSTTY_REV:?run inside the nix dev shell}
     SRC=${LIBGHOSTTY_SRC:?run inside the nix dev shell}/packages/flterm
     ;;
   *) die "no package $1; have: dart_mosh dartssh2 flterm" ;;
@@ -115,7 +115,7 @@ verify() {
   if ! diff -ruN --exclude='.*' "$TMP/tree" "$BUILD" >/dev/null; then
     echo ".dart_tool/$PACKAGE is not upstream plus the patches:" >&2
     diff -ruN --exclude='.*' "$TMP/tree" "$BUILD" | head -40 >&2 || true
-    die "write the difference down with \`just $RECIPE-patches\`, or throw it away with \`rm -rf .dart_tool/$PACKAGE\`"
+    die "write the difference down with \`just pub $PACKAGE generate\`, or throw it away with \`rm -rf .dart_tool/$PACKAGE\`"
   fi
   echo ".dart_tool/$PACKAGE is $PACKAGE $VERSION plus the patches, and nothing else"
 }
@@ -166,11 +166,11 @@ generate() {
     done
     "${git[@]}" add -A
     "${git[@]}" commit -qm "$subject" >/dev/null ||
-      die "nothing changed for $name; .dart_tool/$PACKAGE is missing that patch, so \`just $RECIPE-build\` first"
+      die "nothing changed for $name; .dart_tool/$PACKAGE is missing that patch, so \`just pub $PACKAGE\` first"
     {
       echo "# $subject"
       echo "#"
-      echo "# Against $PACKAGE $VERSION. Regenerate with \`just $RECIPE-patches\`."
+      echo "# Against $PACKAGE $VERSION. Regenerate with \`just pub $PACKAGE generate\`."
       echo
       "${git[@]}" diff --no-color --no-ext-diff HEAD~1 HEAD
     } >"$out/$name.patch"
@@ -190,7 +190,7 @@ without() {
 
   install_tree "$drop"
   echo "without-$drop" >"$BUILD/.stamp"
-  echo "built $PACKAGE $VERSION without $drop; \`just $RECIPE-build\` puts it back"
+  echo "built $PACKAGE $VERSION without $drop; \`just pub $PACKAGE\` puts it back"
 }
 
 PACKAGE=${1:-}

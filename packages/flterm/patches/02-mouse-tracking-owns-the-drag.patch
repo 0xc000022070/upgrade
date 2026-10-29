@@ -1,6 +1,6 @@
 # an application reading the mouse owns the drag on either screen
 #
-# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just flterm-patches`.
+# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just pub flterm generate`.
 
 diff --git a/lib/src/view/terminal_view.dart b/lib/src/view/terminal_view.dart
 index 11b21dc..2e90c75 100644

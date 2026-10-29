@@ -52,7 +52,7 @@ fingerprint() { ssh-keygen -lf "$1" | cut -d' ' -f2; }
 expected=$(fingerprint "$HOST_PUB")
 scanned=$(ssh-keyscan -T 10 -t ed25519 -p "$port" "$address" 2>/dev/null || true)
 [ -n "$scanned" ] ||
-  die "nothing answers ssh at $address:$port. A stale address, or the guest is down: just host-scenario $scenario"
+  die "nothing answers ssh at $address:$port. A stale address, or the guest is down: just host-vm $scenario"
 actual=$(fingerprint - <<<"$scanned")
 [ "$actual" = "$expected" ] ||
   die "$address:$port presents $actual, not the declared $expected. Another sshd holds that address, or the guest predates the fixed key"

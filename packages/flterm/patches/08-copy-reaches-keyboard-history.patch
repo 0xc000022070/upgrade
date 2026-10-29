@@ -1,6 +1,6 @@
 # a copy reopens the keyboard's field as a plain one so its clipboard history keeps the clip
 #
-# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just flterm-patches`.
+# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just pub flterm generate`.
 
 diff --git a/lib/flterm.dart b/lib/flterm.dart
 index 3748482..f242673 100644

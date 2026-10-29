@@ -1,6 +1,6 @@
 # every instruction the session can build on is reported, and a suspend closes the socket until a rehome
 #
-# Against dart_mosh 0.0.4. Regenerate with `just mosh-patches`.
+# Against dart_mosh 0.0.4. Regenerate with `just pub dart_mosh generate`.
 
 diff --git a/lib/src/session.dart b/lib/src/session.dart
 index 37c8856..83c8b24 100644

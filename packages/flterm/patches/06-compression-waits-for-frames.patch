@@ -1,6 +1,6 @@
 # scrollback compression runs a step once no animation holds a frame, and waits for the next frame instead of queueing an idle task
 #
-# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just flterm-patches`.
+# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just pub flterm generate`.
 
 diff --git a/lib/src/view/compression_scheduler.dart b/lib/src/view/compression_scheduler.dart
 index f5b3393..8933320 100644

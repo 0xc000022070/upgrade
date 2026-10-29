@@ -22,7 +22,6 @@ just gen          # build_runner: drift output (*.g.dart, *.drift.dart) — not 
 just pub-build    # flterm, dart_mosh and dartssh2, patched, into .dart_tool
 just analyze
 just apk          # debug APK, arm64
-just desktop      # Linux desktop, the fast iteration loop
 ```
 
 Run `just gen` after touching a drift schema; generated Dart is gitignored.

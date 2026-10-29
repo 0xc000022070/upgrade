@@ -1,6 +1,6 @@
 # a row rebuild resolves a style id once, since each libghostty page numbers its own styles, and reuses operator runs it already shaped until the system fonts change
 #
-# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just flterm-patches`.
+# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just pub flterm generate`.
 
 diff --git a/lib/src/rendering/atlas/sprite_buffer.dart b/lib/src/rendering/atlas/sprite_buffer.dart
 index 7f4df97..af959ef 100644

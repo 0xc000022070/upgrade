@@ -14,6 +14,7 @@ nix develop
 just widgetbook          # http://127.0.0.1:8095, any browser
 just widgetbook 9000     # another port
 just widgetbook-build    # static site in widgetbook/build/web
+just widgetbook-serve    # that site built and served on http://127.0.0.1:8096
 just widgetbook-frames   # recapture the plugin frames
 ```
 

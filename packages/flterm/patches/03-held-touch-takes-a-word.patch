@@ -1,6 +1,6 @@
 # over a mouse application a held touch takes the word under it, a touch on a frame held for synchronized output still reaches it, and a touch over a selection is the selection's
 #
-# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just flterm-patches`.
+# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just pub flterm generate`.
 
 diff --git a/lib/src/input/interaction_region.dart b/lib/src/input/interaction_region.dart
 index b0dedc8..8ae6252 100644

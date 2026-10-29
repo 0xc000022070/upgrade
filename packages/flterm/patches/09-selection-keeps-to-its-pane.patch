@@ -1,6 +1,6 @@
 # a selection on the alternate screen keeps to the pane framed around its press
 #
-# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just flterm-patches`.
+# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just pub flterm generate`.
 
 diff --git a/lib/src/controller/terminal_controller.dart b/lib/src/controller/terminal_controller.dart
 index b65b489..9e5f884 100644

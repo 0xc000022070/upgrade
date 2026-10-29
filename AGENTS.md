@@ -33,8 +33,8 @@ connecting.
 ## Host scenarios
 
 `nix/host-vm/scenarios.nix` declares one guest per kind of machine the app has
-to meet. Boot one with `just host-scenario <name>`, stop it with
-`just host-scenario-down <name>`, and run commands with
+to meet. Boot one with `just host-vm <name>`, stop it with
+`just host-vm-down <name>`, and run commands with
 `nix run .#host-ssh-<name> -- <command>`. Each guest keeps its own disk image,
 so a pinned host key survives a reboot.
 
