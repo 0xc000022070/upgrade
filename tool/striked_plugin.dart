@@ -7,6 +7,7 @@ import 'package:striked_luau/striked_luau.dart';
 
 import 'package:striked/platform/plugins/plugin_check.dart';
 import 'package:striked/platform/plugins/plugin_sdk.dart';
+import 'package:striked/platform/plugins/plugin_template.dart';
 
 const _usage = '''
 striked-plugin: author tools for Striked Luau plugins
@@ -71,25 +72,20 @@ void _init(Directory target, {String? id, String? name}) {
   if (target.existsSync() && target.listSync().isNotEmpty) {
     _fail('${target.path} is not empty');
   }
-  final template = Directory('${_repo.path}/plugins/templates/phone-card');
-  for (final entity in template.listSync(recursive: true)) {
-    if (entity is! File) continue;
-    final relative = entity.path.substring(template.path.length + 1);
-    var text = entity.readAsStringSync();
-    if (relative == pluginManifestFile) {
-      if (id != null) {
-        text = text.replaceFirst('"dev.example.hello-card"', jsonEncode(id));
-      }
-      if (name != null) {
-        text = text.replaceFirst(
-          'name = "Hello card"',
-          'name = ${jsonEncode(name)}',
-        );
-      }
-    }
-    File('${target.path}/$relative')
+  final template = '${_repo.path}/$pluginTemplateDir';
+  final files = pluginWorkspaceFiles(
+    {
+      for (final path in pluginTemplateFiles.keys)
+        path: File('$template/$path').readAsStringSync(),
+    },
+    id: id,
+    name: name,
+  );
+  for (final MapEntry(key: path, value: text) in files.entries) {
+    final file = File('${target.path}/$path')
       ..createSync(recursive: true)
       ..writeAsStringSync(text);
+    if (path.endsWith('.sh')) Process.runSync('chmod', ['+x', file.path]);
   }
   stdout.writeln('created ${target.path}');
   stdout.writeln('next: edit lib/card.luau, then check ${target.path}');

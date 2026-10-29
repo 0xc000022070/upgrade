@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,6 +57,10 @@ const pluginDevPoll = Duration(seconds: 2);
 
 String pluginWorkspaceCommand(String path) => underSh(
   'cd -- ${_directory(path)} || exit 3\n'
+  'if [ -f $pluginPreviewAsk ]; then\n'
+  '  a=\$(head -c 64 $pluginPreviewAsk)\n'
+  '  printf "%s\\n%s\\n%s" $pluginPreviewAsk "\$(printf %s "\$a" | wc -c | tr -d " ")" "\$a"\n'
+  'fi\n'
   'find . -maxdepth 4 -name ".?*" -prune -o -type f \\( -name "*.luau" '
   '-o -path ./$pluginManifestFile -o -path "./fixtures/*.json" '
   '! -path "./fixtures/*/*" \\) -size -${maxWorkspaceFileKib}k -print | '
@@ -77,6 +82,51 @@ String pluginPreviewWriteCommand(String path) => underSh(
   'mv -f $pluginPreviewResult.part $pluginPreviewResult\n',
 );
 
+const pluginWorkspaceCreateCommand = 'sh -s';
+
+/// Stdin for [pluginWorkspaceCreateCommand]. Exits 4 unless the folder is empty
+/// or holds only a preview's `.striked`.
+String pluginWorkspaceCreateScript(
+  String path,
+  Map<String, String> files, {
+  Random? random,
+}) {
+  final source = random ?? Random.secure();
+  final body = files.values.join();
+  String delimiter;
+  do {
+    delimiter =
+        'STRIKED_${[for (var i = 0; i < 8; i++) source.nextInt(256).toRadixString(16).padLeft(2, '0')].join()}';
+  } while (body.contains(delimiter));
+  final script = StringBuffer(
+    'set -e\n'
+    'd=${_directory(path)}\n'
+    'p=\$(dirname -- "\$d")\n'
+    'mkdir -p -- "\$p"\n'
+    'if [ -e "\$d" ] && [ -n "\$(ls -A -- "\$d" | grep -Fvx .striked)" ]; then exit 4; fi\n'
+    't=\$(mktemp -d "\$p/.striked-new.XXXXXX")\n'
+    "trap 'rm -rf -- \"\$t\"' EXIT\n"
+    "trap 'exit 1' HUP INT TERM\n",
+  );
+  for (final MapEntry(key: file, value: text) in files.entries) {
+    final target = '"\$t"/${shellQuote(file)}';
+    script
+      ..write('mkdir -p -- "\$(dirname -- $target)"\n')
+      ..write("cat > $target <<'$delimiter'\n")
+      ..write(text.endsWith('\n') || text.isEmpty ? text : '$text\n')
+      ..write('$delimiter\n');
+    if (file.endsWith('.sh')) script.write('chmod +x -- $target\n');
+  }
+  script.write(
+    'if [ -e "\$d" ]; then rm -rf -- "\$d/.striked"; rmdir -- "\$d" || exit 4; fi\n'
+    '[ ! -e "\$d" ] || exit 4\n'
+    'mv -- "\$t" "\$d"\n'
+    'if [ -e "\$d/\${t##*/}" ]; then rm -rf -- "\$d/\${t##*/}"; exit 4; fi\n'
+    'trap - EXIT\n',
+  );
+  return script.toString();
+}
+
 Map<String, String>? parseWorkspaceFrames(Uint8List bytes) {
   final files = <String, String>{};
   var at = 0;
@@ -92,7 +142,7 @@ Map<String, String>? parseWorkspaceFrames(Uint8List bytes) {
     final path = line();
     final size = int.tryParse(line() ?? '');
     if (path == null || size == null || at + size > bytes.length) return null;
-    if (isPluginWorkspaceFile(path)) {
+    if (isPluginWorkspaceFile(path) || path == pluginPreviewAsk) {
       files[path] = utf8.decode(
         bytes.sublist(at, at + size),
         allowMalformed: true,
@@ -116,6 +166,7 @@ class PluginDevelopment extends AutoDisposeNotifier<PluginDevState?> {
   int? _polling;
   var _misses = 0;
   String? _written;
+  String? _answered;
   var _writeFailed = false;
   Map<String, Object?> _theme = fixtureTheme;
 
@@ -129,6 +180,7 @@ class PluginDevelopment extends AutoDisposeNotifier<PluginDevState?> {
     Host host,
     String path, {
     required Map<String, Object?> theme,
+    Map<String, String>? create,
   }) async {
     final previous = state;
     final same =
@@ -136,6 +188,7 @@ class PluginDevelopment extends AutoDisposeNotifier<PluginDevState?> {
         previous?.path == path &&
         jsonEncode(theme) == jsonEncode(_theme);
     _written = null;
+    _answered = null;
     _end();
     final session = ++_session;
     _theme = theme;
@@ -185,8 +238,24 @@ class PluginDevelopment extends AutoDisposeNotifier<PluginDevState?> {
         return;
       }
       _lease = lease;
+      if (create != null) {
+        final made = await leaseExec(
+          lease,
+          pluginWorkspaceCreateCommand,
+          stdin: utf8.encode(pluginWorkspaceCreateScript(path, create)),
+          timeout: remoteCommandDeadline,
+        );
+        if (!made.ok) {
+          throw _CreateFailure(
+            made.exitCode == 4 ? 'folder not empty' : 'cannot create folder',
+          );
+        }
+        if (session != _session) return;
+      }
     } catch (error) {
       if (session != _session) return;
+      _lease?.release();
+      _lease = null;
       state = state?.copyWith(
         phase: PluginDevPhase.failed,
         line: _failureLine(error),
@@ -244,6 +313,8 @@ class PluginDevelopment extends AutoDisposeNotifier<PluginDevState?> {
       );
       if (session != _session) return;
       final files = reply.ok ? parseWorkspaceFrames(reply.stdout) : null;
+      final asked = files?.remove(pluginPreviewAsk)?.trim();
+      final ask = asked != null && asked.length <= 64 ? asked : null;
       if (files == null) {
         // One miss is let pass: a sync swaps the directory under a poll.
         if (++_misses < 2) return;
@@ -285,7 +356,9 @@ class PluginDevelopment extends AutoDisposeNotifier<PluginDevState?> {
           shown: shown,
         );
       }
-      if (check == null || check.revision == _written) return;
+      if (check == null || (check.revision == _written && ask == _answered)) {
+        return;
+      }
       final envelope = check.envelope(
         command: 'preview',
         artifacts: {'shown_revision': ?shown?.revision},
@@ -294,6 +367,7 @@ class PluginDevelopment extends AutoDisposeNotifier<PluginDevState?> {
           'renderer': 'PluginUi',
           'host': current.host.name,
           'workspace': current.path,
+          'ask': ?ask,
         },
       );
       String? failure;
@@ -313,6 +387,7 @@ class PluginDevelopment extends AutoDisposeNotifier<PluginDevState?> {
       if (session != _session) return;
       if (failure == null) {
         _written = check.revision;
+        _answered = ask;
         if (_writeFailed) {
           _writeFailed = false;
           state = state?.copyWith(phase: PluginDevPhase.watching);
@@ -336,7 +411,13 @@ class PluginDevelopment extends AutoDisposeNotifier<PluginDevState?> {
 
 const _settleWithin = Duration(seconds: 10);
 
+final class _CreateFailure implements Exception {
+  const _CreateFailure(this.line);
+  final String line;
+}
+
 String _failureLine(Object error) => switch (error) {
+  _CreateFailure(:final line) => line,
   HerdrFailure(:final line) => line.words,
   _ when filesFailureLine(error) == '$error' => 'failed',
   _ => filesFailureLine(error),

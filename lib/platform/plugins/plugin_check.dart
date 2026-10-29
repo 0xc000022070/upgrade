@@ -12,6 +12,7 @@ import 'package:striked/platform/plugins/ui_tree.dart';
 
 const pluginManifestFile = 'striked.plugin.toml';
 const pluginPreviewResult = '.striked/preview/latest.json';
+const pluginPreviewAsk = '.striked/ask';
 const maxWorkspaceFiles = 64;
 
 const maxWorkspaceFileKib = 256;

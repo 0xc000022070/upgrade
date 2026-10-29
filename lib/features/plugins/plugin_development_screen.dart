@@ -1,11 +1,13 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:striked/application/agents/agents.dart';
 import 'package:striked/application/plugins/native_plugins.dart';
 import 'package:striked/application/plugins/plugin_development.dart';
+import 'package:striked/data/repositories/host_repository.dart';
 import 'package:striked/design/components/list_row.dart';
 import 'package:striked/design/components/panel.dart';
 import 'package:striked/design/components/picker_row.dart';
@@ -18,6 +20,7 @@ import 'package:striked/features/plugins/plugin_page.dart';
 import 'package:striked/features/settings/plugins_panel.dart';
 import 'package:striked/platform/plugins/plugin_check.dart';
 import 'package:striked/platform/plugins/plugin_sdk.dart';
+import 'package:striked/platform/plugins/plugin_template.dart';
 import 'package:striked/platform/plugins/ui.dart';
 
 void openPluginDevelopment(BuildContext context) => Navigator.of(context).push(
@@ -80,6 +83,30 @@ class _PluginDevelopmentScreenState
     );
   }
 
+  Future<void> _create(Host host) async {
+    final path = _path.text.trim();
+    final folder = path
+        .split('/')
+        .lastWhere((part) => part.isNotEmpty && part != '~', orElse: () => '');
+    final template = {
+      for (final file in pluginTemplateFiles.keys)
+        file: await rootBundle.loadString('$pluginTemplateDir/$file'),
+    };
+    if (!mounted) return;
+    await ref
+        .read(pluginDevelopmentProvider.notifier)
+        .start(
+          host,
+          path,
+          theme: pluginThemeTable(context.tokens),
+          create: pluginWorkspaceFiles(
+            template,
+            id: pluginIdFor(folder),
+            name: folder.isEmpty ? null : folder,
+          ),
+        );
+  }
+
   Widget _form(BuildContext context) {
     final hosts = ref.watch(hostsProvider).value ?? const [];
     final host = hosts.where((host) => host.id == _hostId).firstOrNull;
@@ -121,6 +148,19 @@ class _PluginDevelopmentScreenState
                 _path.text.trim(),
                 theme: pluginThemeTable(context.tokens),
               ),
+        ),
+        const SizedBox(height: Spacing.md),
+        SolidActionBar(
+          label: 'NEW WORKSPACE',
+          tone: context.tokens.accent,
+          enabled: host != null && _path.text.trim().isNotEmpty,
+          onTap: () => _create(host!),
+        ),
+        const SizedBox(height: Spacing.sm),
+        Text(
+          'Writes a card template and an AGENTS.md to an empty folder, then '
+          'previews it. A coding agent on the host can take it from there.',
+          style: context.tokens.rowSubtitle,
         ),
       ],
     );

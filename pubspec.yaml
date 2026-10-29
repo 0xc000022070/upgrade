@@ -84,6 +84,14 @@ flutter:
     - plugins/board/main.luau
     - plugins/kanban/striked.plugin.toml
     - plugins/kanban/main.luau
+    - plugins/templates/phone-card/striked.plugin.toml
+    - plugins/templates/phone-card/main.luau
+    - plugins/templates/phone-card/lib/card.luau
+    - plugins/templates/phone-card/fixtures/mounted.json
+    - plugins/templates/phone-card/fixtures/refreshed.json
+    - plugins/templates/phone-card/AGENTS.md
+    - plugins/templates/phone-card/CLAUDE.md
+    - plugins/templates/phone-card/wait.sh
     - assets/icons/
     - assets/icons/signal/
     - assets/project_emblems/

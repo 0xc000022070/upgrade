@@ -9,6 +9,11 @@ lib/card.luau         the card tree
 fixtures/*.json       {widget, events, state?}: what a preview replays
 ```
 
+No checkout at hand? On the phone, TOOLS > DEVELOP PLUGIN > NEW WORKSPACE writes
+this template to an empty folder on a host, with `AGENTS.md`, `striked-sdk.json`
+and `.striked/wait.sh`, and starts the preview. A coding agent in that folder
+edits, runs `sh .striked/wait.sh` and reads the phone's check.
+
 ## Commands
 
 Run from a Striked checkout. `just plugin` is `dart run tool/striked_plugin.dart`.
