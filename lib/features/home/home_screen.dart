@@ -89,6 +89,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _ => null,
     };
     final space = placements?.homeSpace ?? 1;
+    var drawn = double.infinity;
+    VoidCallback? beside(String id, List<int> path, HomeEdge edge) =>
+        placements!.movesHome(
+          id,
+          space: space,
+          path: path,
+          edge: edge,
+          width: drawn,
+          boundsOf: (card) => switch (shown(card)) {
+            final card? => homeCardBounds(card, placements),
+            null => null,
+          },
+        )
+        ? () => unawaited(
+            _layout.moveHome(id, space: space, path: path, edge: edge),
+          )
+        : null;
     final live = [
       for (final id in placements?.homeOrder ?? const <String>[])
         if (shown(id) != null) id,
@@ -101,43 +118,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       for (var n = 1; n <= homeSpaceCount; n++)
         if (!numbers.contains(n)) n,
     ].firstOrNull;
-    final columns = placements?.columnsOf(space) ?? const <HomeColumn>[];
-    final order = [
-      for (final column in columns)
-        for (final id in column.cards)
-          if (shown(id) != null) id,
-    ];
-    final tiles = <_Tile>[];
-    for (var i = 0; i < columns.length; i++) {
-      final cards = [for (final id in columns[i].cards) ?shown(id)];
-      if (cards.isEmpty) continue;
-      tiles.add(
-        _Tile(
-          column: i,
-          weight: columns[i].weight,
-          bounds: [for (final card in cards) _bounds(card, placements!)],
-          cards: [
-            for (final card in cards)
-              _HomeEntry(
-                key: ValueKey(card.stableId),
-                id: card.stableId,
-                title: card.contribution.title,
-                order: order,
-                onMove: (id, over) =>
-                    unawaited(_layout.moveHome(id, over: over)),
-                fills: card.contribution.fill,
-                child: KeyedSubtree(
-                  key: _entryKeys.putIfAbsent(card.stableId, GlobalKey.new),
-                  child: _PlacedPluginWidget(
-                    registration: card,
-                    placements: placements!,
-                  ),
-                ),
+    final stored = placements?.tileOf(space);
+    _Shape? shape(HomeTile tile, List<int> path) => switch (tile) {
+      HomeCard(:final id) => switch (shown(id)) {
+        final card? => _Leaf(
+          id: card.stableId,
+          path: path,
+          bounds: homeCardBounds(card, placements!),
+          entry: (width, sideways) => _HomeEntry(
+            key: ValueKey(card.stableId),
+            id: card.stableId,
+            path: path,
+            min: homeCardBounds(card, placements).$1,
+            title: card.contribution.title,
+            width: width,
+            sideways: sideways,
+            onSwap: (id, over) => unawaited(_layout.moveHome(id, over: over)),
+            onBeside: beside,
+            fills: card.contribution.fill,
+            child: KeyedSubtree(
+              key: _entryKeys.putIfAbsent(card.stableId, GlobalKey.new),
+              child: _PlacedPluginWidget(
+                registration: card,
+                placements: placements,
               ),
-          ],
+            ),
+          ),
         ),
-      );
-    }
+        null => null,
+      },
+      HomeSplit(:final axis, :final children) => switch ([
+        for (var i = 0; i < children.length; i++)
+          if (shape(children[i], [...path, i]) case final child?)
+            child
+              ..slot = [...path, i]
+              ..weight = children[i].weight,
+      ]) {
+        [] => null,
+        [final only] => only,
+        final shown => _Split(path: path, axis: axis, children: shown),
+      },
+    };
+    final root = stored == null ? null : shape(stored, const []);
     final composer = placements == null
         ? null
         : catalog.widgets
@@ -172,7 +194,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
     ];
     final tail = <Widget>[
-      if (tiles.isEmpty) const _EmptySpace(),
+      if (root == null) const _EmptySpace(),
       if (placements != null &&
           !live.any((id) => id != agentsCardId) &&
           composer == null)
@@ -184,11 +206,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final split = _HomeTiles.splits(
-                math.min(constraints.maxWidth, homeMaxContentWidth) -
-                    2 * Spacing.screenEdge,
-                tiles,
-              );
+              final width =
+                  math.min(
+                    constraints.maxWidth -
+                        MediaQuery.paddingOf(context).horizontal,
+                    homeMaxContentWidth,
+                  ) -
+                  2 * Spacing.screenEdge;
+              drawn = width;
+              final split = _HomeTiles.splits(width, root);
               return GestureDetector(
                 onHorizontalDragUpdate: (details) =>
                     _swipe += details.primaryDelta ?? 0,
@@ -227,22 +253,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       key: ValueKey(space),
                       split: split,
                       head: head,
-                      tiles: tiles,
+                      root: root,
                       tail: tail,
-                      onNewColumn: (id, column) => unawaited(
-                        _layout.moveHome(
-                          id,
-                          space: space,
-                          column: column,
-                          newColumn: true,
-                        ),
-                      ),
-                      onWeights: (weights) => unawaited(
-                        _layout.setColumnWeights(space, [
-                          for (var i = 0; i < columns.length; i++)
-                            weights[i] ?? columns[i].weight,
-                        ]),
-                      ),
+                      onBeside: beside,
+                      onWeights: (path, weights) {
+                        final row =
+                            placements!.homeTileAt(space, path)! as HomeSplit;
+                        unawaited(
+                          _layout.setRowWeights(space, path, [
+                            for (var i = 0; i < row.children.length; i++)
+                              weights[i] ?? row.children[i].weight,
+                          ]),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -268,7 +291,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 const homeMaxContentWidth = 1100.0;
 
-(double, double) _bounds(
+(double, double) homeCardBounds(
   PluginWidgetRegistration registration,
   PluginPlacementState placements,
 ) {
@@ -281,95 +304,265 @@ const homeMaxContentWidth = 1100.0;
   return (chosen?.min ?? size.minWidth!, chosen?.max ?? size.maxWidth!);
 }
 
-class _Tile {
-  _Tile({
-    required this.column,
-    required this.weight,
+sealed class _Shape {
+  _Shape(this.path);
+
+  final List<int> path;
+
+  /// The saved child of the parent split this shape stands for, which is a
+  /// split further out than [path] when hidden cards left it one child.
+  late List<int> slot = path;
+  double weight = 1;
+
+  double get min;
+  double get max;
+}
+
+typedef _Fits = bool Function(_Lift lift);
+
+typedef _Beside = VoidCallback? Function(
+  String id,
+  List<int> path,
+  HomeEdge edge,
+);
+
+final class _Leaf extends _Shape {
+  _Leaf({
+    required this.id,
+    required List<int> path,
     required this.bounds,
-    required this.cards,
-  });
+    required this.entry,
+  }) : super(path);
 
-  final int column;
-  final double weight;
-  final List<(double, double)> bounds;
-  final List<_HomeEntry> cards;
+  final String id;
+  final (double, double) bounds;
+  final _HomeEntry Function(double width, _Fits sideways) entry;
 
-  late final double min = bounds.map((bound) => bound.$1).reduce(math.max);
-  late final double max = math.max(
-    min,
-    bounds.map((bound) => bound.$2).reduce(math.min),
-  );
-  late final int? fill = switch (cards.indexWhere((card) => card.fills)) {
-    < 0 => null,
-    final at => at,
+  @override
+  double get min => bounds.$1;
+
+  @override
+  double get max => math.max(bounds.$1, bounds.$2);
+}
+
+final class _Split extends _Shape {
+  _Split({required List<int> path, required this.axis, required this.children})
+    : super(path);
+
+  final HomeAxis axis;
+  final List<_Shape> children;
+
+  double get _seams => _HomeTiles._seam * (children.length - 1);
+
+  @override
+  late final double min = axis == HomeAxis.row
+      ? children.fold(0.0, (sum, child) => sum + child.min) + _seams
+      : children.map((child) => child.min).reduce(math.max);
+
+  @override
+  late final double max = axis == HomeAxis.row
+      ? children.fold(0.0, (sum, child) => sum + child.max) + _seams
+      : math.max(min, children.map((child) => child.max).reduce(math.min));
+
+  bool fits(double width) => axis == HomeAxis.row && min <= width;
+
+  _Fits joins(double width) =>
+      (lift) =>
+          children.any((child) => child is _Leaf && child.id == lift.id) ||
+          min + lift.min + _HomeTiles._seam <= width;
+}
+
+List<Widget> _stack(
+  _Shape shape,
+  double width,
+  Widget Function(_Split row, double width) row, {
+  bool stand = true,
+  _Fits? beside,
+}) {
+  final room = stand ? width : width - _HomeTiles._seam;
+  return switch (shape) {
+    _Leaf() => [
+      shape.entry(
+        math.min(width, shape.max),
+        beside ?? (lift) => shape.min + lift.min + _HomeTiles._seam <= room,
+      ),
+    ],
+    _Split() when stand && shape.fits(width) => [row(shape, width)],
+    _Split(:final axis, :final children) => [
+      for (final child in children)
+        ..._stack(
+          child,
+          math.min(
+            width,
+            math.max(
+              children.map((child) => child.min).reduce(math.max),
+              children.map((child) => child.max).reduce(math.min),
+            ),
+          ),
+          row,
+          beside: axis == HomeAxis.row && child is _Leaf ? (_) => false : null,
+        ),
+    ],
   };
 }
 
-class _HomeTiles extends StatefulWidget {
+int? _fillOf(List<Widget> items) =>
+    switch (items.indexWhere((item) => item is _HomeEntry && item.fills)) {
+      < 0 => null,
+      final at => at,
+    };
+
+class _HomeTiles extends StatelessWidget {
   const _HomeTiles({
     super.key,
     required this.split,
     required this.head,
-    required this.tiles,
+    required this.root,
     required this.tail,
-    required this.onNewColumn,
+    required this.onBeside,
     required this.onWeights,
   });
 
-  static const _seam = 16.0;
+  static const _seam = homeSeam;
   static const _minCardHeight = 240.0;
 
-  static bool splits(double width, List<_Tile> tiles) =>
-      tiles.length > 1 &&
-      tiles.fold(0.0, (sum, tile) => sum + tile.min) + _seam * tiles.length <=
-          width;
+  static bool splits(double width, _Shape? root) =>
+      root is _Split && root.fits(width - _seam);
 
   final bool split;
   final List<Widget> head;
-  final List<_Tile> tiles;
+  final _Shape? root;
   final List<Widget> tail;
-  final void Function(String id, int column) onNewColumn;
-  final ValueChanged<Map<int, double>> onWeights;
+  final _Beside onBeside;
+  final void Function(List<int> path, Map<int, double> weights) onWeights;
+
+  Widget _row(
+    _Split row,
+    double width, {
+    Widget Function(_Shape child, double width, bool last, _Fits? beside)? cell,
+  }) => _TileRow(
+    key: ValueKey('home-row-${row.path.join('.')}'),
+    row: row,
+    width: width,
+    top: cell != null,
+    onBeside: onBeside,
+    onWeights: onWeights,
+    cell:
+        cell ??
+        (child, width, _, beside) => _column(child, width, beside: beside),
+  );
+
+  Widget _column(
+    _Shape shape,
+    double width, {
+    double? viewport,
+    List<Widget> head = const [],
+    List<Widget> tail = const [],
+    bool stand = true,
+    _Fits? beside,
+  }) {
+    final items = [
+      ...head,
+      ..._stack(shape, width, _row, stand: stand, beside: beside),
+      ...tail,
+    ];
+    return _CardColumn(
+      viewport: viewport,
+      minFill: _minCardHeight,
+      fill: _fillOf(items),
+      children: items,
+    );
+  }
 
   @override
-  State<_HomeTiles> createState() => _HomeTilesState();
+  Widget build(BuildContext context) {
+    final root = this.root;
+    if (root == null) {
+      return _CardColumn(
+        viewport: null,
+        minFill: _minCardHeight,
+        fill: null,
+        children: [...head, ...tail],
+      );
+    }
+    if (!split || root is! _Split) {
+      return LayoutBuilder(
+        builder: (context, constraints) => _column(
+          root,
+          constraints.maxWidth,
+          head: head,
+          tail: tail,
+          stand: false,
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final panel in head) ...[
+          panel,
+          const SizedBox(height: Spacing.panelGap),
+        ],
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final height = math.max(constraints.maxHeight, _minCardHeight);
+              return _row(
+                root,
+                constraints.maxWidth,
+                cell: (child, width, last, beside) => SingleChildScrollView(
+                  child: HomeCardViewport(
+                    height: height,
+                    child: _column(
+                      child,
+                      width,
+                      viewport: height,
+                      tail: last ? tail : const [],
+                      beside: beside,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class _HomeTilesState extends State<_HomeTiles> {
+class _TileRow extends StatefulWidget {
+  const _TileRow({
+    super.key,
+    required this.row,
+    required this.width,
+    required this.top,
+    required this.onBeside,
+    required this.onWeights,
+    required this.cell,
+  });
+
+  final _Split row;
+  final double width;
+  final bool top;
+  final _Beside onBeside;
+  final void Function(List<int> path, Map<int, double> weights) onWeights;
+  final Widget Function(_Shape child, double width, bool last, _Fits? beside)
+  cell;
+
+  @override
+  State<_TileRow> createState() => _TileRowState();
+}
+
+class _TileRowState extends State<_TileRow> {
   List<double>? _held;
   (double, List<double>)? _grip;
-
-  static List<double> _widths(double available, List<_Tile> tiles) {
-    final widths = List<double?>.filled(tiles.length, null);
-    while (true) {
-      final open = [
-        for (var i = 0; i < tiles.length; i++)
-          if (widths[i] == null) i,
-      ];
-      if (open.isEmpty) break;
-      final free =
-          available - widths.fold(0.0, (sum, width) => sum + (width ?? 0));
-      final total = open.fold(0.0, (sum, i) => sum + tiles[i].weight);
-      var clamped = false;
-      for (final i in open) {
-        final share = free * tiles[i].weight / total;
-        if (share < tiles[i].min || share > tiles[i].max) {
-          widths[i] = share.clamp(tiles[i].min, tiles[i].max);
-          clamped = true;
-        }
-      }
-      if (clamped) continue;
-      for (final i in open) {
-        widths[i] = free * tiles[i].weight / total;
-      }
-    }
-    return [for (final width in widths) width!];
-  }
 
   void _resize(int seam, double x) {
     final (start, widths) = _grip!;
     final delta = x - start;
-    final (left, right) = (widget.tiles[seam - 1], widget.tiles[seam]);
+    final tiles = widget.row.children;
+    final (left, right) = (tiles[seam - 1], tiles[seam]);
     final held = [...widths];
     final pair = held[seam - 1] + held[seam];
     final low = math.max(left.min, pair - right.max);
@@ -383,109 +576,92 @@ class _HomeTilesState extends State<_HomeTiles> {
   void _settle() {
     final held = _held;
     if (held == null) return;
-    widget.onWeights({
-      for (var i = 0; i < widget.tiles.length; i++)
-        widget.tiles[i].column: held[i] / 100,
+    final tiles = widget.row.children;
+    widget.onWeights(widget.row.path, {
+      for (var i = 0; i < tiles.length; i++) tiles[i].slot.last: held[i] / 100,
     });
   }
 
   @override
-  void didUpdateWidget(_HomeTiles oldWidget) {
+  void didUpdateWidget(_TileRow oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final before = [for (final tile in oldWidget.tiles) tile.weight];
-    final after = [for (final tile in widget.tiles) tile.weight];
+    final before = [for (final tile in oldWidget.row.children) tile.weight];
+    final after = [for (final tile in widget.row.children) tile.weight];
     if (!listEquals(before, after)) _held = null;
   }
 
-  Widget _cards(
-    _Tile tile, {
-    double? viewport,
-    List<Widget> extra = const [],
-  }) => _CardColumn(
-    viewport: viewport,
-    minFill: _HomeTiles._minCardHeight,
-    fill: tile.fill,
-    children: [...tile.cards, ...extra],
-  );
-
   @override
   Widget build(BuildContext context) {
-    final tiles = widget.tiles;
-    if (!widget.split) {
-      final cards = [for (final tile in tiles) ...tile.cards];
-      return _CardColumn(
-        viewport: null,
-        minFill: _HomeTiles._minCardHeight,
-        fill: switch (cards.indexWhere((card) => card.fills)) {
-          < 0 => null,
-          final at => at + widget.head.length,
-        },
-        children: [...widget.head, ...cards, ...widget.tail],
-      );
+    final tiles = widget.row.children;
+    const seam = _HomeTiles._seam;
+    final available =
+        widget.width - seam * (tiles.length - 1) - (widget.top ? seam : 0);
+    final held = _held;
+    final widths =
+        held != null &&
+            held.length == tiles.length &&
+            (held.fold(0.0, (sum, width) => sum + width) - available).abs() < 1
+        ? held
+        : homeShares(available, [
+            for (final tile in tiles) (tile.weight, tile.min, tile.max),
+          ]);
+    final joins = widget.row.joins(widget.width - (widget.top ? seam : 0));
+    final lefts = <double>[];
+    var x = 0.0;
+    for (final width in widths) {
+      lefts.add(x);
+      x += width + seam;
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Stack(
       children: [
-        for (final panel in widget.head) ...[
-          panel,
-          const SizedBox(height: Spacing.panelGap),
-        ],
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final available =
-                  constraints.maxWidth - _HomeTiles._seam * tiles.length;
-              final held = _held;
-              final widths =
-                  held != null &&
-                      held.length == tiles.length &&
-                      (held.fold(0.0, (sum, width) => sum + width) - available)
-                              .abs() <
-                          1
-                  ? held
-                  : _widths(available, tiles);
-              final height = math.max(
-                constraints.maxHeight,
-                _HomeTiles._minCardHeight,
-              );
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = 0; i < tiles.length; i++) ...[
-                    if (i > 0)
-                      _Seam(
-                        key: ValueKey('home-seam-$i'),
-                        onDrop: (id) => widget.onNewColumn(id, tiles[i].column),
-                        onGrip: (x) => _grip = (x, widths),
-                        onResize: (x) => _resize(i, x),
-                        onSettle: _settle,
-                      ),
-                    SizedBox(
-                      width: widths[i],
-                      child: SingleChildScrollView(
-                        child: HomeCardViewport(
-                          height: height,
-                          child: _cards(
-                            tiles[i],
-                            viewport: height,
-                            extra: i == tiles.length - 1
-                                ? widget.tail
-                                : const [],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                  _Seam(
-                    key: ValueKey('home-seam-${tiles.length}'),
-                    onDrop: (id) =>
-                        widget.onNewColumn(id, tiles.last.column + 1),
-                  ),
-                ],
-              );
-            },
-          ),
+        Row(
+          crossAxisAlignment: widget.top
+              ? CrossAxisAlignment.stretch
+              : CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < tiles.length; i++) ...[
+              if (i > 0) const SizedBox(width: seam),
+              SizedBox(
+                width: widths[i],
+                child: widget.cell(
+                  tiles[i],
+                  widths[i],
+                  i == tiles.length - 1,
+                  tiles[i] is _Leaf ? joins : null,
+                ),
+              ),
+            ],
+            if (widget.top) const SizedBox(width: seam),
+          ],
         ),
+        for (var i = 1; i < tiles.length; i++)
+          Positioned(
+            left: lefts[i] - seam,
+            top: 0,
+            bottom: 0,
+            width: seam,
+            child: _Seam(
+              key: ValueKey('home-seam-${[...widget.row.path, i].join('.')}'),
+              accepts: joins,
+              drop: (id) =>
+                  widget.onBeside(id, tiles[i - 1].slot, HomeEdge.right),
+              onGrip: (x) => _grip = (x, widths),
+              onResize: (x) => _resize(i, x),
+              onSettle: _settle,
+            ),
+          ),
+        if (widget.top)
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: seam,
+            child: _Seam(
+              key: const ValueKey('home-seam-end'),
+              accepts: joins,
+              drop: (id) => widget.onBeside(id, const [], HomeEdge.right),
+            ),
+          ),
       ],
     );
   }
@@ -494,20 +670,24 @@ class _HomeTilesState extends State<_HomeTiles> {
 class _Seam extends StatelessWidget {
   const _Seam({
     super.key,
-    required this.onDrop,
+    required this.accepts,
+    required this.drop,
     this.onGrip,
     this.onResize,
     this.onSettle,
   });
 
-  final ValueChanged<String> onDrop;
+  final _Fits accepts;
+  final VoidCallback? Function(String id) drop;
   final ValueChanged<double>? onGrip;
   final ValueChanged<double>? onResize;
   final VoidCallback? onSettle;
 
   @override
-  Widget build(BuildContext context) => DragTarget<String>(
-    onAcceptWithDetails: (details) => onDrop(details.data),
+  Widget build(BuildContext context) => DragTarget<_Lift>(
+    onWillAcceptWithDetails: (details) =>
+        accepts(details.data) && drop(details.data.id) != null,
+    onAcceptWithDetails: (details) => drop(details.data.id)?.call(),
     builder: (context, candidates, _) => GestureDetector(
       behavior: HitTestBehavior.opaque,
       dragStartBehavior: DragStartBehavior.down,
@@ -518,13 +698,10 @@ class _Seam extends StatelessWidget {
           ? null
           : (details) => onResize!(details.globalPosition.dx),
       onHorizontalDragEnd: onSettle == null ? null : (_) => onSettle!(),
-      child: SizedBox(
-        width: _HomeTiles._seam,
-        child: Center(
-          child: Container(
-            width: BarSizes.inlineThickness,
-            color: candidates.isEmpty ? null : context.tokens.accent,
-          ),
+      child: Center(
+        child: Container(
+          width: BarSizes.inlineThickness,
+          color: candidates.isEmpty ? null : context.tokens.accent,
         ),
       ),
     ),
@@ -742,82 +919,148 @@ class _PluginsOffPanel extends StatelessWidget {
   }
 }
 
-class _HomeEntry extends StatelessWidget {
+class _Lift {
+  _Lift(this.id);
+
+  final String id;
+
+  double min = 0;
+
+  Offset grip = Offset.zero;
+}
+
+class _HomeEntry extends StatefulWidget {
   const _HomeEntry({
     super.key,
     required this.id,
+    required this.path,
+    required this.min,
     required this.title,
-    required this.order,
-    required this.onMove,
+    required this.width,
+    required this.sideways,
+    required this.onSwap,
+    required this.onBeside,
     this.fills = false,
     required this.child,
   });
 
   static const _ghostHeight = 96.0;
+  static const _edgeShare = 0.25;
 
   final String id;
+  final List<int> path;
+  final double min;
   final String title;
-  final List<String> order;
-  final void Function(String id, String over) onMove;
+  final double width;
+
+  final _Fits sideways;
+  final void Function(String id, String over) onSwap;
+  final _Beside onBeside;
   final bool fills;
   final Widget child;
 
-  static Offset _anchor(
+  @override
+  State<_HomeEntry> createState() => _HomeEntryState();
+}
+
+class _HomeEntryState extends State<_HomeEntry> {
+  late final _lift = _Lift(widget.id);
+  final _target = GlobalKey();
+  HomeEdge? _edge;
+
+  Offset _anchor(
     Draggable<Object> draggable,
     BuildContext context,
     Offset position,
   ) {
     final box = context.findRenderObject()! as RenderBox;
     final local = box.globalToLocal(position);
-    return Offset(
+    _lift.min = widget.min;
+    return _lift.grip = Offset(
       local.dx,
-      math.min(local.dy, math.min(box.size.height, _ghostHeight) / 2),
+      math.min(
+        local.dy,
+        math.min(box.size.height, _HomeEntry._ghostHeight) / 2,
+      ),
     );
   }
 
+  HomeEdge? _zone(DragTargetDetails<_Lift> details) {
+    final box = _target.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize || box.size.isEmpty) return null;
+    final at = box.globalToLocal(details.offset + details.data.grip);
+    final x = at.dx / box.size.width;
+    final y = at.dy / box.size.height;
+    final sideways = widget.sideways(details.data);
+    final (edge, near) = [
+      if (sideways) ...[(HomeEdge.left, x), (HomeEdge.right, 1 - x)],
+      (HomeEdge.top, y),
+      (HomeEdge.bottom, 1 - y),
+    ].reduce((a, b) => b.$2 < a.$2 ? b : a);
+    return near < _HomeEntry._edgeShare &&
+            widget.onBeside(details.data.id, widget.path, edge) != null
+        ? edge
+        : null;
+  }
+
   @override
-  Widget build(BuildContext context) => DragTarget<String>(
-    onWillAcceptWithDetails: (details) => details.data != id,
-    onAcceptWithDetails: (details) => onMove(details.data, id),
-    builder: (context, candidates, _) {
-      final held = candidates.firstOrNull;
-      final edge = BorderSide(
-        color: context.tokens.accent,
-        width: BarSizes.inlineThickness,
-      );
-      final below = held != null && order.indexOf(held) < order.indexOf(id);
-      return DecoratedBox(
-        position: DecorationPosition.foreground,
-        decoration: BoxDecoration(
-          border: held == null
-              ? null
-              : Border(
-                  top: below ? BorderSide.none : edge,
-                  bottom: below ? edge : BorderSide.none,
-                ),
-        ),
-        child: HeldDrag<String>(
-          data: id,
-          anchor: _anchor,
-          ghost: (context, size) => Container(
-            width: size.width,
-            height: math.min(size.height, _ghostHeight),
-            alignment: Alignment.center,
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topCenter,
+    child: SizedBox(
+      key: _target,
+      width: widget.width,
+      child: DragTarget<_Lift>(
+        onWillAcceptWithDetails: (details) => details.data.id != widget.id,
+        onMove: (details) {
+          final edge = _zone(details);
+          if (edge != _edge) setState(() => _edge = edge);
+        },
+        onAcceptWithDetails: (details) => switch (_zone(details)) {
+          final edge? => widget.onBeside(details.data.id, widget.path, edge)!(),
+          null => widget.onSwap(details.data.id, widget.id),
+        },
+        builder: (context, candidates, _) {
+          final line = BorderSide(
+            color: context.tokens.accent,
+            width: BarSizes.inlineThickness,
+          );
+          return DecoratedBox(
+            position: DecorationPosition.foreground,
             decoration: BoxDecoration(
-              color: context.tokens.backgroundPrimary,
-              border: Border.all(color: context.tokens.accent),
+              border: candidates.isEmpty
+                  ? null
+                  : switch (_edge) {
+                      null => Border.fromBorderSide(line),
+                      HomeEdge.left => Border(left: line),
+                      HomeEdge.right => Border(right: line),
+                      HomeEdge.top => Border(top: line),
+                      HomeEdge.bottom => Border(bottom: line),
+                    },
             ),
-            child: Text(
-              title.toUpperCase(),
-              style: context.tokens.panelHeader.copyWith(
-                color: context.tokens.accent,
+            child: HeldDrag<_Lift>(
+              data: _lift,
+              anchor: _anchor,
+              ghost: (context, size) => Container(
+                width: size.width,
+                height: math.min(size.height, _HomeEntry._ghostHeight),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: context.tokens.backgroundPrimary,
+                  border: Border.all(color: context.tokens.accent),
+                ),
+                child: Text(
+                  widget.title.toUpperCase(),
+                  style: context.tokens.panelHeader.copyWith(
+                    color: context.tokens.accent,
+                  ),
+                ),
               ),
+              child: widget.child,
             ),
-          ),
-          child: child,
-        ),
-      );
-    },
+          );
+        },
+      ),
+    ),
   );
 }
 
@@ -839,8 +1082,8 @@ class _SpaceStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget cell(String label, int space, {bool lit = false}) =>
-        DragTarget<String>(
-          onAcceptWithDetails: (details) => onDrop(details.data, space),
+        DragTarget<_Lift>(
+          onAcceptWithDetails: (details) => onDrop(details.data.id, space),
           builder: (context, candidates, _) => GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => onShow(space),

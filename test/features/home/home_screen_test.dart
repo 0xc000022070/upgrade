@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../support/native_plugins.dart';
 
 import 'package:drift/native.dart';
@@ -67,12 +69,27 @@ Future<void> _drain(
 Future<void> _ready(WidgetTester tester) =>
     _drain(tester, step: const Duration(milliseconds: 100));
 
+Rect _card(WidgetTester tester, String title) => tester.getRect(
+  find.ancestor(of: find.text(title), matching: find.byType(Panel)).first,
+);
+
+Rect _target(WidgetTester tester, String title) => tester.getRect(
+  find
+      .ancestor(
+        of: find.text(title),
+        matching: find.byWidgetPredicate((widget) => widget is DragTarget),
+      )
+      .first,
+);
+
 Finder _space(String label) => find.byKey(ValueKey('home-space-$label'));
 Finder _seam(int at) => find.byKey(ValueKey('home-seam-$at'));
 
-Future<void> _hold(WidgetTester tester, Finder card, Finder onto) async {
+Future<void> _hold(WidgetTester tester, Finder card, Finder onto) =>
+    _holdAt(tester, card, tester.getCenter(onto));
+
+Future<void> _holdAt(WidgetTester tester, Finder card, Offset to) async {
   final from = tester.getCenter(card);
-  final to = tester.getCenter(onto);
   final gesture = await tester.startGesture(from);
   await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
   for (var i = 1; i <= 4; i++) {
@@ -177,7 +194,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a card dropped on an edge opens a column, a seam resizes', (
+  testWidgets('a card dropped past the last column opens one, a seam resizes', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -185,33 +202,225 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(host());
     await _ready(tester);
-    Rect card(String title) => tester.getRect(
-      find.ancestor(of: find.text(title), matching: find.byType(Panel)).first,
-    );
     final scope = ProviderScope.containerOf(
       tester.element(find.byType(HomeScreen)),
     );
-    List<HomeColumn> columns() =>
-        scope.read(pluginPlacementsProvider).requireValue.columnsOf(1);
-    expect(card('DROPS').left, greaterThan(card('AGENTS').right));
-    expect(columns(), hasLength(2));
+    PluginPlacementState state() =>
+        scope.read(pluginPlacementsProvider).requireValue;
+    expect(
+      _card(tester, 'DROPS').left,
+      greaterThan(_card(tester, 'AGENTS').right),
+    );
+    expect((state().tileOf(1)! as HomeSplit).children, hasLength(2));
 
-    await _hold(tester, find.text('DROPS'), _seam(2));
-    expect(columns(), hasLength(3));
-    expect(columns().last.cards, ['striked.drops:widget:drops']);
-    expect(card('DROPS').top, card('AGENTS').top);
+    await _hold(
+      tester,
+      find.text('DROPS'),
+      find.byKey(const ValueKey('home-seam-end')),
+    );
+    final row = state().tileOf(1)! as HomeSplit;
+    expect(row.axis, HomeAxis.row);
+    expect(row.children.last, isA<HomeCard>());
+    expect((row.children.last as HomeCard).id, 'striked.drops:widget:drops');
+    expect(_card(tester, 'DROPS').top, _card(tester, 'AGENTS').top);
 
-    final before = card('AGENTS').width;
+    final before = _card(tester, 'AGENTS').width;
     await tester.drag(_seam(1), const Offset(80, 0));
     await _ready(tester);
-    expect(card('AGENTS').width, moreOrLessEquals(before + 80, epsilon: 1));
     expect(
-      columns().first.weight * 100,
+      _card(tester, 'AGENTS').width,
+      moreOrLessEquals(before + 80, epsilon: 1),
+    );
+    expect(
+      state().homeTileAt(1, const [0])!.weight * 100,
       moreOrLessEquals(before + 80, epsilon: 1),
     );
 
     await unmount(tester);
   });
+
+  testWidgets('a row with no room for one more card refuses it', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 900);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    final scope = ProviderScope.containerOf(
+      tester.element(find.byType(HomeScreen)),
+    );
+    const capture = 'striked.drops:widget:capture';
+    await tester.runAsync(
+      () => scope
+          .read(pluginPlacementsProvider.notifier)
+          .placeWidget(capture, PluginPlacementLocation.homeCard),
+    );
+    await _ready(tester);
+    Object? tree() =>
+        scope.read(pluginPlacementsProvider).requireValue.tileOf(1)!.encode();
+    final before = tree();
+    expect(
+      _card(tester, 'DROPS').left,
+      greaterThan(_card(tester, 'AGENTS').right),
+    );
+
+    await _hold(
+      tester,
+      find.byType(CaptureBar),
+      find.byKey(const ValueKey('home-seam-end')),
+    );
+    expect(tree(), before);
+    await _holdAt(
+      tester,
+      find.byType(CaptureBar),
+      _target(tester, 'DROPS').centerRight - const Offset(4, 0),
+    );
+    expect(tree(), isNot(before));
+    expect(
+      _card(tester, 'DROPS').left,
+      greaterThan(_card(tester, 'AGENTS').right),
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('an edge that would change nothing, or stack, swaps instead', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1400, 900);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    final scope = ProviderScope.containerOf(
+      tester.element(find.byType(HomeScreen)),
+    );
+    const capture = 'striked.drops:widget:capture';
+    final layout = scope.read(pluginPlacementsProvider.notifier);
+    await tester.runAsync(
+      () => layout.placeWidget(capture, PluginPlacementLocation.homeCard),
+    );
+    await _ready(tester);
+    unawaited(
+      layout.moveHome(capture, space: 1, path: const [1], edge: HomeEdge.left),
+    );
+    await _ready(tester);
+    expect(
+      _card(tester, 'AGENTS').right,
+      lessThan(tester.getRect(find.byType(CaptureBar)).left),
+    );
+
+    await _holdAt(
+      tester,
+      find.text('AGENTS'),
+      tester.getRect(find.byType(CaptureBar)).centerLeft + const Offset(4, 0),
+    );
+    expect(
+      tester.getRect(find.byType(CaptureBar)).right,
+      lessThan(_card(tester, 'AGENTS').left),
+    );
+
+    unawaited(
+      layout.moveHome(
+        'striked.drops:widget:drops',
+        space: 1,
+        path: const [2],
+        edge: HomeEdge.right,
+      ),
+    );
+    tester.view.physicalSize = const Size(400, 900);
+    await _ready(tester);
+    await _holdAt(
+      tester,
+      find.text('DROPS'),
+      tester.getRect(find.byType(CaptureBar)).centerLeft + const Offset(4, 0),
+    );
+    expect(
+      tester.getRect(find.byType(CaptureBar)).top,
+      greaterThan(_card(tester, 'AGENTS').bottom),
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('a side inset narrows the width a row needs to stand', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(600, 900);
+    tester.view.padding = const FakeViewPadding(left: 40);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    expect(
+      _card(tester, 'AGENTS').bottom,
+      lessThan(_card(tester, 'DROPS').top),
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('an edge that changes only a wider layout swaps instead', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 900);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    expect(
+      _card(tester, 'AGENTS').bottom,
+      lessThan(_card(tester, 'DROPS').top),
+    );
+
+    await _holdAt(
+      tester,
+      find.text('AGENTS'),
+      _target(tester, 'DROPS').topCenter + const Offset(0, 8),
+    );
+    expect(
+      _card(tester, 'DROPS').bottom,
+      lessThan(_card(tester, 'AGENTS').top),
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets(
+    'a card dropped on an edge splits there, a stack shares its edges',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1000, 900);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(host());
+      await _ready(tester);
+
+      await _holdAt(
+        tester,
+        find.text('AGENTS'),
+        _target(tester, 'DROPS').bottomCenter - const Offset(0, 8),
+      );
+      final agents = _card(tester, 'AGENTS');
+      expect(agents.top, greaterThan(_card(tester, 'DROPS').bottom));
+      expect(agents.left, _card(tester, 'DROPS').left);
+      expect(agents.width, _card(tester, 'DROPS').width);
+
+      await _holdAt(
+        tester,
+        find.text('AGENTS'),
+        _target(tester, 'DROPS').centerRight - const Offset(8, 0),
+      );
+      expect(
+        _card(tester, 'AGENTS').left,
+        greaterThan(_card(tester, 'DROPS').right),
+      );
+      expect(_card(tester, 'AGENTS').top, _card(tester, 'DROPS').top);
+
+      await unmount(tester);
+    },
+  );
 
   testWidgets('the input bar tiles into a column', (tester) async {
     tester.view.devicePixelRatio = 1;
@@ -231,7 +440,7 @@ void main() {
     );
     await _ready(tester);
     final state = scope.read(pluginPlacementsProvider).requireValue;
-    expect(state.columnsOf(1).last.cards.last, capture);
+    expect(state.tileOf(1)!.cards.last, capture);
     expect(find.byType(CaptureBar), findsOneWidget);
     final bar = tester.getRect(find.byType(CaptureBar));
     expect(bar.bottom, lessThan(bottom));
@@ -240,7 +449,9 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a card dropped on another takes its place', (tester) async {
+  testWidgets('a card dropped on the middle of another swaps with it', (
+    tester,
+  ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(400, 900);
     addTearDown(tester.view.reset);
@@ -249,8 +460,32 @@ void main() {
     double top(String title) => tester.getTopLeft(find.text(title)).dy;
     expect(top('AGENTS'), lessThan(top('DROPS')));
 
-    await _hold(tester, find.text('AGENTS'), find.text('DROPS'));
+    await _holdAt(tester, find.text('AGENTS'), _card(tester, 'DROPS').center);
     expect(top('DROPS'), lessThan(top('AGENTS')));
+    final tile =
+        ProviderScope.containerOf(tester.element(find.byType(HomeScreen)))
+                .read(pluginPlacementsProvider)
+                .requireValue
+                .tileOf(1)!
+            as HomeSplit;
+    expect(tile.axis, HomeAxis.row);
+    expect(tile.children.last.cards, contains(agentsCardId));
+
+    await _holdAt(
+      tester,
+      find.text('DROPS'),
+      _target(tester, 'AGENTS').centerLeft + const Offset(4, 0),
+    );
+    expect(top('AGENTS'), lessThan(top('DROPS')));
+    expect(
+      ProviderScope.containerOf(tester.element(find.byType(HomeScreen)))
+          .read(pluginPlacementsProvider)
+          .requireValue
+          .tileOf(1),
+      isA<HomeSplit>()
+          .having((row) => row.children.length, 'tiles', 2)
+          .having((row) => row.cards.first, 'first', agentsCardId),
+    );
 
     await unmount(tester);
   });

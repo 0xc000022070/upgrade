@@ -1094,12 +1094,27 @@ class _WhereItSitsState extends ConsumerState<_WhereItSits> {
     final size = contribution.size(
       state.selectedSizes[id] ?? contribution.defaultSize,
     );
-    final (space, column) = state.columnOf(id) ?? (state.homeSpace, 0);
-    final columns = state.columnsOf(space);
-    final neighbours = column < columns.length
-        ? columns[column].cards
-        : const <String>[];
+    final space = state.spaceOf(id);
+    final neighbours = [
+      for (final card in state.tileOf(space)?.cards ?? const <String>[])
+        if (card == id || !state.hiddenHome.contains(card)) card,
+    ];
     final order = neighbours.indexOf(id);
+    final catalog = ref.watch(pluginContributionCatalogProvider);
+    (double, double)? boundsOf(String card) => switch (catalog.widget(card)) {
+      final shown?
+          when shown.enabled &&
+              state.placements[card] == PluginPlacementLocation.homeCard =>
+        homeCardBounds(shown, state),
+      _ => null,
+    };
+    final home =
+        math.min(
+          MediaQuery.sizeOf(context).width -
+              MediaQueryData.fromView(View.of(context)).padding.horizontal,
+          homeMaxContentWidth,
+        ) -
+        2 * Spacing.screenEdge;
     return [
       _Choice(
         label: 'PLACE',
@@ -1122,44 +1137,30 @@ class _WhereItSitsState extends ConsumerState<_WhereItSits> {
           onSelected: (index) =>
               _run(() => controller.setHomeHidden(id, index == 1)),
         ),
-        if ((neighbours.length > 1 || columns.length > 1) && order >= 0) ...[
+        if (neighbours.length > 1 && order >= 0) ...[
           Text(
-            'CARD ${order + 1} OF ${neighbours.length} · COLUMN ${column + 1} OF ${columns.length} · WORKSPACE $space',
+            'CARD ${order + 1} OF ${neighbours.length} · WORKSPACE $space',
             style: context.tokens.label,
           ),
-          if (column > 0)
-            PanelTextAction(
-              label: 'MOVE LEFT',
-              onTap: () => _run(
-                () => controller.moveHome(id, space: space, column: column - 1),
-              ),
-            ),
-          if (column < columns.length - 1 || neighbours.length > 1)
-            PanelTextAction(
-              label: 'MOVE RIGHT',
-              onTap: () => _run(
-                () => controller.moveHome(
-                  id,
-                  space: space,
-                  column: column + 1,
-                  newColumn: column == columns.length - 1,
+          for (final (edge, label) in const [
+            (HomeEdge.left, 'MOVE LEFT'),
+            (HomeEdge.right, 'MOVE RIGHT'),
+            (HomeEdge.top, 'MOVE UP'),
+            (HomeEdge.bottom, 'MOVE DOWN'),
+          ])
+            if (state.homeStep(id, edge, width: home, boundsOf: boundsOf)
+                case (final path, final side)?)
+              PanelTextAction(
+                label: label,
+                onTap: () => _run(
+                  () => controller.moveHome(
+                    id,
+                    space: space,
+                    path: path,
+                    edge: side,
+                  ),
                 ),
               ),
-            ),
-          if (order > 0)
-            PanelTextAction(
-              label: 'MOVE UP',
-              onTap: () => _run(
-                () => controller.moveHome(id, over: neighbours[order - 1]),
-              ),
-            ),
-          if (order < neighbours.length - 1)
-            PanelTextAction(
-              label: 'MOVE DOWN',
-              onTap: () => _run(
-                () => controller.moveHome(id, over: neighbours[order + 1]),
-              ),
-            ),
         ],
       ],
       if (contribution.sizes.length > 1)
@@ -1796,7 +1797,11 @@ class _WidgetSpecimen extends StatelessWidget {
           contribution.defaultSize,
     );
     final home =
-        math.min(MediaQuery.sizeOf(context).width, homeMaxContentWidth) -
+        math.min(
+          MediaQuery.sizeOf(context).width -
+              MediaQueryData.fromView(View.of(context)).padding.horizontal,
+          homeMaxContentWidth,
+        ) -
         2 * Spacing.screenEdge;
     try {
       final width = size.resolveWidth(

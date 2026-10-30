@@ -208,50 +208,119 @@ void main() {
     );
   });
 
-  test('Home cards open, join and leave columns', () async {
+  test('Home cards split beside each other, swap and step', () async {
     var scope = container();
     final initial = await scope.read(pluginPlacementsProvider.future);
     final [agents, first, second] = initial.homeOrder;
     final controller = scope.read(pluginPlacementsProvider.notifier);
-    List<List<String>> columns() => [
-      for (final column
-          in scope.read(pluginPlacementsProvider).requireValue.columnsOf(1))
-        column.cards,
-    ];
-    expect(columns(), [
-      [agents],
-      [first, second],
-    ]);
-    await controller.moveHome(second, space: 1, column: 2, newColumn: true);
-    expect(columns(), [
-      [agents],
-      [first],
-      [second],
-    ]);
-    await controller.moveHome(agents, space: 1, column: 2);
-    expect(columns(), [
-      [first],
-      [second, agents],
-    ]);
-    await controller.moveHome(first, space: 1, column: 1);
-    expect(columns(), [
-      [second, agents, first],
-    ]);
-    await controller.moveHome(agents, space: 1, column: 0, newColumn: true);
-    await controller.setColumnWeights(1, [1, 3]);
+    PluginPlacementState state() =>
+        scope.read(pluginPlacementsProvider).requireValue;
+    Object? tree() => _shape(state().tileOf(1));
+    expect(tree(), {
+      'row': [
+        agents,
+        {
+          'column': [first, second],
+        },
+      ],
+    });
+
+    await controller.moveHome(
+      second,
+      space: 1,
+      path: [1, 0],
+      edge: HomeEdge.right,
+    );
+    expect(tree(), {
+      'row': [agents, first, second],
+    });
+    await controller.moveHome(
+      agents,
+      space: 1,
+      path: [2],
+      edge: HomeEdge.bottom,
+    );
+    expect(tree(), {
+      'row': [
+        first,
+        {
+          'column': [second, agents],
+        },
+      ],
+    });
+    await controller.moveHome(
+      first,
+      space: 1,
+      path: const [],
+      edge: HomeEdge.top,
+    );
+    expect(tree(), {
+      'column': [first, second, agents],
+    });
+    await controller.moveHome(first, over: agents);
+    expect(state().homeOrder, [agents, second, first]);
+
+    expect(state().homeStep(agents, HomeEdge.top), isNull);
+    final (path, edge) = state().homeStep(first, HomeEdge.top)!;
+    await controller.moveHome(first, space: 1, path: path, edge: edge);
+    expect(state().homeOrder, [agents, first, second]);
+
+    await controller.moveHome(agents, space: 1, path: [1], edge: HomeEdge.left);
+    await controller.setRowWeights(1, const [0], [1, 3]);
     await expectLater(
-      controller.setColumnWeights(1, [1]),
+      controller.setRowWeights(1, const [0], [1]),
       throwsA(isA<PluginPlacementException>()),
     );
+    await expectLater(
+      controller.moveHome(agents, space: 1, path: [9], edge: HomeEdge.left),
+      throwsA(isA<PluginPlacementException>()),
+    );
+    final saved = tree();
     scope.dispose();
     scope = container();
     addTearDown(scope.dispose);
+    await scope.read(pluginPlacementsProvider.future);
+    expect(tree(), saved);
+    final row = state().homeTileAt(1, const [0])! as HomeSplit;
+    expect([for (final tile in row.children) tile.weight], [1, 3]);
+  });
+
+  test('a file of columns opens as rows of them', () async {
+    final file = File('${root.path}/placements.json');
+    var scope = container();
+    final initial = await scope.read(pluginPlacementsProvider.future);
+    scope.dispose();
+    final [agents, first, second] = initial.homeOrder;
+    await file.writeAsString(
+      jsonEncode(
+        initial.encode()
+          ..['version'] = 2
+          ..['home'] = {
+            '1': [
+              {
+                'cards': [agents],
+                'weight': 1,
+              },
+              {
+                'cards': [first, second],
+                'weight': 2.5,
+              },
+            ],
+          },
+      ),
+    );
+    scope = container();
+    addTearDown(scope.dispose);
     final state = await scope.read(pluginPlacementsProvider.future);
-    expect(columns(), [
-      [agents],
-      [second, first],
-    ]);
-    expect([for (final column in state.columnsOf(1)) column.weight], [1, 3]);
+    expect(_shape(state.tileOf(1)), {
+      'row': [
+        agents,
+        {
+          'column': [first, second],
+        },
+      ],
+    });
+    expect(state.homeTileAt(1, const [1])!.weight, 2.5);
   });
 
   test('Home cards move between places and numbered workspaces', () async {
@@ -263,11 +332,11 @@ void main() {
 
     await controller.moveHome(agents, over: second);
     expect(scope.read(pluginPlacementsProvider).requireValue.homeOrder, [
-      first,
       second,
+      first,
       agents,
     ]);
-    await controller.moveHome(agents, over: first);
+    await controller.moveHome(agents, over: second);
     expect(scope.read(pluginPlacementsProvider).requireValue.homeOrder, [
       agents,
       first,
@@ -281,10 +350,9 @@ void main() {
     expect(state.spaceOf(second), 1);
     expect(state.homeSpace, 3);
     await controller.moveHome(second, over: first);
-    expect(
-      scope.read(pluginPlacementsProvider).requireValue.spaceOf(second),
-      3,
-    );
+    state = scope.read(pluginPlacementsProvider).requireValue;
+    expect(state.spaceOf(second), 3);
+    expect(state.spaceOf(first), 1);
     await expectLater(
       controller.showHomeSpace(0),
       throwsA(isA<PluginPlacementException>()),
@@ -300,7 +368,7 @@ void main() {
     addTearDown(scope.dispose);
     state = await scope.read(pluginPlacementsProvider.future);
     expect(state.homeSpace, 3);
-    expect(state.spaceOf(first), 3);
+    expect(state.spaceOf(first), 1);
     expect(state.hiddenHome, contains(first));
   });
 
@@ -339,18 +407,10 @@ void main() {
     final reopened = container();
     addTearDown(reopened.dispose);
     final state = await reopened.read(pluginPlacementsProvider.future);
-    expect(
-      [for (final column in state.columnsOf(1)) column.cards],
-      [
-        [first, second],
-      ],
-    );
-    expect(
-      [for (final column in state.columnsOf(2)) column.cards],
-      [
-        [agentsCardId],
-      ],
-    );
+    expect(_shape(state.tileOf(1)), {
+      'column': [first, second],
+    });
+    expect(_shape(state.tileOf(2)), agentsCardId);
     expect(state.placements[agentsCardId], PluginPlacementLocation.homeCard);
   });
 
@@ -731,7 +791,142 @@ void main() {
       PluginPlacementLocation.homeComposer,
     );
   });
+
+  test('Home moves skip hidden cards and leave a still card alone', () {
+    var state = PluginPlacementState(
+      homeTiles: {
+        1: HomeSplit(HomeAxis.row, [
+          HomeCard('a', weight: 3),
+          HomeCard('h'),
+          HomeCard('b'),
+        ]),
+      },
+      hiddenHome: {'h'},
+    );
+    final (path, edge) = state.homeStep('a', HomeEdge.right)!;
+    expect(path, [2]);
+    expect(edge, HomeEdge.right);
+    expect(state.homeStep('b', HomeEdge.right), isNull);
+    expect(
+      state.withHomeMove('h', space: 1, path: [0], edge: HomeEdge.right),
+      same(state),
+    );
+    expect(
+      state.withHomeMove('b', space: 1, path: [0], edge: HomeEdge.right),
+      same(state),
+    );
+    final phone = PluginPlacementState(
+      homeTiles: {
+        1: HomeSplit(HomeAxis.row, [
+          HomeCard('a'),
+          HomeSplit(HomeAxis.column, [HomeCard('d'), HomeCard('x')]),
+        ]),
+      },
+    );
+    (double, double) boundsOf(String card) =>
+        (card == 'a' ? 240 : 280, double.infinity);
+    expect(
+      phone.homeStep('d', HomeEdge.left, width: 380, boundsOf: boundsOf),
+      isNull,
+    );
+    expect(
+      phone.homeStep('d', HomeEdge.top, width: 380, boundsOf: boundsOf),
+      isNotNull,
+    );
+    expect(
+      phone.homeStep('d', HomeEdge.left, width: 900, boundsOf: boundsOf),
+      isNotNull,
+    );
+    final (down, side) = phone.homeStep(
+      'a',
+      HomeEdge.bottom,
+      width: 380,
+      boundsOf: boundsOf,
+    )!;
+    expect(
+      phone.withHomeMove('a', space: 1, path: down, edge: side).homeOrder,
+      ['d', 'a', 'x'],
+    );
+    bool moves(String id, double width) => phone.movesHome(
+      id,
+      space: 1,
+      path: const [1, 0],
+      edge: HomeEdge.top,
+      width: width,
+      boundsOf: boundsOf,
+    );
+    expect(moves('a', 380), isFalse);
+    expect(moves('a', 900), isTrue);
+    expect(moves('gone', 900), isFalse);
+    final tablet = PluginPlacementState(
+      homeTiles: {
+        1: HomeSplit(HomeAxis.row, [
+          HomeCard('a'),
+          HomeSplit(HomeAxis.column, [
+            HomeSplit(HomeAxis.row, [HomeCard('b'), HomeCard('c')]),
+            HomeCard('d'),
+          ]),
+        ]),
+      },
+    );
+    (double, double) clamped(String card) =>
+        card == 'a' ? (240, double.infinity) : (280, 720);
+    expect(
+      tablet.movesHome(
+        'c',
+        space: 1,
+        path: const [1, 0, 0],
+        edge: HomeEdge.bottom,
+        width: 1068,
+        boundsOf: clamped,
+      ),
+      isTrue,
+    );
+    final (past, beside) = tablet.homeStep(
+      'c',
+      HomeEdge.left,
+      width: 1068,
+      boundsOf: clamped,
+    )!;
+    expect(past, [1, 0, 0]);
+    expect(beside, HomeEdge.left);
+    expect(
+      tablet.homeStep('c', HomeEdge.top, width: 1068, boundsOf: clamped)!.$1,
+      isEmpty,
+    );
+    final reordered = state.withHomeMove(
+      'b',
+      space: 1,
+      path: [0],
+      edge: HomeEdge.left,
+    );
+    expect(
+      [for (final c in (reordered.tileOf(1)! as HomeSplit).children) c.weight],
+      [1, 3, 1],
+    );
+
+    for (var i = 0; i < 40; i++) {
+      state = state.withHomeCard(
+        'deep$i',
+        space: 1,
+        path: _pathTo(state.tileOf(1)!, i == 0 ? 'b' : 'deep${i - 1}'),
+        edge: i.isEven ? HomeEdge.bottom : HomeEdge.right,
+      );
+    }
+    final reread = PluginPlacementState.decode(
+      jsonDecode(jsonEncode(state.encode())),
+    );
+    expect(_shape(reread.tileOf(1)), _shape(state.tileOf(1)));
+  });
 }
+
+List<int> _pathTo(HomeTile tile, String id) => switch (tile) {
+  HomeCard() => const [],
+  HomeSplit(:final children) => [
+    for (var i = 0; i < children.length; i++)
+      if (children[i].cards.contains(id)) ...[i, ..._pathTo(children[i], id)],
+  ],
+};
 
 Widget _empty(BuildContext context) => const SizedBox.shrink();
 
@@ -802,3 +997,11 @@ Map<String, Object?> _legacy(PluginPlacementState state) => state.encode()
   ..remove('home')
   ..['home_order'] = state.homeOrder
   ..['home_spaces'] = {for (final id in state.homeOrder) id: state.spaceOf(id)};
+
+Object? _shape(HomeTile? tile) => switch (tile) {
+  null => null,
+  HomeCard(:final id) => id,
+  HomeSplit(:final axis, :final children) => {
+    axis.name: [for (final child in children) _shape(child)],
+  },
+};

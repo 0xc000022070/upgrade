@@ -110,74 +110,30 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
         );
   });
 
-  /// Drops [id] beside [over], or into [space]: onto its last column, onto
-  /// [column], or as a new column at [column] when [newColumn] is set.
+  /// Swaps [id] with the card [over], or moves it into [space]: beside the
+  /// tile at [path] on [edge], or to the bottom when no [path] is given.
   Future<void> moveHome(
     String id, {
     String? over,
     int? space,
-    int? column,
-    bool newColumn = false,
+    List<int>? path,
+    HomeEdge? edge,
   }) => _change((current) {
-    final from = current.columnOf(id);
-    final target = over == null ? null : current.columnOf(over);
-    if (from == null ||
+    if (current.homeSpaceOf(id) == null ||
         current.placements[id] != PluginPlacementLocation.homeCard ||
         (over == null) == (space == null) ||
-        over != null && (target == null || column != null || newColumn) ||
-        space != null && (space < 1 || space > homeSpaceCount) ||
-        column != null && column < 0) {
+        over != null && (path != null || edge != null) ||
+        (path == null) != (edge == null) ||
+        space != null && (space < 1 || space > homeSpaceCount)) {
       throw const PluginPlacementException('Invalid Home widget order');
     }
     if (over == id) return current;
-    final rest = current.withoutHomeCard(id);
-    if (target case (final toSpace, _)?) {
-      final order = [
-        for (final column in current.columnsOf(toSpace)) ...column.cards,
-      ];
-      final at = order.indexOf(id);
-      final after = at >= 0 && at < order.indexOf(over!);
-      final (_, landing) = rest.columnOf(over!)!;
-      final index = rest.columnsOf(toSpace)[landing].cards.indexOf(over);
-      return rest.withHomeCard(
-        id,
-        space: toSpace,
-        column: landing,
-        index: after ? index + 1 : index,
-      );
-    }
-    final (fromSpace, fromColumn) = from;
-    final collapsed =
-        fromSpace == space &&
-        current.columnsOf(fromSpace)[fromColumn].cards.length == 1 &&
-        column != null &&
-        fromColumn < column;
-    return rest.withHomeCard(
-      id,
-      space: space!,
-      column: column == null ? null : column - (collapsed ? 1 : 0),
-      newColumn: newColumn,
-    );
+    if (over != null) return current.withHomeSwap(id, over);
+    return current.withHomeMove(id, space: space!, path: path, edge: edge);
   });
 
-  Future<void> setColumnWeights(int space, List<double> weights) => _change((
-    current,
-  ) {
-    final columns = current.columnsOf(space);
-    if (weights.length != columns.length ||
-        weights.any((weight) => !weight.isFinite || weight <= 0)) {
-      throw const PluginPlacementException('Invalid Home column widths');
-    }
-    return current.copyWith(
-      homeTiles: {
-        ...current.homeTiles,
-        space: [
-          for (var i = 0; i < columns.length; i++)
-            HomeColumn(columns[i].cards, weight: weights[i].clamp(0.1, 100)),
-        ],
-      },
-    );
-  });
+  Future<void> setRowWeights(int space, List<int> path, List<double> weights) =>
+      _change((current) => current.withRowWeights(space, path, weights));
 
   Future<void> showHomeSpace(int space) => _change((current) {
     if (space < 1 || space > homeSpaceCount) {
@@ -423,16 +379,10 @@ PluginPlacementState _withDefaults(
     ...arrivals.where((id) => id != agentsCardId),
   ];
   for (final id in agentsFirst) {
-    if (next.columnOf(id) != null) continue;
-    final last = next.columnsOf(space).lastOrNull?.cards;
+    if (next.homeSpaceOf(id) != null) continue;
     next = id == agentsCardId
-        ? next.withHomeCard(id, space: space, column: 0, newColumn: true)
-        : next.withHomeCard(
-            id,
-            space: space,
-            newColumn: last?.length == 1 && last!.single == agentsCardId,
-            weight: 2,
-          );
+        ? next.withHomeCard(id, space: space, front: true)
+        : next.withHomeCard(id, space: space, weight: 2);
   }
   return next;
 }
