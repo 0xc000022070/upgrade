@@ -171,8 +171,7 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
     unawaited(
       ref
           .read(pluginHostRegistryProvider)
-          .reconcile
-          ?.call({
+          .reconcile({
             for (final plugin in entries.where((plugin) => plugin.enabled))
               pluginHostOwner(plugin),
           })

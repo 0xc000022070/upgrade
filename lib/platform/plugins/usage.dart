@@ -3,11 +3,12 @@ import 'dart:io';
 
 import 'package:striked/platform/plugins/manifest.dart';
 import 'package:striked/platform/plugins/access.dart';
+import 'package:striked/platform/plugins/serial.dart';
 
 class NativeUsageFile {
   NativeUsageFile(this.file);
   final File file;
-  Future<void> _tail = Future.value();
+  final _serial = Serial();
 
   Future<Map<String, Object?>> read() async {
     if (!await file.exists()) return {};
@@ -37,13 +38,6 @@ class NativeUsageFile {
     if (utf8.encode(encoded).length > 1024 * 1024) {
       throw const PluginException('Plugin usage file exceeds its limit');
     }
-    final result = _tail.then((_) async {
-      await file.parent.create(recursive: true);
-      final next = File('${file.path}.next');
-      await next.writeAsString(encoded, flush: true);
-      await next.rename(file.path);
-    });
-    _tail = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
-    return result;
+    return _serial.run(() => replaceFile(file, encoded));
   }
 }

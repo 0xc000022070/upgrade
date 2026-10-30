@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'package:toml/toml.dart';
 
 import 'package:striked/platform/plugins/manifest.dart';
+import 'package:striked/platform/plugins/serial.dart';
 
 class PluginIndexEntry {
   const PluginIndexEntry({
@@ -121,7 +122,7 @@ class PluginSource {
 class PluginSourceStore {
   PluginSourceStore(this.directory);
   final Directory directory;
-  Future<void> _tail = Future.value();
+  final _serial = Serial();
   static const maxSources = 16;
   File get _file => File('${directory.path}/sources.json');
 
@@ -170,7 +171,7 @@ class PluginSourceStore {
   Future<List<PluginSource>> _change(
     List<PluginSource> Function(List<PluginSource>) change,
   ) {
-    final result = _tail.then((_) async {
+    return _serial.run(() async {
       final sources = change(await list());
       if (sources.length > maxSources) {
         throw const PluginException('At most 16 sources may be added');
@@ -179,14 +180,9 @@ class PluginSourceStore {
         'sources_version': 1,
         'sources': sources.map((s) => s.encode()).toList(),
       });
-      await directory.create(recursive: true);
-      final temp = File('${_file.path}.next');
-      await temp.writeAsString(encoded, flush: true);
-      await temp.rename(_file.path);
+      await replaceFile(_file, encoded);
       return sources;
     });
-    _tail = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
-    return result;
   }
 }
 

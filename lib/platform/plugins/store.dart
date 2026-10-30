@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 
 import 'package:striked/platform/plugins/index.dart';
 import 'package:striked/platform/plugins/manifest.dart';
+import 'package:striked/platform/plugins/serial.dart';
 
 class PluginPackage {
   PluginPackage({
@@ -231,7 +232,7 @@ enum BuiltinArrival { adopted, off, on }
 class PluginStore {
   PluginStore(this.directory);
   final Directory directory;
-  Future<void> _tail = Future.value();
+  final _serial = Serial();
   static const maxInstalled = 32;
   File get _catalog => File('${directory.path}/catalog.json');
 
@@ -398,7 +399,7 @@ class PluginStore {
   Future<List<InstalledPlugin>> _change(
     List<InstalledPlugin> Function(List<InstalledPlugin>) change,
   ) {
-    final result = _tail.then((_) async {
+    return _serial.run(() async {
       final previous = await list();
       final entries = change(previous);
       if (entries.length > maxInstalled) {

@@ -379,6 +379,29 @@ void main() {
     expect(await used.read(pluginHostOwner(plugin)), {'host1'});
   });
 
+  test('a start cancels what an inactive plugin left on a host', () async {
+    await invoke('submit', {
+      'command': 'build',
+      'params': {'mode': 'debug'},
+    }, gesture: tap());
+    final answered = reply;
+    reply = (_) async => throw const SocketException('down');
+    await start().deactivate!(plugin);
+    reply = answered;
+    jobs = [
+      {'id': '${tag()}-a', 'state': 'running'},
+    ];
+    calls.clear();
+    await start().reconcile!({pluginHostOwner(plugin)});
+    expect(calls, isEmpty);
+    await start().reconcile!({});
+    expect(calls.map((call) => (call.$1, call.$2['id'])), [
+      ('list', null),
+      ('cancel', '${tag()}-a'),
+    ]);
+    expect(await used.read(pluginHostOwner(plugin)), isEmpty);
+  });
+
   test('the manifest holds commands to literal programs', () {
     for (final commands in [
       '',

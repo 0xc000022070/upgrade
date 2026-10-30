@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:striked/platform/plugins/contributions.dart';
+import 'package:striked/platform/plugins/serial.dart';
 
 const agentsCardId = 'striked.agents:widget:agents';
 
@@ -351,7 +352,7 @@ class PluginPlacementRepository {
 
   final File? file;
   PluginPlacementState? _memory;
-  Future<void> _tail = Future.value();
+  final _serial = Serial();
 
   Future<PluginPlacementState> read() async {
     final memory = _memory;
@@ -385,14 +386,7 @@ class PluginPlacementRepository {
         'Plugin placement file exceeds its limit',
       );
     }
-    final result = _tail.then((_) async {
-      await file!.parent.create(recursive: true);
-      final next = File('${file!.path}.next');
-      await next.writeAsString(encoded, flush: true);
-      await next.rename(file!.path);
-    });
-    _tail = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
-    return result;
+    return _serial.run(() => replaceFile(file!, encoded));
   }
 }
 

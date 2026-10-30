@@ -21,6 +21,7 @@ import 'package:striked/platform/plugins/store.dart';
 import 'package:striked/platform/ssh/ssh_settle.dart';
 import 'package:striked/application/agents/agents.dart';
 import 'package:striked/application/shell/path_scan.dart';
+import 'package:striked/platform/plugins/serial.dart';
 
 typedef PluginHostConfirm = Future<bool> Function(
   Host host,
@@ -61,6 +62,7 @@ class PluginHostService {
     required this.operations,
     required this.invoke,
     this.deactivate,
+    this.reconcile,
     this.changes,
     this.hold,
   });
@@ -76,6 +78,8 @@ class PluginHostService {
   invoke;
   final Future<void> Function(InstalledPlugin plugin)? deactivate;
 
+  final Future<void> Function(Set<String> activeOwners)? reconcile;
+
   final ProviderListenable<Object?>? changes;
 
   final VoidCallback Function()? hold;
@@ -90,10 +94,16 @@ class PluginHostUsage {
 }
 
 class PluginHostRegistry {
-  PluginHostRegistry(this.services, {this.retryPending, this.reconcile});
+  PluginHostRegistry(this.services, {this.retryPending});
   final Map<String, PluginHostService> services;
   final Future<void> Function()? retryPending;
-  final Future<void> Function(Set<String> activeOwners)? reconcile;
+
+  Future<void> reconcile(Set<String> activeOwners) async {
+    await Future.wait([
+      for (final service in services.values)
+        ?service.reconcile?.call(activeOwners),
+    ]);
+  }
   final _usage = <String, Map<String, PluginHostUsage>>{};
   Map<String, PluginHostUsage> usage(InstalledPlugin plugin) =>
       Map.unmodifiable(_usage[pluginHostOwner(plugin)] ?? {});
@@ -410,7 +420,7 @@ class SchedulerBinding {
 class SchedulerBindings {
   SchedulerBindings(this.file);
   final Future<File> Function() file;
-  Future<void> _tail = Future.value();
+  final _serial = Serial();
   Future<Map<String, Map<String, SchedulerBinding>>> read() async {
     final target = await file();
     if (!await target.exists()) return {};
@@ -457,20 +467,14 @@ class SchedulerBindings {
   }
 
   Future<void> set(String owner, String host, SchedulerBinding binding) {
-    final changed = _tail.then((_) async {
+    return _serial.run(() async {
       final state = await read();
       (state[owner] ??= {})[host] = binding;
-      final target = await file();
-      await target.parent.create(recursive: true);
-      final temporary = File('${target.path}.next');
-      await temporary.writeAsString(
+      await replaceFile(
+        await file(),
         jsonEncode({'version': 1, 'owners': state}),
-        flush: true,
       );
-      await temporary.rename(target.path);
     });
-    _tail = changed.then<void>((_) {}, onError: (Object _, StackTrace _) {});
-    return changed;
   }
 }
 
@@ -497,6 +501,12 @@ final pendingHostPausesProvider = FutureProvider.autoDispose<int>(
       .length,
 );
 
+Future<Host> _pick(HostRepository hosts, Object? id) async {
+  final host = (await hosts.all()).where((host) => host.id == id).firstOrNull;
+  if (host == null) throw const PluginException('Choose an existing host');
+  return host;
+}
+
 final _runNonce = RegExp(r'^[A-Za-z0-9]{1,32}$');
 const _runLive = 4;
 
@@ -511,7 +521,7 @@ Iterable<Map<String, Object?>> _liveJobs(Map<String, Object?> listed) =>
 class PluginRunHosts {
   PluginRunHosts(this.file);
   final Future<File> Function() file;
-  Future<void> _tail = Future.value();
+  final _serial = Serial();
 
   Future<Map<String, Set<String>>> _read() async {
     final target = await file();
@@ -554,22 +564,18 @@ class PluginRunHosts {
     );
   }
 
-  Future<Set<String>> read(String owner) {
-    final read = _tail.then(
-      (_) async => (await _read())[owner] ?? const <String>{},
-    );
-    _tail = read.then<void>((_) {}, onError: (Object _, StackTrace _) {});
-    return read;
-  }
+  Future<Set<String>> read(String owner) =>
+      _serial.run(() async => (await _read())[owner] ?? const <String>{});
+
+  Future<Set<String>> owners() =>
+      _serial.run(() async => (await _read()).keys.toSet());
 
   Future<void> _change(void Function(Map<String, Set<String>> state) change) {
-    final changed = _tail.then((_) async {
+    return _serial.run(() async {
       final state = await _read();
       change(state);
-      final target = await file();
-      await target.parent.create(recursive: true);
-      final next = File('${target.path}.next');
-      await next.writeAsString(
+      await replaceFile(
+        await file(),
         jsonEncode({
           'version': 1,
           'owners': {
@@ -577,12 +583,8 @@ class PluginRunHosts {
               if (value.isNotEmpty) key: value.toList(),
           },
         }),
-        flush: true,
       );
-      await next.rename(target.path);
     });
-    _tail = changed.then<void>((_) {}, onError: (Object _, StackTrace _) {});
-    return changed;
   }
 
   Future<void> add(String owner, String host) =>
@@ -609,24 +611,11 @@ PluginHostService pluginRunService(
   final nonces = random ?? Random.secure();
   final allowed = <String>{};
   final refused = <String>{};
-  final queues = <String, Future<void>>{};
-  Future<T> serialized<T>(String owner, Future<T> Function() work) {
-    final result = (queues[owner] ?? Future<void>.value()).then((_) => work());
-    queues[owner] = result.then<void>(
-      (_) {},
-      onError: (Object _, StackTrace _) {},
-    );
-    return result;
-  }
+  final queues = <String, Serial>{};
+  Future<T> serialized<T>(String owner, Future<T> Function() work) =>
+      queues.putIfAbsent(owner, Serial.new).run(work);
 
-  Future<Host> pick(Object? id) async {
-    final host = (await hosts.all()).where((host) => host.id == id).firstOrNull;
-    if (host == null) throw const PluginException('Choose an existing host');
-    return host;
-  }
-
-  String tagOf(InstalledPlugin plugin) =>
-      'p${pluginHostOwner(plugin).substring(0, 16)}';
+  String tagOf(String owner) => 'p${owner.substring(0, 16)}';
 
   String jobOf(String tag, Object? id) {
     if (id is! String || !id.startsWith('$tag-')) {
@@ -663,49 +652,55 @@ PluginHostService pluginRunService(
     };
   }
 
+  Future<void> cleanup(String owner) async {
+    final tag = tagOf(owner);
+    allowed.removeWhere((key) => key.startsWith('$owner/'));
+    refused.removeWhere((key) => key.startsWith('$owner/'));
+    Set<String> ran;
+    try {
+      ran = await used.read(owner);
+    } on PluginException {
+      ran = {for (final host in await hosts.all()) host.id};
+    }
+    final reached = await Future.wait([
+      for (final id in ran)
+        () async {
+          final host = (await hosts.all())
+              .where((host) => host.id == id)
+              .firstOrNull;
+          if (host == null) return id;
+          try {
+            await serialized('$owner/$id', () async {
+              final listed = await engine(host, 'run/1', 'list', {
+                'tag': tag,
+                'live': true,
+              });
+              for (final job in _liveJobs(listed)) {
+                await engine(host, 'run/1', 'cancel', {'id': job['id']});
+              }
+            });
+            return id;
+          } on Object {
+            // ignored: an unreachable host stays in the file until the next disable or start.
+            return null;
+          }
+        }(),
+    ]);
+    await used.remove(owner, reached.nonNulls);
+  }
+
   return PluginHostService(
     operations: const {'submit', 'list', 'status', 'output', 'cancel'},
-    deactivate: (plugin) async {
-      final owner = pluginHostOwner(plugin);
-      final tag = tagOf(plugin);
-      allowed.removeWhere((key) => key.startsWith('$owner/'));
-      refused.removeWhere((key) => key.startsWith('$owner/'));
-      Set<String> ran;
-      try {
-        ran = await used.read(owner);
-      } on PluginException {
-        ran = {for (final host in await hosts.all()) host.id};
+    deactivate: (plugin) => cleanup(pluginHostOwner(plugin)),
+    reconcile: (activeOwners) async {
+      for (final owner in await used.owners()) {
+        if (!activeOwners.contains(owner)) await cleanup(owner);
       }
-      final reached = await Future.wait([
-        for (final id in ran)
-          () async {
-            final host = (await hosts.all())
-                .where((host) => host.id == id)
-                .firstOrNull;
-            if (host == null) return id;
-            try {
-              await serialized('$owner/$id', () async {
-                final listed = await engine(host, 'run/1', 'list', {
-                  'tag': tag,
-                  'live': true,
-                });
-                for (final job in _liveJobs(listed)) {
-                  await engine(host, 'run/1', 'cancel', {'id': job['id']});
-                }
-              });
-              return id;
-            } on Object {
-              // ignored: an unreachable host stays in the file and its jobs end at their timeouts.
-              return null;
-            }
-          }(),
-      ]);
-      await used.remove(owner, reached.nonNulls);
     },
     invoke: (plugin, operation, args, confirm, check, gesture) async {
-      final host = await pick(args['host']);
+      final host = await _pick(hosts, args['host']);
       final owner = pluginHostOwner(plugin);
-      final tag = tagOf(plugin);
+      final tag = tagOf(owner);
       final capabilities = plugin.manifest.hostCapabilities.values.where(
         (capability) =>
             capability.service == 'run' &&
@@ -811,15 +806,9 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
   final hosts = ref.watch(hostRepositoryProvider);
   final transport = ref.watch(schedulerTransportProvider);
   final bindings = ref.watch(schedulerBindingsProvider);
-  final queues = <String, Future<void>>{};
-  Future<T> serialized<T>(String owner, Future<T> Function() work) {
-    final result = (queues[owner] ?? Future<void>.value()).then((_) => work());
-    queues[owner] = result.then<void>(
-      (_) {},
-      onError: (Object _, StackTrace _) {},
-    );
-    return result;
-  }
+  final queues = <String, Serial>{};
+  Future<T> serialized<T>(String owner, Future<T> Function() work) =>
+      queues.putIfAbsent(owner, Serial.new).run(work);
 
   Future<void> pause(String owner, {bool pendingOnly = false}) async {
     final registered = (await bindings.read())[owner] ?? {};
@@ -867,13 +856,7 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
         operations: const {'list', 'workspaces'},
         invoke: (plugin, operation, args, confirm, check, _) async {
           if (operation == 'workspaces') {
-            final available = await hosts.all();
-            final host = available
-                .where((host) => host.id == args['host'])
-                .firstOrNull;
-            if (host == null) {
-              throw const PluginException('Choose an existing host');
-            }
+            final host = await _pick(hosts, args['host']);
             if (!await confirm(host, 'hosts', {'workspaces'})) {
               throw const PluginException('Workspace access was not granted');
             }
@@ -914,14 +897,13 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
           'resume_scope',
         },
         deactivate: (plugin) => pause(pluginHostOwner(plugin)),
-        invoke: (plugin, operation, args, confirm, check, _) async {
-          final hostId = args['host'];
-          final available = await hosts.all();
-          final matching = available.where((host) => host.id == hostId);
-          if (matching.isEmpty) {
-            throw const PluginException('Choose an existing host');
+        reconcile: (activeOwners) async {
+          for (final owner in (await bindings.read()).keys) {
+            if (!activeOwners.contains(owner)) await pause(owner);
           }
-          final host = matching.single;
+        },
+        invoke: (plugin, operation, args, confirm, check, _) async {
+          final host = await _pick(hosts, args['host']);
           final owner = pluginHostOwner(plugin);
           final bound = (await bindings.read())[owner] ?? {};
           if (!bound.containsKey(host.id) || operation == 'setup') {
@@ -1039,11 +1021,6 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
     retryPending: () async {
       for (final owner in (await bindings.read()).keys) {
         await pause(owner, pendingOnly: true);
-      }
-    },
-    reconcile: (activeOwners) async {
-      for (final owner in (await bindings.read()).keys) {
-        if (!activeOwners.contains(owner)) await pause(owner);
       }
     },
   );
