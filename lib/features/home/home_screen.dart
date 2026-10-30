@@ -141,6 +141,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: _PlacedPluginWidget(
                 registration: card,
                 placements: placements,
+                fill: true,
               ),
             ),
           ),
@@ -383,7 +384,7 @@ List<Widget> _stack(
   return switch (shape) {
     _Leaf() => [
       shape.entry(
-        math.min(width, shape.max),
+        width,
         beside ?? (lift) => shape.min + lift.min + _HomeTiles._seam <= room,
       ),
     ],
@@ -392,13 +393,7 @@ List<Widget> _stack(
       for (final child in children)
         ..._stack(
           child,
-          math.min(
-            width,
-            math.max(
-              children.map((child) => child.min).reduce(math.max),
-              children.map((child) => child.max).reduce(math.min),
-            ),
-          ),
+          width,
           row,
           beside: axis == HomeAxis.row && child is _Leaf ? (_) => false : null,
         ),
@@ -565,8 +560,11 @@ class _TileRowState extends State<_TileRow> {
     final (left, right) = (tiles[seam - 1], tiles[seam]);
     final held = [...widths];
     final pair = held[seam - 1] + held[seam];
-    final low = math.max(left.min, pair - right.max);
-    final high = math.min(left.max, pair - right.min);
+    var (low, high) = (
+      math.max(left.min, pair - right.max),
+      math.min(left.max, pair - right.min),
+    );
+    if (low > high) (low, high) = (left.min, pair - right.min);
     if (low > high) return;
     held[seam - 1] = (held[seam - 1] + delta).clamp(low, high);
     held[seam] = pair - held[seam - 1];
@@ -821,15 +819,18 @@ class _PlacedPluginWidget extends StatelessWidget {
   const _PlacedPluginWidget({
     required this.registration,
     required this.placements,
+    this.fill = false,
   });
 
   final PluginWidgetRegistration registration;
   final PluginPlacementState placements;
+  final bool fill;
 
   @override
   Widget build(BuildContext context) => _PlacedPluginBounds(
     registration: registration,
     placements: placements,
+    fill: fill,
     child: registration.luau
         ? PluginCard(registration: registration)
         : NativeContributionSurface.widget(registration),
@@ -841,11 +842,13 @@ class _PlacedPluginBounds extends StatelessWidget {
     required this.registration,
     required this.placements,
     required this.child,
+    this.fill = false,
   });
 
   final PluginWidgetRegistration registration;
   final PluginPlacementState placements;
   final Widget child;
+  final bool fill;
 
   @override
   Widget build(BuildContext context) {
@@ -870,7 +873,11 @@ class _PlacedPluginBounds extends StatelessWidget {
         }
         return Align(
           alignment: Alignment.topCenter,
-          child: SizedBox(width: width, height: size.height, child: child),
+          child: SizedBox(
+            width: fill ? constraints.maxWidth : width,
+            height: size.height,
+            child: child,
+          ),
         );
       },
     );

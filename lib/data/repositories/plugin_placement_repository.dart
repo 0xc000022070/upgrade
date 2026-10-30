@@ -182,6 +182,9 @@ List<double> homeShares(
   double available,
   List<(double weight, double min, double max)> tiles,
 ) {
+  if (tiles.fold(0.0, (sum, tile) => sum + tile.$3) < available) {
+    tiles = [for (final (weight, min, _) in tiles) (weight, min, available)];
+  }
   final widths = List<double?>.filled(tiles.length, null);
   while (true) {
     final open = [
@@ -259,16 +262,8 @@ HomeTile? _drawn(
         for (var i = 0; i < children.length; i++) draw(children[i], widths[i]),
       ], weight: tile.weight);
     }
-    final all = children.map(bounds);
-    final stack = math.min(
-      width,
-      math.max(
-        all.map((child) => child.$1).reduce(math.max),
-        all.map((child) => child.$2).reduce(math.min),
-      ),
-    );
     return HomeSplit(HomeAxis.column, [
-      for (final child in children) draw(child, stack),
+      for (final child in children) draw(child, width),
     ], weight: tile.weight);
   }
 

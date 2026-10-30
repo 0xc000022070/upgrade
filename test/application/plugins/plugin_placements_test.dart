@@ -882,6 +882,9 @@ void main() {
       ),
       isTrue,
     );
+    expect(homeShares(1000, [(1, 100, 300), (3, 100, 300)]), [250, 750]);
+    expect(homeShares(500, [(1, 100, 200), (1, 100, 600)]), [200, 300]);
+    expect(homeShares(1000, [(1, 300, 300), (9, 100, 300)]), [300, 700]);
     final (past, beside) = tablet.homeStep(
       'c',
       HomeEdge.left,
