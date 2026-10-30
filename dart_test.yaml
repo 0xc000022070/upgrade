@@ -1,3 +1,5 @@
+concurrency: 4
+
 # `host` wants the fixture VM answering on 127.0.0.1:2222, which `just test-host`
 # brings up. Untagged is everything else and may never assume it is there.
 tags:
