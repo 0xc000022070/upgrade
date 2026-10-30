@@ -1650,7 +1650,7 @@ void main() {
       ..openRefused = const SocketException('Connection refused');
     await tester.pump();
 
-    await sessions.reconnectControl(session, UserAction(testIntent()));
+    await sessions.reconnect(session, UserAction(testIntent()));
     expect(
       session.controlFailure,
       _failure(

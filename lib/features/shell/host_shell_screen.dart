@@ -1057,14 +1057,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                               intent,
                               ShellSession session,
                             ) {
-                              final action = UserAction(intent);
-                              if (session.state is ShellLive) {
-                                unawaited(
-                                  store.reconnectControl(session, action),
-                                );
-                              } else {
-                                store.redial(session, action);
-                              }
+                              unawaited(
+                                store.reconnect(session, UserAction(intent)),
+                              );
                             }),
                             onPin: swiped == null ? null : _onPinReopen,
                             pinStale: swiped?.stale ?? false,

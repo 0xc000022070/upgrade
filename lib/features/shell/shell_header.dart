@@ -395,8 +395,7 @@ class _ShellHeaderState extends State<ShellHeader> {
         listenable: session,
         builder: (context, _) {
           final state = session.state;
-          final redialable = session.redialable;
-          final stale = state is ShellLive && session.controlStale;
+          final stale = session.stale;
           final failure = stale
               ? switch (session.controlFailure) {
                   final control? => (
@@ -442,7 +441,7 @@ class _ShellHeaderState extends State<ShellHeader> {
                   detail: failure.detail,
                   line: stale ? null : widget.reasonLine,
                 ),
-              if (onReconnect != null && (redialable || stale)) ...[
+              if (onReconnect != null && session.reconnectable) ...[
                 const SheetRule(),
                 PanelTextAction(
                   key: const ValueKey('shell-info-reconnect'),

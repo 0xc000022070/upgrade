@@ -470,6 +470,10 @@ class ShellSession extends ChangeNotifier {
         (connection == null || connection.ended != null);
   }
 
+  bool get stale => state is ShellLive && controlStale;
+
+  bool get reconnectable => redialable || stale;
+
   void _unwatch() {
     unawaited(_health?.cancel());
     _health = null;
@@ -588,9 +592,12 @@ class ShellSession extends ChangeNotifier {
 
   /// Cancelled by `STOP`, by a retry and by the tab closing, all three of which are the
   /// user deciding what happens next instead of the schedule.
-  Timer? _reconnect;
-  DateTime? _due;
-  Reconnect? _retry;
+  ({Timer timer, DateTime due, Reconnect retry})? _next;
+
+  void _cancelNext() {
+    _next?.timer.cancel();
+    _next = null;
+  }
 
   Reconnect? _waitingOn;
 
@@ -1458,8 +1465,7 @@ class ShellSessions extends ChangeNotifier {
     // onto a session that is already gone.
     session._closed = true;
     session._disown();
-    session._reconnect?.cancel();
-    session._reconnect = null;
+    session._cancelNext();
     session._rehomed?.cancel();
     session._rehomed = null;
     session._save?.cancel();
@@ -2311,9 +2317,8 @@ class ShellSessions extends ChangeNotifier {
           if (rehome) _rehome(session, connection, network: changed);
           continue;
         }
-        final due = session._due;
-        if (session._reconnect != null && due != null && !now().isBefore(due)) {
-          session._reconnect?.cancel();
+        if (session._next case final next? when !now().isBefore(next.due)) {
+          session._cancelNext();
           unawaited(_redial(session, reason));
           continue;
         }
@@ -2362,14 +2367,10 @@ class ShellSessions extends ChangeNotifier {
   void _lookedAtMoved() {
     final session = _lookedAt;
     if (session == null) return;
-    final due = session._due;
-    final retry = session._retry;
-    if (session._reconnect != null &&
-        due != null &&
-        retry != null &&
-        due.isAfter(now().add(shellLookedAtWait))) {
-      session._reconnect?.cancel();
-      _arm(session, retry, shellLookedAtWait);
+    if (session._next case final next?
+        when next.due.isAfter(now().add(shellLookedAtWait))) {
+      next.timer.cancel();
+      _arm(session, next.retry, shellLookedAtWait);
     }
     if (session.state is ShellWaiting && session._waitingOn != null) {
       _watch?.cancel();
@@ -2473,7 +2474,7 @@ class ShellSessions extends ChangeNotifier {
   void redial(ShellSession session, UserAction action) {
     if (_held > 0 || !session.redialable) return;
     final failure = session.state.failure;
-    session._reconnect?.cancel();
+    session._cancelNext();
     session.state = ShellDropped(
       1,
       kind: failure?.kind ?? ShellFailureKind.streamClosed,
@@ -2488,6 +2489,11 @@ class ShellSessions extends ChangeNotifier {
     for (final session in List.of(forHost(hostId))) {
       redial(session, action);
     }
+  }
+
+  Future<void> reconnect(ShellSession session, UserAction action) async {
+    if (session.state is ShellLive) return reconnectControl(session, action);
+    redial(session, action);
   }
 
   Future<void> reconnectControl(ShellSession session, UserAction action) async {
@@ -2521,8 +2527,7 @@ class ShellSessions extends ChangeNotifier {
     };
     if (kind == null) return;
     session._disown();
-    session._reconnect?.cancel();
-    session._reconnect = null;
+    session._cancelNext();
     session._stopAsking();
     session.disarm();
     session.state = ShellFailed(kind, detail: session._detail);
@@ -2551,18 +2556,18 @@ class ShellSessions extends ChangeNotifier {
   }
 
   void _arm(ShellSession session, Reconnect retry, Duration delay) {
-    session._due = now().add(delay);
-    session._retry = retry;
-    session._reconnect = Timer(delay, () => unawaited(_redial(session, retry)));
+    session._next = (
+      timer: Timer(delay, () => unawaited(_redial(session, retry))),
+      due: now().add(delay),
+      retry: retry,
+    );
   }
 
   /// A new shell in the tab whose shell ended, keeping its terminal. The state is left on
   /// [ShellDropped] across it, which is what keeps the header reading `RECONNECTING`.
   /// A connection whose terminal has not ended is never replaced; the tab waits instead.
   Future<void> _redial(ShellSession session, OpenReason reason) async {
-    session._reconnect = null;
-    session._due = null;
-    session._retry = null;
+    session._next = null;
     if (session.state is! ShellDropped) return;
     final previous = session.connection;
     final ended = previous?.ended;
