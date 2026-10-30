@@ -19,13 +19,16 @@ run() {
   local limit=${STRIKED_TEST_TIMEOUT:-600}
   local codes
   {
-    timeout --kill-after=10 "$limit" flutter test --reporter json "$@" 2>&1 | testfmt
+    # native_toolchain_c probes for MSVC on every OS; drop its PATH dump.
+    timeout --kill-after=10 "$limit" flutter test --reporter json "$@" 2>&1 |
+      sed -e '/which: no vswhere\.exe in /d' -e '/^No Visual Studio installation found/d' |
+      testfmt
     codes=("${PIPESTATUS[@]}")
   } || true
   if [ "${codes[0]}" -eq 124 ]; then
     echo "flutter test passed ${limit}s and was killed; set STRIKED_TEST_TIMEOUT to allow more" >&2
   fi
-  [ "${codes[0]}" -eq 0 ] && [ "${codes[1]}" -eq 0 ]
+  [ "${codes[0]}" -eq 0 ] && [ "${codes[2]}" -eq 0 ]
 }
 
 unit() {
