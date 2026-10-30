@@ -782,6 +782,28 @@ void main() {
       expect(result.manifest.files, ['lib/util.luau']);
     });
 
+    test('an update refuses a manifest with another plugin ID', () async {
+      final fetcher = PluginFetcher(
+        httpClientFactory: () => _FakeHttpClient({
+          path('striked.plugin.toml'): _FakeResponse(200, manifest()),
+          path('main.luau'): const _FakeResponse(
+            200,
+            'return {run = function() end}',
+          ),
+        }),
+      );
+      await expectLater(
+        fetcher.fetch('https://github.com/x/y', revision, keepId: 'test.other'),
+        throwsA(isA<PluginException>()),
+      );
+      final kept = await fetcher.fetch(
+        'https://github.com/x/y',
+        revision,
+        keepId: 'test.provider',
+      );
+      expect(kept.manifest.id, 'test.provider');
+    });
+
     test('fails when a declared file is missing on the origin', () async {
       final fetcher = PluginFetcher(
         httpClientFactory: () => _FakeHttpClient({

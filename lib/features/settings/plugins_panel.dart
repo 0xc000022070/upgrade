@@ -138,9 +138,6 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
     });
     try {
       final candidate = await load();
-      if (_installed != null && candidate.manifest.id != _installed!.id) {
-        throw const PluginException('Updated manifest must keep the plugin ID');
-      }
       if (mounted) setState(() => _candidate = candidate);
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
@@ -263,6 +260,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                 () => PluginFetcher().fetch(
                   _repository.text,
                   _revision.text.trim(),
+                  keepId: _installed?.id,
                 ),
               );
             },
@@ -279,7 +277,11 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
                 _prepare(() async {
                   final ref = await fetcher.latestRef(_repository.text);
                   _revision.text = ref;
-                  return fetcher.fetch(_repository.text, ref);
+                  return fetcher.fetch(
+                    _repository.text,
+                    ref,
+                    keepId: _installed?.id,
+                  );
                 });
               },
       ),

@@ -417,22 +417,15 @@ class PluginStore {
           encoded.catalog) {
         return entries;
       }
-      await directory.create(recursive: true);
       for (final entry in encoded.revisions.entries) {
         final revision = File('${directory.path}/${entry.key}.json');
         if (!await revision.exists()) {
-          final next = File('${revision.path}.next');
-          await next.writeAsString(entry.value, flush: true);
-          await next.rename(revision.path);
+          await replaceFile(revision, entry.value);
         }
       }
-      final temp = File('${_catalog.path}.next');
-      await temp.writeAsString(encoded.catalog, flush: true);
-      await temp.rename(_catalog.path);
+      await replaceFile(_catalog, encoded.catalog);
       return entries;
     });
-    _tail = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
-    return result;
   }
 }
 
@@ -676,7 +669,11 @@ class PluginFetcher {
     return utf8.decode(bytes);
   }
 
-  Future<PluginPackage> fetch(String repository, String ref) async {
+  Future<PluginPackage> fetch(
+    String repository,
+    String ref, {
+    String? keepId,
+  }) async {
     final target = _repository(repository);
     final devOrigin = _devOrigin;
     final revision = await _revisionFor(target, ref, devOrigin);
@@ -696,6 +693,9 @@ class PluginFetcher {
         PluginManifest.maxBytes,
       );
       final manifest = await _parseManifest(manifestText);
+      if (keepId != null && manifest.id != keepId) {
+        throw const PluginException('Updated manifest must keep the plugin ID');
+      }
       final source = await read(manifest.entry, 64 * 1024);
       final files = <String, String>{};
       var budget = PluginPackage.maxTotalBytes - utf8.encode(source).length;
