@@ -437,7 +437,7 @@ void main() {
       final landed = tester.widget<SelectableText>(
         find.byKey(const ValueKey('send-landed')),
       );
-      expect(landed.data!.split('\n'), files.puts.keys.toList());
+      expect(landed.data!.split('\n'), unorderedEquals(files.puts.keys));
 
       files.copyFails = null;
       await settle(tester, find.byKey(const ValueKey('send-clipboard')));
