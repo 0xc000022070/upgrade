@@ -232,14 +232,16 @@ class ShellTunnel {
       supervisor.reopenWhenHostDies();
       return connection;
     } catch (error) {
-      final link = !overUdp && await _linkFailed(supervisor, error);
-      if (!link && error is! Error && !_silent(supervisor, address, error)) {
-        _log(supervisor.endpoint, 'engine fallback: $error');
-      }
-      await connection?.abandon();
-      _resumes.remove(place);
-      if (started) {
-        try {
+      final fatal = await _fellBack(
+        'engine',
+        supervisor,
+        address,
+        error,
+        overUdp: overUdp,
+        connection: connection,
+        cleanup: () async {
+          _resumes.remove(place);
+          if (!started) return;
           await _engineCall(
             (command, stdin) =>
                 supervisor.exec(command, stdin: stdin, timeout: timeout),
@@ -248,11 +250,9 @@ class ShellTunnel {
             op: 'stop',
             args: {'tab': tabSession},
           );
-        } catch (error) {
-          _log(supervisor.endpoint, 'engine stop after fallback: $error');
-        }
-      }
-      if (link || error is Error) rethrow;
+        },
+      );
+      if (fatal) rethrow;
       return null;
     }
   }
@@ -321,24 +321,47 @@ class ShellTunnel {
       supervisor.reopenWhenHostDies();
       return connection;
     } catch (error) {
-      final link = !overUdp && await _linkFailed(supervisor, error);
-      if (!link && error is! Error && !_silent(supervisor, address, error)) {
-        _log(supervisor.endpoint, 'mosh fallback: $error');
-      }
-      await connection?.abandon();
-      if (serverPath != null) {
-        try {
-          await supervisor.exec(
-            moshServerCleanupCommand(tabSession),
-            timeout: timeout,
-          );
-        } catch (error) {
-          _log(supervisor.endpoint, 'mosh cleanup after fallback: $error');
-        }
-      }
-      if (link || error is Error) rethrow;
+      final fatal = await _fellBack(
+        'mosh',
+        supervisor,
+        address,
+        error,
+        overUdp: overUdp,
+        connection: connection,
+        cleanup: serverPath == null
+            ? null
+            : () => supervisor.exec(
+                moshServerCleanupCommand(tabSession),
+                timeout: timeout,
+              ),
+      );
+      if (fatal) rethrow;
       return null;
     }
+  }
+
+  Future<bool> _fellBack(
+    String name,
+    ConnectionSupervisor supervisor,
+    String address,
+    Object error, {
+    required bool overUdp,
+    required _ChannelConnection<Object>? connection,
+    required Future<void> Function()? cleanup,
+  }) async {
+    final link = !overUdp && await _linkFailed(supervisor, error);
+    if (!link && error is! Error && !_silent(supervisor, address, error)) {
+      _log(supervisor.endpoint, '$name fallback: $error');
+    }
+    await connection?.abandon();
+    if (cleanup != null) {
+      try {
+        await cleanup();
+      } catch (error) {
+        _log(supervisor.endpoint, '$name cleanup after fallback: $error');
+      }
+    }
+    return link || error is Error;
   }
 
   /// A startup error is the link's when SSH threw it, except a stalled command on an open
@@ -480,52 +503,25 @@ ShellFailure? shellFailureFor(Object error, [HostKeyRefusal? refusal]) =>
       _ => null,
     };
 
-/// The control connection is replaced on a network handover and opened again on resume;
-/// the terminal never waits for it.
-class MoshShellConnection implements ShellConnection {
-  MoshShellConnection(
-    this._supervisor,
-    this._mosh, {
+abstract class _ChannelConnection<E> implements ShellConnection {
+  _ChannelConnection(
+    this._supervisor, {
     required this.address,
     required this.columns,
     required this.rows,
-    this.healthInterval = const Duration(seconds: 3),
-    this.giveUp = const Duration(seconds: 30),
-  }) {
-    _reading.add(_mosh.output.listen(_emit));
-    _reading.add(
-      _mosh.errors.listen(
-        (error) => _log(_supervisor.endpoint, 'mosh: $error'),
-      ),
-    );
-    _reading.add(_mosh.echoAcks.listen(_acknowledge));
-    _reading.add(_mosh.contacts.listen((_) => _contact()));
-    _mosh.done.then(
-      (_) => _finish(0),
-      onError: (Object error) {
-        _log(_supervisor.endpoint, 'mosh: $error');
-        _finish(null);
-      },
-    );
-  }
+    required this.healthInterval,
+    required this.giveUp,
+  });
 
   final String address;
-  final MoshChannel _mosh;
   final ConnectionSupervisor _supervisor;
   final Duration healthInterval;
   final Duration giveUp;
 
-  @override
-  ShellContinuity get continuity => ShellContinuity.plain;
-
-  @override
-  ShellTransport get transport => ShellTransport.mosh;
-
   final _reading = <StreamSubscription<void>>[];
-  final _pending = <Uint8List>[];
+  final _pending = <E>[];
   final _exit = Completer<int?>();
   final _ready = Completer<void>();
-  int? _probeState;
   int columns;
   int rows;
   var _closed = false;
@@ -533,32 +529,26 @@ class MoshShellConnection implements ShellConnection {
   Future<void>? _suspending;
   ShellEnded? _ended;
 
-  late final _liveness = LivenessWatchdog(
-    interval: healthInterval,
-    giveUp: giveUp,
-    probing: () => _probeState != null,
-    probe: () => _probeState = _mosh.resize(columns, rows),
-    onSilent: _abandonSilentChannel,
+  String get _name;
+
+  LivenessWatchdog get _liveness;
+
+  Future<void> _suspendWire();
+
+  Future<void> _rehomeWire();
+
+  Future<void> _closeWire();
+
+  void _probeAgain();
+
+  late final StreamController<E> _out = StreamController<E>.broadcast(
+    onListen: () {
+      _supervisor.claim();
+      scheduleMicrotask(_drain);
+    },
   );
 
-  late final StreamController<Uint8List> _out =
-      StreamController<Uint8List>.broadcast(
-        onListen: () {
-          _supervisor.claim();
-          scheduleMicrotask(_drain);
-        },
-      );
-
   Future<void> get ready => _ready.future;
-
-  @override
-  Stream<Uint8List> get output => _out.stream;
-
-  @override
-  Stream<Uint8List> get snapshots => const Stream.empty();
-
-  @override
-  Stream<String> get foregroundProcesses => const Stream.empty();
 
   @override
   Stream<ShellConnectionHealth> get health => _liveness.health;
@@ -568,20 +558,6 @@ class MoshShellConnection implements ShellConnection {
 
   @override
   ShellEnded? get ended => _ended;
-
-  @override
-  void write(Uint8List bytes) {
-    if (_closed) return;
-    _mosh.send(bytes);
-  }
-
-  @override
-  void resize(int columns, int rows, {int widthPx = 0, int heightPx = 0}) {
-    if (_closed) return;
-    this.columns = columns;
-    this.rows = rows;
-    _probeState = _mosh.resize(columns, rows);
-  }
 
   @override
   HostChannels get channels => _supervisor.channels;
@@ -594,18 +570,6 @@ class MoshShellConnection implements ShellConnection {
       _closed ? null : _supervisor.open(action);
 
   @override
-  Future<bool> terminateRemote(String session, {UserAction? action}) async {
-    if (!durableShellSession.hasMatch(session)) return false;
-    final channels = action == null ? _supervisor : await channelsFor(action);
-    if (channels == null) return false;
-    final mosh = await channels.exec(
-      moshServerCleanupCommand(session),
-      timeout: remoteCommandDeadline,
-    );
-    return mosh != null && moshSwept(mosh.out) != null;
-  }
-
-  @override
   Future<void> rehome({NetworkChanged? network}) async {
     if (_closed) return;
     if (_suspended) {
@@ -613,9 +577,9 @@ class MoshShellConnection implements ShellConnection {
       return;
     }
     _liveness.report(ShellConnectionHealth.reconnecting);
-    await _mosh.rehome();
+    await _rehomeWire();
     _liveness.forget();
-    _probeState = _mosh.resize(columns, rows);
+    _probeAgain();
     if (network == null) return;
     await _supervisor.drop(network);
     unawaited(_reopen(_supervisor, network));
@@ -627,7 +591,7 @@ class MoshShellConnection implements ShellConnection {
     _suspended = true;
     _liveness.stop();
     return _suspending = () async {
-      await _mosh.suspend();
+      await _suspendWire();
       await _supervisor.drop(reason);
     }();
   }
@@ -670,7 +634,7 @@ class MoshShellConnection implements ShellConnection {
     for (final subscription in _reading) {
       await subscription.cancel();
     }
-    await _mosh.close();
+    await _closeWire();
     _finish(null);
     if (!_ready.isCompleted) _ready.complete();
     await _out.close();
@@ -683,21 +647,10 @@ class MoshShellConnection implements ShellConnection {
     await _teardown(report: false);
   }
 
-  void _emit(Uint8List bytes) {
-    if (_closed || bytes.isEmpty) return;
-    _contact();
-    if (!_ready.isCompleted) {
-      _ready.complete();
-      _liveness.start();
-    }
-    _pending.add(bytes);
-    _drain();
-  }
-
   void _drain() {
     if (_out.isClosed || !_out.hasListener) return;
-    for (final bytes in _pending) {
-      _out.add(bytes);
+    for (final event in _pending) {
+      _out.add(event);
     }
     _pending.clear();
   }
@@ -710,6 +663,131 @@ class MoshShellConnection implements ShellConnection {
     if (!_exit.isCompleted) _exit.complete(code);
   }
 
+  void _abandonSilentChannel() {
+    _ended ??= _supervisor.terminalEnded();
+    _liveness.report(ShellConnectionHealth.disconnected);
+    _log(
+      _supervisor.endpoint,
+      '$_name: no answer in ${giveUp.inSeconds}s, dropping the channel',
+    );
+    if (!_out.isClosed) {
+      _out.addError(
+        ShellFailure(
+          ShellFailureKind.streamClosed,
+          detail: 'the $_name channel stopped answering',
+        ),
+      );
+    }
+  }
+}
+
+class MoshShellConnection extends _ChannelConnection<Uint8List> {
+  MoshShellConnection(
+    super._supervisor,
+    this._mosh, {
+    required super.address,
+    required super.columns,
+    required super.rows,
+    super.healthInterval = const Duration(seconds: 3),
+    super.giveUp = const Duration(seconds: 30),
+  }) {
+    _reading.add(_mosh.output.listen(_emit));
+    _reading.add(
+      _mosh.errors.listen(
+        (error) => _log(_supervisor.endpoint, 'mosh: $error'),
+      ),
+    );
+    _reading.add(_mosh.echoAcks.listen(_acknowledge));
+    _reading.add(_mosh.contacts.listen((_) => _contact()));
+    _mosh.done.then(
+      (_) => _finish(0),
+      onError: (Object error) {
+        _log(_supervisor.endpoint, 'mosh: $error');
+        _finish(null);
+      },
+    );
+  }
+
+  final MoshChannel _mosh;
+
+  @override
+  ShellContinuity get continuity => ShellContinuity.plain;
+
+  @override
+  ShellTransport get transport => ShellTransport.mosh;
+
+  @override
+  String get _name => 'mosh';
+
+  int? _probeState;
+
+  @override
+  late final _liveness = LivenessWatchdog(
+    interval: healthInterval,
+    giveUp: giveUp,
+    probing: () => _probeState != null,
+    probe: () => _probeState = _mosh.resize(columns, rows),
+    onSilent: _abandonSilentChannel,
+  );
+
+  @override
+  Stream<Uint8List> get output => _out.stream;
+
+  @override
+  Stream<Uint8List> get snapshots => const Stream.empty();
+
+  @override
+  Stream<String> get foregroundProcesses => const Stream.empty();
+
+  @override
+  void write(Uint8List bytes) {
+    if (_closed) return;
+    _mosh.send(bytes);
+  }
+
+  @override
+  void resize(int columns, int rows, {int widthPx = 0, int heightPx = 0}) {
+    if (_closed) return;
+    this.columns = columns;
+    this.rows = rows;
+    _probeState = _mosh.resize(columns, rows);
+  }
+
+  @override
+  Future<bool> terminateRemote(String session, {UserAction? action}) async {
+    if (!durableShellSession.hasMatch(session)) return false;
+    final channels = action == null ? _supervisor : await channelsFor(action);
+    if (channels == null) return false;
+    final mosh = await channels.exec(
+      moshServerCleanupCommand(session),
+      timeout: remoteCommandDeadline,
+    );
+    return mosh != null && moshSwept(mosh.out) != null;
+  }
+
+  @override
+  Future<void> _suspendWire() => _mosh.suspend();
+
+  @override
+  Future<void> _rehomeWire() => _mosh.rehome();
+
+  @override
+  Future<void> _closeWire() => _mosh.close();
+
+  @override
+  void _probeAgain() => _probeState = _mosh.resize(columns, rows);
+
+  void _emit(Uint8List bytes) {
+    if (_closed || bytes.isEmpty) return;
+    _contact();
+    if (!_ready.isCompleted) {
+      _ready.complete();
+      _liveness.start();
+    }
+    _pending.add(bytes);
+    _drain();
+  }
+
   void _acknowledge(int state) {
     final probe = _probeState;
     if (probe == null || state < probe) return;
@@ -719,23 +797,6 @@ class MoshShellConnection implements ShellConnection {
   void _contact() {
     _probeState = null;
     _liveness.heard();
-  }
-
-  void _abandonSilentChannel() {
-    _ended ??= _supervisor.terminalEnded();
-    _liveness.report(ShellConnectionHealth.disconnected);
-    _log(
-      _supervisor.endpoint,
-      'mosh: no answer in ${giveUp.inSeconds}s, dropping the channel',
-    );
-    if (!_out.isClosed) {
-      _out.addError(
-        const ShellFailure(
-          ShellFailureKind.streamClosed,
-          detail: 'the mosh channel stopped answering',
-        ),
-      );
-    }
   }
 }
 
@@ -771,20 +832,20 @@ Future<Map<String, Object?>?> _engineCall(
   return body is Map<String, Object?> ? body : null;
 }
 
-class EngineShellConnection implements ShellConnection {
+class EngineShellConnection extends _ChannelConnection<EngineEvent> {
   EngineShellConnection(
-    this._supervisor,
+    super._supervisor,
     this._engine, {
-    required this.address,
+    required super.address,
     required this.owner,
     required this.tab,
-    required this.columns,
-    required this.rows,
+    required super.columns,
+    required super.rows,
     required this.continuity,
     this.seamless = false,
     this.onLeave,
-    this.healthInterval = const Duration(seconds: 3),
-    this.giveUp = const Duration(seconds: 30),
+    super.healthInterval = const Duration(seconds: 3),
+    super.giveUp = const Duration(seconds: 30),
   }) {
     _reading.add(_engine.events.listen(_emit));
     _reading.add(
@@ -801,17 +862,13 @@ class EngineShellConnection implements ShellConnection {
     );
   }
 
-  final String address;
   final String owner;
   final String tab;
   final EngineChannel _engine;
-  final ConnectionSupervisor _supervisor;
 
   final bool seamless;
 
   final void Function(EngineResume state)? onLeave;
-  final Duration healthInterval;
-  final Duration giveUp;
 
   @override
   final ShellContinuity continuity;
@@ -819,20 +876,14 @@ class EngineShellConnection implements ShellConnection {
   @override
   ShellTransport get transport => ShellTransport.engine;
 
-  final _reading = <StreamSubscription<void>>[];
-  final _pending = <EngineEvent>[];
-  final _exit = Completer<int?>();
-  final _ready = Completer<void>();
+  @override
+  String get _name => 'engine';
+
   var _probing = false;
-  int columns;
-  int rows;
-  var _closed = false;
-  var _suspended = false;
-  Future<void>? _suspending;
-  ShellEnded? _ended;
   var _stopped = false;
   var _delivered = 0;
 
+  @override
   late final _liveness = LivenessWatchdog(
     interval: healthInterval,
     giveUp: giveUp,
@@ -845,45 +896,26 @@ class EngineShellConnection implements ShellConnection {
     probeOnMiss: true,
   );
 
-  late final StreamController<EngineEvent> _frames =
-      StreamController<EngineEvent>.broadcast(
-        onListen: () {
-          _supervisor.claim();
-          scheduleMicrotask(_drain);
-        },
-      );
-
-  Future<void> get ready => _ready.future;
-
   @override
   Stream<Uint8List> get output =>
-      _frames.stream.where((event) => event is EnginePty).map((event) {
+      _out.stream.where((event) => event is EnginePty).map((event) {
         _delivered++;
         return (event as EnginePty).bytes;
       });
 
   @override
   Stream<Uint8List> get snapshots =>
-      _frames.stream.where((event) => event is EngineSnapshot).map((event) {
+      _out.stream.where((event) => event is EngineSnapshot).map((event) {
         _delivered++;
         return (event as EngineSnapshot).bytes;
       });
 
   @override
   Stream<String> get foregroundProcesses =>
-      _frames.stream.where((event) => event is EngineForeground).map((event) {
+      _out.stream.where((event) => event is EngineForeground).map((event) {
         _delivered++;
         return (event as EngineForeground).processes;
       });
-
-  @override
-  Stream<ShellConnectionHealth> get health => _liveness.health;
-
-  @override
-  Future<int?> get exitCode => _exit.future;
-
-  @override
-  ShellEnded? get ended => _ended;
 
   @override
   void write(Uint8List bytes) {
@@ -898,16 +930,6 @@ class EngineShellConnection implements ShellConnection {
     this.rows = rows;
     _engine.resize(columns, rows, widthPx: widthPx, heightPx: heightPx);
   }
-
-  @override
-  HostChannels get channels => _supervisor.channels;
-
-  @override
-  Stream<ControlLink> get controlLink => _supervisor.controlLink;
-
-  @override
-  Future<HostChannels?> channelsFor(UserAction action) async =>
-      _closed ? null : _supervisor.open(action);
 
   @override
   Future<bool> terminateRemote(String session, {UserAction? action}) async {
@@ -938,82 +960,19 @@ class EngineShellConnection implements ShellConnection {
   }
 
   @override
-  Future<void> rehome({NetworkChanged? network}) async {
-    if (_closed) return;
-    if (_suspended) {
-      if (network != null) await _supervisor.drop(network);
-      return;
-    }
-    _liveness.report(ShellConnectionHealth.reconnecting);
-    await _engine.rehome();
-    _liveness.forget();
-    _probing = true;
-    if (network == null) return;
-    await _supervisor.drop(network);
-    unawaited(_reopen(_supervisor, network));
-  }
+  Future<void> _suspendWire() => _engine.suspend();
 
   @override
-  Future<void> suspend(AppSuspended reason) {
-    if (_closed || _suspended) return Future.value();
-    _suspended = true;
-    _liveness.stop();
-    return _suspending = () async {
-      await _engine.suspend();
-      await _supervisor.drop(reason);
-    }();
-  }
-
-  /// The suspend's drop lands before this resume's open, never after it.
-  @override
-  Future<void> resume(AppResumed reason) async {
-    if (_closed || !_suspended) return;
-    _suspended = false;
-    await _suspending?.then((_) {}, onError: (Object _) {});
-    if (_closed) return;
-    await rehome();
-    if (_ready.isCompleted && !_closed && !_suspended) _liveness.start();
-    await _reopen(_supervisor, reason);
-  }
+  Future<void> _rehomeWire() => _engine.rehome();
 
   @override
-  bool accepts(DropReason reason) => _supervisor.accepts(reason);
-
-  @override
-  Future<void> close(DropReason reason) async {
-    if (_closed || !_supervisor.accepts(reason)) return;
-    final dropped = _supervisor.drop(reason);
-    await _teardown(report: true);
-    await dropped;
-  }
-
-  @override
-  Future<bool> discard() async {
-    if (_closed || _supervisor.claimed) return false;
-    final dropped = _supervisor.discard();
-    await _teardown(report: true);
-    return dropped;
-  }
-
-  Future<void> _teardown({required bool report}) async {
-    _closed = true;
-    _liveness.stop();
-    if (report) _liveness.report(ShellConnectionHealth.disconnected);
-    for (final subscription in _reading) {
-      await subscription.cancel();
-    }
+  Future<void> _closeWire() async {
     await _engine.close();
     _leave();
-    _finish(null);
-    if (!_ready.isCompleted) _ready.complete();
-    await _frames.close();
-    await _liveness.close();
   }
 
-  Future<void> abandon() async {
-    if (_closed) return;
-    await _teardown(report: false);
-  }
+  @override
+  void _probeAgain() => _probing = true;
 
   void _leave() {
     if (_stopped || _exit.isCompleted) return;
@@ -1039,42 +998,9 @@ class EngineShellConnection implements ShellConnection {
     _liveness.start();
   }
 
-  void _drain() {
-    if (_frames.isClosed || !_frames.hasListener) return;
-    for (final event in _pending) {
-      _frames.add(event);
-    }
-    _pending.clear();
-  }
-
-  void _finish(int? code) {
-    if (!_closed) {
-      _liveness.report(ShellConnectionHealth.disconnected);
-      _ended ??= _supervisor.terminalEnded();
-    }
-    if (!_exit.isCompleted) _exit.complete(code);
-  }
-
   void _contact() {
     _probing = false;
     _liveness.heard();
-  }
-
-  void _abandonSilentChannel() {
-    _ended ??= _supervisor.terminalEnded();
-    _liveness.report(ShellConnectionHealth.disconnected);
-    _log(
-      _supervisor.endpoint,
-      'engine: no answer in ${giveUp.inSeconds}s, dropping the channel',
-    );
-    if (!_frames.isClosed) {
-      _frames.addError(
-        const ShellFailure(
-          ShellFailureKind.streamClosed,
-          detail: 'the engine channel stopped answering',
-        ),
-      );
-    }
   }
 }
 
