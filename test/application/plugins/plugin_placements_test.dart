@@ -792,6 +792,89 @@ void main() {
     );
   });
 
+  test('a gathering lands where its first card stood and turns', () {
+    final state = PluginPlacementState(
+      homeTiles: {
+        1: HomeSplit(HomeAxis.row, [
+          HomeCard('a'),
+          HomeSplit(HomeAxis.column, [HomeCard('b'), HomeCard('c')]),
+          HomeCard('d', weight: 3),
+        ]),
+      },
+    );
+    expect(homeArrangements(2), 4);
+    expect(homeArrangements(3), 12);
+    expect(_shape(homeArrangement(['b', 'd'], 3)), {
+      'column': ['d', 'b'],
+    });
+    expect(_shape(homeArrangement(['b', 'c', 'd'], 6)), {
+      'row': [
+        'c',
+        {
+          'column': ['d', 'b'],
+        },
+      ],
+    });
+
+    final grouped = state.withHomeGroup(1, [
+      'd',
+      'b',
+    ], homeArrangement(['d', 'b'], 0));
+    expect(_shape(grouped.tileOf(1)), {
+      'row': [
+        'a',
+        {
+          'column': [
+            {
+              'row': ['d', 'b'],
+            },
+            'c',
+          ],
+        },
+      ],
+    });
+    final whole = state.withHomeGroup(1, [
+      'a',
+      'b',
+      'c',
+      'd',
+    ], homeArrangement(['a', 'b', 'c', 'd'], 1));
+    expect(_shape(whole.tileOf(1)), {
+      'column': ['a', 'b', 'c', 'd'],
+    });
+    expect(
+      () => state.withHomeGroup(1, ['a', 'x'], homeArrangement(['a', 'x'], 0)),
+      throwsA(isA<PluginPlacementException>()),
+    );
+
+    var turned = PluginPlacementState(
+      homeTiles: {
+        1: HomeSplit(HomeAxis.row, [
+          HomeCard('a'),
+          HomeCard('d', weight: 3),
+          HomeCard('e'),
+        ]),
+      },
+    );
+    for (final step in [1, 0, 1, 0, 1]) {
+      turned = turned.withHomeGroup(1, [
+        'a',
+        'd',
+      ], homeArrangement(['a', 'd'], step));
+    }
+    final root = turned.tileOf(1)! as HomeSplit;
+    expect(root.children.first.weight, 4);
+    expect(root.children.last.weight, 1);
+
+    final named = PluginPlacementState.decode(
+      jsonDecode(jsonEncode(state.copyWith(homeNames: {2: 'Ops'}).encode())),
+    );
+    expect(named.homeNames, {2: 'Ops'});
+    expect(validHomeName(' Ops'), isFalse);
+    expect(validHomeName('x' * (homeNameLength + 1)), isFalse);
+    expect(validHomeName('\u{1F680}' * homeNameLength), isTrue);
+  });
+
   test('Home moves skip hidden cards and leave a still card alone', () {
     var state = PluginPlacementState(
       homeTiles: {

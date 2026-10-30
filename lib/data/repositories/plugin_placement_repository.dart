@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/widgets.dart' show Characters;
+
 import 'package:striked/platform/plugins/contributions.dart';
 import 'package:striked/platform/plugins/serial.dart';
 
@@ -12,6 +14,8 @@ const _legacyAgentsId = 'striked:home:agents';
 const homeSpaceCount = 9;
 
 const homeSeam = 16.0;
+
+const homeNameLength = 24;
 
 enum HomeAxis { row, column }
 
@@ -300,10 +304,12 @@ class PluginPlacementState {
     Set<String> knownWidgets = const {},
     Set<String> knownPages = const {},
     Map<int, HomeTile> homeTiles = const {},
+    Map<int, String> homeNames = const {},
     Set<String> hiddenHome = const {},
     this.homeSpace = 1,
     List<String> pinnedPages = const [],
   }) : placements = Map.unmodifiable(placements),
+       homeNames = Map.unmodifiable(homeNames),
        homeTiles = Map.unmodifiable({
          for (final space in homeTiles.keys.toList()..sort())
            space: ?_tidy(homeTiles[space]),
@@ -321,6 +327,7 @@ class PluginPlacementState {
   final Set<String> knownWidgets;
   final Set<String> knownPages;
   final Map<int, HomeTile> homeTiles;
+  final Map<int, String> homeNames;
   final Set<String> hiddenHome;
   final int homeSpace;
   final List<String> pinnedPages;
@@ -509,6 +516,50 @@ class PluginPlacementState {
     ),
   );
 
+  PluginPlacementState withHomeGroup(
+    int space,
+    List<String> ids,
+    HomeTile group,
+  ) {
+    final root = homeTiles[space];
+    if (root == null ||
+        ids.length < 2 ||
+        ids.toSet().length != ids.length ||
+        !ids.every(root.cards.contains) ||
+        group.cards.toSet().length != ids.length ||
+        !group.cards.every(ids.contains)) {
+      throw const PluginPlacementException('Invalid Home group');
+    }
+    final anchor = root.cards.firstWhere(ids.contains);
+    // Gathered siblings beside cards that stay hand their weight to the group;
+    // otherwise each turn that merges a row into its parent shrinks it.
+    final at = _pathOf(root, anchor)!;
+    final parent = at.isEmpty ? null : _at(root, at.sublist(0, at.length - 1));
+    final share = parent is HomeSplit && !parent.children.every(_gathered(ids))
+        ? parent.children
+              .where(_gathered(ids))
+              .fold(0.0, (sum, child) => sum + child.weight)
+        : null;
+    HomeTile? kept = _rename(root, anchor, _moving);
+    for (final id in ids) {
+      kept = _without(kept, id);
+    }
+    kept = _tidy(kept)!;
+    return copyWith(
+      homeTiles: {
+        ...homeTiles,
+        space: _replace(
+          kept,
+          _pathOf(kept, _moving)!,
+          (slot) => group.weighted(share ?? slot.weight),
+        ),
+      },
+    );
+  }
+
+  static bool Function(HomeTile) _gathered(List<String> ids) =>
+      (tile) => tile is HomeCard && ids.contains(tile.id);
+
   PluginPlacementState withHomeSwap(String id, String other) {
     final (a, b) = (homeSpaceOf(id), homeSpaceOf(other));
     if (a == null || b == null) {
@@ -556,6 +607,7 @@ class PluginPlacementState {
     Set<String>? knownWidgets,
     Set<String>? knownPages,
     Map<int, HomeTile>? homeTiles,
+    Map<int, String>? homeNames,
     Set<String>? hiddenHome,
     int? homeSpace,
     List<String>? pinnedPages,
@@ -566,6 +618,7 @@ class PluginPlacementState {
     knownWidgets: knownWidgets ?? this.knownWidgets,
     knownPages: knownPages ?? this.knownPages,
     homeTiles: homeTiles ?? this.homeTiles,
+    homeNames: homeNames ?? this.homeNames,
     hiddenHome: hiddenHome ?? this.hiddenHome,
     homeSpace: homeSpace ?? this.homeSpace,
     pinnedPages: pinnedPages ?? this.pinnedPages,
@@ -586,6 +639,10 @@ class PluginPlacementState {
     'home': {
       for (final MapEntry(key: space, value: tile) in homeTiles.entries)
         '$space': tile.encode(),
+    },
+    'home_names': {
+      for (final MapEntry(key: space, value: name) in homeNames.entries)
+        '$space': name,
     },
     'hidden_home': hiddenHome.toList(),
     'home_space': homeSpace,
@@ -682,7 +739,10 @@ class PluginPlacementState {
       columns: value['version'] == 2,
     );
     _stringList([for (final tile in tiles.values) ...tile.cards], 'home order');
-    return state.copyWith(homeTiles: tiles);
+    return state.copyWith(
+      homeTiles: tiles,
+      homeNames: _homeNames(value['home_names'] ?? <String, Object?>{}),
+    );
   }
 }
 
@@ -723,6 +783,46 @@ Map<int, HomeTile> _homeTiles(Object? raw, {required bool columns}) {
         : _tile(value, 0);
   }
   return tiles;
+}
+
+Map<int, String> _homeNames(Object? raw) {
+  if (raw is! Map<String, Object?> || raw.length > homeSpaceCount) {
+    throw const PluginPlacementException('Invalid Home workspace names');
+  }
+  return {
+    for (final MapEntry(:key, :value) in raw.entries)
+      switch ((int.tryParse(key), value)) {
+        (final space?, final String name)
+            when _validSpace(space) && validHomeName(name) =>
+          space,
+        _ => throw const PluginPlacementException(
+          'Invalid Home workspace names',
+        ),
+      }: value! as String,
+  };
+}
+
+bool validHomeName(String name) =>
+    name.isNotEmpty &&
+    Characters(name).length <= homeNameLength &&
+    name == name.trim() &&
+    !name.contains(RegExp(r'[\x00-\x1f\x7f]'));
+
+int homeArrangements(int count) => count * (count > 2 ? 4 : 2);
+
+HomeTile homeArrangement(List<String> ids, int index) {
+  final kinds = ids.length > 2 ? 4 : 2;
+  final turn = index ~/ kinds % ids.length;
+  final order = [...ids.skip(turn), ...ids.take(turn)];
+  final cards = [for (final id in order) HomeCard(id)];
+  final lead = cards.first.weighted(2);
+  final rest = cards.skip(1).toList();
+  return switch (index % kinds) {
+    0 => HomeSplit(HomeAxis.row, cards),
+    1 => HomeSplit(HomeAxis.column, cards),
+    2 => HomeSplit(HomeAxis.row, [lead, HomeSplit(HomeAxis.column, rest)]),
+    _ => HomeSplit(HomeAxis.column, [lead, HomeSplit(HomeAxis.row, rest)]),
+  };
 }
 
 HomeTile _tile(Object? raw, int depth) {

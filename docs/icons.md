@@ -109,6 +109,7 @@ The variant is drawn only inside the icon-glitch event. It is not a static icon 
 | discard | A change struck off its route | Diamond change node | None | 16 px |
 | wrap | A line too long for the row, routed back to the margin | Square line-start node | None | 16 px |
 | split | The two sides read beside each other | None | Container is the meaning | 16 px |
+| workspaces | Home tiled into cards: a tall tile beside two stacked ones | Square card node | Container is the meaning | 16 px |
 | viewed | Lines read through to the end and ticked | None | None | 16 px |
 | log | A file's history: commits down one route, each with its entry | Diamond commit nodes | None | 16 px |
 

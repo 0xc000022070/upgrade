@@ -142,6 +142,55 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
     return current.copyWith(homeSpace: space);
   });
 
+  Future<void> nameHomeSpace(int space, String name, {bool show = false}) =>
+      _change((current) {
+        final trimmed = name.trim();
+        if (space < 1 ||
+            space > homeSpaceCount ||
+            trimmed.isNotEmpty && !validHomeName(trimmed)) {
+          throw const PluginPlacementException('Invalid Home workspace name');
+        }
+        return current.copyWith(
+          homeSpace: show ? space : null,
+          homeNames: {...current.homeNames, space: trimmed}
+            ..removeWhere((_, name) => name.isEmpty),
+        );
+      });
+
+  Future<void> arrangeHome(List<String> ids, int index) => _change(
+    (current) => current.withHomeGroup(
+      current.homeSpace,
+      ids,
+      homeArrangement(ids, index),
+    ),
+  );
+
+  Future<void> bringHome(String id) => _change((current) {
+    final contribution = _widget(id).contribution;
+    if (!contribution.locations.contains(PluginPlacementLocation.homeCard)) {
+      throw PluginPlacementException(
+        '${contribution.title} does not support ${PluginPlacementLocation.homeCard.id}',
+      );
+    }
+    final space = current.homeSpace;
+    final placed = current.placements[id] == PluginPlacementLocation.homeCard
+        ? current
+        : current
+              .withoutHomeCard(id)
+              .copyWith(
+                placements: {
+                  ...current.placements,
+                  id: PluginPlacementLocation.homeCard,
+                },
+              );
+    final shown = placed.copyWith(
+      hiddenHome: {...placed.hiddenHome}..remove(id),
+    );
+    return shown.homeSpaceOf(id) == space
+        ? shown
+        : shown.withoutHomeCard(id).withHomeCard(id, space: space);
+  });
+
   Future<void> setHomeHidden(String id, bool hidden) => _change((current) {
     if (current.placements[id] != PluginPlacementLocation.homeCard) {
       throw const PluginPlacementException('Only Home cards can be hidden');

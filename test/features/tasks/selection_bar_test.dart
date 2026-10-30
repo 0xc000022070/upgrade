@@ -376,6 +376,8 @@ void main() {
     await _ready(tester);
     expect(find.byType(SelectionBar), findsOneWidget);
 
+    await tester.tap(find.bySemanticsLabel('MORE'));
+    await _ready(tester);
     await tester.tap(find.bySemanticsLabel('SETTINGS'));
     await _ready(tester);
     expect(find.byType(SettingsScreen), findsOneWidget);

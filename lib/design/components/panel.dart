@@ -270,6 +270,7 @@ class PanelAffordance extends StatefulWidget {
     super.key,
     this.icon = StrikedIcons.forward,
     this.showIcon = true,
+    this.showLabel = true,
     this.color,
     this.onTap,
   });
@@ -277,6 +278,8 @@ class PanelAffordance extends StatefulWidget {
   final String label;
   final StrikedIcons icon;
   final bool showIcon;
+
+  final bool showLabel;
   final Color? color;
   final VoidCallback? onTap;
 
@@ -293,19 +296,29 @@ class _PanelAffordanceState extends State<PanelAffordance> {
     final tint = _down
         ? context.tokens.accent
         : widget.color ?? context.tokens.textMuted;
-    final content = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          widget.label,
-          style: context.tokens.panelHeader.copyWith(color: tint),
-        ),
-        if (widget.showIcon) ...[
-          const SizedBox(width: Spacing.sm),
-          StrikedIcon(widget.icon, size: IconSizes.affordance, color: tint),
-        ],
-      ],
-    );
+    final content = widget.showLabel
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.label,
+                style: context.tokens.panelHeader.copyWith(color: tint),
+              ),
+              if (widget.showIcon) ...[
+                const SizedBox(width: Spacing.sm),
+                StrikedIcon(
+                  widget.icon,
+                  size: IconSizes.affordance,
+                  color: tint,
+                ),
+              ],
+            ],
+          )
+        : Semantics(
+            label: widget.label,
+            button: onTap != null,
+            child: StrikedIcon(widget.icon, size: IconSizes.glyph, color: tint),
+          );
     if (onTap == null) return content;
     return TapExpansion(
       child: GestureDetector(

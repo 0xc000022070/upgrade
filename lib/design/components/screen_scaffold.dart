@@ -14,6 +14,7 @@ class ScreenScaffold extends StatelessWidget {
     required this.children,
     this.breadcrumb = '/ PERSONAL CONTROL PLANE',
     this.breadcrumbSegments,
+    this.breadcrumbWidget,
     this.breadcrumbTrailing,
     this.titleTrailing,
     this.onBack,
@@ -35,6 +36,8 @@ class ScreenScaffold extends StatelessWidget {
 
   /// Replaces [breadcrumb] when set.
   final List<CrumbSegment>? breadcrumbSegments;
+
+  final Widget? breadcrumbWidget;
 
   final Widget? breadcrumbTrailing;
 
@@ -69,14 +72,16 @@ class ScreenScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final segments = breadcrumbSegments;
     final trailing = breadcrumbTrailing;
-    Widget crumb = segments == null
-        ? Text(
-            crumbFor(breadcrumb, hasTrailing: trailing != null),
-            style: context.tokens.breadcrumb,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          )
-        : _SegmentedCrumb(segments: segments);
+    Widget crumb =
+        breadcrumbWidget ??
+        (segments == null
+            ? Text(
+                crumbFor(breadcrumb, hasTrailing: trailing != null),
+                style: context.tokens.breadcrumb,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              )
+            : _SegmentedCrumb(segments: segments));
     // A tap target's height on every screen, whether or not the line carries a verb or a
     // back tap, so the title under it does not move between tabs.
     const crumbHeight = TapTargets.minHeight;

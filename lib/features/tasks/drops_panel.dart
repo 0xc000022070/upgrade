@@ -26,6 +26,7 @@ class DropsPanel extends ConsumerStatefulWidget {
     this.landing,
     this.onCompleted,
     this.height,
+    this.onSearch,
   });
 
   final String scope;
@@ -40,6 +41,8 @@ class DropsPanel extends ConsumerStatefulWidget {
   final ValueChanged<Task>? onCompleted;
 
   final double? height;
+
+  final VoidCallback? onSearch;
 
   @override
   ConsumerState<DropsPanel> createState() => _DropsPanelState();
@@ -137,6 +140,15 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
               'SELECT',
               showIcon: false,
               onTap: () => notifier.beginEmpty(widget.scope),
+            ),
+          ],
+          if (widget.onSearch case final search? when !selecting) ...[
+            const SizedBox(width: Spacing.lg),
+            PanelAffordance(
+              'SEARCH',
+              icon: StrikedIcons.search,
+              showLabel: false,
+              onTap: search,
             ),
           ],
         ],

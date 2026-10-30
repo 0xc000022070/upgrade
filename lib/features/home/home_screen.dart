@@ -13,24 +13,26 @@ import 'package:striked/application/navigation.dart';
 import 'package:striked/application/plugins/native_plugins.dart';
 import 'package:striked/application/plugins/plugin_placements.dart';
 import 'package:striked/data/repositories/plugin_placement_repository.dart';
+import 'package:striked/design/components/anchor_menu.dart';
 import 'package:striked/design/components/dot_spinner.dart';
 import 'package:striked/design/components/held_drag.dart';
 import 'package:striked/design/components/list_row.dart';
 import 'package:striked/design/components/panel.dart';
 import 'package:striked/design/components/panel_text_action.dart';
 import 'package:striked/design/components/toolbar_icon_action.dart';
+import 'package:striked/design/icons/striked_icon.dart';
 import 'package:striked/design/icons/striked_icons.dart';
 import 'package:striked/design/tokens.dart';
 import 'package:striked/design/spacing.dart';
 import 'package:striked/platform/plugins/contributions.dart';
 import 'package:striked/design/components/screen_scaffold.dart';
-import 'package:striked/features/tasks/item_search_screen.dart';
 import 'package:striked/features/tasks/selection_bar.dart';
 import 'package:striked/features/plugins/plugin_card.dart';
 import 'package:striked/features/plugins/plugin_management_screen.dart';
 import 'package:striked/features/plugins/plugin_promise.dart';
 import 'package:striked/features/home/home_card_viewport.dart';
 import 'package:striked/features/home/home_actions.dart';
+import 'package:striked/features/home/home_workspaces.dart';
 
 String _placementErrorMessage(Object? error) =>
     error is PluginPlacementException
@@ -49,9 +51,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _entryKeys = <String, GlobalKey>{};
   double _swipe = 0;
 
+  List<String>? _picked;
+  int? _arranged;
+  bool _overview = false;
+
   void _leave() {
     ref.read(dropSelectionProvider.notifier).clear();
     ref.read(freshDropsProvider.notifier).clear();
+    if (_picked != null) _edit(false);
+  }
+
+  void _edit(bool on) => setState(() {
+    _picked = on ? [] : null;
+    _arranged = null;
+  });
+
+  void _pick(String id) => setState(() {
+    final picked = _picked!;
+    picked.contains(id) ? picked.remove(id) : picked.add(id);
+    _arranged = null;
+  });
+
+  /// [picked] is the gathering as the workspace in front shows it: a card
+  /// gathered on another workspace starts the turns over without it.
+  void _arrange(List<String> picked) {
+    final next = picked.length == _picked!.length
+        ? ((_arranged ?? -1) + 1) % homeArrangements(picked.length)
+        : 0;
+    setState(() {
+      _picked = [...picked];
+      _arranged = next;
+    });
+    unawaited(_layout.arrangeHome(picked, next));
+  }
+
+  void _remove(String id) {
+    setState(() {
+      _picked?.remove(id);
+      _arranged = null;
+    });
+    unawaited(_layout.setHomeHidden(id, true));
   }
 
   PluginPlacements get _layout => ref.read(pluginPlacementsProvider.notifier);
@@ -74,20 +113,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     });
     final catalog = ref.watch(pluginContributionCatalogProvider);
-    final search = ref.watch(nativeSurfaceOwnerProvider('item.detail')) != null;
     final placementState = ref.watch(pluginPlacementsProvider);
     final placements = placementState.valueOrNull;
     final selecting = ref
         .watch(dropSelectionProvider)
         .ownedBy(DropSelection.homeScope);
-    PluginWidgetRegistration? shown(String id) => switch (catalog.widget(id)) {
-      final widget?
-          when widget.enabled &&
-              placements!.placements[id] == PluginPlacementLocation.homeCard &&
-              !placements.hiddenHome.contains(id) =>
-        widget,
-      _ => null,
-    };
+    PluginWidgetRegistration? shown(String id) =>
+        homeShown(catalog, placements!, id);
     final space = placements?.homeSpace ?? 1;
     var drawn = double.infinity;
     VoidCallback? beside(String id, List<int> path, HomeEdge edge) =>
@@ -110,14 +142,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       for (final id in placements?.homeOrder ?? const <String>[])
         if (shown(id) != null) id,
     ];
-    final numbers = {
-      for (final id in live) placements!.spaceOf(id),
-      space,
-    }.toList()..sort();
-    final free = [
-      for (var n = 1; n <= homeSpaceCount; n++)
-        if (!numbers.contains(n)) n,
-    ].firstOrNull;
+    final numbers = placements == null
+        ? [space]
+        : homeNumbers(catalog, placements);
+    final free = homeFreeNumber(numbers);
+    final picked = _picked?.where((id) {
+      final card = shown(id);
+      return card != null && placements!.spaceOf(id) == space;
+    }).toList();
     final stored = placements?.tileOf(space);
     _Shape? shape(HomeTile tile, List<int> path) => switch (tile) {
       HomeCard(:final id) => switch (shown(id)) {
@@ -136,6 +168,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onSwap: (id, over) => unawaited(_layout.moveHome(id, over: over)),
             onBeside: beside,
             fills: card.contribution.fill,
+            pick: picked == null
+                ? null
+                : switch (picked.indexOf(card.stableId)) {
+                    < 0 => 0,
+                    final at => at + 1,
+                  },
+            onPick: () => _pick(card.stableId),
+            onRemove: () => _remove(card.stableId),
             child: KeyedSubtree(
               key: _entryKeys.putIfAbsent(card.stableId, GlobalKey.new),
               child: _PlacedPluginWidget(
@@ -195,7 +235,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
     ];
     final tail = <Widget>[
-      if (root == null) const _EmptySpace(),
+      if (root == null) _EmptySpace(onAdd: () => showAddWidgets(context)),
       if (placements != null &&
           !live.any((id) => id != agentsCardId) &&
           composer == null)
@@ -225,29 +265,54 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: ScreenScaffold(
                   fill: split,
                   maxContentWidth: homeMaxContentWidth,
-                  breadcrumbTrailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (search)
-                        ToolbarIconAction(
-                          label: 'SEARCH',
-                          icon: StrikedIcons.search,
-                          onTap: () {
-                            _leave();
-                            openItemSearch(context);
-                          },
-                        ),
-                      if (search) const SizedBox(width: Spacing.sm),
-                      HomeActions(beforeOpen: _leave),
-                    ],
-                  ),
-                  header: _SpaceStrip(
+                  breadcrumbWidget: _SpaceStrip(
                     numbers: numbers,
+                    labelOf: (n) =>
+                        placements == null ? '$n' : homeLabel(placements, n),
                     current: space,
                     free: free,
                     onShow: (n) => unawaited(_layout.showHomeSpace(n)),
                     onDrop: (id, n) =>
                         unawaited(_layout.moveHome(id, space: n)),
+                  ),
+                  breadcrumbTrailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ToolbarIconAction(
+                        label: 'WORKSPACES',
+                        icon: StrikedIcons.workspaces,
+                        lit: _overview,
+                        onTap: () async {
+                          setState(() => _overview = true);
+                          await showWorkspaces(context);
+                          if (mounted) setState(() => _overview = false);
+                        },
+                      ),
+                      HomeActions(
+                        beforeOpen: _leave,
+                        entries: [
+                          MenuEntry(
+                            'EDIT LAYOUT',
+                            StrikedIcons.split,
+                            () => _edit(true),
+                          ),
+                          MenuEntry(
+                            'ADD WIDGETS',
+                            StrikedIcons.add,
+                            () => showAddWidgets(context),
+                          ),
+                          MenuEntry(
+                            'RENAME WORKSPACE',
+                            StrikedIcons.edit,
+                            () => showWorkspaceName(
+                              context,
+                              space: space,
+                              fresh: false,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   children: [
                     _HomeTiles(
@@ -274,7 +339,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             },
           ),
         ),
-        if (selecting)
+        if (picked != null)
+          HomeEditBar(
+            selected: picked.length,
+            arrangement: _arranged == null
+                ? null
+                : (_arranged!, homeArrangements(picked.length)),
+            onArrange: picked.length < 2 ? null : () => _arrange(picked),
+            onAdd: () => showAddWidgets(context),
+            onDone: () => _edit(false),
+          )
+        else if (selecting)
           if (composer == null)
             const SelectionBar(scope: DropSelection.homeScope)
           else
@@ -948,6 +1023,9 @@ class _HomeEntry extends StatefulWidget {
     required this.onSwap,
     required this.onBeside,
     this.fills = false,
+    this.pick,
+    this.onPick,
+    this.onRemove,
     required this.child,
   });
 
@@ -964,6 +1042,10 @@ class _HomeEntry extends StatefulWidget {
   final void Function(String id, String over) onSwap;
   final _Beside onBeside;
   final bool fills;
+
+  final int? pick;
+  final VoidCallback? onPick;
+  final VoidCallback? onRemove;
   final Widget child;
 
   @override
@@ -1062,7 +1144,16 @@ class _HomeEntryState extends State<_HomeEntry> {
                   ),
                 ),
               ),
-              child: widget.child,
+              child: switch (widget.pick) {
+                null => widget.child,
+                final pick => _Editable(
+                  title: widget.title,
+                  pick: pick,
+                  onPick: widget.onPick!,
+                  onRemove: widget.onRemove!,
+                  child: widget.child,
+                ),
+              },
             ),
           );
         },
@@ -1071,9 +1162,108 @@ class _HomeEntryState extends State<_HomeEntry> {
   );
 }
 
+class _Editable extends StatelessWidget {
+  const _Editable({
+    required this.title,
+    required this.pick,
+    required this.onPick,
+    required this.onRemove,
+    required this.child,
+  });
+
+  final String title;
+  final int pick;
+  final VoidCallback onPick;
+  final VoidCallback onRemove;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = context.tokens.accent;
+    final upper = title.toUpperCase();
+    return Stack(
+      children: [
+        ExcludeSemantics(child: child),
+        Positioned.fill(
+          child: Semantics(
+            button: true,
+            selected: pick > 0,
+            label: 'GATHER $upper',
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onPick,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: pick > 0 ? null : context.tokens.scrim,
+                  border: Border.all(
+                    color: pick > 0 ? accent : context.tokens.borderNormal,
+                    width: pick > 0
+                        ? BarSizes.inlineThickness
+                        : Borders.hairline,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          right: BarSizes.inlineThickness,
+          top: BarSizes.inlineThickness,
+          child: ColoredBox(
+            color: context.tokens.surfaceSecondary,
+            child: Row(
+              children: [
+                if (pick > 0)
+                  Container(
+                    width: 28,
+                    height: 28,
+                    alignment: Alignment.center,
+                    color: accent,
+                    child: Text(
+                      '$pick',
+                      style: context.tokens.panelHeader.copyWith(
+                        color: context.tokens.backgroundPrimary,
+                      ),
+                    ),
+                  ),
+                SizedBox(
+                  width: TapTargets.minHeight,
+                  height: RowMetrics.minHeight - BarSizes.inlineThickness,
+                  child: Center(
+                    child: StrikedIcon(
+                      StrikedIcons.close,
+                      size: IconSizes.sm,
+                      color: context.tokens.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          right: BarSizes.inlineThickness,
+          top: BarSizes.inlineThickness,
+          width: TapTargets.minHeight,
+          height: TapTargets.minHeight,
+          child: Semantics(
+            button: true,
+            label: 'REMOVE $upper',
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onRemove,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _SpaceStrip extends StatelessWidget {
   const _SpaceStrip({
     required this.numbers,
+    required this.labelOf,
     required this.current,
     required this.free,
     required this.onShow,
@@ -1081,57 +1271,94 @@ class _SpaceStrip extends StatelessWidget {
   });
 
   final List<int> numbers;
+  final String Function(int space) labelOf;
   final int current;
   final int? free;
   final ValueChanged<int> onShow;
   final void Function(String id, int space) onDrop;
 
+  void _more(BuildContext anchor) => unawaited(
+    showAnchorMenu(
+      anchor,
+      title: 'WORKSPACE',
+      entries: [
+        if (free case final free?)
+          MenuEntry(
+            'NEW WORKSPACE',
+            StrikedIcons.add,
+            () => showWorkspaceName(anchor, space: free, fresh: true),
+          ),
+        MenuEntry(
+          'ALL WORKSPACES',
+          StrikedIcons.workspaces,
+          () => showWorkspaces(anchor),
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
-    Widget cell(String label, int space, {bool lit = false}) =>
-        DragTarget<_Lift>(
-          onAcceptWithDetails: (details) => onDrop(details.data.id, space),
-          builder: (context, candidates, _) => GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => onShow(space),
-            child: Container(
-              key: ValueKey('home-space-$label'),
-              width: TapTargets.minHeight,
-              decoration: BoxDecoration(
-                border: candidates.isEmpty
-                    ? null
-                    : Border.all(color: context.tokens.accent),
-              ),
-              child: Column(
-                children: [
-                  SizedBox(
-                    height: TapTargets.minHeight - BarSizes.inlineThickness,
-                    child: Center(
-                      child: Text(
-                        label,
-                        style: context.tokens.rowKicker.copyWith(
-                          color: lit
-                              ? context.tokens.accent
-                              : context.tokens.textMuted,
-                        ),
+    Widget cell(
+      String key,
+      String label, {
+      int? space,
+      bool lit = false,
+      required void Function(BuildContext anchor) onTap,
+    }) => DragTarget<_Lift>(
+      onWillAcceptWithDetails: (_) => space != null,
+      onAcceptWithDetails: (details) => onDrop(details.data.id, space!),
+      builder: (context, candidates, _) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => onTap(context),
+        child: Container(
+          key: ValueKey('home-space-$key'),
+          constraints: const BoxConstraints(minWidth: TapTargets.minHeight),
+          padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+          decoration: BoxDecoration(
+            border: candidates.isEmpty
+                ? null
+                : Border.all(color: context.tokens.accent),
+          ),
+          child: IntrinsicWidth(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      label,
+                      style: context.tokens.rowKicker.copyWith(
+                        color: lit
+                            ? context.tokens.accent
+                            : context.tokens.textMuted,
                       ),
                     ),
                   ),
-                  Container(
-                    height: BarSizes.inlineThickness,
-                    color: lit ? context.tokens.accent : null,
-                  ),
-                ],
-              ),
+                ),
+                Container(
+                  height: BarSizes.inlineThickness,
+                  color: lit ? context.tokens.accent : null,
+                ),
+              ],
             ),
           ),
-        );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: Spacing.md),
+        ),
+      ),
+    );
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          for (final n in numbers) cell('$n', n, lit: n == current),
-          if (free case final free?) cell('+', free),
+          for (final n in numbers)
+            cell(
+              '$n',
+              labelOf(n),
+              space: n,
+              lit: n == current,
+              onTap: (_) => onShow(n),
+            ),
+          cell('+', '+', space: free, onTap: _more),
         ],
       ),
     );
@@ -1139,15 +1366,22 @@ class _SpaceStrip extends StatelessWidget {
 }
 
 class _EmptySpace extends StatelessWidget {
-  const _EmptySpace();
+  const _EmptySpace({required this.onAdd});
+
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: Spacing.xxl),
-    child: Text(
-      'EMPTY · HOLD A CARD AND DROP IT ON A NUMBER',
-      textAlign: TextAlign.center,
-      style: context.tokens.label.copyWith(color: context.tokens.textMuted),
+    child: Column(
+      children: [
+        Text(
+          'EMPTY · HOLD A CARD AND DROP IT ON A TAB',
+          textAlign: TextAlign.center,
+          style: context.tokens.label.copyWith(color: context.tokens.textMuted),
+        ),
+        PanelTextAction(label: 'ADD WIDGETS', onTap: onAdd),
+      ],
     ),
   );
 }

@@ -75,6 +75,8 @@ void main() {
   ) async {
     await tester.pumpWidget(host(const Scaffold(body: HomeScreen())));
     await _ready(tester);
+    await tester.tap(find.bySemanticsLabel('MORE'));
+    await _ready(tester);
 
     expect(find.bySemanticsLabel('SETTINGS'), findsOneWidget);
 

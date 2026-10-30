@@ -11,11 +11,14 @@ class ToolbarIconAction extends StatefulWidget {
     required this.label,
     required this.icon,
     required this.onTap,
+    this.lit = false,
   });
 
   final String label;
   final StrikedIcons icon;
   final VoidCallback onTap;
+
+  final bool lit;
 
   @override
   State<ToolbarIconAction> createState() => _ToolbarIconActionState();
@@ -26,7 +29,8 @@ class _ToolbarIconActionState extends State<ToolbarIconAction> {
 
   @override
   Widget build(BuildContext context) {
-    final color = _down ? context.tokens.accent : context.tokens.textSecondary;
+    final on = _down || widget.lit;
+    final color = on ? context.tokens.accent : context.tokens.textSecondary;
     return Tooltip(
       message: widget.label,
       child: Semantics(
@@ -44,10 +48,22 @@ class _ToolbarIconActionState extends State<ToolbarIconAction> {
           child: SizedBox.square(
             dimension: 48,
             child: Center(
-              child: StrikedIcon(
-                widget.icon,
-                size: IconSizes.toolbar,
-                color: color,
+              child: Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: context.tokens.surfacePrimary,
+                  border: Border.all(
+                    color: on ? color : context.tokens.borderNormal,
+                    width: Borders.hairline,
+                  ),
+                ),
+                child: StrikedIcon(
+                  widget.icon,
+                  size: IconSizes.toolbar,
+                  color: color,
+                ),
               ),
             ),
           ),

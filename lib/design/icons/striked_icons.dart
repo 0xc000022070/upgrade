@@ -91,6 +91,7 @@ enum StrikedIcons {
   viewed('viewed'),
   voice('voice'),
   warning('warning'),
+  workspaces('workspaces'),
   wrap('wrap');
 
   const StrikedIcons(this.slug);

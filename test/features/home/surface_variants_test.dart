@@ -138,7 +138,7 @@ void main() {
     await tester.pumpWidget(host(const Scaffold(body: HomeScreen())));
     await settle(tester);
 
-    expect(find.bySemanticsLabel('SETTINGS'), findsOneWidget);
+    expect(find.bySemanticsLabel('MORE'), findsOneWidget);
     final agents = tester.getRect(find.byType(AgentsPanel));
     final drops = tester.getRect(find.byType(DropsPanel));
     if (math.min(surface.width, 1100) - 2 * Spacing.screenEdge >=

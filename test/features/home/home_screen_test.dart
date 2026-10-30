@@ -194,6 +194,86 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('edit layout gathers cards, turns them, and takes one off', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    await _ready(tester);
+    final scope = ProviderScope.containerOf(
+      tester.element(find.byType(HomeScreen)),
+    );
+    PluginPlacementState placements() =>
+        scope.read(pluginPlacementsProvider).requireValue;
+    const agents = 'striked.agents:widget:agents';
+    const drops = 'striked.drops:widget:drops';
+    HomeTile group() => (placements().tileOf(1)! as HomeSplit).children.first;
+
+    await tester.tap(find.bySemanticsLabel('MORE'));
+    await _ready(tester);
+    await tester.tap(find.text('EDIT LAYOUT'));
+    await _ready(tester);
+    expect(find.text('EDIT LAYOUT · TAP CARDS TO GATHER THEM'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('GATHER DROPS'));
+    await tester.tap(find.bySemanticsLabel('GATHER AGENTS'));
+    await _ready(tester);
+    expect(find.text('EDIT LAYOUT · 2 SELECTED'), findsOneWidget);
+
+    await tester.tap(find.text('LAYOUT'));
+    await _ready(tester);
+    expect(find.text('LAYOUT 1/4'), findsOneWidget);
+    expect(placements().tileOf(1)!.cards.take(2), [drops, agents]);
+
+    await tester.tap(find.text('LAYOUT 1/4'));
+    await _ready(tester);
+    expect(find.text('LAYOUT 2/4'), findsOneWidget);
+    expect(group(), isA<HomeSplit>());
+    expect((group() as HomeSplit).axis, HomeAxis.column);
+    expect(group().cards, [drops, agents]);
+
+    await tester.tap(find.bySemanticsLabel('REMOVE DROPS'));
+    await _ready(tester);
+    expect(placements().hiddenHome, contains(drops));
+    expect(find.text('EDIT LAYOUT · 1 SELECTED'), findsOneWidget);
+
+    await tester.tap(find.text('DONE'));
+    await _ready(tester);
+    expect(find.textContaining('EDIT LAYOUT'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('+ names a new workspace and brings it to the front', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    await _ready(tester);
+
+    await tester.tap(_space('+'));
+    await _ready(tester);
+    await tester.tap(find.text('NEW WORKSPACE'));
+    await _ready(tester);
+    await tester.enterText(find.byType(EditableText).last, 'ops');
+    await tester.tap(find.text('OPEN'));
+    await _ready(tester);
+
+    expect(_space('2'), findsOneWidget);
+    expect(
+      find.descendant(of: _space('2'), matching: find.text('OPS')),
+      findsOneWidget,
+    );
+    expect(
+      find.text('EMPTY · HOLD A CARD AND DROP IT ON A TAB'),
+      findsOneWidget,
+    );
+
+    await tester.tap(_space('1'));
+    await _ready(tester);
+    expect(_space('2'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
   testWidgets('a card dropped past the last column opens one, a seam resizes', (
     tester,
   ) async {
@@ -503,7 +583,7 @@ void main() {
     await _ready(tester);
     await _hold(tester, find.text('DROPS'), _space('1'));
     expect(
-      find.text('EMPTY · HOLD A CARD AND DROP IT ON A NUMBER'),
+      find.text('EMPTY · HOLD A CARD AND DROP IT ON A TAB'),
       findsOneWidget,
     );
     expect(_space('2'), findsOneWidget);
@@ -709,7 +789,7 @@ void main() {
   testWidgets('completions past the second fold the older toasts away', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(600, 1200);
+    tester.view.physicalSize = const Size(400, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     const titles = ['primero', 'segundo', 'tercero', 'cuarto'];

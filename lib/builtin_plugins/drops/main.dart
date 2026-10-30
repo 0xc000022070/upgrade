@@ -5,6 +5,7 @@ import 'package:striked/features/home/home_feedback.dart';
 import 'package:striked/features/home/home_card_viewport.dart';
 import 'package:striked/features/home/capture_bar.dart';
 import 'package:striked/features/tasks/drops_panel.dart';
+import 'package:striked/features/tasks/item_search_screen.dart';
 import 'package:striked/platform/plugins/module.dart';
 import 'package:striked/application/providers.dart';
 import 'package:striked/application/drops/drop_selection.dart';
@@ -32,6 +33,11 @@ class _DropsContribution extends ConsumerWidget {
     drops: ref.watch(dropsProvider),
     onCompleted: (task) => offerUndoDone(ref, task),
     height: HomeCardViewport.maybeOf(context),
+    onSearch: () {
+      ref.read(dropSelectionProvider.notifier).clear();
+      ref.read(freshDropsProvider.notifier).clear();
+      openItemSearch(context);
+    },
   );
 }
 
