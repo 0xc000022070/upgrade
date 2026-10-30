@@ -8,16 +8,23 @@ const pluginSdkUiApi = 2;
 enum UiPropType { string, number, boolean, list, color, value }
 
 final class UiProp {
-  const UiProp(this.type, {this.values, this.pageOnly = false});
+  const UiProp(
+    this.type, {
+    this.values,
+    this.pageOnly = false,
+    this.notOn = const {},
+  });
 
   final UiPropType type;
   final Set<String>? values;
   final bool pageOnly;
+  final Set<String> notOn;
 
   Map<String, Object?> toJson() => {
     'type': type.name,
     if (values != null) 'values': [...values!],
     if (pageOnly) 'page_only': true,
+    if (notOn.isNotEmpty) 'not_on': [...notOn],
   };
 }
 
@@ -51,8 +58,11 @@ const uiCommonProps = <String, UiProp>{
   'right': _number,
   'bottom': _number,
   'args': UiProp(UiPropType.value),
-  'drag': UiProp(UiPropType.string, pageOnly: true),
-  'onDrop': UiProp(UiPropType.string, pageOnly: true),
+  'onDrop': UiProp(
+    UiPropType.string,
+    pageOnly: true,
+    notOn: {'page', 'screen', 'footer'},
+  ),
 };
 
 const uiKindProps = <String, Map<String, UiProp>>{
@@ -76,6 +86,7 @@ const uiKindProps = <String, Map<String, UiProp>>{
     'border': _color,
     'onPress': _text,
     'opens': _text,
+    'drag': UiProp(UiPropType.string, pageOnly: true),
   },
   'text': {
     'text': _text,
@@ -419,6 +430,14 @@ List<PluginDiagnostic> validateUiTree(
           'Remove "$name" from the card.',
           expected: 'page node',
           actual: 'card node',
+        );
+      } else if (prop.notOn.contains(kind)) {
+        report(
+          'UI_INVALID_PROPERTY',
+          '"$name" does not work on ui.$kind',
+          'Move "$name" to a node inside the $kind.',
+          expected: 'not ${prop.notOn.join(' | ')}',
+          actual: kind,
         );
       } else if (!_fits(prop, given)) {
         report(

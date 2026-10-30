@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:striked/platform/plugins/manifest.dart';
+import 'package:striked/platform/plugins/plugin_sdk.dart';
 import 'package:striked/platform/plugins/ui.dart';
 
 import '../../support/themed_app.dart';
@@ -470,6 +471,34 @@ void main() {
       ),
     ]) {
       expect(() => parse(source, card: card), throwsA(isA<PluginException>()));
+    }
+  });
+
+  test('the runtime takes drag and drops where the sdk table says', () {
+    void check(
+      String kind,
+      Map<String, Object?> props,
+      bool takes,
+      String why,
+    ) => expect(
+      () => PluginUiNode.parse(
+        node(kind, 'n', props: props),
+        allowCanvas: true,
+        pages: const {'main'},
+      ),
+      takes ? returnsNormally : throwsA(isA<PluginException>()),
+      reason: '$kind $why',
+    );
+
+    for (final MapEntry(key: kind, value: props) in uiKindProps.entries) {
+      check(kind, const {}, true, 'bare');
+      check(kind, const {'drag': 'x'}, props.containsKey('drag'), 'drag');
+      check(
+        kind,
+        const {'onDrop': 'x'},
+        !uiCommonProps['onDrop']!.notOn.contains(kind),
+        'onDrop',
+      );
     }
   });
 }

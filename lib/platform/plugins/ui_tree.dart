@@ -1,4 +1,5 @@
 import 'package:striked/platform/plugins/manifest.dart';
+import 'package:striked/platform/plugins/plugin_sdk.dart';
 
 class PluginUiNode {
   const PluginUiNode(this.kind, this.props, this.children);
@@ -14,22 +15,6 @@ class PluginUiNode {
     'box',
     'list_row',
     'bracket_label',
-  };
-
-  static const _cardKinds = {
-    'panel',
-    'section',
-    'column',
-    'row',
-    'box',
-    'text',
-    'button',
-    'list_row',
-    'status_tag',
-    'bracket_label',
-    'spacer',
-    'divider',
-    'canvas',
   };
 
   static PluginUiNode parse(
@@ -56,32 +41,7 @@ class PluginUiNode {
       final kind = value['kind'];
       final props = value['props'];
       if (kind is! String ||
-          !{
-            'screen',
-            'page',
-            'footer',
-            'disclosure',
-            'choice',
-            'column',
-            'row',
-            'stack',
-            'box',
-            'text',
-            'button',
-            'input',
-            'select',
-            'toggle',
-            'list',
-            'canvas',
-            'spacer',
-            'divider',
-            'datetime',
-            'panel',
-            'section',
-            'list_row',
-            'status_tag',
-            'bracket_label',
-          }.contains(kind) ||
+          !uiKindProps.containsKey(kind) ||
           props is! Map<String, Object?>) {
         throw const PluginException(
           'Unknown UI primitive or invalid properties',
@@ -97,7 +57,7 @@ class PluginUiNode {
               ? inRow && flex is num && flex.toInt() > 0
               : bounded);
       if (card &&
-          (!_cardKinds.contains(kind) ||
+          (!uiCardKinds.contains(kind) ||
               depth == 0 && kind != 'panel' ||
               flex != null && !inRow ||
               !wide && _fillingCardKinds.contains(kind) ||
@@ -145,13 +105,16 @@ class PluginUiNode {
       }
       final drag = props['drag'];
       if (drag != null &&
-          (card || kind != 'box' || drag is! String || drag.length > 160)) {
+          (card ||
+              !uiKindProps[kind]!.containsKey('drag') ||
+              drag is! String ||
+              drag.length > 160)) {
         throw const PluginException('Only a box on a page drags');
       }
       final drop = props['onDrop'];
       if (drop != null &&
           (card ||
-              const {'page', 'screen', 'footer'}.contains(kind) ||
+              uiCommonProps['onDrop']!.notOn.contains(kind) ||
               drop is! String ||
               drop.length > 160)) {
         throw const PluginException('Only a node on a page takes a drop');
