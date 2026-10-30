@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-const BINARY: &str = env!("CARGO_BIN_EXE_strikedddd");
+const BINARY: &str = env!("CARGO_BIN_EXE_upgraded");
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
 struct Sandbox {
@@ -29,7 +29,7 @@ impl Sandbox {
     fn build(name: &str, only_stubs: bool) -> Self {
         let unique = COUNTER.fetch_add(1, Ordering::SeqCst);
         let root = std::env::temp_dir().join(format!(
-            "strikedddd-test-{}-{name}-{unique}",
+            "upgraded-test-{}-{name}-{unique}",
             std::process::id()
         ));
         let _ = fs::remove_dir_all(&root);
@@ -112,10 +112,10 @@ impl Sandbox {
             .stderr(Stdio::piped());
         match config {
             Some(path) => {
-                command.env("STRIKEDDDD_CONFIG", path);
+                command.env("UPGRADED_CONFIG", path);
             }
             None => {
-                command.env_remove("STRIKEDDDD_CONFIG");
+                command.env_remove("UPGRADED_CONFIG");
             }
         }
         let mut child = command.spawn().unwrap();
@@ -138,7 +138,7 @@ impl Sandbox {
     fn command(&self, path: &str) -> Command {
         let mut command = Command::new(BINARY);
         command
-            .env("STRIKEDDDD_STATE", self.state())
+            .env("UPGRADED_STATE", self.state())
             .env("HOME", self.home())
             .env("XDG_CONFIG_HOME", self.home().join("config"))
             .env("PATH", path);
@@ -668,11 +668,11 @@ fn teardown_takes_the_timer_off_the_manager_that_holds_it() {
     let units = sandbox.unit_dir();
     fs::create_dir_all(&units).unwrap();
     let planted: Vec<String> = if cfg!(target_os = "macos") {
-        vec![format!("striked-schedule-{SCOPE}.plist")]
+        vec![format!("upgrade-schedule-{SCOPE}.plist")]
     } else {
         vec![
-            format!("striked-schedule-{SCOPE}.timer"),
-            format!("striked-schedule-{SCOPE}.service"),
+            format!("upgrade-schedule-{SCOPE}.timer"),
+            format!("upgrade-schedule-{SCOPE}.service"),
         ]
     };
     // A file the engine did not write is not the engine's to remove, whoever else on
@@ -708,7 +708,7 @@ fn teardown_takes_the_timer_off_the_manager_that_holds_it() {
             "systemctl was told {told:?}"
         );
         // A unit that failed is held by name after its file is gone, and an account left
-        // with striked entries under `--failed` has nothing on the machine to explain them.
+        // with upgrade entries under `--failed` has nothing on the machine to explain them.
         assert!(told.contains("reset-failed"), "systemctl was told {told:?}");
     }
 }
@@ -756,7 +756,7 @@ fn a_job(sandbox: &Sandbox, revision: u64) -> Value {
 fn tick_queue(sandbox: &Sandbox) {
     assert!(Command::new(BINARY)
         .args(["__tick", SCOPE])
-        .env("STRIKEDDDD_STATE", sandbox.state())
+        .env("UPGRADED_STATE", sandbox.state())
         .env(
             "PATH",
             format!(
@@ -1318,7 +1318,7 @@ fn the_timer_ticks_against_the_same_state_the_service_wrote() {
     let ticked = Command::new(BINARY)
         .arg("__tick")
         .arg(SCOPE)
-        .env("STRIKEDDDD_STATE", sandbox.state())
+        .env("UPGRADED_STATE", sandbox.state())
         .env(
             "PATH",
             format!(
@@ -1698,7 +1698,7 @@ fn install_adds_the_hooks_beside_the_user_own_and_teardown_takes_only_them() {
     assert_eq!(written["hooks"]["Stop"].as_array().unwrap().len(), 2);
     assert_eq!(
         written["hooks"]["PermissionRequest"][0]["hooks"][0]["command"],
-        json!("strikedddd hook claude")
+        json!("upgraded hook claude")
     );
 
     sandbox.agents(&owner, "install", json!({ "agent": "claude" }));
@@ -1731,7 +1731,7 @@ fn a_config_a_declaration_owns_is_shown_rather_than_written() {
     assert_eq!(codex["writable"], json!(false));
     assert_eq!(
         codex["entries"]["hooks"]["PermissionRequest"][0]["hooks"][0]["command"],
-        json!("strikedddd hook codex")
+        json!("upgraded hook codex")
     );
 
     let refused = sandbox.agents(&owner, "install", json!({ "agent": "codex" }));
@@ -1823,14 +1823,14 @@ fn a_host_without_codex_has_no_usage() {
 
 impl Sandbox {
     fn status_line(&self, command: &str, input: &str) -> std::process::Output {
-        let engine = self.bin().join("strikedddd");
+        let engine = self.bin().join("upgraded");
         if !engine.exists() {
             std::os::unix::fs::symlink(BINARY, &engine).unwrap();
         }
         let path = format!("{}:{}", self.bin().display(), std::env::var("PATH").unwrap_or_default());
         let mut child = Command::new("/bin/sh")
             .args(["-c", command])
-            .env("STRIKEDDDD_STATE", self.state())
+            .env("UPGRADED_STATE", self.state())
             .env("HOME", self.home())
             .env("XDG_CONFIG_HOME", self.home().join("config"))
             .env("PATH", path)
@@ -1895,7 +1895,7 @@ fn the_claude_status_line_keeps_its_windows_and_still_prints_the_user_own() {
     let written = read_settings(&settings);
     assert_eq!(
         written["statusLine"],
-        json!({ "type": "command", "command": "strikedddd statusline 'my-status'", "padding": 2 })
+        json!({ "type": "command", "command": "upgraded statusline 'my-status'", "padding": 2 })
     );
     let command = written["statusLine"]["command"].as_str().unwrap();
     assert_eq!(sandbox.agents(&owner, "hooks", json!({}))["result"]["agents"][0]["installed"], json!(true));
@@ -1975,7 +1975,7 @@ fn a_claude_without_a_status_line_gets_one_that_prints_nothing_and_loses_it_at_t
 
     sandbox.agents(&owner, "install", json!({ "agent": "claude" }));
     let written = read_settings(&settings);
-    assert_eq!(written["statusLine"], json!({ "type": "command", "command": "strikedddd statusline" }));
+    assert_eq!(written["statusLine"], json!({ "type": "command", "command": "upgraded statusline" }));
     let command = written["statusLine"]["command"].as_str().unwrap();
     assert!(sandbox.status_line(command, &status_input(now_ms() / 1000 + 3600)).stdout.is_empty());
     assert!(sandbox.claude_card(&owner).is_some());
@@ -1993,7 +1993,7 @@ fn teardown_unquotes_a_carried_status_line_and_leaves_one_it_cannot_read() {
     fs::create_dir_all(settings.parent().unwrap()).unwrap();
     let carried = json!({
         "type": "command",
-        "command": r#"strikedddd statusline 'printf "%s" '\''it is'\'''"#,
+        "command": r#"upgraded statusline 'printf "%s" '\''it is'\'''"#,
         "padding": 1,
     });
     fs::write(&settings, json!({ "model": "opus", "statusLine": carried }).to_string()).unwrap();
@@ -2006,7 +2006,7 @@ fn teardown_unquotes_a_carried_status_line_and_leaves_one_it_cannot_read() {
         } })
     );
 
-    let unreadable = json!({ "type": "command", "command": "strikedddd statusline 'a' 'b'" });
+    let unreadable = json!({ "type": "command", "command": "upgraded statusline 'a' 'b'" });
     fs::write(&settings, json!({ "statusLine": unreadable }).to_string()).unwrap();
     sandbox.call(json!({ "service": "lifecycle", "op": "teardown", "owner": owner }));
     assert_eq!(read_settings(&settings), json!({ "statusLine": unreadable }));
@@ -2026,11 +2026,11 @@ fn a_declared_claude_config_shows_the_status_line_with_the_hooks() {
     assert_eq!(claude["writable"], json!(false));
     assert_eq!(
         claude["entries"]["statusLine"],
-        json!({ "type": "command", "command": "strikedddd statusline" })
+        json!({ "type": "command", "command": "upgraded statusline" })
     );
     assert!(claude["entries"]["hooks"]["Stop"].is_array());
 
-    let ours = json!({ "type": "command", "command": "strikedddd statusline 'my-status'", "padding": 3 });
+    let ours = json!({ "type": "command", "command": "upgraded statusline 'my-status'", "padding": 3 });
     fs::write(&store, json!({ "statusLine": ours }).to_string()).unwrap();
     let hooks = sandbox.agents(&owner, "hooks", json!({}));
     assert_eq!(hooks["result"]["agents"][0]["entries"]["statusLine"], ours);
@@ -2062,7 +2062,7 @@ fn a_declared_claude_config_carries_the_user_status_line_in_the_engine_entry() {
     assert_eq!(entry["type"], json!("command"));
     assert_eq!(entry["refreshInterval"], json!(5));
     let command = entry["command"].as_str().unwrap();
-    assert!(command.starts_with("strikedddd statusline '"), "{command}");
+    assert!(command.starts_with("upgraded statusline '"), "{command}");
 
     let input = status_input(now_ms() / 1000 + 3600);
     let output = sandbox.status_line(command, &input);

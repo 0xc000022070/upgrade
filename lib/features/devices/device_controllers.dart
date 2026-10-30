@@ -3,12 +3,12 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 
-import 'package:striked/application/agents/reason_lines.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/devices/device_link.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/features/devices/device_dock.dart';
+import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/devices/device_link.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/features/devices/device_dock.dart';
 
 sealed class DevicesPhase {
   const DevicesPhase();
@@ -244,7 +244,7 @@ class DevicesController extends ChangeNotifier {
   String reasonFor(Object error) => _reason(error);
 
   String _reason(Object error) {
-    debugPrint('striked.devices ${host.name}: $error');
+    debugPrint('upgrade.devices ${host.name}: $error');
     return asHerdrFailure(error)?.reason(host.name) ??
         ReasonLine.streamClosed.words;
   }
@@ -340,7 +340,7 @@ class DevicesController extends ChangeNotifier {
 
   void _fail(Object error) {
     final failure = asHerdrFailure(error);
-    debugPrint('striked.devices ${host.name}: ${failure?.detail ?? error}');
+    debugPrint('upgrade.devices ${host.name}: ${failure?.detail ?? error}');
     _phase = DevicesFailed(
       failure?.reason(host.name) ?? ReasonLine.streamClosed.words,
     );
@@ -556,7 +556,7 @@ class DeviceScreenController extends ChangeNotifier {
       codec.dispose();
     } catch (error) {
       debugPrint(
-        'striked.devices $hostName ${device.id}: decode failed: $error',
+        'upgrade.devices $hostName ${device.id}: decode failed: $error',
       );
       return;
     }
@@ -603,7 +603,7 @@ class DeviceScreenController extends ChangeNotifier {
     if (!device.pressable || _phase is! DeviceLive) return;
     unawaited(
       _link.run(command).catchError((Object error) {
-        debugPrint('striked.devices $hostName ${device.id}: input: $error');
+        debugPrint('upgrade.devices $hostName ${device.id}: input: $error');
       }),
     );
   }
@@ -614,7 +614,7 @@ class DeviceScreenController extends ChangeNotifier {
     if (run != _run) return;
     _frames = null;
     if (_disposed) return;
-    debugPrint('striked.devices $hostName ${device.id}: $error');
+    debugPrint('upgrade.devices $hostName ${device.id}: $error');
     final failure = asHerdrFailure(error);
     _lost = failure is HerdrUnreachable;
     if (_lost && _returned && reopen != null) {

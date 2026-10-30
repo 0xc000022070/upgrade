@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/formatting.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/priority_row.dart';
-import 'package:striked/design/effects/glitch.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/features/tasks/item_sheet.dart';
-import 'package:striked/features/tasks/item_tags.dart';
-import 'package:striked/application/agents/send_queue.dart';
-import 'package:striked/features/tasks/link_mark.dart';
+import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/priority_row.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/tasks/item_sheet.dart';
+import 'package:upgrade/features/tasks/item_tags.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
+import 'package:upgrade/features/tasks/link_mark.dart';
 
 class TaskRow extends ConsumerStatefulWidget {
   const TaskRow({
@@ -60,7 +60,7 @@ class _TaskRowState extends ConsumerState<TaskRow> {
   }
 
   Future<void> _toggle() async {
-    // Reduce-motion drops the glitch in [StrikedIcon], so there is nothing to fire and the
+    // Reduce-motion drops the glitch in [UpgradeIcon], so there is nothing to fire and the
     // checkbox simply changes state.
     if (!MediaQuery.disableAnimationsOf(context)) {
       _glitch.fire(seed: widget.task.id.hashCode);
@@ -88,8 +88,8 @@ class _TaskRowState extends ConsumerState<TaskRow> {
         seed: task.id.hashCode,
         dim: task.done,
       ),
-      leading: StrikedIcon(
-        task.done ? StrikedIcons.checkboxChecked : StrikedIcons.checkboxEmpty,
+      leading: UpgradeIcon(
+        task.done ? UpgradeIcons.checkboxChecked : UpgradeIcons.checkboxEmpty,
         size: IconSizes.check,
         color: task.done
             ? context.tokens.textDisabled
@@ -120,8 +120,8 @@ class _TaskRowState extends ConsumerState<TaskRow> {
                 const <String, int>{})[task.id] ??
             0,
         state: !widget.drop && task.isNext
-            ? StrikedIcon(
-                StrikedIcons.forward,
+            ? UpgradeIcon(
+                UpgradeIcons.forward,
                 size: IconSizes.glyph,
                 color: context.tokens.accent,
               )

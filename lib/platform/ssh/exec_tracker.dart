@@ -1,7 +1,7 @@
 import 'package:dartssh2/dartssh2.dart';
 
-import 'package:striked/platform/ssh/host_failure.dart';
-import 'package:striked/platform/ssh/ssh_settle.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
+import 'package:upgrade/platform/ssh/ssh_settle.dart';
 
 class ExecTracker {
   ExecTracker(this._closedDetail);

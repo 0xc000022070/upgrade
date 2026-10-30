@@ -3,24 +3,24 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/agents/send.dart';
-import 'package:striked/application/agents/send_queue.dart';
-import 'package:striked/application/home/compose_window.dart';
-import 'package:striked/application/prompt/prompt_target.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/dot_spinner.dart';
-import 'package:striked/design/components/keyboard_toolbar.dart';
-import 'package:striked/design/components/solid_action_bar.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/home/composer_panel.dart';
-import 'package:striked/features/home/prompt_send.dart';
-import 'package:striked/features/settings/settings_screen.dart';
-import 'package:striked/platform/launcher_widget/launcher_widget.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
+import 'package:upgrade/application/home/compose_window.dart';
+import 'package:upgrade/application/prompt/prompt_target.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/keyboard_toolbar.dart';
+import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/home/composer_panel.dart';
+import 'package:upgrade/features/home/prompt_send.dart';
+import 'package:upgrade/features/settings/settings_screen.dart';
+import 'package:upgrade/platform/launcher_widget/launcher_widget.dart';
 
 const _title = 'SEND / AGENT';
 const noHostChip = 'NO HOST · SET IN SYS';
@@ -352,11 +352,11 @@ class _Field extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: StrikedField(
+            child: UpgradeField(
               controller: controller,
               focusNode: focus,
               style: tokens.capture.copyWith(color: tokens.textPrimary),
-              maxLines: StrikedField.bodyLines,
+              maxLines: UpgradeField.bodyLines,
               hint: 'PROMPT AN AGENT',
               hintStyle: tokens.capture,
               onSubmitted: (_) => onSubmit(),
@@ -370,8 +370,8 @@ class _Field extends StatelessWidget {
               width: TapTargets.minHeight,
               height: RowMetrics.minHeight,
               child: Center(
-                child: StrikedIcon(
-                  StrikedIcons.submit,
+                child: UpgradeIcon(
+                  UpgradeIcons.submit,
                   size: IconSizes.md,
                   color: typed ? tokens.textSecondary : tokens.accent,
                 ),

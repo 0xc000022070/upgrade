@@ -1,12 +1,12 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/agent_usage.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/navigation.dart';
-import 'package:striked/features/home/agents_panel.dart';
-import 'package:striked/features/home/home_screen.dart';
-import 'package:striked/features/home/usage_panel.dart';
+import 'package:upgrade/application/agents/agent_usage.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/features/home/agents_panel.dart';
+import 'package:upgrade/features/home/home_screen.dart';
+import 'package:upgrade/features/home/usage_panel.dart';
 
 class AgentsCard extends ConsumerStatefulWidget {
   const AgentsCard({super.key});

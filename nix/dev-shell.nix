@@ -22,7 +22,7 @@ let
   };
 in
 pkgs.mkShell {
-  name = "striked";
+  name = "upgrade";
 
   packages = [
     pkgs.flutter
@@ -78,7 +78,7 @@ pkgs.mkShell {
   DEPLOY_ZSTD_ANDROID = "${pkgs.pkgsCross.aarch64-multiplatform-musl.pkgsStatic.zstd.bin}/bin/zstd";
 
   shellHook = ''
-    export STRIKED_BUILD="$(${pkgs.git}/bin/git rev-parse --short HEAD 2>/dev/null || echo dev)"
+    export UPGRADE_BUILD="$(${pkgs.git}/bin/git rev-parse --short HEAD 2>/dev/null || echo dev)"
 
     # Only these two keys are rewritten, because store paths move with the
     # flake lock. Every other key is kept: `flutter build` writes

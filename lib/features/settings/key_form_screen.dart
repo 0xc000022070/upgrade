@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:striked/app/static_surface.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/data/repositories/key_repository.dart';
-import 'package:striked/design/components/field_panel.dart';
-import 'package:striked/design/components/solid_action_bar.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/screen_scaffold.dart';
+import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/design/components/field_panel.dart';
+import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
 
 void openNewKey(BuildContext context) {
   Navigator.of(

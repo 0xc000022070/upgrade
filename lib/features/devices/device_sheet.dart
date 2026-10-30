@@ -2,20 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:striked/application/agents/reason_lines.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/design/components/inline_confirm.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/design/components/panel_text_action.dart';
-import 'package:striked/design/components/picker_row.dart';
-import 'package:striked/design/components/segment_switch.dart';
-import 'package:striked/design/components/solid_action_bar.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/platform/devices/device_link.dart';
-import 'package:striked/features/devices/device_controllers.dart';
+import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/components/inline_confirm.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/components/picker_row.dart';
+import 'package:upgrade/design/components/segment_switch.dart';
+import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/devices/device_link.dart';
+import 'package:upgrade/features/devices/device_controllers.dart';
 
 Future<void> showDeviceSheet(BuildContext context, DevicesController group) {
   final title = '${group.host.name.toUpperCase()} DEVICES';
@@ -349,7 +349,7 @@ class _NewDeviceState extends State<_NewDevice> {
         ],
         SheetField(
           label: 'NAME',
-          child: StrikedField(
+          child: UpgradeField(
             key: const ValueKey('device-new-name'),
             controller: _name,
             hint: _android ? 'Pixel_9' : 'iPhone 17',

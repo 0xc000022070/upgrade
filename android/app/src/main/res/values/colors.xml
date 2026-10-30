@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- StrikedColors.backgroundPrimary. Keeps the platform splash on the app's
+    <!-- UpgradeColors.backgroundPrimary. Keeps the platform splash on the app's
          own black instead of flashing white before the first Flutter frame. -->
-    <color name="striked_background">#FF08090B</color>
+    <color name="upgrade_background">#FF08090B</color>
 </resources>

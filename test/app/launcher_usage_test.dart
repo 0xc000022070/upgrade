@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/app/launcher_widget_host.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/herdr/engine_agents.dart';
+import 'package:upgrade/app/launcher_widget_host.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
 
 const _nyx = Host(
   id: 'nyx',

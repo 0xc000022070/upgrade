@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
-import 'package:striked/features/code/change_tree.dart';
-import 'package:striked/features/code/diff_outline.dart';
-import 'package:striked/features/code/diff_pane.dart';
+import 'package:upgrade/features/code/change_tree.dart';
+import 'package:upgrade/features/code/diff_outline.dart';
+import 'package:upgrade/features/code/diff_pane.dart';
 
 class StatusLetters extends StatelessWidget {
   const StatusLetters({

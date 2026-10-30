@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/home/compose_window.dart';
-import 'package:striked/application/home/composer_focus.dart';
-import 'package:striked/application/home/input_bar_holder.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/platform/launcher_widget/launcher_widget.dart';
+import 'package:upgrade/application/home/compose_window.dart';
+import 'package:upgrade/application/home/composer_focus.dart';
+import 'package:upgrade/application/home/input_bar_holder.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/platform/launcher_widget/launcher_widget.dart';
 
 class BarWindow extends ConsumerStatefulWidget {
   const BarWindow({super.key});

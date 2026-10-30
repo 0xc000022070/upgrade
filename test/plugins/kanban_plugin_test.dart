@@ -1,19 +1,19 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/platform/plugins/bindings.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked/platform/plugins/ui.dart';
-import 'package:striked_luau/striked_luau.dart';
-import 'package:striked_luau/ui_sdk.dart';
+import 'package:upgrade/platform/plugins/bindings.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
+import 'package:upgrade_luau/ui_sdk.dart';
 
 PluginPackage kanbanPackage() => PluginPackage(
   manifest: PluginManifest.parse(
-    File('plugins/kanban/striked.plugin.toml').readAsStringSync(),
+    File('plugins/kanban/upgrade.plugin.toml').readAsStringSync(),
   ),
   source: File('plugins/kanban/main.luau').readAsStringSync(),
-  origin: 'bundled:striked.kanban',
+  origin: 'bundled:upgrade.kanban',
   revision: '1.0.0',
 );
 
@@ -109,7 +109,7 @@ Map<String, Object?> item(
   String hostName = 'nyx',
   String agent = 'claude',
   String title = '',
-  String workspace = 'striked',
+  String workspace = 'upgrade',
   String message = '',
   Map<String, Object?>? approval,
 }) => {
@@ -165,7 +165,7 @@ void main() {
   late LuauWorker worker;
   late KanbanHarness app;
   setUp(() async {
-    root = await Directory.systemTemp.createTemp('striked-kanban-');
+    root = await Directory.systemTemp.createTemp('upgrade-kanban-');
     worker = LuauWorker(dataDirectory: root.path);
     app = KanbanHarness(worker, kanbanPackage());
   });
@@ -202,26 +202,23 @@ void main() {
     },
   );
 
-  test(
-    'new sessions land in the first column',
-    () async {
-      await app.send({'type': 'mount'});
-      expect(app.effects.single, containsPair('operation', 'list'));
-      await app.listed(feed);
-      expect(app.view.props['fill'], isTrue);
-      expect(keyed(app.view, 'board').props['direction'], 'horizontal');
-      expect(lanes(app.view), ['INBOX', 'DOING', 'DONE']);
-      expect(lane(app.view, '1'), ['c_a', 'c_b', 'c_c', 'c_e', 'c_d']);
-      expect(texts(app.view), contains('FARADAY · unreachable'));
-      expect(texts(app.view), contains('bash · rm -rf build'));
-      final box = keyed(app.view, 'c_d');
-      expect(box.props, containsPair('onPress', 'open'));
-      expect(box.props, containsPair('drag', 'd'));
-      expect(box.props, containsPair('onDrop', 'drop_card'));
-      expect(box.props['args'], {'id': 'd'});
-      expect(keyed(app.view, 'l_2').props['onDrop'], 'drop_column');
-    },
-  );
+  test('new sessions land in the first column', () async {
+    await app.send({'type': 'mount'});
+    expect(app.effects.single, containsPair('operation', 'list'));
+    await app.listed(feed);
+    expect(app.view.props['fill'], isTrue);
+    expect(keyed(app.view, 'board').props['direction'], 'horizontal');
+    expect(lanes(app.view), ['INBOX', 'DOING', 'DONE']);
+    expect(lane(app.view, '1'), ['c_a', 'c_b', 'c_c', 'c_e', 'c_d']);
+    expect(texts(app.view), contains('FARADAY · unreachable'));
+    expect(texts(app.view), contains('bash · rm -rf build'));
+    final box = keyed(app.view, 'c_d');
+    expect(box.props, containsPair('onPress', 'open'));
+    expect(box.props, containsPair('drag', 'd'));
+    expect(box.props, containsPair('onDrop', 'drop_card'));
+    expect(box.props['args'], {'id': 'd'});
+    expect(keyed(app.view, 'l_2').props['onDrop'], 'drop_column');
+  });
 
   test('allow answers the approval it sits on, then reads again', () async {
     await opened();
@@ -249,29 +246,26 @@ void main() {
     expect(app.effects.single['args'], {'id': 'd'});
   });
 
-  test(
-    'a dropped card moves between columns, and stays there',
-    () async {
-      await opened();
-      await app.action('drop_column', value: 'a', args: {'col': 2});
-      expect(lane(app.view, '2'), ['c_a']);
-      await app.action('drop_card', value: 'c', args: {'id': 'a'});
-      expect(lane(app.view, '2'), ['c_c', 'c_a']);
-      await app.action('drop_card', value: 'a', args: {'id': 'a'});
-      expect(lane(app.view, '2'), ['c_c', 'c_a']);
-      await app.action('drop_card', value: 'd', args: {'id': 'b'});
-      expect(lane(app.view, '1'), ['c_d', 'c_b', 'c_e']);
+  test('a dropped card moves between columns, and stays there', () async {
+    await opened();
+    await app.action('drop_column', value: 'a', args: {'col': 2});
+    expect(lane(app.view, '2'), ['c_a']);
+    await app.action('drop_card', value: 'c', args: {'id': 'a'});
+    expect(lane(app.view, '2'), ['c_c', 'c_a']);
+    await app.action('drop_card', value: 'a', args: {'id': 'a'});
+    expect(lane(app.view, '2'), ['c_c', 'c_a']);
+    await app.action('drop_card', value: 'd', args: {'id': 'b'});
+    expect(lane(app.view, '1'), ['c_d', 'c_b', 'c_e']);
 
-      app.state = null;
-      await app.send({'type': 'mount'});
-      await app.listed({
-        ...feed,
-        'items': [...feed['items']! as List<Object?>, item('f', 'working')],
-      });
-      expect(lane(app.view, '1'), ['c_d', 'c_b', 'c_e', 'c_f']);
-      expect(lane(app.view, '2'), ['c_c', 'c_a']);
-    },
-  );
+    app.state = null;
+    await app.send({'type': 'mount'});
+    await app.listed({
+      ...feed,
+      'items': [...feed['items']! as List<Object?>, item('f', 'working')],
+    });
+    expect(lane(app.view, '1'), ['c_d', 'c_b', 'c_e', 'c_f']);
+    expect(lane(app.view, '2'), ['c_c', 'c_a']);
+  });
 
   test('a session gone from a host that answered leaves; one on a silent host '
       'keeps its place', () async {
@@ -294,29 +288,26 @@ void main() {
     expect(lane(app.view, '1').last, 'c_a');
   });
 
-  test(
-    'columns are added, renamed, moved and deleted',
-    () async {
-      await opened();
-      await app.action('drop_column', value: 'a', args: {'col': 2});
-      await app.action('add', fields: {'newcol_3': '  Review\n'});
-      expect(lanes(app.view), ['INBOX', 'DOING', 'DONE', 'REVIEW']);
-      expect(keyed(app.view, 'newcol_4').props['value'], isNull);
-      await app.action('add', fields: {'newcol_4': ' '});
-      expect(texts(app.view), contains('Name the column first'));
-      await app.action('rename', value: 'Todo', args: {'col': 1});
-      await app.action('right', args: {'col': 1});
-      expect(lanes(app.view), ['DOING', 'TODO', 'DONE', 'REVIEW']);
-      await app.action('delete', args: {'col': 2});
-      expect(lanes(app.view), ['TODO', 'DONE', 'REVIEW']);
-      expect(lane(app.view, '1'), ['c_b', 'c_c', 'c_e', 'c_d', 'c_a']);
+  test('columns are added, renamed, moved and deleted', () async {
+    await opened();
+    await app.action('drop_column', value: 'a', args: {'col': 2});
+    await app.action('add', fields: {'newcol_3': '  Review\n'});
+    expect(lanes(app.view), ['INBOX', 'DOING', 'DONE', 'REVIEW']);
+    expect(keyed(app.view, 'newcol_4').props['value'], isNull);
+    await app.action('add', fields: {'newcol_4': ' '});
+    expect(texts(app.view), contains('Name the column first'));
+    await app.action('rename', value: 'Todo', args: {'col': 1});
+    await app.action('right', args: {'col': 1});
+    expect(lanes(app.view), ['DOING', 'TODO', 'DONE', 'REVIEW']);
+    await app.action('delete', args: {'col': 2});
+    expect(lanes(app.view), ['TODO', 'DONE', 'REVIEW']);
+    expect(lane(app.view, '1'), ['c_b', 'c_c', 'c_e', 'c_d', 'c_a']);
 
-      app.state = null;
-      await app.send({'type': 'mount'});
-      await app.listed(feed);
-      expect(lanes(app.view), ['TODO', 'DONE', 'REVIEW']);
-    },
-  );
+    app.state = null;
+    await app.send({'type': 'mount'});
+    await app.listed(feed);
+    expect(lanes(app.view), ['TODO', 'DONE', 'REVIEW']);
+  });
 
   test('the search narrows the board and is not remembered', () async {
     await opened();

@@ -1,8 +1,8 @@
-# Striked
+# Upgrade
 
 Run and supervise coding agents from your phone.
 
-Striked is a mobile control plane for autonomous work on remote computers. It
+Upgrade is a mobile control plane for autonomous work on remote computers. It
 connects to the machines where the work already runs, keeps their agent sessions
 within reach, and gives you the controls needed to inspect and redirect that
 work without returning to a desktop.
@@ -12,12 +12,12 @@ The project asks one question:
 > Can a phone become the primary computer for directing software work?
 
 The phone does not need to compile the project or imitate a desktop IDE. Remote
-hosts provide the compute. Striked provides intent, context, observation,
+hosts provide the compute. Upgrade provides intent, context, observation,
 approval, and intervention.
 
 ## The work loop
 
-Striked aims to support the complete loop from a phone:
+Upgrade aims to support the complete loop from a phone:
 
 1. Choose a host and workspace.
 2. Start work now or schedule it for later.
@@ -33,7 +33,7 @@ need continuous supervision between those decisions.
 
 | Block | Job |
 | --- | --- |
-| Hosts | Define where work runs, how Striked connects, and which credentials it may use. |
+| Hosts | Define where work runs, how Upgrade connects, and which credentials it may use. |
 | SSH and Mosh | Provide ordinary shells, remote commands, durable agent attachment, and roaming between networks. |
 | Workspaces | Bind a Git checkout to its files, changes, commands, and agents. |
 | Code tools | Expose repository state and diffs for review and small interventions. |
@@ -46,7 +46,7 @@ work moving while preserving control on a mobile device.
 
 ## What exists now
 
-Striked is an Android-first Flutter application. It currently includes:
+Upgrade is an Android-first Flutter application. It currently includes:
 
 - local host, key, project, and task data backed by SQLite;
 - SSH shells with Mosh roaming and SSH fallback;
@@ -61,18 +61,18 @@ Striked is an Android-first Flutter application. It currently includes:
 
 ## Privacy
 
-Striked has no tracking, analytics, account service, or Striked-operated backend.
+Upgrade has no tracking, analytics, account service, or Upgrade-operated backend.
 It does not collect usage data, build a user profile, or relay sessions through
 project infrastructure.
 
 Host configuration, pinned host keys, private SSH keys, projects, and plugin
-data stay on the phone. Striked connects directly to hosts selected by the user.
+data stay on the phone. Upgrade connects directly to hosts selected by the user.
 Plugin installation fetches source only from a repository or index the user
 adds. An encrypted configuration export leaves the phone only through the
 system share flow chosen by the user.
 
 Remote hosts and configured source providers remain responsible for data sent
-to them. Striked does not copy that data to a separate service.
+to them. Upgrade does not copy that data to a separate service.
 
 ## Plugins and control
 
@@ -82,15 +82,15 @@ add pages, home cards, input actions, datasets, and host-backed operations.
 Downloaded plugins run as Luau source inside bounded worker isolates. Their
 manifests declare capabilities and dependencies before installation. Plugins do
 not receive arbitrary filesystem, socket, or shell access. Host operations pass
-through APIs owned by Striked.
+through APIs owned by Upgrade.
 
 The agent schedules plugin demonstrates the intended model. A plugin defines
 when work should run and asks the host scheduler to run it. The work continues
-off-device. Striked remains the place to inspect its state and intervene.
+off-device. Upgrade remains the place to inspect its state and intervene.
 
 ## Product boundary
 
-Striked is not trying to reproduce every desktop tool on a smaller screen. It
+Upgrade is not trying to reproduce every desktop tool on a smaller screen. It
 needs enough terminal, code, screen, and plugin support to remove forced trips
 back to the desktop.
 
@@ -98,7 +98,7 @@ The target experience is concrete:
 
 1. Define and schedule work on the phone.
 2. Close the phone while agents run on remote hosts.
-3. Return when Striked reports a decision or authorization request.
+3. Return when Upgrade reports a decision or authorization request.
 4. Review the result and continue from the phone.
 
 That is the MVP test. No desktop is required, and remote work remains visible

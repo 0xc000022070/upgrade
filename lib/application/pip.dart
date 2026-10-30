@@ -2,8 +2,8 @@ import 'dart:ui' show Size;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/platform/pip.dart';
-import 'package:striked/application/agents/agents.dart';
+import 'package:upgrade/platform/pip.dart';
+import 'package:upgrade/application/agents/agents.dart';
 
 class PipSurface {
   const PipSurface();

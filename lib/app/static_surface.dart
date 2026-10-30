@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/providers.dart';
-import 'package:striked/design/components/ascii_background.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/design/components/ascii_background.dart';
+import 'package:upgrade/design/tokens.dart';
 
 class StaticSurface extends ConsumerWidget {
   const StaticSurface({super.key, required this.child});

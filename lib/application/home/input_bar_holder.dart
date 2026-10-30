@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/plugins/plugin_placements.dart';
-import 'package:striked/data/repositories/plugin_placement_repository.dart';
-import 'package:striked/platform/plugins/contributions.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_placements.dart';
+import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
 
 final inputBarHolderProvider = Provider<AsyncValue<PluginWidgetRegistration?>>((
   ref,

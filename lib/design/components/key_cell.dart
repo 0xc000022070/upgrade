@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/motion.dart';
-import 'package:striked/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
 
 class KeyCell extends StatefulWidget {
   const KeyCell({
@@ -28,7 +28,7 @@ class KeyCell extends StatefulWidget {
   });
 
   final String label;
-  final StrikedIcons? icon;
+  final UpgradeIcons? icon;
   final VoidCallback onTap;
   final bool armed;
 
@@ -161,7 +161,7 @@ class _KeyCellState extends State<KeyCell> {
                     text: label,
                     style: context.tokens.panelHeader.copyWith(color: tint),
                   )
-                : StrikedIcon(icon, size: IconSizes.toolbar, color: tint),
+                : UpgradeIcon(icon, size: IconSizes.toolbar, color: tint),
           ),
         ),
       ),

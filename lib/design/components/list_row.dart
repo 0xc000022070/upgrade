@@ -1,13 +1,13 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/components/item_line.dart';
-import 'package:striked/design/components/path_line.dart';
-import 'package:striked/design/components/progress_bar.dart';
-import 'package:striked/design/components/signal_text.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/components/item_line.dart';
+import 'package:upgrade/design/components/path_line.dart';
+import 'package:upgrade/design/components/progress_bar.dart';
+import 'package:upgrade/design/components/signal_text.dart';
 
 class ListRow extends StatelessWidget {
   const ListRow({
@@ -236,8 +236,8 @@ class ListRow extends StatelessWidget {
             ],
             if (node) ...[
               const SizedBox(width: Spacing.md),
-              StrikedIcon(
-                StrikedIcons.progressMarker,
+              UpgradeIcon(
+                UpgradeIcons.progressMarker,
                 size: IconSizes.glyph,
                 color: context.tokens.textDisabled,
               ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/features/code/diff_jump.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/code/diff_jump.dart';
 
 import '../../support/themed_app.dart';
 

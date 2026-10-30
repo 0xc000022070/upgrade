@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/project_tree.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/views.dart';
-import 'package:striked/design/components/picker_row.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/application/project_tree.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/design/components/picker_row.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
 class TargetPickerBody extends ConsumerWidget {
   const TargetPickerBody({
@@ -147,7 +147,7 @@ class _PairPickerBodyState extends ConsumerState<PairPickerBody> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        StrikedField(
+        UpgradeField(
           controller: _search,
           autofocus: true,
           hint: 'search',

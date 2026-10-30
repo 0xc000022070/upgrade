@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/features/home/composer_panel.dart';
+import 'package:upgrade/features/home/composer_panel.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';

@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agent_state.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/plugins/plugin_hosts.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/plugins/plugin_hosts.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 
 import '../../plugins/kanban_plugin_test.dart' show kanbanPackage;
 
@@ -34,8 +34,8 @@ const _blocked = AgentSnapshot(
   state: BlockedState(),
   terminalTitleStripped: 'deploy',
   workspaceId: 'w1',
-  workspaceLabel: 'striked',
-  cwd: '/home/dev/striked',
+  workspaceLabel: 'upgrade',
+  cwd: '/home/dev/upgrade',
   stateChangeSeq: 7,
   source: AgentSource.engine,
   approval: AgentApproval(id: 'ap1', tool: 'bash', summary: 'rm -rf build'),
@@ -102,8 +102,8 @@ void main() {
         'agent': 'claude',
         'state': 'blocked',
         'title': 'deploy',
-        'workspace': 'striked',
-        'directory': '/home/dev/striked',
+        'workspace': 'upgrade',
+        'directory': '/home/dev/upgrade',
         'question': '',
         'message': '',
         'source': 'engine',

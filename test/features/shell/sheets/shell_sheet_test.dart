@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/features/shell/sheets/shell_sheet.dart';
-import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
 
 import '../../../support/fake_shell.dart';
 import '../../../support/launch_scan.dart';

@@ -8,29 +8,29 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/navigation.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/design/colors.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/key_repository.dart';
-import 'package:striked/features/hosts/hosts_screen.dart';
-import 'package:striked/features/hosts/link_probes.dart';
-import 'package:striked/features/hosts/preview_tile.dart';
-import 'package:striked/features/screen/screen_preview.dart';
-import 'package:striked/features/shell/session/shell_sessions.dart';
-import 'package:striked/features/shell/shell_status.dart';
-import 'package:striked/features/settings/settings_screen.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/ssh/keys.dart';
-import 'package:striked/platform/ssh/host_key_dial.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/links/link_probe.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
-import 'package:striked/platform/vnc/framebuffer.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/features/hosts/hosts_screen.dart';
+import 'package:upgrade/features/hosts/link_probes.dart';
+import 'package:upgrade/features/hosts/preview_tile.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/features/shell/shell_status.dart';
+import 'package:upgrade/features/settings/settings_screen.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/platform/ssh/host_key_dial.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/links/link_probe.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/vnc/framebuffer.dart';
 import 'package:flterm/flterm.dart';
 
 import '../../support/fake_shell.dart';
@@ -102,7 +102,7 @@ void main() {
     keys = InMemoryKeyRepository();
     hosts = InMemoryHostRepository();
     privateKeys = MemoryPrivateKeyStore();
-    root = Directory.systemTemp.createTempSync('striked-access');
+    root = Directory.systemTemp.createTempSync('upgrade-access');
     previews = ScreenPreviews(Directory('${root.path}/screens'));
     shells = FakeShellTransport()..stall = true;
     sessions = fakeShellSessions(shells);
@@ -376,7 +376,7 @@ void main() {
           .widget<Text>(find.byKey(const ValueKey('host-link-h2')))
           .style
           ?.color,
-      StrikedColors.warning,
+      UpgradeColors.warning,
     );
     expect(probed, ['100.64.0.1:22', '100.64.0.2:357']);
     await details(tester, 'NYX');

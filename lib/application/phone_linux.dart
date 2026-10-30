@@ -7,14 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/key_repository.dart';
-import 'package:striked/data/repositories/settings_repository.dart';
-import 'package:striked/platform/phone_linux.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/ssh/keys.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/platform/phone_linux.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
 
 class PhoneLinuxHost {
   PhoneLinuxHost({
@@ -123,7 +123,7 @@ class PhoneLinuxHost {
 
   Future<Host> _create(String name) async {
     final keyId = const Uuid().v4();
-    final generated = await secrets.generate(id: keyId, name: 'striked-phone');
+    final generated = await secrets.generate(id: keyId, name: 'upgrade-phone');
     await keys.save(
       ManagedKey(
         id: keyId,

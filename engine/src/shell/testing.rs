@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 pub fn scratch(prefix: &str, name: &str) -> PathBuf {
     let path = std::env::temp_dir().join(format!(
-        "striked-{prefix}-{name}-{}-{}",
+        "upgrade-{prefix}-{name}-{}-{}",
         std::process::id(),
         now_millis()
     ));

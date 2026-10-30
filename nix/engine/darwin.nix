@@ -5,7 +5,7 @@
 }:
 
 let
-  cfg = config.services.strikedddd;
+  cfg = config.services.upgraded;
 in
 {
   imports = [ ./options.nix ];
@@ -15,7 +15,7 @@ in
   config = lib.mkIf cfg.enable {
     environment.systemPackages = [
       (lib.warnIf (cfg.users != [ ])
-        "services.strikedddd.users has no effect on darwin; the engine is installed for the whole machine"
+        "services.upgraded.users has no effect on darwin; the engine is installed for the whole machine"
         cfg.package
       )
     ];
@@ -24,6 +24,6 @@ in
     # is what knownSha256Hashes exists for. Nothing should be in the way of a fresh
     # path under a fresh directory, but a Mac carrying a hand-written config here
     # already is the case that fails, and it fails at activation rather than eval.
-    environment.etc."strikedddd/config.json".source = cfg.configFile;
+    environment.etc."upgraded/config.json".source = cfg.configFile;
   };
 }

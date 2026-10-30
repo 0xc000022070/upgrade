@@ -3,14 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/platform/ssh/host_files.dart' show uploadsSharing;
-import 'package:striked/application/agents/agent_kind.dart';
-import 'package:striked/application/agents/agent_state.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/herdr/herdr_socket.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/ssh/keys.dart';
+import 'package:upgrade/platform/ssh/host_files.dart' show uploadsSharing;
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/herdr/herdr_socket.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
 
 import '../../support/herdr_link.dart';
 import '../../support/ssh_exec.dart';
@@ -97,17 +97,17 @@ void main() {
 
     expect(labels, {
       'w1': '~',
-      'wK': 'striked',
-      'wP': 'striked 2',
-      'wQ': 'striked 3',
+      'wK': 'upgrade',
+      'wP': 'upgrade 2',
+      'wQ': 'upgrade 3',
     });
-    expect(agents.map((agent) => agent.workspaceLabel).toSet(), {'striked 3'});
+    expect(agents.map((agent) => agent.workspaceLabel).toSet(), {'upgrade 3'});
     expect(agents.first.workspaceId, 'wQ');
     expect(agents.first.paneId, 'wQ:p1');
     expect(agents.first.session, 'lab');
 
     final carried = AgentSnapshot.fromJson(agents.first.toJson());
-    expect(carried.workspaceLabel, 'striked 3');
+    expect(carried.workspaceLabel, 'upgrade 3');
   });
 
   test('a workspace herdr gives no label keeps only its id', () {
@@ -155,10 +155,10 @@ void main() {
           link: link,
         ),
       ],
-      const {'wQ': 'striked'},
+      const {'wQ': 'upgrade'},
     ).single;
 
-    expect(labelled.workspaceLabel, 'striked');
+    expect(labelled.workspaceLabel, 'upgrade');
     expect(labelled.source, AgentSource.engine);
     expect(labelled.approval, same(approval));
     expect(labelled.question, 'which one?');
@@ -426,12 +426,12 @@ void main() {
   test('agent startup carries the unattended flags and optional model', () {
     final claude = HerdrRequests.agentStart(
       pane: (session: 'lab', pane: 'wH:p4'),
-      name: 'striked-wh',
+      name: 'upgrade-wh',
       kind: const ClaudeKind(),
       model: 'sonnet',
     );
     expect(claude.method, 'agent.start');
-    expect(claude.params['name'], 'striked-wh');
+    expect(claude.params['name'], 'upgrade-wh');
     expect(claude.params['kind'], 'claude');
     expect(claude.params['pane_id'], 'wH:p4');
     final args = claude.params['args']! as List<Object?>;
@@ -441,14 +441,14 @@ void main() {
 
     final codex = HerdrRequests.agentStart(
       pane: (session: 'lab', pane: 'wH:p4'),
-      name: 'striked-wh',
+      name: 'upgrade-wh',
       kind: const CodexKind(),
     );
     expect(codex.params['args'], contains('--yolo'));
     expect(
       () => HerdrRequests.agentStart(
         pane: (session: 'lab', pane: 'wH:p4'),
-        name: 'striked-wh',
+        name: 'upgrade-wh',
         kind: const CodexKind(),
         model: 'sonnet; reboot',
       ),
@@ -535,7 +535,7 @@ void main() {
     expect(request.params, {
       'cwd': "/home/dev/checkout with ' quote",
       'label': "label with ' quote",
-      'env': {'STRIKED_PANE': '1'},
+      'env': {'UPGRADE_PANE': '1'},
       'focus': false,
     });
     expect(HerdrRequests.workspaceClose('wH').params, const {
@@ -546,7 +546,7 @@ void main() {
   test(
     'the directory is resolved and tested before anything is made',
     () async {
-      final temp = Directory.systemTemp.createTempSync('striked-herdr-command');
+      final temp = Directory.systemTemp.createTempSync('upgrade-herdr-command');
       addTearDown(() => temp.deleteSync(recursive: true));
       final directory = Directory("${temp.path}/checkout with ' quote")
         ..createSync();
@@ -677,7 +677,7 @@ void main() {
     test(
       'sends a listing once, then a beat, and ends with its stdin',
       () async {
-        final dir = await Directory.systemTemp.createTemp('striked-watch');
+        final dir = await Directory.systemTemp.createTemp('upgrade-watch');
         addTearDown(() => dir.delete(recursive: true));
         final file = File('${dir.path}/listing')..writeAsStringSync('a\nb');
         final command = hostChangesCommand(

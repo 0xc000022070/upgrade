@@ -92,7 +92,7 @@ List<OpenSend> parseOpenSends(Object? raw) => [
 typedef LauncherLive = ({String state, String? line, bool dim});
 
 abstract final class LauncherWidget {
-  static const _channel = MethodChannel('dev.luisnquin.striked/launcher');
+  static const _channel = MethodChannel('dev.luisnquin.upgrade/launcher');
 
   static Future<void> setTally(LauncherTally? tally) =>
       _quiet('tally', {'blocked': ?tally?.blocked, 'working': ?tally?.working});

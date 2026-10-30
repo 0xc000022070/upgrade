@@ -6,17 +6,17 @@ import 'package:dart_mosh/dart_mosh.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/ssh/connection_supervisor.dart';
-import 'package:striked/platform/ssh/ssh_settle.dart';
-import 'package:striked/platform/shell/engine_channel.dart';
-import 'package:striked/platform/shell/liveness_watchdog.dart';
-import 'package:striked/platform/shell/mosh_channel.dart';
-import 'package:striked/platform/shell/remote_shell.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
-import 'package:striked/platform/shell/udp_path.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/ssh/connection_supervisor.dart';
+import 'package:upgrade/platform/ssh/ssh_settle.dart';
+import 'package:upgrade/platform/shell/engine_channel.dart';
+import 'package:upgrade/platform/shell/liveness_watchdog.dart';
+import 'package:upgrade/platform/shell/mosh_channel.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/shell/udp_path.dart';
 
 /// A tab with a launch command is an exec request rather than a shell request,
 /// because typing a line at a login shell is a race against everything that shell reads
@@ -392,8 +392,8 @@ class ShellTunnel {
     );
     if (result == null || !result.ok) return null;
     for (final line in result.out.split('\n')) {
-      if (!line.startsWith('STRIKED_MOSH=/')) continue;
-      final path = line.substring('STRIKED_MOSH='.length).trim();
+      if (!line.startsWith('UPGRADE_MOSH=/')) continue;
+      final path = line.substring('UPGRADE_MOSH='.length).trim();
       if (!path.contains(RegExp(r'[\r\n]'))) return path;
     }
     return null;
@@ -429,7 +429,7 @@ Future<void> _reopen(
 }
 
 void _log(String endpoint, Object message) =>
-    debugPrint('striked.shell $endpoint: $message');
+    debugPrint('upgrade.shell $endpoint: $message');
 
 /// Null for anything unexpected: a bug in the layer above reads better as itself than as
 /// a reason line.
@@ -808,7 +808,7 @@ Future<Map<String, Object?>?> _engineCall(
   required Map<String, Object?> args,
 }) async {
   final result = await run(
-    '$moshTabVariable=${shellQuote(tab)} strikedddd',
+    '$moshTabVariable=${shellQuote(tab)} upgraded',
     Uint8List.fromList(
       utf8.encode(
         jsonEncode({

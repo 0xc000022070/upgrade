@@ -1,12 +1,12 @@
 import 'dart:isolate';
 import 'dart:math' as math;
 
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
-import 'package:striked/features/code/intraline.dart';
-import 'package:striked/features/code/moved_blocks.dart';
-import 'package:striked/features/code/structural.dart';
-import 'package:striked/features/code/syntax.dart';
+import 'package:upgrade/features/code/intraline.dart';
+import 'package:upgrade/features/code/moved_blocks.dart';
+import 'package:upgrade/features/code/structural.dart';
+import 'package:upgrade/features/code/syntax.dart';
 
 List<ShownRow> hunkShown(List<DiffLine> lines) {
   final changed = intralineChanges(lines);

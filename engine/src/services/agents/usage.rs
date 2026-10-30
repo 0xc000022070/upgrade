@@ -514,7 +514,7 @@ fn child_path(binary: &Path) -> Option<std::ffi::OsString> {
 fn requests() -> String {
     [
         json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize",
-                "params": { "clientInfo": { "name": "striked", "version": ENGINE_VERSION } } }),
+                "params": { "clientInfo": { "name": "upgrade", "version": ENGINE_VERSION } } }),
         json!({ "jsonrpc": "2.0", "method": "initialized" }),
         json!({ "jsonrpc": "2.0", "id": ACCOUNT_ID, "method": "account/read", "params": {} }),
         json!({ "jsonrpc": "2.0", "id": LIMITS_ID, "method": "account/rateLimits/read" }),

@@ -10,26 +10,26 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agent_kind.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/shell/path_scan.dart';
-import 'package:striked/application/agents/send.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/activity_repository.dart';
-import 'package:striked/data/repositories/attachment_repository.dart';
-import 'package:striked/data/repositories/dispatch_repository.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/path_repository.dart';
-import 'package:striked/data/repositories/project_repository.dart';
-import 'package:striked/data/repositories/task_repository.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/features/tasks/item_sheet.dart';
-import 'package:striked/features/tasks/item_tags.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/ssh/keys.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/shell/remote_shell.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/shell/path_scan.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/repositories/dispatch_repository.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/features/tasks/item_sheet.dart';
+import 'package:upgrade/features/tasks/item_tags.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -56,8 +56,8 @@ PathTarget _target() => PathTarget(
   path: AgentPath(
     id: 'path-1',
     hostId: _host.id,
-    directory: '~/src/striked',
-    label: 'striked',
+    directory: '~/src/upgrade',
+    label: 'upgrade',
     createdAt: DateTime.utc(2026, 9, 3),
   ),
   host: _host,
@@ -75,15 +75,15 @@ void main() {
     // The `~` is expanded on the host first, by the one command that also proves the
     // directory is there.
     expect(
-      HerdrCommands.resolveDirectory("~/src/striked with 'quote'"),
+      HerdrCommands.resolveDirectory("~/src/upgrade with 'quote'"),
       contains(r'$HOME'),
     );
     expect(
       HerdrRequests.workspaceCreate(
-        cwd: "/home/dev/src/striked with 'quote'",
-        label: 'striked',
+        cwd: "/home/dev/src/upgrade with 'quote'",
+        label: 'upgrade',
       ).params,
-      containsPair('cwd', "/home/dev/src/striked with 'quote'"),
+      containsPair('cwd', "/home/dev/src/upgrade with 'quote'"),
     );
   });
 
@@ -117,7 +117,7 @@ void main() {
     expect(
       prompt,
       'what is wrong here\n\nhttps://a.example\n'
-      '/tmp/striked/a.png\n/tmp/striked/b.png',
+      '/tmp/upgrade/a.png\n/tmp/upgrade/b.png',
     );
   });
 
@@ -128,7 +128,7 @@ void main() {
         links: const [],
         images: [RemoteFile('a.png', Uint8List(0))],
       ),
-      'what is wrong here\n\n/tmp/striked/a.png',
+      'what is wrong here\n\n/tmp/upgrade/a.png',
     );
   });
 
@@ -152,7 +152,7 @@ void main() {
         images: [RemoteFile('a.png', Uint8List(0))],
       ),
       'tests first\n\nITEM\nauth refresh\n\n'
-      'https://a.example\n/tmp/striked/a.png',
+      'https://a.example\n/tmp/upgrade/a.png',
     );
   });
 
@@ -175,7 +175,7 @@ void main() {
     );
     expect(
       RemoteFile.fromPath('../../etc/passwd', Uint8List(0)).remotePath,
-      '/tmp/striked/passwd',
+      '/tmp/upgrade/passwd',
     );
     expect(
       RemoteFile.fromPath("a b';rm -rf .png", Uint8List(0)).name,
@@ -292,7 +292,7 @@ void main() {
       expect(state, isA<SendFailed>());
       expect(
         outgoing,
-        'Reviewed instructions\n\nhttps://a.example\n\n/tmp/striked/photo.png',
+        'Reviewed instructions\n\nhttps://a.example\n\n/tmp/upgrade/photo.png',
       );
     });
 
@@ -306,8 +306,8 @@ void main() {
             PathsCompanion.insert(
               id: 'path-1',
               hostId: _host.id,
-              directory: '~/src/striked',
-              label: 'striked',
+              directory: '~/src/upgrade',
+              label: 'upgrade',
               createdAt: DateTime.utc(2026, 9, 3),
             ),
           );
@@ -341,7 +341,7 @@ void main() {
       expect(state, isA<SendSent>());
       expect((state as SendSent).paneId, 'wQ:p7');
       expect(calls.single.kind, 'claude');
-      expect(calls.single.directory, '~/src/striked');
+      expect(calls.single.directory, '~/src/upgrade');
       expect(calls.single.prompt, 'read the gate log\n\nhttps://a.example');
 
       final verifier = verifiers.single!;
@@ -355,7 +355,7 @@ void main() {
       final rows = await dispatches.watchForItem(itemId).first;
       expect(rows, hasLength(1));
       expect(rows.single.hostName, 'nyx');
-      expect(rows.single.label, 'striked');
+      expect(rows.single.label, 'upgrade');
       expect(rows.single.agent, 'claude');
       expect(rows.single.paneId, 'wQ:p7');
       expect(rows.single.herdrSession, 'main');
@@ -368,7 +368,7 @@ void main() {
         (entry) => entry.action == ActivityAction.sent,
       );
       expect(sent.title, 'read the gate log');
-      expect(sent.context, 'nyx / striked');
+      expect(sent.context, 'nyx / upgrade');
       expect(sent.detail, 'wQ:p7');
     });
 
@@ -469,7 +469,7 @@ void main() {
       expect(
         calls.single.prompt,
         'what is wrong here\n\nhttps://a.example\n'
-        '/tmp/striked/first.png\n/tmp/striked/second.jpg',
+        '/tmp/upgrade/first.png\n/tmp/upgrade/second.jpg',
       );
     });
 
@@ -699,7 +699,7 @@ void main() {
 
     tearDown(() => db.close());
 
-    Future<void> addPath({String label = 'striked', String? projectId}) => db
+    Future<void> addPath({String label = 'upgrade', String? projectId}) => db
         .into(db.paths)
         .insert(
           PathsCompanion.insert(
@@ -726,7 +726,7 @@ void main() {
               required user,
               required privateKey,
               required verifier,
-            }) async => const ['~/src/striked'],
+            }) async => const ['~/src/upgrade'],
             fetchModels: ({
               required address,
               required port,
@@ -797,7 +797,7 @@ void main() {
       final project = await ProjectRepository(
         db,
         activity,
-      ).create(name: 'striked');
+      ).create(name: 'upgrade');
       final id = await TaskRepository(
         db,
         activity,
@@ -821,7 +821,7 @@ void main() {
       final project = await ProjectRepository(
         db,
         activity,
-      ).create(name: 'striked');
+      ).create(name: 'upgrade');
       final id = await TaskRepository(
         db,
         activity,
@@ -849,13 +849,13 @@ void main() {
       final project = await ProjectRepository(
         db,
         activity,
-      ).create(name: 'striked');
+      ).create(name: 'upgrade');
       final id = await TaskRepository(
         db,
         activity,
       ).create(title: 'ship the picker', projectId: project);
       await addPath(label: 'gate');
-      await addPath(label: 'striked', projectId: project);
+      await addPath(label: 'upgrade', projectId: project);
       await addPath(label: 'monolith', projectId: project);
 
       await tester.pumpWidget(app(id));
@@ -866,7 +866,7 @@ void main() {
       expect(find.text('SEND TO'), findsOneWidget);
       expect(find.text('LINKED'), findsNWidgets(2));
       final loose = tester.getTopLeft(find.text('NYX / GATE')).dy;
-      expect(tester.getTopLeft(find.text('NYX / STRIKED')).dy, lessThan(loose));
+      expect(tester.getTopLeft(find.text('NYX / UPGRADE')).dy, lessThan(loose));
       expect(
         tester.getTopLeft(find.text('NYX / MONOLITH')).dy,
         lessThan(loose),
@@ -920,9 +920,9 @@ void main() {
       await tester.tap(find.text('SEND'));
       await _drain(tester);
       expect(find.text('SEND TO'), findsOneWidget);
-      expect(find.text('NYX / STRIKED'), findsOneWidget);
+      expect(find.text('NYX / UPGRADE'), findsOneWidget);
 
-      await tester.tap(find.text('NYX / STRIKED'));
+      await tester.tap(find.text('NYX / UPGRADE'));
       await _drain(tester);
       expect(find.text('AGENT'), findsOneWidget);
       expect(find.text('MODEL'), findsOneWidget);
@@ -931,7 +931,7 @@ void main() {
 
       final message = find.byKey(const ValueKey('send-message'));
       expect(
-        tester.widget<StrikedField>(message).controller.text,
+        tester.widget<UpgradeField>(message).controller.text,
         'read the gate log\n\nhttps://a.example',
       );
       await tester.enterText(
@@ -941,10 +941,10 @@ void main() {
       await tester.binding.handlePopRoute();
       await _drain(tester);
       expect(find.text('SEND TO'), findsOneWidget);
-      await tester.tap(find.text('NYX / STRIKED'));
+      await tester.tap(find.text('NYX / UPGRADE'));
       await _drain(tester);
       expect(
-        tester.widget<StrikedField>(message).controller.text,
+        tester.widget<UpgradeField>(message).controller.text,
         'Review the revised log\n\nhttps://a.example',
       );
       await tester.tap(find.text('SONNET'));
@@ -959,7 +959,7 @@ void main() {
       expect(find.text('[ SENDING ]'), findsNothing);
       expect(find.byType(SentTag), findsOneWidget);
       expect(
-        find.textContaining('NYX / STRIKED · CLAUDE sonnet · wQ:p7 · '),
+        find.textContaining('NYX / UPGRADE · CLAUDE sonnet · wQ:p7 · '),
         findsOneWidget,
       );
 
@@ -1000,13 +1000,13 @@ void main() {
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);
-      await tester.tap(find.text('NYX / STRIKED'));
+      await tester.tap(find.text('NYX / UPGRADE'));
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);
 
       expect(
-        find.text('NYX / STRIKED · CLAUDE · no such directory'),
+        find.text('NYX / UPGRADE · CLAUDE · no such directory'),
         findsOneWidget,
       );
       expect(find.text('FAILED'), findsOneWidget);
@@ -1048,13 +1048,13 @@ void main() {
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);
-      await tester.tap(find.text('NYX / STRIKED'));
+      await tester.tap(find.text('NYX / UPGRADE'));
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);
 
       expect(find.text('[ SENDING ]'), findsOneWidget);
-      expect(find.text('NYX / STRIKED · CLAUDE'), findsOneWidget);
+      expect(find.text('NYX / UPGRADE · CLAUDE'), findsOneWidget);
       expect(find.byType(SendingTag), findsOneWidget);
       expect(find.text('RETRY'), findsNothing);
 
@@ -1077,7 +1077,7 @@ void main() {
       await sends.start(
         id: 'send-1',
         itemId: id,
-        pathId: 'path-striked',
+        pathId: 'path-upgrade',
         text: 'a drop',
         agent: 'claude',
       );
@@ -1089,7 +1089,7 @@ void main() {
 
       expect(find.text('[ SENT ]'), findsOneWidget);
       expect(
-        find.textContaining('NYX / STRIKED · CLAUDE · wQ:p7 · '),
+        find.textContaining('NYX / UPGRADE · CLAUDE · wQ:p7 · '),
         findsOneWidget,
       );
       expect(find.byType(SentTag), findsOneWidget);
@@ -1110,7 +1110,7 @@ void main() {
       await sends.start(
         id: 'send-1',
         itemId: id,
-        pathId: 'path-striked',
+        pathId: 'path-upgrade',
         text: 'a drop',
         agent: 'claude',
       );
@@ -1124,7 +1124,7 @@ void main() {
       expect(find.byType(SentTag), findsNothing);
       expect(find.text('[ SENT ]'), findsOneWidget);
       expect(
-        find.textContaining('NYX / STRIKED · CLAUDE · wQ:p7 · '),
+        find.textContaining('NYX / UPGRADE · CLAUDE · wQ:p7 · '),
         findsOneWidget,
       );
 
@@ -1164,7 +1164,7 @@ void main() {
       expect(find.text('SAVE'), findsOneWidget);
       expect(find.text('SEND'), findsNothing);
 
-      await tester.enterText(find.byType(StrikedField), 'read lib/auth first');
+      await tester.enterText(find.byType(UpgradeField), 'read lib/auth first');
       await tester.tap(find.text('SAVE'));
       await _drain(tester);
 
@@ -1192,7 +1192,7 @@ void main() {
 
       await tester.tap(find.text('EDIT PROMPT'));
       await _drain(tester);
-      await tester.enterText(find.byType(StrikedField), '   ');
+      await tester.enterText(find.byType(UpgradeField), '   ');
       await tester.tap(find.text('SAVE'));
       await _drain(tester);
 
@@ -1241,7 +1241,7 @@ void main() {
 
       await tester.tap(find.text('SEND'));
       await _drain(tester);
-      await tester.tap(find.text('NYX / STRIKED'));
+      await tester.tap(find.text('NYX / UPGRADE'));
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);

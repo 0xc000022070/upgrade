@@ -2,20 +2,20 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/meta.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/design/components/screen_scaffold.dart';
-import 'package:striked/design/components/section.dart';
-import 'package:striked/design/components/segment_switch.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
+import 'package:upgrade/design/components/section.dart';
+import 'package:upgrade/design/components/segment_switch.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
-import 'package:striked_widgetbook/components/knobs.dart';
-import 'package:striked_widgetbook/frame.dart';
+import 'package:upgrade_widgetbook/components/knobs.dart';
+import 'package:upgrade_widgetbook/frame.dart';
 
 enum _Async { loading, error, empty, data }
 
@@ -72,7 +72,7 @@ final containerComponents = [
                 title: 'Agents',
                 affordance: PanelAffordance(
                   'Add',
-                  icon: StrikedIcons.add,
+                  icon: UpgradeIcons.add,
                   onTap: _noop,
                 ),
                 child: Meta('nothing running'),
@@ -82,7 +82,7 @@ final containerComponents = [
               'Inert affordance',
               child: Panel(
                 title: 'Agents',
-                affordance: PanelAffordance('Add', icon: StrikedIcons.add),
+                affordance: PanelAffordance('Add', icon: UpgradeIcons.add),
                 child: Meta('nothing running'),
               ),
             ),

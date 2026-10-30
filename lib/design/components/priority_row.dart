@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/data/enums.dart';
-import 'package:striked/design/effects/glitch.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/slide_steps.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/slide_steps.dart';
 
 /// The floor has no numeral: it is the one step read by subtraction alone.
 const priorityNumerals = <Priority, String>{

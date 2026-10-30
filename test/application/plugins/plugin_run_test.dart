@@ -3,10 +3,10 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/plugins/plugin_hosts.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
+import 'package:upgrade/application/plugins/plugin_hosts.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 
 const _head = '''
 manifest_version = 5
@@ -14,7 +14,7 @@ id = "dev.local.runner"
 name = "Runner"
 purpose = "Run declared commands."
 version = "0.1.0"
-striked_api = "^2.1.0"
+upgrade_api = "^2.1.0"
 ui_api = 2
 
 [runtime]

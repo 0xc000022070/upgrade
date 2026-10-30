@@ -1,6 +1,6 @@
 {
-    "name": "striked_widgetbook",
-    "short_name": "striked_widgetbook",
+    "name": "upgrade_widgetbook",
+    "short_name": "upgrade_widgetbook",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

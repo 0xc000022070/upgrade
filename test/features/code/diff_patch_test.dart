@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/features/code/diff_patch.dart';
-import 'package:striked/features/code/moved_blocks.dart';
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/features/code/diff_patch.dart';
+import 'package:upgrade/features/code/moved_blocks.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 const diff = '''diff --git a/a.txt b/a.txt
 index 1..2 100644

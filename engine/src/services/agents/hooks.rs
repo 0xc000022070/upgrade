@@ -9,9 +9,9 @@ use std::path::{Path, PathBuf};
 
 use super::AgentKind;
 
-const MARK: &str = "strikedddd hook";
-const PLUGIN_MARK: &str = "// strikedddd agents plugin";
-const STATUS_LINE: &str = "strikedddd statusline";
+const MARK: &str = "upgraded hook";
+const PLUGIN_MARK: &str = "// upgraded agents plugin";
+const STATUS_LINE: &str = "upgraded statusline";
 const EVENT_TIMEOUT_S: u64 = 10;
 const APPROVAL_TIMEOUT_S: u64 = 90;
 
@@ -53,7 +53,7 @@ fn config_path(agent: AgentKind) -> EngineResult<PathBuf> {
             .join("hooks.json"),
         AgentKind::OpenCode => env_dir("XDG_CONFIG_HOME")
             .unwrap_or(home.join(".config"))
-            .join("opencode/plugins/striked.js"),
+            .join("opencode/plugins/upgrade.js"),
     })
 }
 
@@ -196,7 +196,7 @@ const answerable = (event) => {{
   }}
 }};
 
-export const StrikedAgents = async ({{ client, $, directory }}) => {{
+export const UpgradeAgents = async ({{ client, $, directory }}) => {{
   let queue = Promise.resolve();
   const report = async (input) => {{
     const out = await $`{MARK} opencode < ${{new Response(JSON.stringify({{ cwd: directory, ...input }}))}}`.quiet().nothrow();
@@ -368,7 +368,7 @@ fn write_atomic(path: &Path, contents: &str) -> EngineResult<()> {
         &WritePolicy {
             perms: Perms::Keep,
             durability: Durability::None,
-            tmp_suffix: ".striked.tmp",
+            tmp_suffix: ".upgrade.tmp",
         },
     )?;
     Ok(())
@@ -495,7 +495,7 @@ mod tests {
     use std::process::Command;
 
     fn scratch(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("striked-hooks-unit-{}-{name}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("upgrade-hooks-unit-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -522,16 +522,16 @@ mod tests {
     fn the_status_line_rides_in_the_engine_and_comes_back_out() {
         let mine = json!({ "statusLine": { "type": "command", "command": "echo 'hi'", "padding": 2 }, "model": "opus" });
         let installed = with_status_line(mine.clone()).unwrap();
-        assert_eq!(installed["statusLine"]["command"], json!(r"strikedddd statusline 'echo '\''hi'\'''"));
+        assert_eq!(installed["statusLine"]["command"], json!(r"upgraded statusline 'echo '\''hi'\'''"));
         assert_eq!(with_status_line(installed.clone()).unwrap(), installed);
         assert_eq!(ours_over(installed.get("statusLine")), installed["statusLine"]);
         assert_eq!(without_status_line(installed), mine);
 
         let bare = with_status_line(json!({ "model": "opus" })).unwrap();
-        assert_eq!(bare["statusLine"], json!({ "type": "command", "command": "strikedddd statusline" }));
+        assert_eq!(bare["statusLine"], json!({ "type": "command", "command": "upgraded statusline" }));
         assert_eq!(without_status_line(bare), json!({ "model": "opus" }));
 
-        let theirs = json!({ "statusLine": { "type": "command", "command": "strikedddd-statusline" } });
+        let theirs = json!({ "statusLine": { "type": "command", "command": "upgraded-statusline" } });
         assert_eq!(without_status_line(theirs.clone()), theirs);
     }
 
@@ -582,7 +582,7 @@ mod tests {
     }
 
     const HARNESS: &str = r#"
-const { StrikedAgents } = await import(process.argv[2]);
+const { UpgradeAgents } = await import(process.argv[2]);
 const log = [];
 const $ = (_strings, body) => ({ quiet: () => ({ nothrow: async () => {
   const name = JSON.parse(await body.text()).hook_event_name;
@@ -591,7 +591,7 @@ const $ = (_strings, body) => ({ quiet: () => ({ nothrow: async () => {
   log.push(`end ${name}`);
   return { text: () => "" };
 } }) });
-const hooks = await StrikedAgents({ client: {}, $, directory: "/w" });
+const hooks = await UpgradeAgents({ client: {}, $, directory: "/w" });
 hooks.event({ event: { type: "session.status", properties: { sessionID: "s", status: { type: "busy" } } } });
 hooks.event({ event: { type: "permission.asked", properties: { id: "p1", sessionID: "s", permission: "bash", patterns: ["ls"] } } });
 await new Promise((done) => setTimeout(done, 300));
@@ -602,9 +602,9 @@ console.log(JSON.stringify(log));
     #[test]
     fn the_opencode_plugin_reports_events_in_the_order_they_came() {
         let dir = scratch("plugin-order");
-        std::fs::write(dir.join("striked.mjs"), plugin()).unwrap();
+        std::fs::write(dir.join("upgrade.mjs"), plugin()).unwrap();
         std::fs::write(dir.join("harness.mjs"), HARNESS).unwrap();
-        let Ok(output) = Command::new("node").arg(dir.join("harness.mjs")).arg(dir.join("striked.mjs")).output() else {
+        let Ok(output) = Command::new("node").arg(dir.join("harness.mjs")).arg(dir.join("upgrade.mjs")).output() else {
             return;
         };
         let _ = std::fs::remove_dir_all(&dir);

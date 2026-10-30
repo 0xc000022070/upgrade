@@ -5,9 +5,9 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 
-import 'package:striked/platform/ssh/connection_supervisor.dart'
+import 'package:upgrade/platform/ssh/connection_supervisor.dart'
     show ExecResult;
-import 'package:striked/platform/shell/remote_shell.dart'
+import 'package:upgrade/platform/shell/remote_shell.dart'
     show shellQuote, underSh;
 
 final class HostSftp {
@@ -49,7 +49,7 @@ final class FileWrite {
 /// file goes over exec.
 const sftpHandshakeDeadline = Duration(seconds: 3);
 
-const putLanded = 'STRIKED_PUT_LANDED';
+const putLanded = 'UPGRADE_PUT_LANDED';
 
 /// The part is renamed only once it holds [length] bytes: a host that ignores the stop
 /// signal sees stdin close, and cat ends as if the file were whole.
@@ -265,7 +265,7 @@ Future<bool> _isDirectory(SftpClient client, String path) async {
   }
 }
 
-const getLanded = 'STRIKED_GET_LANDED';
+const getLanded = 'UPGRADE_GET_LANDED';
 
 /// The marker goes to stderr so stdout stays the file's bytes alone.
 String getCommand(String path) =>

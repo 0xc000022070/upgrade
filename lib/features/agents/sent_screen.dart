@@ -4,40 +4,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 
-import 'package:striked/app/static_surface.dart';
-import 'package:striked/application/agents/agent_kind.dart';
-import 'package:striked/application/agents/agent_state.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/agents/run_steps.dart';
-import 'package:striked/application/agents/send.dart';
-import 'package:striked/application/agents/send_queue.dart';
-import 'package:striked/application/agents/send_states.dart';
-import 'package:striked/application/drops/attachment_files.dart';
-import 'package:striked/application/launcher/launcher_sends.dart';
-import 'package:striked/application/formatting.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/dispatch_repository.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/action_sheet.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/meta.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_text_action.dart';
-import 'package:striked/design/components/screen_scaffold.dart';
-import 'package:striked/design/components/section.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/agents/agent_chat_screen.dart';
-import 'package:striked/features/agents/agent_session_feed.dart';
-import 'package:striked/features/agents/agent_shell.dart';
-import 'package:striked/features/home/agent_mark.dart';
-import 'package:striked/features/home/compose_sheet.dart';
-import 'package:striked/platform/herdr/engine_agents.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/agents/run_steps.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
+import 'package:upgrade/application/agents/send_states.dart';
+import 'package:upgrade/application/drops/attachment_files.dart';
+import 'package:upgrade/application/launcher/launcher_sends.dart';
+import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/dispatch_repository.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/action_sheet.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
+import 'package:upgrade/design/components/section.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/agents/agent_chat_screen.dart';
+import 'package:upgrade/features/agents/agent_session_feed.dart';
+import 'package:upgrade/features/agents/agent_shell.dart';
+import 'package:upgrade/features/home/agent_mark.dart';
+import 'package:upgrade/features/home/compose_sheet.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 
 void openSent(BuildContext context) {
   Navigator.of(
@@ -138,7 +138,7 @@ class SentScreen extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'SENT',
-          breadcrumb: '/ STRIKED / AGENTS / SENT',
+          breadcrumb: '/ UPGRADE / AGENTS / SENT',
           onBack: () => Navigator.of(context).pop(),
           children: [
             Panel(
@@ -225,7 +225,7 @@ class _SentRow extends ConsumerWidget {
                   .read(dispatchRepositoryProvider)
                   .delete(send.id)
                   .catchError(
-                    (Object error) => debugPrint('striked.sent: $error'),
+                    (Object error) => debugPrint('upgrade.sent: $error'),
                   ),
             ),
             danger: true,
@@ -305,7 +305,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
         ref
             .read(dispatchRepositoryProvider)
             .linkSession(send.id, key)
-            .catchError((Object error) => debugPrint('striked.sent: $error')),
+            .catchError((Object error) => debugPrint('upgrade.sent: $error')),
       );
     }
     return key;
@@ -341,7 +341,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
         body: StaticSurface(
           child: ScreenScaffold(
             title: 'RUN',
-            breadcrumb: '/ STRIKED / AGENTS / SENT',
+            breadcrumb: '/ UPGRADE / AGENTS / SENT',
             onBack: () => Navigator.of(context).pop(),
             children: const [Panel(child: EmptyState('no such send'))],
           ),
@@ -372,7 +372,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
       body: StaticSurface(
         child: ScreenScaffold(
           title: send.firstLine.isEmpty ? 'RUN' : send.firstLine,
-          breadcrumb: '/ STRIKED / AGENTS / SENT / ${send.firstLine}',
+          breadcrumb: '/ UPGRADE / AGENTS / SENT / ${send.firstLine}',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(
@@ -548,7 +548,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
                   Expanded(
                     child: PanelTextAction(
                       label: 'OPEN PANE',
-                      icon: StrikedIcons.forward,
+                      icon: UpgradeIcons.forward,
                       onTap: UserIntent.onGesture(
                         (intent) =>
                             openAgentPane(context, ref, host, pane, intent),
@@ -559,7 +559,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
                   Expanded(
                     child: PanelTextAction(
                       label: 'CONVERSATION',
-                      icon: StrikedIcons.forward,
+                      icon: UpgradeIcons.forward,
                       onTap: () => openAgentChat(
                         context,
                         host,

@@ -1,12 +1,12 @@
 import 'package:flutter/services.dart';
 
-import 'package:striked/builtin_plugins/agents/main.dart';
-import 'package:striked/builtin_plugins/drops/main.dart';
-import 'package:striked/builtin_plugins/projects/main.dart';
-import 'package:striked/builtin_plugins/prompt/main.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/module.dart';
-import 'package:striked/platform/plugins/store.dart';
+import 'package:upgrade/builtin_plugins/agents/main.dart';
+import 'package:upgrade/builtin_plugins/drops/main.dart';
+import 'package:upgrade/builtin_plugins/projects/main.dart';
+import 'package:upgrade/builtin_plugins/prompt/main.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/module.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 
 const builtinModules = <NativePluginModule>[
   agentsPlugin,
@@ -28,7 +28,7 @@ Future<List<PluginPackage>> loadBuiltinPlugins() async => [
 
 Future<PluginPackage> _loadScript(String directory) async {
   final manifest = PluginManifest.parse(
-    await rootBundle.loadString('$directory/striked.plugin.toml'),
+    await rootBundle.loadString('$directory/upgrade.plugin.toml'),
   );
   return PluginPackage(
     manifest: manifest,
@@ -40,7 +40,7 @@ Future<PluginPackage> _loadScript(String directory) async {
 
 Future<PluginPackage> _load(NativePluginModule module) async {
   final manifest = PluginManifest.parse(
-    await rootBundle.loadString('${module.directory}/striked.plugin.toml'),
+    await rootBundle.loadString('${module.directory}/upgrade.plugin.toml'),
     allowNative: true,
   );
   if (manifest.id != module.id ||

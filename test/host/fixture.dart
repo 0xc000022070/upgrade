@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/ssh/keys.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 
 /// The NixOS guest from `nix run .#host-vm`, which `just test-host` brings up. It is the
 /// only machine these tests may touch: its firewall rejects every outbound packet.

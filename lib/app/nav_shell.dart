@@ -1,24 +1,24 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/effects/glitch.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/layout.dart';
-import 'package:striked/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/layout.dart';
+import 'package:upgrade/design/spacing.dart';
 
 class NavDestination {
   const NavDestination(this.label, this.icon);
 
   final String label;
-  final StrikedIcons icon;
+  final UpgradeIcons icon;
 }
 
 const navDestinations = [
-  NavDestination('HOME', StrikedIcons.home),
-  NavDestination('PROJECTS', StrikedIcons.projects),
-  NavDestination('MACHINES', StrikedIcons.hosts),
-  NavDestination('TOOLS', StrikedIcons.tools),
+  NavDestination('HOME', UpgradeIcons.home),
+  NavDestination('PROJECTS', UpgradeIcons.projects),
+  NavDestination('MACHINES', UpgradeIcons.hosts),
+  NavDestination('TOOLS', UpgradeIcons.tools),
 ];
 
 /// Built from tokens rather than BottomNavigationBar, whose ripple, elevation and 56px
@@ -113,7 +113,7 @@ class _NavItem extends StatelessWidget {
               color: active ? context.tokens.accent : null,
             ),
             const SizedBox(height: Spacing.lg),
-            StrikedIcon(
+            UpgradeIcon(
               destination.icon,
               size: IconSizes.md,
               color: color,

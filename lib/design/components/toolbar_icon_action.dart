@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
 
 class ToolbarIconAction extends StatefulWidget {
   const ToolbarIconAction({
@@ -15,7 +15,7 @@ class ToolbarIconAction extends StatefulWidget {
   });
 
   final String label;
-  final StrikedIcons icon;
+  final UpgradeIcons icon;
   final VoidCallback onTap;
 
   final bool lit;
@@ -59,7 +59,7 @@ class _ToolbarIconActionState extends State<ToolbarIconAction> {
                     width: Borders.hairline,
                   ),
                 ),
-                child: StrikedIcon(
+                child: UpgradeIcon(
                   widget.icon,
                   size: IconSizes.toolbar,
                   color: color,

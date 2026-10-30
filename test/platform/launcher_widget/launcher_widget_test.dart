@@ -1,12 +1,12 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/alerts/alerts.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/herdr/agent_watcher.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/launcher_widget/launcher_widget.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/ssh/keys.dart';
+import 'package:upgrade/application/alerts/alerts.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/herdr/agent_watcher.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/launcher_widget/launcher_widget.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
 
 const _rose = Host(
   id: 'h1',
@@ -34,7 +34,7 @@ class _Bridge {
       },
     );
     messenger.setMockMethodCallHandler(
-      const MethodChannel('dev.luisnquin.striked/launcher'),
+      const MethodChannel('dev.luisnquin.upgrade/launcher'),
       (call) async {
         final arguments = call.arguments as Map?;
         switch (call.method) {

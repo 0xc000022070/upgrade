@@ -1,16 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:striked/app/builtin_plugins.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/plugins/plugin_placements.dart';
-import 'package:striked/application/plugins/plugins.dart';
-import 'package:striked/data/repositories/plugin_placement_repository.dart';
-import 'package:striked/application/alerts/toasts.dart';
-import 'package:striked/platform/plugins/contributions.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/module.dart';
-import 'package:striked/platform/plugins/store.dart';
+import 'package:upgrade/app/builtin_plugins.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_placements.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
+import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
+import 'package:upgrade/application/alerts/toasts.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/module.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,7 +24,7 @@ void main() {
   late List<InstalledPlugin> catalog;
 
   setUp(() async {
-    root = await Directory.systemTemp.createTemp('striked-placements-');
+    root = await Directory.systemTemp.createTemp('upgrade-placements-');
     store = PluginStore(root);
     catalog = await store.synchronizeBuiltins([
       builtinFixture('agents'),
@@ -396,8 +396,8 @@ void main() {
     scope.dispose();
     final [_, first, second] = initial.homeOrder;
     final old = _legacy(initial)
-      ..['home_order'] = [first, 'striked:home:agents', second]
-      ..['home_spaces'] = {first: 1, 'striked:home:agents': 2, second: 1}
+      ..['home_order'] = [first, 'upgrade:home:agents', second]
+      ..['home_spaces'] = {first: 1, 'upgrade:home:agents': 2, second: 1}
       ..['known_widgets'] = [first, second]
       ..['placements'] = {
         for (final entry in (initial.encode()['placements']! as Map).entries)
@@ -675,10 +675,10 @@ void main() {
           );
       await scope
           .read(pluginsProvider.notifier)
-          .setEnabled('striked.projects', false);
+          .setEnabled('upgrade.projects', false);
       await scope
           .read(pluginsProvider.notifier)
-          .setEnabled('striked.drops', false);
+          .setEnabled('upgrade.drops', false);
       expect(scope.read(toastQueueProvider), isEmpty);
       scope.dispose();
 
@@ -691,21 +691,21 @@ void main() {
       expect(state.knownWidgets, contains(composer));
       expect(state.knownPages, contains(page));
       expect(
-        catalog.singleWhere((plugin) => plugin.id == 'striked.drops').enabled,
+        catalog.singleWhere((plugin) => plugin.id == 'upgrade.drops').enabled,
         isFalse,
       );
     },
   );
 
   group('a plugin turned on later', () {
-    const prompt = 'striked.prompt:widget:prompt';
-    const capture = 'striked.drops:widget:capture';
+    const prompt = 'upgrade.prompt:widget:prompt';
+    const capture = 'upgrade.drops:widget:capture';
 
     Future<PluginPlacementState> enablePrompt(ProviderContainer scope) async {
       await scope.read(pluginsProvider.future);
       await scope
           .read(pluginsProvider.notifier)
-          .setEnabled('striked.prompt', true);
+          .setEnabled('upgrade.prompt', true);
       for (var i = 0; i < 100; i++) {
         final state = scope.read(pluginPlacementsProvider).valueOrNull;
         if (state != null && state.knownWidgets.contains(prompt)) return state;
@@ -722,7 +722,7 @@ void main() {
           builtinFixture('prompt'),
         ],
         adoptEnabled: true,
-        arrivals: {'striked.prompt': BuiltinArrival.off},
+        arrivals: {'upgrade.prompt': BuiltinArrival.off},
       );
     });
 
@@ -756,8 +756,8 @@ void main() {
       await scope.read(pluginPlacementsProvider.future);
       await scope.read(pluginsProvider.future);
       final plugins = scope.read(pluginsProvider.notifier);
-      await plugins.setEnabled('striked.projects', false);
-      await plugins.setEnabled('striked.drops', false);
+      await plugins.setEnabled('upgrade.projects', false);
+      await plugins.setEnabled('upgrade.drops', false);
 
       final state = await enablePrompt(scope);
       expect(state.placements[prompt], PluginPlacementLocation.homeComposer);
@@ -1021,7 +1021,7 @@ manifest_version = 3
 id = "test.composer"
 name = "Second composer"
 version = "1.0.0"
-striked_api = "^2.0.0"
+upgrade_api = "^2.0.0"
 [runtime]
 kind = "native"
 entry = "main.dart"
@@ -1050,7 +1050,7 @@ id = "test.runtime"
 name = "Runtime test"
 purpose = "Verify live page discovery."
 version = "1.0.0"
-striked_api = "^2.1.0"
+upgrade_api = "^2.1.0"
 ui_api = 1
 [runtime]
 kind = "luau"

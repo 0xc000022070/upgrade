@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
 
 /// Small on purpose: the framework's own touch slop is the gate on whether this was a
 /// deliberate horizontal pull at all, and only what comes after it is counted here. The
@@ -150,21 +150,21 @@ class _ScreenRailState extends State<ScreenRail> {
               children: [
                 _RailToggle(
                   key: const ValueKey('rail-keyboard'),
-                  icon: StrikedIcons.keyboard,
+                  icon: UpgradeIcons.keyboard,
                   label: 'KEYBOARD',
                   active: widget.keyboardOpen,
                   onTap: widget.onKeyboard,
                 ),
                 _RailToggle(
                   key: const ValueKey('rail-keys'),
-                  icon: StrikedIcons.keys,
+                  icon: UpgradeIcons.keys,
                   label: 'KEYS',
                   active: widget.stripOpen,
                   onTap: widget.onStrip,
                 ),
                 _RailToggle(
                   key: const ValueKey('rail-crop'),
-                  icon: StrikedIcons.crop,
+                  icon: UpgradeIcons.crop,
                   label: 'CROP',
                   active: widget.cropArmed,
                   onTap: widget.onCrop,
@@ -187,7 +187,7 @@ class _RailToggle extends StatelessWidget {
     required this.onTap,
   });
 
-  final StrikedIcons icon;
+  final UpgradeIcons icon;
 
   /// Not drawn. The rail is glyphs only, and this is what each one is called to a screen
   /// reader and to a test.
@@ -208,7 +208,7 @@ class _RailToggle extends StatelessWidget {
           width: TapTargets.minHeight,
           height: TapTargets.minHeight,
           child: Center(
-            child: StrikedIcon(icon, size: IconSizes.toolbar, color: tint),
+            child: UpgradeIcon(icon, size: IconSizes.toolbar, color: tint),
           ),
         ),
       ),

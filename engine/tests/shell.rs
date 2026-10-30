@@ -10,7 +10,7 @@ use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
-const BINARY: &str = env!("CARGO_BIN_EXE_strikedddd");
+const BINARY: &str = env!("CARGO_BIN_EXE_upgraded");
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
 const TO_CLIENT: u64 = 1 << 63;
@@ -31,7 +31,7 @@ impl Sandbox {
     fn new(name: &str) -> Self {
         let unique = COUNTER.fetch_add(1, Ordering::SeqCst);
         let root = std::env::temp_dir().join(format!(
-            "strikedddd-shell-{}-{name}-{unique}",
+            "upgraded-shell-{}-{name}-{unique}",
             std::process::id()
         ));
         let _ = fs::remove_dir_all(&root);
@@ -51,10 +51,10 @@ impl Sandbox {
 
     fn raw(&self, request: Value) -> Value {
         let mut child = Command::new(BINARY)
-            .env("STRIKEDDDD_STATE", self.root.join("state"))
+            .env("UPGRADED_STATE", self.root.join("state"))
             .env("HOME", self.root.join("home"))
             .env("XDG_CONFIG_HOME", self.root.join("home/config"))
-            .env_remove("STRIKEDDDD_CONFIG")
+            .env_remove("UPGRADED_CONFIG")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

@@ -1,26 +1,26 @@
 import 'dart:io';
 
-import 'package:striked/app/builtin_plugins.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/plugins/plugin_placements.dart';
-import 'package:striked/application/plugins/plugins.dart';
-import 'package:striked/application/drops/drop_selection.dart';
-import 'package:striked/application/drops/fresh_drops.dart';
-import 'package:striked/application/home/composer_focus.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/plugin_placement_repository.dart';
-import 'package:striked/design/colors.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/features/home/prompt_bar.dart';
-import 'package:striked/features/plugins/plugin_board.dart';
-import 'package:striked/features/plugins/plugin_management_screen.dart';
-import 'package:striked/features/plugins/plugin_page.dart';
-import 'package:striked/features/settings/plugins_panel.dart';
-import 'package:striked/platform/plugins/index.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
+import 'package:upgrade/app/builtin_plugins.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_placements.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
+import 'package:upgrade/application/drops/drop_selection.dart';
+import 'package:upgrade/application/drops/fresh_drops.dart';
+import 'package:upgrade/application/home/composer_focus.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/features/home/prompt_bar.dart';
+import 'package:upgrade/features/plugins/plugin_board.dart';
+import 'package:upgrade/features/plugins/plugin_management_screen.dart';
+import 'package:upgrade/features/plugins/plugin_page.dart';
+import 'package:upgrade/features/settings/plugins_panel.dart';
+import 'package:upgrade/platform/plugins/index.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,21 +40,21 @@ Future<void> _drain(WidgetTester tester) async {
 
 PluginPackage _schedules() => PluginPackage(
   manifest: PluginManifest.parse(
-    File('plugins/agent-schedules/striked.plugin.toml').readAsStringSync(),
+    File('plugins/agent-schedules/upgrade.plugin.toml').readAsStringSync(),
   ),
   source: File('plugins/agent-schedules/main.luau').readAsStringSync(),
-  origin: 'bundled:striked.agent-schedules',
+  origin: 'bundled:upgrade.agent-schedules',
   revision: '1.0.0',
 );
 
 PluginPackage _projectsPageTitled(String title) {
-  final toml = File('lib/builtin_plugins/projects/striked.plugin.toml')
+  final toml = File('lib/builtin_plugins/projects/upgrade.plugin.toml')
       .readAsStringSync()
       .replaceFirst('title = "Projects"', 'title = "$title"');
   return PluginPackage(
     manifest: PluginManifest.parse(toml, allowNative: true),
     source: File('lib/builtin_plugins/projects/main.dart').readAsStringSync(),
-    origin: 'bundled:striked.projects',
+    origin: 'bundled:upgrade.projects',
     revision: '1.0.0',
   );
 }
@@ -85,7 +85,7 @@ class _RefusingPlugins extends _FixturePlugins {
   _RefusingPlugins(super.catalog);
   @override
   Future<void> setEnabled(String id, bool enabled) async =>
-      throw const PluginException('Projects needs striked.drops ^1.0.0');
+      throw const PluginException('Projects needs upgrade.drops ^1.0.0');
 }
 
 class _InstallingPlugins extends _FixturePlugins {
@@ -105,7 +105,7 @@ class _InstallingPlugins extends _FixturePlugins {
 PluginPackage _workspace() {
   const dir = 'plugins/templates/phone-card';
   final manifest = PluginManifest.parse(
-    File('$dir/striked.plugin.toml').readAsStringSync(),
+    File('$dir/upgrade.plugin.toml').readAsStringSync(),
   );
   return PluginPackage(
     manifest: manifest,
@@ -186,12 +186,12 @@ void main() {
     await _drain(tester);
 
     expect(find.text('[ INSTALLED ]'), findsOneWidget);
-    expect(find.byKey(const ValueKey('node-striked.drops')), findsOneWidget);
-    expect(find.byKey(const ValueKey('node-striked.projects')), findsOneWidget);
-    expect(find.byKey(const ValueKey('node-striked.agents')), findsOneWidget);
+    expect(find.byKey(const ValueKey('node-upgrade.drops')), findsOneWidget);
+    expect(find.byKey(const ValueKey('node-upgrade.projects')), findsOneWidget);
+    expect(find.byKey(const ValueKey('node-upgrade.agents')), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await openPluginDetails(tester, 'striked.drops', _drain);
+    await openPluginDetails(tester, 'upgrade.drops', _drain);
 
     expect(find.text('[ PREVIEW ]'), findsOneWidget);
     expect(find.text('[ WHERE IT SITS ]'), findsOneWidget);
@@ -201,9 +201,9 @@ void main() {
     expect(tester.takeException(), isNull);
 
     final captureLayout = find.byKey(
-      const ValueKey('layout-striked.drops:widget:capture'),
+      const ValueKey('layout-upgrade.drops:widget:capture'),
     );
-    await adjustPlacement(tester, 'striked.drops:widget:capture', _drain);
+    await adjustPlacement(tester, 'upgrade.drops:widget:capture', _drain);
     final remove = find.descendant(
       of: captureLayout,
       matching: find.text('OFF'),
@@ -242,7 +242,7 @@ void main() {
     container.read(composerSummaryProvider.notifier).report(home, 'HOME');
     final focus = container.read(composerFocusRequestProvider);
 
-    await openPluginDetails(tester, 'striked.prompt', _drain);
+    await openPluginDetails(tester, 'upgrade.prompt', _drain);
     final specimen = find.byKey(const ValueKey('specimen-prompt'));
     expect(
       find.descendant(of: specimen, matching: find.text('LIVE')),
@@ -287,7 +287,7 @@ void main() {
         .read(freshDropsProvider.notifier)
         .add(DropSelection.homeScope, 'drop-1');
 
-    await openPluginDetails(tester, 'striked.drops', _drain);
+    await openPluginDetails(tester, 'upgrade.drops', _drain);
     final specimen = find.byKey(const ValueKey('specimen-drops'));
     expect(
       find.descendant(of: specimen, matching: find.text('LIVE')),
@@ -361,7 +361,7 @@ void main() {
     );
     await _drain(tester);
 
-    await openPluginDetails(tester, 'striked.projects', _drain);
+    await openPluginDetails(tester, 'upgrade.projects', _drain);
 
     final enable = find.widgetWithText(ActionBlock, 'ENABLE');
     await tester.ensureVisible(enable);
@@ -369,9 +369,9 @@ void main() {
     await tester.tap(enable);
     await _drain(tester);
 
-    final failure = find.text('Projects needs striked.drops ^1.0.0');
+    final failure = find.text('Projects needs upgrade.drops ^1.0.0');
     expect(failure, findsOneWidget);
-    expect(tester.widget<Text>(failure).style?.color, StrikedColors.danger);
+    expect(tester.widget<Text>(failure).style?.color, UpgradeColors.danger);
     expect(
       tester.getTopLeft(failure).dy,
       greaterThanOrEqualTo(tester.getBottomLeft(enable).dy),
@@ -406,7 +406,7 @@ void main() {
     await _drain(tester);
     expect(find.text('0 ON · 3 OFF'), findsOneWidget);
 
-    await openPluginDetails(tester, 'striked.projects', _drain);
+    await openPluginDetails(tester, 'upgrade.projects', _drain);
     expect(find.text('ALSO TURNS ON DROPS'), findsOneWidget);
     final enable = find.widgetWithText(ActionBlock, 'ENABLE');
     await tester.ensureVisible(enable);
@@ -424,7 +424,7 @@ void main() {
     await _drain(tester);
     await tester.tap(again);
     await _drain(tester);
-    expect(plugins.switched, ['striked.drops', 'striked.projects']);
+    expect(plugins.switched, ['upgrade.drops', 'upgrade.projects']);
     expect(find.text('2 ON · 1 OFF'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
@@ -445,7 +445,7 @@ void main() {
     );
     await _drain(tester);
 
-    await openPluginDetails(tester, 'striked.drops', _drain);
+    await openPluginDetails(tester, 'upgrade.drops', _drain);
     expect(find.text('ALSO TURNS OFF PROJECTS'), findsOneWidget);
 
     final disable = find.widgetWithText(ActionBlock, 'DISABLE');
@@ -459,7 +459,7 @@ void main() {
 
     await tester.tap(again);
     await _drain(tester);
-    expect(plugins.switched, ['striked.projects', 'striked.drops']);
+    expect(plugins.switched, ['upgrade.projects', 'upgrade.drops']);
     expect(find.text('1 ON · 2 OFF'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
@@ -489,14 +489,14 @@ void main() {
     await _drain(tester);
     expect(
       find.descendant(
-        of: find.byKey(const ValueKey('node-striked.projects')),
+        of: find.byKey(const ValueKey('node-upgrade.projects')),
         matching: find.text('LOCKED'),
       ),
       findsOneWidget,
     );
     expect(find.text('0 ON · 0 OFF · 1 BLOCKED'), findsOneWidget);
 
-    final missing = find.byKey(const ValueKey('node-striked.drops'));
+    final missing = find.byKey(const ValueKey('node-upgrade.drops'));
     expect(
       find.descendant(of: missing, matching: find.text('MISSING')),
       findsOneWidget,

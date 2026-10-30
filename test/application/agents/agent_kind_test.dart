@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agent_kind.dart';
-import 'package:striked/application/alerts/alerts.dart';
-import 'package:striked/features/home/agent_mark.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/alerts/alerts.dart';
+import 'package:upgrade/features/home/agent_mark.dart';
 
 void main() {
   group('the factory', () {

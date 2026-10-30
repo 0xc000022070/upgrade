@@ -5,8 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/ascii/atlas.dart';
-import 'package:striked/design/ascii/grid.dart';
+import 'package:upgrade/design/ascii/atlas.dart';
+import 'package:upgrade/design/ascii/grid.dart';
 
 class AsciiMascot extends StatefulWidget {
   const AsciiMascot({

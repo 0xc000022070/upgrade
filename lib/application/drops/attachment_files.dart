@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/features/photos/photo_cut.dart';
-import 'package:striked/features/photos/photo_pick.dart';
-import 'package:striked/features/tasks/image_input.dart';
-import 'package:striked/platform/plugins/access.dart';
-import 'package:striked/application/providers.dart';
+import 'package:upgrade/features/photos/photo_cut.dart';
+import 'package:upgrade/features/photos/photo_pick.dart';
+import 'package:upgrade/features/tasks/image_input.dart';
+import 'package:upgrade/platform/plugins/access.dart';
+import 'package:upgrade/application/providers.dart';
 
 final attachmentFilesProvider = Provider<AttachmentFiles>((ref) {
   final owner = ref.watch(attachmentDataGateProvider);

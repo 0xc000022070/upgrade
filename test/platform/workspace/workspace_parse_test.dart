@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/platform/shell/remote_shell.dart';
-import 'package:striked/platform/workspace/workspace_commands.dart';
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/workspace/workspace_commands.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 /// Every one of these is a real answer from a real command, pasted whole: porcelain
 /// formats are positional, and a hand-built tidy line does not catch a miscounted field.
@@ -22,11 +22,11 @@ u UU N... 100644 100644 100644 100644 fff ggg hhh pubspec.yaml
 ''';
 
 const _worktrees = '''
-worktree /home/luis/src/striked
+worktree /home/luis/src/upgrade
 HEAD 1a2b3c4d
 branch refs/heads/main
 
-worktree /home/luis/src/striked-fix
+worktree /home/luis/src/upgrade-fix
 HEAD 5e6f7a8b
 branch refs/heads/fix/paths
 
@@ -91,11 +91,11 @@ void main() {
     test('each record becomes a row with a short branch', () {
       final rows = parseWorktrees(_worktrees);
       expect(rows.map((w) => w.directory), [
-        '/home/luis/src/striked',
-        '/home/luis/src/striked-fix',
+        '/home/luis/src/upgrade',
+        '/home/luis/src/upgrade-fix',
       ]);
       expect(rows.map((w) => w.branch), ['main', 'fix/paths']);
-      expect(rows.map((w) => w.label), ['striked', 'striked-fix']);
+      expect(rows.map((w) => w.label), ['upgrade', 'upgrade-fix']);
     });
 
     test('the last record needs no trailing blank line', () {
@@ -288,7 +288,7 @@ void main() {
 
   group('the overview from inside the checkout', () {
     test('a workspace below the top reads every path from the top', () async {
-      final root = await Directory.systemTemp.createTemp('striked-ws');
+      final root = await Directory.systemTemp.createTemp('upgrade-ws');
       addTearDown(() => root.delete(recursive: true));
       Future<ProcessResult> git(List<String> args) => Process.run(
         'git',
@@ -321,7 +321,7 @@ void main() {
     test(
       'the shell frames each side, absent and large ones included',
       () async {
-        final root = await Directory.systemTemp.createTemp('striked-ws');
+        final root = await Directory.systemTemp.createTemp('upgrade-ws');
         addTearDown(() => root.delete(recursive: true));
         Future<ProcessResult> git(List<String> args) => Process.run(
           'git',
@@ -368,7 +368,7 @@ void main() {
     test(
       'a commit reads its parent, and a root commit has no old side',
       () async {
-        final root = await Directory.systemTemp.createTemp('striked-ws');
+        final root = await Directory.systemTemp.createTemp('upgrade-ws');
         addTearDown(() => root.delete(recursive: true));
         Future<ProcessResult> git(List<String> args) => Process.run(
           'git',
@@ -698,17 +698,17 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
   group('the commands', () {
     test('every one is a single sh -c', () {
       final commands = [
-        WorkspaceCommands.overview('~/src/striked'),
-        WorkspaceCommands.fileDiff('~/src/striked', 'lib/main.dart'),
-        WorkspaceCommands.newFileDiff('~/src/striked', 'scratch.txt'),
-        WorkspaceCommands.listing('~/src/striked', 'lib'),
-        WorkspaceCommands.file('~/src/striked', 'lib/main.dart'),
-        WorkspaceCommands.commits('~/src/striked'),
-        WorkspaceCommands.commitFiles('~/src/striked', '1a2b3c'),
-        WorkspaceCommands.commitDiff('~/src/striked', '1a2b3c', 'a.dart'),
-        WorkspaceCommands.repository('~/src/striked'),
-        WorkspaceCommands.sourceDiff('~/src/striked'),
-        WorkspaceCommands.commitDiffAll('~/src/striked', '1a2b3c'),
+        WorkspaceCommands.overview('~/src/upgrade'),
+        WorkspaceCommands.fileDiff('~/src/upgrade', 'lib/main.dart'),
+        WorkspaceCommands.newFileDiff('~/src/upgrade', 'scratch.txt'),
+        WorkspaceCommands.listing('~/src/upgrade', 'lib'),
+        WorkspaceCommands.file('~/src/upgrade', 'lib/main.dart'),
+        WorkspaceCommands.commits('~/src/upgrade'),
+        WorkspaceCommands.commitFiles('~/src/upgrade', '1a2b3c'),
+        WorkspaceCommands.commitDiff('~/src/upgrade', '1a2b3c', 'a.dart'),
+        WorkspaceCommands.repository('~/src/upgrade'),
+        WorkspaceCommands.sourceDiff('~/src/upgrade'),
+        WorkspaceCommands.commitDiffAll('~/src/upgrade', '1a2b3c'),
       ];
       for (final command in commands) {
         expect(command, startsWith("sh -c '"));
@@ -717,7 +717,7 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
     });
 
     test('the overview asks five questions and marks the joins', () {
-      final command = WorkspaceCommands.overview('~/src/striked');
+      final command = WorkspaceCommands.overview('~/src/upgrade');
       expect(command, contains('status --porcelain=v2 --branch'));
       expect(command, contains('--untracked-files=all'));
       expect(command, contains('git worktree list --porcelain'));
@@ -740,7 +740,7 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
     });
 
     test('the untracked cap falls back when head cannot split on NUL', () {
-      final command = WorkspaceCommands.overview('~/src/striked');
+      final command = WorkspaceCommands.overview('~/src/upgrade');
       expect(command, contains('head -z -n 200'));
       expect(command, contains('perl -0ne'));
       expect(command, contains('cap() { cat; }'));
@@ -748,16 +748,16 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
     });
 
     test('a missing directory and a plain directory get their own codes', () {
-      final command = WorkspaceCommands.overview('~/src/striked');
+      final command = WorkspaceCommands.overview('~/src/upgrade');
       expect(command, contains('exit $workspaceNoDirectory'));
       expect(command, contains('exit $workspaceNoRepository'));
       expect(workspaceNoDirectory, isNot(workspaceNoRepository));
     });
 
     test('the checkout a directory is inside is what is asked for', () {
-      final command = WorkspaceCommands.repository('~/src/striked/lib');
+      final command = WorkspaceCommands.repository('~/src/upgrade/lib');
       expect(_script(command), contains('git rev-parse --show-toplevel'));
-      expect(_script(command), contains("cd ~/'src/striked/lib'"));
+      expect(_script(command), contains("cd ~/'src/upgrade/lib'"));
       expect(command, contains('exit $workspaceNoRepository'));
     });
 
@@ -806,16 +806,16 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
       // A registered directory is stored as the user typed it, so `~` reaches the host
       // unexpanded and quoted whole it is a directory nobody has.
       expect(
-        _script(WorkspaceCommands.overview('~/src/striked')),
-        contains("cd ~/'src/striked'"),
+        _script(WorkspaceCommands.overview('~/src/upgrade')),
+        contains("cd ~/'src/upgrade'"),
       );
       expect(
-        _script(WorkspaceCommands.listing('~/src/striked', 'lib')),
-        contains("cd ~/'src/striked/lib'"),
+        _script(WorkspaceCommands.listing('~/src/upgrade', 'lib')),
+        contains("cd ~/'src/upgrade/lib'"),
       );
       expect(
-        _script(WorkspaceCommands.file('~/src/striked', 'a.txt')),
-        contains("cd ~/'src/striked'"),
+        _script(WorkspaceCommands.file('~/src/upgrade', 'a.txt')),
+        contains("cd ~/'src/upgrade'"),
       );
     });
 
@@ -903,5 +903,5 @@ String _script(String command) {
 
 String _withoutEngine() => [
   for (final dir in Platform.environment['PATH']!.split(':'))
-    if (!File('$dir/strikedddd').existsSync()) dir,
+    if (!File('$dir/upgraded').existsSync()) dir,
 ].join(':');

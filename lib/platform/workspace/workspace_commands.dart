@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:striked/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
 
 /// `RS`, which git never writes: a marker made of ordinary characters would eventually
 /// be a line of somebody's diff.
@@ -188,11 +188,11 @@ abstract final class WorkspaceCommands {
     }
     return underSh(
       '${_enter(directory)}'
-      'if command -v strikedddd >/dev/null 2>&1 && '
+      'if command -v upgraded >/dev/null 2>&1 && '
       'case \$PWD in *\'"\'*|*\'\\\'*) false;; esac; then\n'
       '  a=${shellQuote(request)}\n'
       '  r=\$(printf \'{"service":"git/1","op":"diff","owner":"%s","args":{"directory":"%s",%s}\' '
-      '"\$(id -un)" "\$PWD" "\${a#\\{}" | strikedddd 2>/dev/null)\n'
+      '"\$(id -un)" "\$PWD" "\${a#\\{}" | upgraded 2>/dev/null)\n'
       '  case \$r in \'{"ok":true\'*) printf \'E\\n%s\' "\$r"; exit 0;; esac\n'
       'fi\n'
       "printf 'S\\n'\n"

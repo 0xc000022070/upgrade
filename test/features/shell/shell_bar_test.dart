@@ -2,11 +2,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/shell/bar_layout.dart';
-import 'package:striked/design/colors.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/features/shell/shell_bar.dart';
-import 'package:striked/platform/vnc/keysyms.dart';
+import 'package:upgrade/application/shell/bar_layout.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/features/shell/shell_bar.dart';
+import 'package:upgrade/platform/vnc/keysyms.dart';
 
 import '../../support/themed_app.dart';
 
@@ -116,10 +116,10 @@ Color? tintOf(WidgetTester tester, String label) => tester
     ?.color;
 
 Color iconTintOf(WidgetTester tester, String label) => tester
-    .widget<StrikedIcon>(
+    .widget<UpgradeIcon>(
       find.descendant(
         of: find.byKey(ValueKey('bar-$label')),
-        matching: find.byType(StrikedIcon),
+        matching: find.byType(UpgradeIcon),
       ),
     )
     .color;
@@ -197,11 +197,11 @@ void main() {
       tester,
     ) async {
       await pumpBar(tester);
-      expect(tintOf(tester, 'CTRL'), StrikedColors.textSecondary);
+      expect(tintOf(tester, 'CTRL'), UpgradeColors.textSecondary);
 
       await pumpBar(tester, sticky: {StickyModifier.ctrl});
-      expect(tintOf(tester, 'CTRL'), StrikedColors.accent);
-      expect(tintOf(tester, 'ALT'), StrikedColors.textSecondary);
+      expect(tintOf(tester, 'CTRL'), UpgradeColors.accent);
+      expect(tintOf(tester, 'ALT'), UpgradeColors.textSecondary);
     });
 
     testWidgets('tapping one asks for it, tapping it again asks it back', (
@@ -252,7 +252,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('CTRL'), findsNothing);
       expect(find.text('CTRL(x2)'), findsOneWidget);
-      expect(tintOf(tester, 'CTRL'), StrikedColors.accent);
+      expect(tintOf(tester, 'CTRL'), UpgradeColors.accent);
     });
 
     testWidgets('another drag down takes it to three and no further', (
@@ -377,7 +377,7 @@ void main() {
 
       expect(find.text('CTRL(∞)'), findsOneWidget);
       expect(find.text('CTRL'), findsNothing);
-      expect(tintOf(tester, 'CTRL'), StrikedColors.accent);
+      expect(tintOf(tester, 'CTRL'), UpgradeColors.accent);
     });
 
     testWidgets('a press over a counted cell drops the count', (tester) async {
@@ -632,10 +632,10 @@ void main() {
 
     testWidgets('FIND reads accent while the line is open', (tester) async {
       await pumpBar(tester);
-      expect(iconTintOf(tester, 'find'), StrikedColors.textSecondary);
+      expect(iconTintOf(tester, 'find'), UpgradeColors.textSecondary);
 
       await pumpBar(tester, searching: true);
-      expect(iconTintOf(tester, 'find'), StrikedColors.accent);
+      expect(iconTintOf(tester, 'find'), UpgradeColors.accent);
     });
   });
 
@@ -702,7 +702,7 @@ void main() {
     ) async {
       await pumpBar(tester);
       expect(find.bySemanticsLabel('ATTACH'), findsOneWidget);
-      expect(iconTintOf(tester, 'ATTACH'), StrikedColors.textSecondary);
+      expect(iconTintOf(tester, 'ATTACH'), UpgradeColors.textSecondary);
     });
 
     testWidgets('ATTACH reads accent while held and opens the sheet', (
@@ -710,7 +710,7 @@ void main() {
     ) async {
       final record = await pumpBar(tester, clipCount: 3);
 
-      expect(iconTintOf(tester, 'ATTACH'), StrikedColors.accent);
+      expect(iconTintOf(tester, 'ATTACH'), UpgradeColors.accent);
       expect(find.textContaining('3'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('bar-ATTACH')));
       await tester.pump();

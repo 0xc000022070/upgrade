@@ -5,17 +5,17 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/shell/host_clipboard.dart';
-import 'package:striked/platform/ssh/connection_supervisor.dart';
-import 'package:striked/platform/ssh/host_files.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/workspace/workspace_commands.dart';
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/shell/host_clipboard.dart';
+import 'package:upgrade/platform/ssh/connection_supervisor.dart';
+import 'package:upgrade/platform/ssh/host_files.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/workspace/workspace_commands.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
-export 'package:striked/platform/ssh/host_files.dart'
+export 'package:upgrade/platform/ssh/host_files.dart'
     show
         FileBody,
         FileWrite,
@@ -24,7 +24,7 @@ export 'package:striked/platform/ssh/host_files.dart'
         stoppedFailure,
         uploadWidth,
         uploadsSharing;
-export 'package:striked/platform/workspace/workspace_model.dart'
+export 'package:upgrade/platform/workspace/workspace_model.dart'
     show DirEntry, DirEntryKind;
 
 final class HostFilesFailure implements Exception {

@@ -1,22 +1,22 @@
 # Hello card
 
-A phone-only Striked plugin: one Home card, drawn from Luau, with no host access.
+A phone-only Upgrade plugin: one Home card, drawn from Luau, with no host access.
 
 ```
-striked.plugin.toml   manifest: id, ui_api 2, the widget and its sizes
+upgrade.plugin.toml   manifest: id, ui_api 2, the widget and its sizes
 main.luau             entry: state, events, and which function draws each card
 lib/card.luau         the card tree
 fixtures/*.json       {widget, events, state?}: what a preview replays
 ```
 
 No checkout at hand? On the phone, TOOLS > DEVELOP PLUGIN > NEW WORKSPACE writes
-this template to an empty folder on a host, with `AGENTS.md`, `striked-sdk.json`
-and `.striked/wait.sh`, and starts the preview. A coding agent in that folder
-edits, runs `sh .striked/wait.sh` and reads the phone's check.
+this template to an empty folder on a host, with `AGENTS.md`, `upgrade-sdk.json`
+and `.upgrade/wait.sh`, and starts the preview. A coding agent in that folder
+edits, runs `sh .upgrade/wait.sh` and reads the phone's check.
 
 ## Commands
 
-Run from a Striked checkout. `just plugin` is `dart run tool/striked_plugin.dart`.
+Run from a Upgrade checkout. `just plugin` is `dart run tool/upgrade_plugin.dart`.
 
 | command | does | exit |
 |---|---|---|
@@ -45,7 +45,7 @@ Run from a Striked checkout. `just plugin` is `dart run tool/striked_plugin.dart
     "ui_api": 2
   }],
   "artifacts": {"revision": "8e3b74784ac2", "renders": []},
-  "context": {"striked_api": "2.1.0", "ui_api": 2, "manifest_version": 5}
+  "context": {"upgrade_api": "2.1.0", "ui_api": 2, "manifest_version": 5}
 }
 ```
 
@@ -64,7 +64,7 @@ and renders it with the real card renderer. Nothing is installed.
 3. Edit, then sync again. The phone polls every two seconds and checks each new
    revision. If a revision fails, the phone keeps the last good one on screen and
    lists the diagnostics.
-4. The phone writes its envelope to `<dir>/.striked/preview/latest.json` on the
+4. The phone writes its envelope to `<dir>/.upgrade/preview/latest.json` on the
    host. `just plugin-sync <dir>` copies it back, waiting up to six seconds for
    the phone to answer the revision it just uploaded (the whole six when nothing
    changed, since the phone writes once per revision); then run

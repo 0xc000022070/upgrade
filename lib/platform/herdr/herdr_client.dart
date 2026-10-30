@@ -1,4 +1,4 @@
-export 'package:striked/platform/ssh/host_failure.dart';
+export 'package:upgrade/platform/ssh/host_failure.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -7,23 +7,23 @@ import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:striked/application/agents/agent_kind.dart';
-import 'package:striked/application/agents/agent_state.dart';
-import 'package:striked/application/alerts/pin_alerts.dart';
-import 'package:striked/platform/herdr/herdr_socket.dart';
-import 'package:striked/platform/ssh/host_failure.dart';
-import 'package:striked/platform/ssh/host_failure.dart'
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/platform/herdr/herdr_socket.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart'
     as failures
     show isLookupFailure;
-import 'package:striked/platform/ssh/exec_tracker.dart';
-import 'package:striked/platform/ssh/connection_supervisor.dart'
+import 'package:upgrade/platform/ssh/exec_tracker.dart';
+import 'package:upgrade/platform/ssh/connection_supervisor.dart'
     show ExecResult;
-import 'package:striked/platform/ssh/host_files.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/shell/remote_shell.dart';
-import 'package:striked/platform/shell/shell_launch.dart';
-import 'package:striked/platform/ssh/ssh_settle.dart';
+import 'package:upgrade/platform/ssh/host_files.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/shell_launch.dart';
+import 'package:upgrade/platform/ssh/ssh_settle.dart';
 
 enum AgentSource { herdr, engine }
 
@@ -302,7 +302,7 @@ abstract final class HerdrRequests {
 
   /// A flag and not a value: every generated rc assigns `HISTFILE` outright after the
   /// environment is read, so only the rc can undo the rc, and it needs a name to key on.
-  static const paneMark = {'STRIKED_PANE': '1'};
+  static const paneMark = {'UPGRADE_PANE': '1'};
 
   static const HerdrRequest agentList = (method: 'agent.list', params: {});
 
@@ -535,7 +535,7 @@ class HerdrSession {
     Duration? within,
   }) async {
     final result = await _runWithStdin(
-      'strikedddd',
+      'upgraded',
       Uint8List.fromList(utf8.encode(jsonEncode(request))),
       within: within,
     );

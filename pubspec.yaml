@@ -1,4 +1,4 @@
-name: striked
+name: upgrade
 description: Local-first personal control plane.
 publish_to: 'none'
 
@@ -8,12 +8,12 @@ environment:
   sdk: ^3.13.0
 
 dependencies:
-  striked_luau:
-    path: packages/striked_luau
-  striked_highlight:
-    path: packages/striked_highlight
-  striked_shade:
-    path: packages/striked_shade
+  upgrade_luau:
+    path: packages/upgrade_luau
+  upgrade_highlight:
+    path: packages/upgrade_highlight
+  upgrade_shade:
+    path: packages/upgrade_shade
   crypto: ^3.0.7
   pub_semver: ^2.2.1
   toml: ^0.18.0
@@ -70,21 +70,21 @@ flutter:
   uses-material-design: true
 
   assets:
-    - lib/builtin_plugins/agents/striked.plugin.toml
+    - lib/builtin_plugins/agents/upgrade.plugin.toml
     - lib/builtin_plugins/agents/main.dart
-    - lib/builtin_plugins/drops/striked.plugin.toml
+    - lib/builtin_plugins/drops/upgrade.plugin.toml
     - lib/builtin_plugins/drops/main.dart
-    - lib/builtin_plugins/projects/striked.plugin.toml
+    - lib/builtin_plugins/projects/upgrade.plugin.toml
     - lib/builtin_plugins/projects/main.dart
-    - lib/builtin_plugins/prompt/striked.plugin.toml
+    - lib/builtin_plugins/prompt/upgrade.plugin.toml
     - lib/builtin_plugins/prompt/main.dart
-    - plugins/agent-schedules/striked.plugin.toml
+    - plugins/agent-schedules/upgrade.plugin.toml
     - plugins/agent-schedules/main.luau
-    - plugins/board/striked.plugin.toml
+    - plugins/board/upgrade.plugin.toml
     - plugins/board/main.luau
-    - plugins/kanban/striked.plugin.toml
+    - plugins/kanban/upgrade.plugin.toml
     - plugins/kanban/main.luau
-    - plugins/templates/phone-card/striked.plugin.toml
+    - plugins/templates/phone-card/upgrade.plugin.toml
     - plugins/templates/phone-card/main.luau
     - plugins/templates/phone-card/lib/card.luau
     - plugins/templates/phone-card/fixtures/mounted.json

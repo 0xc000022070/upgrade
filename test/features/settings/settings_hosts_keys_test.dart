@@ -7,17 +7,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/key_repository.dart';
-import 'package:striked/design/colors.dart';
-import 'package:striked/design/components/solid_action_bar.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/features/settings/host_form_screen.dart';
-import 'package:striked/features/settings/key_detail_screen.dart';
-import 'package:striked/platform/ssh/keys.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/features/settings/host_form_screen.dart';
+import 'package:upgrade/features/settings/key_detail_screen.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -34,7 +34,7 @@ bool keyChosen(WidgetTester tester, String id) => find
     .descendant(
       of: find.byKey(ValueKey('host-key-$id')),
       matching: find.byWidgetPredicate(
-        (widget) => widget is StrikedIcon && widget.icon == StrikedIcons.check,
+        (widget) => widget is UpgradeIcon && widget.icon == UpgradeIcons.check,
       ),
     )
     .evaluate()
@@ -101,7 +101,7 @@ void main() {
   });
 
   test('the install line adds the key once and keeps what was there', () async {
-    final home = await Directory.systemTemp.createTemp('striked-install-');
+    final home = await Directory.systemTemp.createTemp('upgrade-install-');
     addTearDown(() => home.delete(recursive: true));
     final file = File('${home.path}/.ssh/authorized_keys');
     await file.parent.create();
@@ -145,7 +145,7 @@ void main() {
 
     expect(find.text('DELETE'), findsNothing);
     final delete = tester.widget<Text>(find.text('USED BY 1 HOST'));
-    expect(delete.style?.color, StrikedColors.textDisabled);
+    expect(delete.style?.color, UpgradeColors.textDisabled);
     await tester.tap(find.text('USED BY 1 HOST'));
     await tester.pump();
     expect(find.text('DELETE KEY?'), findsNothing);

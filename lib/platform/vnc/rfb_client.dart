@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:striked/platform/vnc/byte_reader.dart';
-import 'package:striked/platform/vnc/apple_auth.dart';
-import 'package:striked/platform/vnc/framebuffer.dart';
-import 'package:striked/platform/vnc/rect_encoding.dart';
-import 'package:striked/platform/vnc/rfb_messages.dart';
-import 'package:striked/platform/vnc/vnc_auth.dart';
-import 'package:striked/platform/vnc/vnc_failure.dart';
-import 'package:striked/platform/vnc/zrle.dart';
+import 'package:upgrade/platform/vnc/byte_reader.dart';
+import 'package:upgrade/platform/vnc/apple_auth.dart';
+import 'package:upgrade/platform/vnc/framebuffer.dart';
+import 'package:upgrade/platform/vnc/rect_encoding.dart';
+import 'package:upgrade/platform/vnc/rfb_messages.dart';
+import 'package:upgrade/platform/vnc/vnc_auth.dart';
+import 'package:upgrade/platform/vnc/vnc_failure.dart';
+import 'package:upgrade/platform/vnc/zrle.dart';
 
 /// It owns no socket, which is the whole reason `dart_rfb` is not used here: the stream
 /// this reads is a `direct-tcpip` channel inside the host's ssh connection.

@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/plugins/plugin_board.dart';
-import 'package:striked/platform/plugins/store.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/plugins/plugin_board.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 
 typedef PluginEdge = ({String from, String to});
 

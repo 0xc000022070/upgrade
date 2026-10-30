@@ -4,43 +4,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/send.dart';
-import 'package:striked/application/agents/send_queue.dart';
-import 'package:striked/application/drops/clipboard_text.dart';
-import 'package:striked/application/links/link_preview.dart';
-import 'package:striked/application/formatting.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/application/links/urls.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/attachment_repository.dart';
-import 'package:striked/data/repositories/dispatch_repository.dart';
-import 'package:striked/data/views.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/dot_spinner.dart';
-import 'package:striked/design/components/flash_block.dart';
-import 'package:striked/design/components/inline_confirm.dart';
-import 'package:striked/design/components/item_line.dart';
-import 'package:striked/design/components/keyboard_toolbar.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/platform/links/browser.dart';
-import 'package:striked/features/home/agent_mark.dart';
-import 'package:striked/application/drops/attachment_files.dart';
-import 'package:striked/features/photos/photo_review.dart';
-import 'package:striked/features/tasks/image_viewer.dart';
-import 'package:striked/features/tasks/item_pickers.dart';
-import 'package:striked/features/tasks/item_send.dart';
-import 'package:striked/features/tasks/item_tags.dart';
-import 'package:striked/features/tasks/link_preview_card.dart';
-import 'package:striked/features/tasks/link_text.dart';
-import 'package:striked/features/tasks/plugin_actions.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
+import 'package:upgrade/application/drops/clipboard_text.dart';
+import 'package:upgrade/application/links/link_preview.dart';
+import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/application/links/urls.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/repositories/dispatch_repository.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/flash_block.dart';
+import 'package:upgrade/design/components/inline_confirm.dart';
+import 'package:upgrade/design/components/item_line.dart';
+import 'package:upgrade/design/components/keyboard_toolbar.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/links/browser.dart';
+import 'package:upgrade/features/home/agent_mark.dart';
+import 'package:upgrade/application/drops/attachment_files.dart';
+import 'package:upgrade/features/photos/photo_review.dart';
+import 'package:upgrade/features/tasks/image_viewer.dart';
+import 'package:upgrade/features/tasks/item_pickers.dart';
+import 'package:upgrade/features/tasks/item_send.dart';
+import 'package:upgrade/features/tasks/item_tags.dart';
+import 'package:upgrade/features/tasks/link_preview_card.dart';
+import 'package:upgrade/features/tasks/link_text.dart';
+import 'package:upgrade/features/tasks/plugin_actions.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
 
 Future<void> openItemSheet(BuildContext context, String taskId) {
   return showPanelSheet<void>(
@@ -295,7 +295,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           title: 'MOVE TO',
           affordance: PanelAffordance(
             'BACK',
-            icon: StrikedIcons.back,
+            icon: UpgradeIcons.back,
             onTap: () => setState(() => _mode = const _Item()),
           ),
           children: [
@@ -310,7 +310,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           title: 'GROUP WITH',
           affordance: PanelAffordance(
             'BACK',
-            icon: StrikedIcons.back,
+            icon: UpgradeIcons.back,
             onTap: () => setState(() => _mode = const _Item()),
           ),
           children: [PairPickerBody(taskId: widget.taskId, onPicked: _pair)],
@@ -326,7 +326,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           title: 'PROMPT',
           affordance: PanelAffordance(
             'BACK',
-            icon: StrikedIcons.back,
+            icon: UpgradeIcons.back,
             onTap: () {
               _promptFocus.unfocus();
               setState(() => _mode = const _Item());
@@ -712,11 +712,11 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
                 onTap: () => tasks.setDone(task.id, !task.done),
               ),
             ],
-      child: StrikedField(
+      child: UpgradeField(
         controller: _field,
         focusNode: _focus,
         style: context.tokens.rowTitleLead,
-        maxLines: StrikedField.bodyLines,
+        maxLines: UpgradeField.bodyLines,
         contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
         onSubmitted: (_) => _submit(),
       ),
@@ -736,14 +736,14 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          StrikedField(
+          UpgradeField(
             controller: _promptField,
             focusNode: _promptFocus,
             autofocus: true,
             style: context.tokens.value,
             hint: 'what the agent is to do',
-            minLines: StrikedField.bodyLines,
-            maxLines: StrikedField.bodyLines,
+            minLines: UpgradeField.bodyLines,
+            maxLines: UpgradeField.bodyLines,
             contentPadding: const EdgeInsets.symmetric(vertical: Spacing.md),
           ),
           const SheetRule(),

@@ -1,6 +1,6 @@
-import 'package:striked/application/agents/send.dart';
-import 'package:striked/application/agents/send_queue.dart';
-import 'package:striked/platform/launcher_widget/launcher_widget.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
+import 'package:upgrade/platform/launcher_widget/launcher_widget.dart';
 
 String launcherSendId(PendingSend job) => job.id;
 

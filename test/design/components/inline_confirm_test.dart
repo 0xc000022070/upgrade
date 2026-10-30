@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/design/colors.dart';
-import 'package:striked/design/components/inline_confirm.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/inline_confirm.dart';
 
 import '../../support/themed_app.dart';
 
@@ -38,7 +38,7 @@ void main() {
     await pump(tester, () => confirmed++);
 
     expect(find.text('DELETE PROJECT'), findsOneWidget);
-    expect(toneOf(tester), StrikedColors.warning);
+    expect(toneOf(tester), UpgradeColors.warning);
 
     await tester.tap(find.byType(InlineConfirmBlock));
     await tester.pump();
@@ -46,7 +46,7 @@ void main() {
     expect(confirmed, 0);
     expect(find.text('CONFIRM DELETE'), findsOneWidget);
     expect(find.text('DELETE PROJECT'), findsNothing);
-    expect(toneOf(tester), StrikedColors.danger);
+    expect(toneOf(tester), UpgradeColors.danger);
   });
 
   testWidgets('the second tap inside the window commits once', (tester) async {
@@ -75,7 +75,7 @@ void main() {
     await tester.pump(const Duration(seconds: 3, milliseconds: 1));
 
     expect(find.text('DELETE PROJECT'), findsOneWidget);
-    expect(toneOf(tester), StrikedColors.warning);
+    expect(toneOf(tester), UpgradeColors.warning);
 
     await tester.tap(find.byType(InlineConfirmBlock));
     await tester.pump();

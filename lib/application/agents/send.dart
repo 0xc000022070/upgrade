@@ -3,16 +3,16 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/data/repositories/dispatch_repository.dart';
-import 'package:striked/data/repositories/path_repository.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/shell/remote_shell.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/ssh/keys.dart';
-import 'package:striked/application/agents/agent_kind.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/providers.dart';
+import 'package:upgrade/data/repositories/dispatch_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/providers.dart';
 
 typedef HerdrSend = Future<SpawnResult> Function({
   required String address,
@@ -32,9 +32,9 @@ typedef ReadImage = Future<Uint8List> Function(String path);
 
 Future<Uint8List> _readFile(String path) => File(path).readAsBytes();
 
-/// With `--dart-define=STRIKED_FAKE_SPAWN=true` the send never dials and answers with a
+/// With `--dart-define=UPGRADE_FAKE_SPAWN=true` the send never dials and answers with a
 /// pane id.
-const _fakeSpawn = bool.fromEnvironment('STRIKED_FAKE_SPAWN');
+const _fakeSpawn = bool.fromEnvironment('UPGRADE_FAKE_SPAWN');
 
 Future<SpawnResult> _fakeSend({
   required String address,
@@ -198,7 +198,7 @@ class Sender {
     String? model,
   }) async {
     final host = target.host;
-    void log(Object error) => debugPrint('striked.spawn ${host.name}: $error');
+    void log(Object error) => debugPrint('upgrade.spawn ${host.name}: $error');
 
     final privateKey = await keys.privateKey(host.keyId);
     checkActive?.call();

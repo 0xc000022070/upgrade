@@ -3,19 +3,19 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/key_repository.dart';
-import 'package:striked/platform/herdr/engine_agents.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/herdr/herdr_pool.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/ssh/host_key_dial.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/application/agents/agent_state.dart';
-import 'package:striked/application/agents/reason_lines.dart';
-import 'package:striked/application/alerts/watcher_backoff.dart';
-import 'package:striked/platform/ssh/keys.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/herdr/herdr_pool.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/ssh/host_key_dial.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/application/alerts/watcher_backoff.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
 
 enum AgentOutcomeKind {
   snapshot,
@@ -97,7 +97,7 @@ class HostOutcome {
     AgentOutcomeKind.unresolved => '$_word host name did not resolve',
     AgentOutcomeKind.keyRejected => 'check SSH key in MACHINES',
     AgentOutcomeKind.protocolMismatch => '$_word protocol is not supported',
-    AgentOutcomeKind.noEngine => 'install strikedddd on the host',
+    AgentOutcomeKind.noEngine => 'install upgraded on the host',
     AgentOutcomeKind.noHerdr => 'install herdr on the host',
     AgentOutcomeKind.hostKeyUnverified => 'verify host key in MACHINES',
     AgentOutcomeKind.hostKeyChanged => 'host key changed; verify in MACHINES',
@@ -613,7 +613,7 @@ Future<HostOutcome> _poll(
   );
 
   // debugPrint rather than dart:developer: only the former reaches logcat.
-  void log(Object error) => debugPrint('striked.herdr ${host.name}: $error');
+  void log(Object error) => debugPrint('upgrade.herdr ${host.name}: $error');
 
   final privateKey = await keys.privateKey(host.keyId);
   if (privateKey == null) {

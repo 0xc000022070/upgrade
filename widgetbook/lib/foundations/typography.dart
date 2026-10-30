@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/typography.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/typography.dart';
 
-import 'package:striked_widgetbook/frame.dart';
+import 'package:upgrade_widgetbook/frame.dart';
 
-Map<String, TextStyle> textRoles(StrikedTokens t) => {
+Map<String, TextStyle> textRoles(UpgradeTokens t) => {
   'screenTitle': t.screenTitle,
   'breadcrumb': t.breadcrumb,
   'panelHeader': t.panelHeader,

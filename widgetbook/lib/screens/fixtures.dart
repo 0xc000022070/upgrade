@@ -1,20 +1,20 @@
 import 'dart:async';
 
-import 'package:striked/application/agents/agent_usage.dart';
-import 'package:striked/application/links/link_preview.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/features/devices/device_controllers.dart';
-import 'package:striked/features/devices/device_dock.dart';
-import 'package:striked/platform/devices/device_link.dart';
-import 'package:striked/platform/herdr/engine_agents.dart';
-import 'package:striked/platform/ssh/host_failure.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:upgrade/application/agents/agent_usage.dart';
+import 'package:upgrade/application/links/link_preview.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/features/devices/device_controllers.dart';
+import 'package:upgrade/features/devices/device_dock.dart';
+import 'package:upgrade/platform/devices/device_link.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 
 final fixedNow = DateTime(2026, 10, 18, 12);
 
 const hostVm = Host(
   id: 'fixture-vm',
-  name: 'STRIKED HOST VM',
+  name: 'UPGRADE HOST VM',
   address: '100.118.60.77',
   port: 2222,
   user: 'dev',
@@ -98,7 +98,7 @@ const hookInstalled = HookStatus(
   writable: true,
   entries: '''{
   "hooks": {
-    "Stop": [{ "hooks": [{ "type": "command", "command": "striked-engine hook stop" }] }]
+    "Stop": [{ "hooks": [{ "type": "command", "command": "upgrade-engine hook stop" }] }]
   }
 }''',
 );
@@ -109,7 +109,7 @@ const hookMissing = HookStatus(
   installed: false,
   writable: true,
   entries: '''[[hooks.stop]]
-command = "striked-engine hook stop"''',
+command = "upgrade-engine hook stop"''',
 );
 
 const hookDeclared = HookStatus(
@@ -119,13 +119,13 @@ const hookDeclared = HookStatus(
   writable: false,
   entries: '''{
   "hooks": {
-    "Stop": [{ "hooks": [{ "type": "command", "command": "striked-engine hook stop" }] }]
+    "Stop": [{ "hooks": [{ "type": "command", "command": "upgrade-engine hook stop" }] }]
   }
 }''',
 );
 
 const linkFull = LinkPreview(
-  url: 'https://github.com/0xc000022070/striked/pull/412',
+  url: 'https://github.com/0xc000022070/upgrade/pull/412',
   title: 'feat(shell): shorten reconnect waits for the tab in front',
   description:
       'The front tab retries on the short ladder; background tabs keep the '

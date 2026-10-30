@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:typed_data';
 
-import 'package:striked/platform/vnc/vnc_failure.dart';
+import 'package:upgrade/platform/vnc/vnc_failure.dart';
 
 /// RFB is a framed protocol read with a ruler and an ssh channel delivers packets, not
 /// frames. Every parser in this directory reads through this, so none holds a

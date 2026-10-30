@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 
-import 'package:striked/data/enums.dart';
+import 'package:upgrade/data/enums.dart';
 
 class Projects extends Table {
   TextColumn get id => text()();

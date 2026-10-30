@@ -1,18 +1,18 @@
 import 'package:flutter/widgets.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/design/components/field_panel.dart';
-import 'package:striked/design/components/meta.dart';
-import 'package:striked/design/components/striked_field.dart';
+import 'package:upgrade/design/components/field_panel.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
 
-import 'package:striked_widgetbook/components/knobs.dart';
-import 'package:striked_widgetbook/frame.dart';
+import 'package:upgrade_widgetbook/components/knobs.dart';
+import 'package:upgrade_widgetbook/frame.dart';
 
 enum _Transport { ssh, mosh }
 
 final inputComponents = [
   WidgetbookComponent(
-    name: 'StrikedField',
+    name: 'UpgradeField',
     useCases: [
       WidgetbookUseCase(
         name: 'Playground',
@@ -27,12 +27,12 @@ final inputComponents = [
             label: 'Max lines',
             initialValue: 1,
             min: 1,
-            max: StrikedField.bodyLines,
+            max: UpgradeField.bodyLines,
           );
           return Stage(
             children: [
               _Controlled(
-                builder: (controller) => StrikedField(
+                builder: (controller) => UpgradeField(
                   controller: controller,
                   hint: hint,
                   enabled: enabled,

@@ -1,21 +1,21 @@
 import 'package:flutter/widgets.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/close_target.dart';
-import 'package:striked/design/components/flash_block.dart';
-import 'package:striked/design/components/inline_confirm.dart';
-import 'package:striked/design/components/key_bar.dart';
-import 'package:striked/design/components/key_cell.dart';
-import 'package:striked/design/components/panel_text_action.dart';
-import 'package:striked/design/components/solid_action_bar.dart';
-import 'package:striked/design/components/toolbar_icon_action.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/close_target.dart';
+import 'package:upgrade/design/components/flash_block.dart';
+import 'package:upgrade/design/components/inline_confirm.dart';
+import 'package:upgrade/design/components/key_bar.dart';
+import 'package:upgrade/design/components/key_cell.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/design/components/toolbar_icon_action.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
-import 'package:striked_widgetbook/components/knobs.dart';
-import 'package:striked_widgetbook/frame.dart';
+import 'package:upgrade_widgetbook/components/knobs.dart';
+import 'package:upgrade_widgetbook/frame.dart';
 
 final actionComponents = [
   WidgetbookComponent(
@@ -217,7 +217,7 @@ final actionComponents = [
           children: [
             PanelTextAction(
               label: context.label('New'),
-              icon: _icon(context, StrikedIcons.add),
+              icon: _icon(context, UpgradeIcons.add),
               onTap: _noop,
             ),
           ],
@@ -238,7 +238,7 @@ final actionComponents = [
                 children: [
                   ToolbarIconAction(
                     label: context.label('Search'),
-                    icon: _icon(context, StrikedIcons.search),
+                    icon: _icon(context, UpgradeIcons.search),
                     onTap: _noop,
                   ),
                 ],
@@ -326,7 +326,7 @@ final actionComponents = [
               pinned: [
                 KeyCell(
                   label: 'KEYBOARD',
-                  icon: StrikedIcons.keyboard,
+                  icon: UpgradeIcons.keyboard,
                   onTap: _noop,
                 ),
               ],
@@ -359,10 +359,10 @@ final actionComponents = [
 
 void _noop() {}
 
-StrikedIcons _icon(BuildContext context, StrikedIcons initial) =>
+UpgradeIcons _icon(BuildContext context, UpgradeIcons initial) =>
     context.knobs.object.dropdown(
       label: 'Icon',
-      options: StrikedIcons.values,
+      options: UpgradeIcons.values,
       initialOption: initial,
       labelBuilder: (icon) => icon.slug,
     );

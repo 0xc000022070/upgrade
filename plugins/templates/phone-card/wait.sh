@@ -2,10 +2,10 @@
 # The phone reads the ask before the files and echoes it, so a result carrying
 # this ask covers every edit made before the script started.
 cd "$(dirname "$0")/.." || exit 2
-out=.striked/preview/latest.json
+out=.upgrade/preview/latest.json
 ask="$$-$(date +%s)"
-mkdir -p .striked
-printf '%s\n' "$ask" > .striked/ask.part && mv -f .striked/ask.part .striked/ask
+mkdir -p .upgrade
+printf '%s\n' "$ask" > .upgrade/ask.part && mv -f .upgrade/ask.part .upgrade/ask
 i=0
 while [ "$i" -lt 60 ]; do
     i=$((i + 1))

@@ -5,18 +5,18 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/shell/bar_layout.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/repositories/settings_repository.dart';
-import 'package:striked/design/components/key_bar.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/segment_switch.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/components/panel_text_action.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/platform/vnc/arming.dart';
-import 'package:striked/features/shell/shell_bar.dart';
+import 'package:upgrade/application/shell/bar_layout.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/design/components/key_bar.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/segment_switch.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/vnc/arming.dart';
+import 'package:upgrade/features/shell/shell_bar.dart';
 
 const _echoLength = 4;
 const _caretWidth = 2.0;
@@ -216,7 +216,7 @@ class _KeyBarSettingsBlockState extends ConsumerState<KeyBarSettingsBlock> {
           PanelTextAction(
             key: const ValueKey('key-bar-default'),
             label: layout.isHouse ? 'DEFAULT · IN USE' : 'BACK TO DEFAULT',
-            icon: StrikedIcons.sync,
+            icon: UpgradeIcons.sync,
             onTap: layout.isHouse ? null : () => _save(BarLayout.house),
           ),
         ],

@@ -6,7 +6,7 @@ import 'package:flterm/flterm.dart'
         TerminalProgress,
         TerminalProgressState;
 
-import 'package:striked/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
 
 enum ProgramState {
   idle,

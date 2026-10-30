@@ -1,23 +1,23 @@
 import 'package:flutter/widgets.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/design/ascii/grid.dart';
-import 'package:striked/design/components/ascii_background.dart';
-import 'package:striked/design/components/ascii_mascot.dart';
-import 'package:striked/design/components/dither_field.dart';
-import 'package:striked/design/components/meta.dart';
-import 'package:striked/design/effects/glitch.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/ascii/grid.dart';
+import 'package:upgrade/design/components/ascii_background.dart';
+import 'package:upgrade/design/components/ascii_mascot.dart';
+import 'package:upgrade/design/components/dither_field.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
-import 'package:striked_widgetbook/components/knobs.dart';
-import 'package:striked_widgetbook/frame.dart';
+import 'package:upgrade_widgetbook/components/knobs.dart';
+import 'package:upgrade_widgetbook/frame.dart';
 
 final graphicComponents = [
   WidgetbookComponent(
-    name: 'StrikedIcon',
+    name: 'UpgradeIcon',
     useCases: [
       WidgetbookUseCase(
         name: 'Playground',
@@ -30,8 +30,8 @@ final graphicComponents = [
                 child: _GlitchIcon(
                   icon: context.knobs.object.dropdown(
                     label: 'Icon',
-                    options: StrikedIcons.values,
-                    initialOption: StrikedIcons.hosts,
+                    options: UpgradeIcons.values,
+                    initialOption: UpgradeIcons.hosts,
                     labelBuilder: (icon) => icon.slug,
                   ),
                   size: context.knobs.double.slider(
@@ -171,7 +171,7 @@ class _GlitchIcon extends StatefulWidget {
     required this.signal,
   });
 
-  final StrikedIcons icon;
+  final UpgradeIcons icon;
   final double size;
   final Color color;
   final bool signal;
@@ -195,7 +195,7 @@ class _GlitchIconState extends State<_GlitchIcon> {
       behavior: HitTestBehavior.opaque,
       onTap: _glitch.fire,
       child: Center(
-        child: StrikedIcon(
+        child: UpgradeIcon(
           widget.icon,
           size: widget.size,
           color: widget.color,

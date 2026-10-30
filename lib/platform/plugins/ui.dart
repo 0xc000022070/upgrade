@@ -5,21 +5,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 
-import 'package:striked/design/components/bracket_label.dart';
-import 'package:striked/design/components/held_drag.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/field_panel.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/design/components/picker_row.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/status_tag.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/screen_scaffold.dart';
-import 'package:striked/platform/plugins/ui_tree.dart';
+import 'package:upgrade/design/components/bracket_label.dart';
+import 'package:upgrade/design/components/held_drag.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/field_panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/picker_row.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/status_tag.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
+import 'package:upgrade/platform/plugins/ui_tree.dart';
 
-export 'package:striked/platform/plugins/ui_tree.dart';
+export 'package:upgrade/platform/plugins/ui_tree.dart';
 
 void synchronizePluginFields(
   Map<String, Object?> values,
@@ -62,7 +62,7 @@ void synchronizePluginFields(
   }
 }
 
-Color pluginColor(StrikedTokens tokens, Object? value, [Color? fallback]) {
+Color pluginColor(UpgradeTokens tokens, Object? value, [Color? fallback]) {
   return switch (value) {
     'accent' => tokens.accent,
     'muted' => tokens.textMuted,
@@ -727,7 +727,7 @@ class _PluginDisclosureState extends State<_PluginDisclosure> {
 class _PluginCanvas extends CustomPainter {
   _PluginCanvas(this.commands, this.tokens) : signature = jsonEncode(commands);
   final List<Object?> commands;
-  final StrikedTokens tokens;
+  final UpgradeTokens tokens;
   final String signature;
   @override
   void paint(Canvas canvas, Size size) {

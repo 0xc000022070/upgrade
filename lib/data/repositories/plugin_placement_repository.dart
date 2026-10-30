@@ -4,12 +4,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart' show Characters;
 
-import 'package:striked/platform/plugins/contributions.dart';
-import 'package:striked/platform/plugins/serial.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/platform/plugins/serial.dart';
 
-const agentsCardId = 'striked.agents:widget:agents';
+const agentsCardId = 'upgrade.agents:widget:agents';
 
-const _legacyAgentsId = 'striked:home:agents';
+const _legacyAgentsId = 'upgrade:home:agents';
 
 const homeSpaceCount = 9;
 

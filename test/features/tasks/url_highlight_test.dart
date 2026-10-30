@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/links/urls.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/tasks/url_highlight_controller.dart';
+import 'package:upgrade/application/links/urls.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/tasks/url_highlight_controller.dart';
 
 import '../../support/themed_app.dart';
 

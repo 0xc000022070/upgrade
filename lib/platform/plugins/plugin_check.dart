@@ -1,18 +1,18 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
-import 'package:striked_luau/ui_sdk.dart';
+import 'package:upgrade_luau/ui_sdk.dart';
 import 'package:toml/toml.dart';
 
-import 'package:striked/platform/plugins/contributions.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/plugin_sdk.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked/platform/plugins/ui_tree.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/plugin_sdk.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/platform/plugins/ui_tree.dart';
 
-const pluginManifestFile = 'striked.plugin.toml';
-const pluginPreviewResult = '.striked/preview/latest.json';
-const pluginPreviewAsk = '.striked/ask';
+const pluginManifestFile = 'upgrade.plugin.toml';
+const pluginPreviewResult = '.upgrade/preview/latest.json';
+const pluginPreviewAsk = '.upgrade/ask';
 const maxWorkspaceFiles = 64;
 
 const maxWorkspaceFileKib = 256;
@@ -126,7 +126,7 @@ final class PluginCheck {
       ...artifacts,
     },
     'context': {
-      'striked_api': PluginManifest.apiVersion.toString(),
+      'upgrade_api': PluginManifest.apiVersion.toString(),
       'ui_api': pluginSdkUiApi,
       'manifest_version': PluginManifest.filesManifestVersion,
       if (manifest case final manifest?)
@@ -150,7 +150,7 @@ final class PluginDevSource {
     var mainAt = 0;
     for (final path in package.files.keys.toList()..sort()) {
       final module = path.substring(0, path.length - '.luau'.length);
-      final header = lines.indexOf('__striked_modules["$module"] = function()');
+      final header = lines.indexOf('__upgrade_modules["$module"] = function()');
       if (header < 0) continue;
       _segments.add((offset + header + 1, path));
       mainAt = header + 1 + package.files[path]!.split('\n').length + 1;
@@ -210,7 +210,7 @@ final class PluginDevSource {
 const _manifestFields = {
   'manifest version': 'manifest_version',
   'identifier': 'id',
-  'Striked API': 'striked_api',
+  'Upgrade API': 'upgrade_api',
   'default widget size': 'default_size',
   'widget size': 'sizes',
   'default widget location': 'default_location',
@@ -342,7 +342,7 @@ Future<PluginCheck> checkPluginWorkspace(
         expected: switch (field) {
           'runtime' => 'runtime kind "luau"',
           'ui_api' => 'ui_api 1 or 2',
-          'striked_api' => 'striked_api allowing ${PluginManifest.apiVersion}',
+          'upgrade_api' => 'upgrade_api allowing ${PluginManifest.apiVersion}',
           _ => 'manifest_version <= ${PluginManifest.filesManifestVersion}',
         },
         nextAction: 'Target the versions `docs` prints.',

@@ -1,4 +1,4 @@
-import 'package:striked/data/repositories/settings_repository.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
 
 enum PaneSeam {
   beside(

@@ -6,26 +6,26 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/navigation.dart';
-import 'package:striked/application/shell/path_scan.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/key_repository.dart';
-import 'package:striked/data/repositories/path_repository.dart';
-import 'package:striked/features/hosts/hosts_screen.dart';
-import 'package:striked/features/hosts/link_probes.dart';
-import 'package:striked/features/screen/screen_preview.dart';
-import 'package:striked/features/shell/session/shell_sessions.dart';
-import 'package:striked/platform/ssh/keys.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/links/link_probe.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/application/shell/path_scan.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/features/hosts/hosts_screen.dart';
+import 'package:upgrade/features/hosts/link_probes.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/links/link_probe.dart';
 
 import '../../support/fake_shell.dart';
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
 
-const _scanned = ['~/src/striked', '/srv/gate', '~/src/monolith'];
+const _scanned = ['~/src/upgrade', '/srv/gate', '~/src/monolith'];
 
 ManagedKey _key(String id) => ManagedKey(
   id: id,
@@ -63,7 +63,7 @@ void main() {
     hosts = DriftHostRepository(db);
     privateKeys = MemoryPrivateKeyStore();
     paths = DriftPathRepository(db);
-    root = Directory.systemTemp.createTempSync('striked-code');
+    root = Directory.systemTemp.createTempSync('upgrade-code');
     previews = ScreenPreviews(Directory('${root.path}/screens'));
     sessions = fakeShellSessions(FakeShellTransport()..stall = true);
     addTearDown(previews.dispose);
@@ -183,10 +183,10 @@ void main() {
     expect(find.text(shortPathLabel('~/src/monolith')), findsOneWidget);
 
     await tapText(tester, 'ADD');
-    await tapText(tester, shortPathLabel('~/src/striked'));
+    await tapText(tester, shortPathLabel('~/src/upgrade'));
     await tapText(tester, 'ADD 1');
 
-    expect(find.text(shortPathLabel('~/src/striked')), findsOneWidget);
+    expect(find.text(shortPathLabel('~/src/upgrade')), findsOneWidget);
     expect((await paths.listForHost('1')).length, 2);
 
     await unmount(tester);
@@ -199,12 +199,12 @@ void main() {
     await paths.add(
       hostId: '1',
       directory:
-          '~/src/${'a-parent-directory-far-too-long-to-fit' * 2}/striked',
+          '~/src/${'a-parent-directory-far-too-long-to-fit' * 2}/upgrade',
     );
     await open(tester);
     await toCode(tester);
 
-    expect(find.text('…/striked'), findsOneWidget);
+    expect(find.text('…/upgrade'), findsOneWidget);
     expect(find.text('NYX'), findsOneWidget);
 
     await unmount(tester);
@@ -234,13 +234,13 @@ void main() {
     expect(find.text('ROSE'), findsOneWidget);
     await tapText(tester, 'NYX');
 
-    await tapText(tester, shortPathLabel('~/src/striked'));
+    await tapText(tester, shortPathLabel('~/src/upgrade'));
     await tapText(tester, shortPathLabel('/srv/gate'));
     await tapText(tester, 'ADD 2');
 
     final registered = await paths.listForHost('1');
     expect(registered.map((path) => path.directory), [
-      '~/src/striked',
+      '~/src/upgrade',
       '/srv/gate',
     ]);
     expect(find.text('NYX'), findsNWidgets(2));
@@ -256,7 +256,7 @@ void main() {
     await toCode(tester);
 
     await tapText(tester, 'ADD');
-    expect(find.text(shortPathLabel('~/src/striked')), findsOneWidget);
+    expect(find.text(shortPathLabel('~/src/upgrade')), findsOneWidget);
 
     await unmount(tester);
   });
@@ -265,12 +265,12 @@ void main() {
     tester,
   ) async {
     await hosts.save(_host('1', 'nyx'));
-    await paths.add(hostId: '1', directory: '~/src/striked');
+    await paths.add(hostId: '1', directory: '~/src/upgrade');
     await open(tester);
     await toCode(tester);
 
     await tapText(tester, 'ADD');
-    expect(find.text(shortPathLabel('~/src/striked')), findsOneWidget);
+    expect(find.text(shortPathLabel('~/src/upgrade')), findsOneWidget);
     expect(find.text(shortPathLabel('/srv/gate')), findsOneWidget);
 
     await unmount(tester);
@@ -278,11 +278,11 @@ void main() {
 
   testWidgets('a long press re-points a row', (tester) async {
     await hosts.save(_host('1', 'nyx'));
-    final path = await paths.add(hostId: '1', directory: '~/src/striked');
+    final path = await paths.add(hostId: '1', directory: '~/src/upgrade');
     await open(tester);
     await toCode(tester);
 
-    await tester.longPress(find.text(shortPathLabel('~/src/striked')));
+    await tester.longPress(find.text(shortPathLabel('~/src/upgrade')));
     await ready(tester);
     await tapText(tester, 'RE-POINT');
     await tapText(tester, shortPathLabel('~/src/monolith'));
@@ -297,19 +297,19 @@ void main() {
 
   testWidgets('a long press removes a row', (tester) async {
     await hosts.save(_host('1', 'nyx'));
-    await paths.add(hostId: '1', directory: '~/src/striked');
+    await paths.add(hostId: '1', directory: '~/src/upgrade');
     await paths.add(hostId: '1', directory: '/srv/gate');
     await open(tester);
     await toCode(tester);
 
-    await tester.longPress(find.text(shortPathLabel('~/src/striked')));
+    await tester.longPress(find.text(shortPathLabel('~/src/upgrade')));
     await ready(tester);
     await tapText(tester, 'REMOVE');
 
     expect((await paths.listForHost('1')).map((p) => p.directory), [
       '/srv/gate',
     ]);
-    expect(find.text(shortPathLabel('~/src/striked')), findsNothing);
+    expect(find.text(shortPathLabel('~/src/upgrade')), findsNothing);
 
     await unmount(tester);
   });
@@ -333,14 +333,14 @@ void main() {
   testWidgets('rows are grouped by the host that holds them', (tester) async {
     await hosts.save(_host('1', 'nyx'));
     await hosts.save(_host('2', 'rose'));
-    await paths.add(hostId: '1', directory: '~/src/striked');
+    await paths.add(hostId: '1', directory: '~/src/upgrade');
     await paths.add(hostId: '2', directory: '/srv/gate');
     await open(tester);
     await toCode(tester);
 
     expect(find.text('NYX'), findsOneWidget);
     expect(find.text('ROSE'), findsOneWidget);
-    expect(find.text(shortPathLabel('~/src/striked')), findsOneWidget);
+    expect(find.text(shortPathLabel('~/src/upgrade')), findsOneWidget);
     expect(find.text(shortPathLabel('/srv/gate')), findsOneWidget);
 
     await unmount(tester);

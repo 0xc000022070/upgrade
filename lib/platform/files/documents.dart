@@ -1,11 +1,11 @@
 import 'package:flutter/services.dart';
 
-import 'package:striked/platform/bundle_cipher.dart';
+import 'package:upgrade/platform/bundle_cipher.dart';
 
 /// A platform without the picker — the desktop loop, the test harness — is a
 /// [BundleException] of [BundleFault.noPicker].
 abstract final class Documents {
-  static const _channel = MethodChannel('dev.luisnquin.striked/device');
+  static const _channel = MethodChannel('dev.luisnquin.upgrade/device');
 
   static Future<bool> save({
     required String name,

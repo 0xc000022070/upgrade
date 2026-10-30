@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
-import 'package:striked/data/project_icons.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/design/components/picker_row.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/projects/project_icon.dart';
+import 'package:upgrade/data/project_icons.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/picker_row.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/projects/project_icon.dart';
 
 class ProjectIconPicker extends StatelessWidget {
   const ProjectIconPicker({
@@ -97,8 +97,8 @@ class _Choice extends StatelessWidget {
             if (icon case final icon?)
               ProjectIcon(icon, size: IconSizes.hero, color: color)
             else
-              StrikedIcon(
-                StrikedIcons.close,
+              UpgradeIcon(
+                UpgradeIcons.close,
                 size: IconSizes.hero,
                 color: color,
               ),

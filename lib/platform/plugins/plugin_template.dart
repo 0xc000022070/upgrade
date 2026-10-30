@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:striked/platform/plugins/plugin_check.dart';
-import 'package:striked/platform/plugins/plugin_sdk.dart';
+import 'package:upgrade/platform/plugins/plugin_check.dart';
+import 'package:upgrade/platform/plugins/plugin_sdk.dart';
 
 const pluginTemplateDir = 'plugins/templates/phone-card';
 
@@ -13,10 +13,10 @@ const pluginTemplateFiles = {
   'fixtures/refreshed.json': 'fixtures/refreshed.json',
   'AGENTS.md': 'AGENTS.md',
   'CLAUDE.md': 'CLAUDE.md',
-  'wait.sh': '.striked/wait.sh',
+  'wait.sh': '.upgrade/wait.sh',
 };
 
-const pluginSdkFile = 'striked-sdk.json';
+const pluginSdkFile = 'upgrade-sdk.json';
 
 String pluginIdFor(String folder) {
   final slug = folder

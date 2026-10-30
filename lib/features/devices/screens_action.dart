@@ -1,11 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/design/components/toolbar_icon_action.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/features/devices/device_dock.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/design/components/toolbar_icon_action.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/devices/device_dock.dart';
 
 class ScreensAction extends ConsumerWidget {
   const ScreensAction({super.key});
@@ -25,7 +25,7 @@ class ScreensAction extends ConsumerWidget {
           child: ToolbarIconAction(
             key: const ValueKey('screens-action'),
             label: 'SCREENS',
-            icon: StrikedIcons.screens,
+            icon: UpgradeIcons.screens,
             onTap: dock.ask,
           ),
         );

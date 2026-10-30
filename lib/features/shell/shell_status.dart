@@ -1,11 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/platform/shell/shell_launch.dart';
-import 'package:striked/features/shell/sheets/launch_picker_sheet.dart';
-import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/shell/shell_launch.dart';
+import 'package:upgrade/features/shell/sheets/launch_picker_sheet.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
 
 const shellDotSize = 6.0;
 

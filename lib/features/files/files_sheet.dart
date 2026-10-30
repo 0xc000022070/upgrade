@@ -5,26 +5,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/agents.dart'
+import 'package:upgrade/application/agents/agents.dart'
     show hostsProvider, registeredHostProvider;
-import 'package:striked/application/files/host_file_link.dart';
-import 'package:striked/application/files/phone_inbox.dart';
-import 'package:striked/application/formatting.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/action_sheet.dart';
-import 'package:striked/design/components/dot_spinner.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/code/file_icons.dart';
-import 'package:striked/features/code/syntax.dart';
-import 'package:striked/features/files/host_transfers.dart';
-import 'package:striked/features/files/transfer_bar.dart' show TransferJobView;
-import 'package:striked/features/files/transfer_queue.dart';
-import 'package:striked/features/files/transfers.dart';
+import 'package:upgrade/application/files/host_file_link.dart';
+import 'package:upgrade/application/files/phone_inbox.dart';
+import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/action_sheet.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/code/file_icons.dart';
+import 'package:upgrade/features/code/syntax.dart';
+import 'package:upgrade/features/files/host_transfers.dart';
+import 'package:upgrade/features/files/transfer_bar.dart' show TransferJobView;
+import 'package:upgrade/features/files/transfer_queue.dart';
+import 'package:upgrade/features/files/transfers.dart';
 
 Future<void> showHostFiles(BuildContext context, Host host) async {
   final transfers = ProviderScope.containerOf(context).read(transfersProvider);

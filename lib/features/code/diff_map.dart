@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/platform/workspace/workspace_model.dart';
-import 'package:striked/features/code/diff_jump.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
+import 'package:upgrade/features/code/diff_jump.dart';
 
 typedef DiffStreak = ({int start, int end, DiffLineKind kind});
 
@@ -94,7 +94,7 @@ class _MapPainter extends CustomPainter {
   final List<DiffStreak> streaks;
   final int rows;
   final ScrollController scroll;
-  final StrikedTokens tokens;
+  final UpgradeTokens tokens;
 
   /// A single changed line in a file of thousands is a fraction of a pixel tall. It is
   /// drawn at the smallest height a thumb can be aimed at instead.

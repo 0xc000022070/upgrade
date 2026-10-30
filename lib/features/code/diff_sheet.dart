@@ -5,42 +5,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/path_repository.dart';
-import 'package:striked/data/repositories/settings_repository.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/design/components/section.dart';
-import 'package:striked/design/components/status_tag.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/layout.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/features/home/compose_sheet.dart';
-import 'package:striked/features/shell/sheets/shell_sheet.dart';
-import 'package:striked/platform/shell/remote_shell.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
-import 'package:striked/platform/workspace/workspace_commands.dart';
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/section.dart';
+import 'package:upgrade/design/components/status_tag.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/layout.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/home/compose_sheet.dart';
+import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/workspace/workspace_commands.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
-import 'package:striked/features/code/change_tree.dart';
-import 'package:striked/features/code/diff_jump.dart';
-import 'package:striked/features/code/diff_key.dart';
-import 'package:striked/features/code/diff_lists.dart';
-import 'package:striked/features/code/diff_map.dart';
-import 'package:striked/features/code/diff_outline.dart';
-import 'package:striked/features/code/diff_pane.dart';
-import 'package:striked/features/code/diff_patch.dart';
-import 'package:striked/features/code/diff_peek.dart';
-import 'package:striked/features/code/diff_read.dart';
-import 'package:striked/features/code/diff_session.dart';
-import 'package:striked/features/code/structural.dart';
-import 'package:striked/features/code/syntax.dart';
-import 'package:striked/features/code/workspace_controller.dart';
+import 'package:upgrade/features/code/change_tree.dart';
+import 'package:upgrade/features/code/diff_jump.dart';
+import 'package:upgrade/features/code/diff_key.dart';
+import 'package:upgrade/features/code/diff_lists.dart';
+import 'package:upgrade/features/code/diff_map.dart';
+import 'package:upgrade/features/code/diff_outline.dart';
+import 'package:upgrade/features/code/diff_pane.dart';
+import 'package:upgrade/features/code/diff_patch.dart';
+import 'package:upgrade/features/code/diff_peek.dart';
+import 'package:upgrade/features/code/diff_read.dart';
+import 'package:upgrade/features/code/diff_session.dart';
+import 'package:upgrade/features/code/structural.dart';
+import 'package:upgrade/features/code/syntax.dart';
+import 'package:upgrade/features/code/workspace_controller.dart';
 
 Future<void> showDiffSheet(
   BuildContext context,
@@ -621,7 +621,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
               DiffKey(
                 key: const ValueKey('diff-changes'),
                 says: 'CHANGES',
-                icon: StrikedIcons.diff,
+                icon: UpgradeIcons.diff,
                 label: 'CHANGES',
                 count: _countWord(files?.length, _session.filesFailed),
                 on: _changesShown,
@@ -630,7 +630,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
               DiffKey(
                 key: const ValueKey('diff-commits'),
                 says: 'COMMITS',
-                icon: StrikedIcons.log,
+                icon: UpgradeIcons.log,
                 label: 'COMMITS',
                 count: _countWord(
                   _session.commits?.length,
@@ -643,7 +643,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
                 DiffKey(
                   key: const ValueKey('diff-worktrees'),
                   says: 'WORKTREE',
-                  icon: StrikedIcons.branch,
+                  icon: UpgradeIcons.branch,
                   label: 'WORKTREE',
                   count: '$worktrees',
                   onTap: _swapWorktree,
@@ -779,7 +779,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
         DiffKey(
           key: const ValueKey('diff-tree'),
           says: 'TREE',
-          icon: StrikedIcons.files,
+          icon: UpgradeIcons.files,
           on: _tree,
           onTap: () => _setTree(!_tree),
         ),
@@ -791,8 +791,8 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(width: Spacing.sm),
-                StrikedIcon(
-                  StrikedIcons.viewed,
+                UpgradeIcon(
+                  UpgradeIcons.viewed,
                   size: IconSizes.sm,
                   color: context.tokens.textMuted,
                 ),
@@ -1195,7 +1195,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
       (
         key: 'search',
         says: 'SEARCH',
-        icon: StrikedIcons.search,
+        icon: UpgradeIcons.search,
         onTap: _openSearch,
         on: _query != null,
         spare: false,
@@ -1204,7 +1204,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
         (
           key: 'wrap',
           says: 'WRAP',
-          icon: StrikedIcons.wrap,
+          icon: UpgradeIcons.wrap,
           onTap: () => _setWrap(!_wrap),
           on: _wrap,
           spare: false,
@@ -1213,7 +1213,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
         (
           key: 'viewed',
           says: 'VIEWED',
-          icon: StrikedIcons.viewed,
+          icon: UpgradeIcons.viewed,
           onTap: () => _toggleViewed(file),
           on: viewed,
           spare: false,
@@ -1222,7 +1222,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
         (
           key: 'split',
           says: 'SPLIT',
-          icon: StrikedIcons.split,
+          icon: UpgradeIcons.split,
           onTap: () => setState(() {
             _split = !split;
             _held = null;
@@ -1234,7 +1234,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
         (
           key: 'open-all',
           says: 'OPEN ALL',
-          icon: StrikedIcons.expand,
+          icon: UpgradeIcons.expand,
           onTap: () => setState(() => _opened = {..._opened, ...folds}),
           on: false,
           spare: true,
@@ -1243,7 +1243,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
         (
           key: 'fold-all',
           says: 'FOLD ALL',
-          icon: StrikedIcons.collapse,
+          icon: UpgradeIcons.collapse,
           onTap: () => setState(() => _opened = {}),
           on: false,
           spare: true,
@@ -1251,7 +1251,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
       (
         key: 'history',
         says: 'LOG',
-        icon: StrikedIcons.log,
+        icon: UpgradeIcons.log,
         onTap: () => _toggleLog(file),
         on: _logOpen,
         spare: true,
@@ -1269,7 +1269,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
           final _Tool more = (
             key: 'more',
             says: 'MORE',
-            icon: StrikedIcons.more,
+            icon: UpgradeIcons.more,
             onTap: () => _moreTools(spares),
             on: spares.any((tool) => tool.on),
             spare: false,
@@ -1397,19 +1397,19 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
           DiffKey(
             key: const ValueKey('diff-search-prev'),
             says: 'PREV MATCH',
-            icon: StrikedIcons.arrowUp,
+            icon: UpgradeIcons.arrowUp,
             onTap: hits.isEmpty ? null : () => _stepHit(hits, -1),
           ),
           DiffKey(
             key: const ValueKey('diff-search-next'),
             says: 'NEXT MATCH',
-            icon: StrikedIcons.arrowDown,
+            icon: UpgradeIcons.arrowDown,
             onTap: hits.isEmpty ? null : () => _stepHit(hits, 1),
           ),
           DiffKey(
             key: const ValueKey('diff-search-close'),
             says: 'CLOSE SEARCH',
-            icon: StrikedIcons.close,
+            icon: UpgradeIcons.close,
             onTap: _openSearch,
           ),
         ],
@@ -1613,7 +1613,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
     String key,
     String says,
     VoidCallback? onTap, {
-    StrikedIcons? icon,
+    UpgradeIcons? icon,
     String? word,
     bool bare = false,
     bool filled = false,
@@ -1667,7 +1667,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
                   'prev-file',
                   'PREV FILE',
                   before == null ? null : () => _pick(before),
-                  icon: StrikedIcons.arrowLeft,
+                  icon: UpgradeIcons.arrowLeft,
                   bare: true,
                 ),
                 Expanded(
@@ -1680,7 +1680,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
                   'next-file',
                   'NEXT FILE',
                   after == null ? null : () => _pick(after),
-                  icon: StrikedIcons.arrowRight,
+                  icon: UpgradeIcons.arrowRight,
                   bare: true,
                 ),
                 const SizedBox(width: Spacing.lg),
@@ -1688,7 +1688,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
                   'prev-hunk',
                   'HUNK UP',
                   walks ? () => _stepHunk(blocks, -1) : null,
-                  icon: StrikedIcons.arrowUp,
+                  icon: UpgradeIcons.arrowUp,
                   bare: true,
                 ),
                 Expanded(
@@ -1711,7 +1711,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
                   'next-hunk',
                   'HUNK DOWN',
                   walks ? () => _stepHunk(blocks, 1) : null,
-                  icon: StrikedIcons.arrowDown,
+                  icon: UpgradeIcons.arrowDown,
                   bare: true,
                 ),
               ],
@@ -1790,7 +1790,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
           DiffKey(
             key: const ValueKey('diff-open-editor'),
             says: 'OPEN',
-            icon: StrikedIcons.edit,
+            icon: UpgradeIcons.edit,
             onTap: UserIntent.onGesture(
               (intent) =>
                   _openEditor(intent, held.newLine ?? anchor, file.path),
@@ -1802,14 +1802,14 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
           () => unawaited(
             showCompose(context, text: '$ref\n```\n${held.text}\n```\n'),
           ),
-          icon: StrikedIcons.submit,
+          icon: UpgradeIcons.submit,
           bare: true,
         ),
         _block(
           'drop-line',
           'LET GO',
           () => setState(() => _held = null),
-          icon: StrikedIcons.close,
+          icon: UpgradeIcons.close,
           bare: true,
         ),
         const SizedBox(width: Spacing.sm),
@@ -1829,7 +1829,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
 typedef _Tool = ({
   String key,
   String says,
-  StrikedIcons icon,
+  UpgradeIcons icon,
   VoidCallback? onTap,
   bool on,
   bool spare,

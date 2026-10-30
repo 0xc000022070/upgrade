@@ -4,17 +4,17 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:striked_luau/striked_luau.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
 
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/files/host_file_link.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/plugins/plugin_check.dart';
-import 'package:striked/platform/ssh/connection_supervisor.dart';
-import 'package:striked/platform/ssh/host_failure.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/shell/remote_shell.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/files/host_file_link.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/plugins/plugin_check.dart';
+import 'package:upgrade/platform/ssh/connection_supervisor.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
 
 enum PluginDevPhase { connecting, watching, failed }
 
@@ -77,7 +77,7 @@ String _directory(String path) => path == '~' || path.startsWith('~/')
 
 String pluginPreviewWriteCommand(String path) => underSh(
   'cd -- ${_directory(path)} || exit 3\n'
-  'mkdir -p .striked/preview && '
+  'mkdir -p .upgrade/preview && '
   'cat > $pluginPreviewResult.part && '
   'mv -f $pluginPreviewResult.part $pluginPreviewResult\n',
 );
@@ -85,7 +85,7 @@ String pluginPreviewWriteCommand(String path) => underSh(
 const pluginWorkspaceCreateCommand = 'sh -s';
 
 /// Stdin for [pluginWorkspaceCreateCommand]. Exits 4 unless the folder is empty
-/// or holds only a preview's `.striked`.
+/// or holds only a preview's `.upgrade`.
 String pluginWorkspaceCreateScript(
   String path,
   Map<String, String> files, {
@@ -96,15 +96,15 @@ String pluginWorkspaceCreateScript(
   String delimiter;
   do {
     delimiter =
-        'STRIKED_${[for (var i = 0; i < 8; i++) source.nextInt(256).toRadixString(16).padLeft(2, '0')].join()}';
+        'UPGRADE_${[for (var i = 0; i < 8; i++) source.nextInt(256).toRadixString(16).padLeft(2, '0')].join()}';
   } while (body.contains(delimiter));
   final script = StringBuffer(
     'set -e\n'
     'd=${_directory(path)}\n'
     'p=\$(dirname -- "\$d")\n'
     'mkdir -p -- "\$p"\n'
-    'if [ -e "\$d" ] && [ -n "\$(ls -A -- "\$d" | grep -Fvx .striked)" ]; then exit 4; fi\n'
-    't=\$(mktemp -d "\$p/.striked-new.XXXXXX")\n'
+    'if [ -e "\$d" ] && [ -n "\$(ls -A -- "\$d" | grep -Fvx .upgrade)" ]; then exit 4; fi\n'
+    't=\$(mktemp -d "\$p/.upgrade-new.XXXXXX")\n'
     "trap 'rm -rf -- \"\$t\"' EXIT\n"
     "trap 'exit 1' HUP INT TERM\n",
   );
@@ -118,7 +118,7 @@ String pluginWorkspaceCreateScript(
     if (file.endsWith('.sh')) script.write('chmod +x -- $target\n');
   }
   script.write(
-    'if [ -e "\$d" ]; then rm -rf -- "\$d/.striked"; rmdir -- "\$d" || exit 4; fi\n'
+    'if [ -e "\$d" ]; then rm -rf -- "\$d/.upgrade"; rmdir -- "\$d" || exit 4; fi\n'
     '[ ! -e "\$d" ] || exit 4\n'
     'mv -- "\$t" "\$d"\n'
     'if [ -e "\$d/\${t##*/}" ]; then rm -rf -- "\$d/\${t##*/}"; exit 4; fi\n'

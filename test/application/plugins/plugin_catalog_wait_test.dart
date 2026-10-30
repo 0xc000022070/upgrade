@@ -3,14 +3,14 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/plugins/plugins.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 
 void main() {
   test('a card frame asked before the catalog loads waits for it', () async {
-    final root = await Directory.systemTemp.createTemp('striked-catalog-');
+    final root = await Directory.systemTemp.createTemp('upgrade-catalog-');
     addTearDown(() => root.delete(recursive: true));
     final store = Completer<PluginStore>();
     final container = ProviderContainer(

@@ -1,6 +1,6 @@
-import 'package:striked/data/plugin_api.dart';
-import 'package:striked/data/repositories/dispatch_repository.dart';
-import 'package:striked/data/repositories/path_repository.dart';
+import 'package:upgrade/data/plugin_api.dart';
+import 'package:upgrade/data/repositories/dispatch_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
 
 class PluginWorkspaceApi implements PathRepository {
   PluginWorkspaceApi(this._base, this._gate);

@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 
 class PluginCallUsage {
   int calls = 0;

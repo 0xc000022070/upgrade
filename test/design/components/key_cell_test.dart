@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/design/colors.dart';
-import 'package:striked/design/components/key_cell.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/key_cell.dart';
 
 import '../../support/themed_app.dart';
 
@@ -103,14 +103,14 @@ void main() {
       await pumpCell(tester);
       expect(
         tester.widget<Text>(find.text('CTRL')).style?.color,
-        StrikedColors.textSecondary,
+        UpgradeColors.textSecondary,
       );
 
       await pumpCell(tester, armed: true, repeat: 2);
       await tester.pumpAndSettle();
       expect(
         tester.widget<Text>(find.text('CTRL(x2)')).style?.color,
-        StrikedColors.accent,
+        UpgradeColors.accent,
       );
     });
   });

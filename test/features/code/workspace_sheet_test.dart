@@ -5,34 +5,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/app/striked_app.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/shell/pane_share.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/settings_repository.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/path_repository.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/path_line.dart';
-import 'package:striked/design/colors.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/layout.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/code/diff_map.dart';
-import 'package:striked/features/code/diff_key.dart';
-import 'package:striked/features/code/explorer.dart';
-import 'package:striked/features/code/diff_lists.dart';
-import 'package:striked/features/code/diff_sheet.dart';
-import 'package:striked/features/code/file_icons.dart';
-import 'package:striked/features/code/workspace_sheet.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/ssh/keys.dart';
-import 'package:striked/platform/workspace/workspace_client.dart';
-import 'package:striked/platform/workspace/workspace_commands.dart';
+import 'package:upgrade/app/upgrade_app.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/shell/pane_share.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/path_line.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/layout.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/code/diff_map.dart';
+import 'package:upgrade/features/code/diff_key.dart';
+import 'package:upgrade/features/code/explorer.dart';
+import 'package:upgrade/features/code/diff_lists.dart';
+import 'package:upgrade/features/code/diff_sheet.dart';
+import 'package:upgrade/features/code/file_icons.dart';
+import 'package:upgrade/features/code/workspace_sheet.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/platform/workspace/workspace_client.dart';
+import 'package:upgrade/platform/workspace/workspace_commands.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -49,11 +49,11 @@ const _status = '''
 ''';
 
 const _worktrees = '''
-worktree /home/luis/src/striked
+worktree /home/luis/src/upgrade
 HEAD 1a2b
 branch refs/heads/main
 
-worktree /home/luis/src/striked-fix
+worktree /home/luis/src/upgrade-fix
 HEAD 5e6f
 branch refs/heads/fix/paths
 
@@ -145,7 +145,7 @@ class FakeRunner implements WorkspaceRunner {
     for (final entry in answers.entries) {
       if (command.contains(entry.key)) return entry.value;
     }
-    if (command.contains('strikedddd') && texts.isNotEmpty) {
+    if (command.contains('upgraded') && texts.isNotEmpty) {
       final reply = StringBuffer('S\n');
       for (final match in RegExp(
         r"^tree (\d+) '\\''([^']+)'\\''$",
@@ -233,8 +233,8 @@ void main() {
   final path = AgentPath(
     id: 'path-1',
     hostId: 'host-1',
-    directory: '/home/luis/src/striked',
-    label: 'striked',
+    directory: '/home/luis/src/upgrade',
+    label: 'upgrade',
     createdAt: DateTime(2026, 9, 3),
   );
 
@@ -304,7 +304,7 @@ void main() {
       expect(runner.commands.first, startsWith("sh -c '"));
       expect(runner.commands.last, contains('find'));
 
-      expect(find.text('STRIKED'), findsOneWidget);
+      expect(find.text('UPGRADE'), findsOneWidget);
       expect(find.text('main'), findsOneWidget);
       expect(find.text('+1 -0'), findsOneWidget);
       expect(find.text('lib'), findsOneWidget);
@@ -532,11 +532,11 @@ void main() {
       expect(find.text('ON SCREEN'), findsOneWidget);
       expect(find.text('fix/paths'), findsOneWidget);
 
-      await tapText(tester, 'striked-fix');
+      await tapText(tester, 'upgrade-fix');
 
       expect(runner.commands.length, greaterThan(asked));
       expect(
-        runner.commands.where((c) => c.contains('striked-fix')),
+        runner.commands.where((c) => c.contains('upgrade-fix')),
         isNotEmpty,
       );
       expect(runner.closed, isFalse);
@@ -586,29 +586,29 @@ void main() {
             home: Builder(
               builder: (context) => GestureDetector(
                 onTap: () => from(context),
-                child: const Text('STRIKED ROW'),
+                child: const Text('UPGRADE ROW'),
               ),
             ),
           ),
         ),
       );
 
-      await tapText(tester, 'STRIKED ROW');
+      await tapText(tester, 'UPGRADE ROW');
 
       expect(find.text('README.md'), findsOneWidget);
-      expect(find.text('STRIKED ROW'), findsOneWidget);
+      expect(find.text('UPGRADE ROW'), findsOneWidget);
       final sheet = find.byKey(const ValueKey('code-sheet'));
       expect(tester.getTopLeft(sheet).dy, 24);
       expect(find.byKey(const ValueKey('code-grip-rule')), findsOneWidget);
 
-      from(tester.element(find.text('STRIKED ROW')));
+      from(tester.element(find.text('UPGRADE ROW')));
       await ready(tester);
       expect(sheet, findsOneWidget);
 
       await tester.binding.handlePopRoute();
       await ready(tester);
       expect(sheet, findsNothing);
-      expect(find.text('STRIKED ROW'), findsOneWidget);
+      expect(find.text('UPGRADE ROW'), findsOneWidget);
 
       await unmount(tester);
     });
@@ -644,7 +644,7 @@ void main() {
       );
 
       await tapText(tester, 'lib');
-      expect(runner.commands.last, contains('/home/luis/src/striked/lib'));
+      expect(runner.commands.last, contains('/home/luis/src/upgrade/lib'));
       expect(find.text('lib'), findsNWidgets(2));
       expect(find.text('README.md'), findsNWidgets(2));
       expect(
@@ -1061,7 +1061,7 @@ void main() {
             .widgetList<Panel>(find.byType(Panel))
             .where((panel) => panel.literalTitle)
             .map((panel) => panel.title),
-        contains('STRIKED / 1a2b3c'),
+        contains('UPGRADE / 1a2b3c'),
       );
       expect(
         runner.commands.where((command) => command.contains('log')),
@@ -2148,7 +2148,7 @@ new file mode 100644
         expect(
           onSheet(
             find.byWidgetPredicate(
-              groundOf(StrikedTokens.house.diffAddedGround),
+              groundOf(UpgradeTokens.house.diffAddedGround),
             ),
           ),
           findsWidgets,
@@ -2190,7 +2190,7 @@ deleted file mode 100644
         expect(
           onSheet(
             find.byWidgetPredicate(
-              groundOf(StrikedTokens.house.diffRemovedGround),
+              groundOf(UpgradeTokens.house.diffRemovedGround),
             ),
           ),
           findsWidgets,
@@ -2360,7 +2360,7 @@ new file mode 100644
         await tapFile(tester, 'scratch.txt');
         expect(onSheet(find.text('hello scratch')), findsOneWidget);
 
-        runner.failures['strikedddd'] = const HerdrUnreachable('timeout');
+        runner.failures['upgraded'] = const HerdrUnreachable('timeout');
         final asked = runner.commands.length;
         await tester
             .widget<DiffSheet>(find.byType(DiffSheet))
@@ -2373,7 +2373,7 @@ new file mode 100644
           runner.commands
               .skip(asked)
               .where(
-                (c) => c.contains('scratch.txt') && !c.contains('strikedddd'),
+                (c) => c.contains('scratch.txt') && !c.contains('upgraded'),
               ),
           isNotEmpty,
         );
@@ -2388,7 +2388,7 @@ new file mode 100644
       await viewer(
         tester,
         runner: withTexts()
-          ..failures['strikedddd'] = const HerdrUnreachable('timeout'),
+          ..failures['upgraded'] = const HerdrUnreachable('timeout'),
       );
 
       expect(
@@ -2631,7 +2631,7 @@ new file mode 100644
     // listed with the untracked file and lib with the changed one, the deeper listing first
     // since a match is the first found.
     FakeRunner tracked({String? overview}) => FakeRunner(overview: overview)
-      ..answers['src/striked/lib'] = const WorkspaceReply(
+      ..answers['src/upgrade/lib'] = const WorkspaceReply(
         exitCode: 0,
         stdout: 'f\t200\tmain.dart\n',
         stderr: '',
@@ -2707,14 +2707,14 @@ new file mode 100644
       final runner = await browse(tester);
 
       expect(row(tester, 'lib').value, '1');
-      expect(row(tester, 'lib').valueColor, StrikedColors.warning);
+      expect(row(tester, 'lib').valueColor, UpgradeColors.warning);
       expect(row(tester, 'README.md').value, isNot('?'));
       expect(row(tester, 'scratch.txt').value, '?');
-      expect(row(tester, 'scratch.txt').valueColor, StrikedColors.accent);
+      expect(row(tester, 'scratch.txt').valueColor, UpgradeColors.accent);
 
       await tapText(tester, 'lib');
       expect(row(tester, 'main.dart').value, 'M');
-      expect(row(tester, 'main.dart').valueColor, StrikedColors.warning);
+      expect(row(tester, 'main.dart').valueColor, UpgradeColors.warning);
 
       expect(
         runner.commands.where((c) => c.contains('status --porcelain')),
@@ -2732,7 +2732,7 @@ new file mode 100644
       await tapText(tester, 'lib');
 
       expect(row(tester, 'gone.dart').value, 'D');
-      expect(row(tester, 'gone.dart').valueColor, StrikedColors.danger);
+      expect(row(tester, 'gone.dart').valueColor, UpgradeColors.danger);
 
       await tapText(tester, 'gone.dart');
       expect(find.byType(DiffSheet), findsOneWidget);
@@ -2798,16 +2798,16 @@ new file mode 100644
       expect(
         find.byWidgetPredicate(
           (w) =>
-              w is StrikedIcon &&
-              (w.icon == StrikedIcons.arrowUp ||
-                  w.icon == StrikedIcons.arrowDown ||
-                  w.icon == StrikedIcons.diff),
+              w is UpgradeIcon &&
+              (w.icon == UpgradeIcons.arrowUp ||
+                  w.icon == UpgradeIcons.arrowDown ||
+                  w.icon == UpgradeIcons.diff),
         ),
         findsNWidgets(3),
       );
       expect(
         find.byWidgetPredicate(
-          (w) => w is ColoredBox && w.color == StrikedColors.warning,
+          (w) => w is ColoredBox && w.color == UpgradeColors.warning,
         ),
         findsOneWidget,
       );

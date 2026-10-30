@@ -5,7 +5,7 @@
 }:
 
 let
-  cfg = config.services.strikedddd;
+  cfg = config.services.upgraded;
 in
 {
   imports = [ ./options.nix ];
@@ -15,7 +15,7 @@ in
   config = lib.mkIf cfg.enable {
     home.packages = [
       (lib.warnIf (cfg.users != [ ])
-        "services.strikedddd.users has no effect under home-manager; this configuration is one account already"
+        "services.upgraded.users has no effect under home-manager; this configuration is one account already"
         cfg.package
       )
     ];
@@ -28,6 +28,6 @@ in
     # One path serves both platforms: darwin also looks under Application Support,
     # but the XDG candidate is tried everywhere, and this is the directory
     # home-manager owns on either.
-    xdg.configFile."strikedddd/config.json".source = cfg.configFile;
+    xdg.configFile."upgraded/config.json".source = cfg.configFile;
   };
 }

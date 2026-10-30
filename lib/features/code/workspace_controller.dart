@@ -4,14 +4,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/workspace/workspace_client.dart';
-import 'package:striked/platform/workspace/workspace_commands.dart';
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/workspace/workspace_client.dart';
+import 'package:upgrade/platform/workspace/workspace_commands.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 enum WorkspacePhase { connecting, ready, failed }
 
@@ -120,7 +120,7 @@ class WorkspaceController extends ChangeNotifier {
       _runner = runner;
       await _load(attempt);
     } on HerdrFailure catch (error) {
-      debugPrint('striked.workspace ${host.name}: ${error.detail ?? error}');
+      debugPrint('upgrade.workspace ${host.name}: ${error.detail ?? error}');
       if (_disposed || attempt != _attempt) return;
       _fail(error.reason(host.name));
     }
@@ -304,7 +304,7 @@ class WorkspaceController extends ChangeNotifier {
     try {
       return await runner.run(command);
     } on HerdrFailure catch (error) {
-      debugPrint('striked.workspace ${host.name}: ${error.detail ?? error}');
+      debugPrint('upgrade.workspace ${host.name}: ${error.detail ?? error}');
       if (_disposed || quiet) return null;
       if (error is! HerdrBusy && identical(_runner, runner)) {
         _runner = null;

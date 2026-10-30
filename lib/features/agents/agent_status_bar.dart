@@ -1,13 +1,13 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/navigation.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/layout.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/features/home/home_screen.dart';
-import 'package:striked/features/hosts/hosts_screen.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/layout.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/home/home_screen.dart';
+import 'package:upgrade/features/hosts/hosts_screen.dart';
 
 const agentStatusBarHeight = 36.0;
 

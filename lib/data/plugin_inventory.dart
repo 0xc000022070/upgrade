@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:path/path.dart' as path;
 
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/data/database.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/database.dart';
 
 class NativeDatasetInventory {
   const NativeDatasetInventory({

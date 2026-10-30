@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:striked/design/components/anchor_menu.dart';
-import 'package:striked/design/components/toolbar_icon_action.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/features/plugins/plugin_management_screen.dart';
-import 'package:striked/features/settings/settings_screen.dart';
+import 'package:upgrade/design/components/anchor_menu.dart';
+import 'package:upgrade/design/components/toolbar_icon_action.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/features/plugins/plugin_management_screen.dart';
+import 'package:upgrade/features/settings/settings_screen.dart';
 
 class HomeActions extends StatefulWidget {
   const HomeActions({super.key, this.beforeOpen, this.entries = const []});
@@ -33,12 +33,12 @@ class _HomeActionsState extends State<HomeActions> {
         ...widget.entries,
         MenuEntry(
           'MANAGE PLUGINS',
-          StrikedIcons.plugins,
+          UpgradeIcons.plugins,
           () => _push(() => openPluginManagement(context)),
         ),
         MenuEntry(
           'SETTINGS',
-          StrikedIcons.settings,
+          UpgradeIcons.settings,
           () => _push(() => openSettings(context)),
         ),
       ],
@@ -50,7 +50,7 @@ class _HomeActionsState extends State<HomeActions> {
   Widget build(BuildContext context) => Builder(
     builder: (anchor) => ToolbarIconAction(
       label: 'MORE',
-      icon: StrikedIcons.more,
+      icon: UpgradeIcons.more,
       lit: _open,
       onTap: () => _menu(anchor),
     ),

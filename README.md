@@ -1,4 +1,4 @@
-# Striked
+# Upgrade
 
 Local-first personal control plane. Single user, no backend, no sync.
 Design and art direction live in `docs/SPEC.md`.
@@ -38,7 +38,7 @@ review, build with `just apk`, then explicitly target the install and launch:
 
 ```sh
 phone -t <device-id> app install build/app/outputs/flutter-apk/app-debug.apk
-phone -t <device-id> app launch dev.luisnquin.striked
+phone -t <device-id> app launch dev.luisnquin.upgrade
 phone -t <device-id> shot --settle
 ```
 
@@ -96,7 +96,7 @@ Already committed private writes are not rolled back when a script fails or is
 disabled. Disable dependents first before disabling their required provider.
 
 ADD accepts a public GitHub repository and a ref: a branch, a tag or a full
-commit SHA. Put `striked.plugin.toml` at the repository root; `plugins/example`
+commit SHA. Put `upgrade.plugin.toml` at the repository root; `plugins/example`
 in this repository is a complete template a third party can copy, covering a
 multi-file package and the listing fields. Review shows the resolved source
 revision, declared capabilities and dependencies before granting installation.
@@ -105,25 +105,25 @@ NEW. Unsupported retained revisions stay disabled with their original source
 and grants, instead of resetting the catalog.
 
 A plugin can span several files: `files` in the manifest lists paths beside
-`striked.plugin.toml`, and Luau code loads them with
+`upgrade.plugin.toml`, and Luau code loads them with
 `require("path/without/extension")`. `require` only resolves files declared
 in `files`; nothing else on the source repository is fetched. `author`,
 `homepage`, `license` and `summary` are optional listing fields shown before
 install and in the plugin detail sheet; they carry no capability or trust
 meaning.
 
-An index is a `striked.index.toml` at the repository root of a GitHub
+An index is a `upgrade.index.toml` at the repository root of a GitHub
 repository at a ref, listing plugins with `[[plugins]]` entries:
 
 ```toml
 index_version = 1
 
 [[plugins]]
-id = "striked.example"
+id = "upgrade.example"
 repository = "https://github.com/x/example"
 ref = "v2.0.0"
 summary = "Minimal template a third-party author can copy"
-author = "Striked"
+author = "Upgrade"
 ```
 
 Settings PLUGINS has SOURCES, where an index is added or removed by repository
@@ -137,7 +137,7 @@ A dev-only override lets an author serve a plugin or index from a local
 directory over HTTP while developing it, instead of GitHub:
 
 ```sh
-flutter run --dart-define=STRIKED_PLUGIN_ORIGIN=http://host:port
+flutter run --dart-define=UPGRADE_PLUGIN_ORIGIN=http://host:port
 ```
 
 The override replaces the fetch base for both plugin and index requests and
@@ -148,7 +148,7 @@ literally against whatever the local server has at that path, with no GitHub
 ref lookup.
 
 Version fields have different jobs: `manifest_version` versions the TOML schema,
-`version` versions the plugin, and `striked_api` constrains the host API.
+`version` versions the plugin, and `upgrade_api` constrains the host API.
 `[dependencies]` maps plugin IDs to semantic-version constraints. Dependencies
 must be installed, enabled and compatible; cycles and changes that break enabled
 dependents are rejected. A dependency grants no extra permissions and does not
@@ -157,7 +157,7 @@ contracts are separate fields. Bundled native features use host-owned services
 and surface builders; downloaded plugins use the Luau runtime.
 
 Manifest format 2 uses named data bindings: `selection`, `self:name`, or
-`plugin.id:name`. Data access uses `striked.data.get/query/put/delete/propose`.
+`plugin.id:name`. Data access uses `upgrade.data.get/query/put/delete/propose`.
 Foreign reads require a declared dependency, matching export contract and an
 explicit grant; foreign writes are unavailable. Dependencies alone grant no
 data access. Every dataset has a separate host-owned SQLite database, scoped
@@ -173,7 +173,7 @@ charged to an individual dataset. Script time is wall time excluding host
 callbacks, not a CPU-time or battery measurement.
 
 The embedded interpreter is Luau 0.738, pinned by revision and archive digest in
-`packages/striked_luau/hook/build.dart`. First native build downloads its source;
+`packages/upgrade_luau/hook/build.dart`. First native build downloads its source;
 the phone downloads only plugin source, never native code or bytecode. Luau's
 license is included in the package and Flutter's license bundle. No JIT is built.
 
@@ -209,7 +209,7 @@ The BUNDLE panel on SYS moves the hosts and keys to another phone without a
 backend. EXPORT asks for a passphrase twice, seals every key with its private
 half, every host with its pinned host key and VNC password, and every path into
 one file, and hands the file to the system document picker as
-`striked-<date>.bundle`. IMPORT picks a file, asks for the passphrase, shows
+`upgrade-<date>.bundle`. IMPORT picks a file, asks for the passphrase, shows
 the count, and merges by id: nothing on the phone is deleted, and a bundle
 naming a key neither side has is refused whole. The file is Argon2id plus an
 XSalsa20-Poly1305 box, so it is safe to park in a drive or a chat with yourself;
@@ -217,18 +217,18 @@ the passphrase is not.
 
 ## Host setup
 
-Striked uses one ordinary SSH key for shells, remote commands, and the VNC
+Upgrade uses one ordinary SSH key for shells, remote commands, and the VNC
 tunnel. Copy the public key shown by the app into `~/.ssh/authorized_keys`
 without a forced `command=`, `restrict`, or `permitopen` prefix. The key has the
 same access as an interactive login for that account.
 
-Install `mosh-server` for roaming shells. Striked uses SSH to authenticate and
+Install `mosh-server` for roaming shells. Upgrade uses SSH to authenticate and
 start Mosh, then moves terminal traffic to Mosh's UDP range. A live Mosh tab
 rehomes after the phone changes networks. If the server is absent or UDP cannot
 connect, the same tab falls back to SSH. Open UDP ports `60000:61000` on hosts
 whose firewall does not already allow Mosh.
 
-Mosh does not depend on a multiplexer. Striked never inserts `tmux` around an
+Mosh does not depend on a multiplexer. Upgrade never inserts `tmux` around an
 ordinary shell: every new or restored tab enters through the host's normal
 login path, including any gateway or chooser configured there. Mosh keeps a
 live tab roaming between networks; an app process restart opens a fresh shell.
@@ -237,10 +237,10 @@ Closing a tab kills only the Mosh server that tab owns.
 The AGENTS panel and SEND need `herdr` on the non-interactive SSH `PATH`. Every
 running herdr session is listed. An attached agent tab records the exact Herdr
 session and pane, then attaches that pane again after a network change or app
-restart. Herdr owns that process identity; Striked does not put tmux around it.
+restart. Herdr owns that process identity; Upgrade does not put tmux around it.
 The pane still uses Mosh transport when the host has `mosh-server`, with SSH as
 fallback. SEND starts its agent in herdr's default session, or in the one
-session running when the default is not. Striked scans `~/Projects`,
+session running when the default is not. Upgrade scans `~/Projects`,
 `~/.dotfiles`, and `~/src` for Git checkouts. Clipboard attachments need
 `wl-copy` and `wl-paste` on Wayland, `xclip` on X11, or `osascript` on macOS.
 
@@ -259,7 +259,7 @@ that may have expired, and an answer written after the host took the request
 down is reported as expired rather than passed off as sent.
 
 An SSH login on Linux does not inherit the desktop display. Put this in the
-login shell setup when agents started from Striked must read image attachments:
+login shell setup when agents started from Upgrade must read image attachments:
 
 ```sh
 if [ -z "${WAYLAND_DISPLAY:-}" ]; then

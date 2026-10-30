@@ -3,10 +3,10 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:striked/application/plugins/plugin_development.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/plugin_check.dart';
-import 'package:striked/platform/plugins/plugin_template.dart';
+import 'package:upgrade/application/plugins/plugin_development.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/plugin_check.dart';
+import 'package:upgrade/platform/plugins/plugin_template.dart';
 
 Future<ProcessResult> _sh(String command, String home, {String? stdin}) async {
   final process = await Process.start(
@@ -45,7 +45,7 @@ void main() {
       final manifest = PluginManifest.parse(files[pluginManifestFile]!);
       expect(manifest.id, 'dev.local.my-card');
       expect(manifest.name, 'My Card!');
-      expect(files.keys, containsAll(['.striked/wait.sh', pluginSdkFile]));
+      expect(files.keys, containsAll(['.upgrade/wait.sh', pluginSdkFile]));
     },
   );
 
@@ -62,7 +62,7 @@ void main() {
     final ws = "${home.path}/a b'c\$(touch pwn)";
     final files = {
       'lib/card.luau': 'return {}',
-      '.striked/wait.sh': File('$pluginTemplateDir/wait.sh').readAsStringSync(),
+      '.upgrade/wait.sh': File('$pluginTemplateDir/wait.sh').readAsStringSync(),
     };
     Future<int> create(Map<String, String> files) async => (await _sh(
       pluginWorkspaceCreateCommand,
@@ -70,13 +70,13 @@ void main() {
       stdin: pluginWorkspaceCreateScript(path, files),
     )).exitCode;
 
-    Directory('$ws/.striked/preview').createSync(recursive: true);
+    Directory('$ws/.upgrade/preview').createSync(recursive: true);
     expect(await create(files), 0);
     expect(File('$ws/lib/card.luau').readAsStringSync(), 'return {}\n');
-    expect(File('$ws/.striked/preview').existsSync(), isFalse);
+    expect(File('$ws/.upgrade/preview').existsSync(), isFalse);
     expect(File('${home.path}/pwn').existsSync(), isFalse);
     expect(
-      File('$ws/.striked/wait.sh').statSync().modeString(),
+      File('$ws/.upgrade/wait.sh').statSync().modeString(),
       startsWith('rwx'),
     );
     expect(await create({'other.luau': ''}), 4);
@@ -89,12 +89,12 @@ void main() {
   test('wait.sh returns only the result that echoes its own ask', () async {
     final ws = Directory.systemTemp.createTempSync('ws');
     addTearDown(() => ws.deleteSync(recursive: true));
-    Directory('${ws.path}/.striked').createSync();
-    File('$pluginTemplateDir/wait.sh').copySync('${ws.path}/.striked/wait.sh');
+    Directory('${ws.path}/.upgrade').createSync();
+    File('$pluginTemplateDir/wait.sh').copySync('${ws.path}/.upgrade/wait.sh');
     final result = File('${ws.path}/$pluginPreviewResult')
       ..createSync(recursive: true)
       ..writeAsStringSync('{\n  "ok": true,\n  "context": {}\n}\n');
-    final waiting = Process.run('sh', ['${ws.path}/.striked/wait.sh']);
+    final waiting = Process.run('sh', ['${ws.path}/.upgrade/wait.sh']);
     final ask = File('${ws.path}/$pluginPreviewAsk');
     while (!ask.existsSync()) {
       await Future<void>.delayed(const Duration(milliseconds: 50));

@@ -1,6 +1,6 @@
 import 'package:image_picker/image_picker.dart';
 
-import 'package:striked/features/photos/photo_cut.dart';
+import 'package:upgrade/features/photos/photo_cut.dart';
 
 /// A phone camera is four thousand pixels across; the agents downscale past about half
 /// this before they look at it.

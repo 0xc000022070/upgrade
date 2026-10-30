@@ -1182,27 +1182,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
-  striked_highlight:
-    dependency: "direct main"
-    description:
-      path: "packages/striked_highlight"
-      relative: true
-    source: path
-    version: "0.0.3+striked.1"
-  striked_luau:
-    dependency: "direct main"
-    description:
-      path: "packages/striked_luau"
-      relative: true
-    source: path
-    version: "0.1.0"
-  striked_shade:
-    dependency: "direct main"
-    description:
-      path: "packages/striked_shade"
-      relative: true
-    source: path
-    version: "0.1.0"
   string_scanner:
     dependency: transitive
     description:
@@ -1251,6 +1230,27 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  upgrade_highlight:
+    dependency: "direct main"
+    description:
+      path: "packages/upgrade_highlight"
+      relative: true
+    source: path
+    version: "0.0.3+upgrade.1"
+  upgrade_luau:
+    dependency: "direct main"
+    description:
+      path: "packages/upgrade_luau"
+      relative: true
+    source: path
+    version: "0.1.0"
+  upgrade_shade:
+    dependency: "direct main"
+    description:
+      path: "packages/upgrade_shade"
+      relative: true
+    source: path
+    version: "0.1.0"
   url_launcher:
     dependency: "direct main"
     description:

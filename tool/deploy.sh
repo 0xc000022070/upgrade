@@ -35,7 +35,7 @@ EOF
 }
 
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly PKG=dev.luisnquin.striked
+readonly PKG=dev.luisnquin.upgrade
 readonly CERT=d6b7cdfb8d0a5c0017e317b7db27f3fb3ce0b3f650f28ca6b989c4582f5d7e5e
 readonly OUT="$ROOT/build/deploy"
 readonly TREE="$OUT/tree"
@@ -88,7 +88,7 @@ stamp() {
 build() {
   local rev=$1 name code sha
   read -r name code sha <<<"$(stamp "$rev")"
-  local apk="$OUT/striked-$name-$code-$sha.apk"
+  local apk="$OUT/upgrade-$name-$code-$sha.apk"
   if [[ -f $apk ]]; then
     echo "$apk"
     return 0
@@ -108,7 +108,7 @@ build() {
   # 9>&-: a daemon the build leaves behind must not keep holding the lock.
   (
     cd "$TREE" &&
-      nix develop "git+file://$ROOT?rev=$rev" -c env STRIKED_BUILD="$sha" bash -c \
+      nix develop "git+file://$ROOT?rev=$rev" -c env UPGRADE_BUILD="$sha" bash -c \
         'just pub-build && flutter pub get && just gen && just apk-release "$1" "$2"' _ "$name" "$code"
   ) >&2 9>&- || die "the build of $name+$code ($sha) failed"
   [[ -f $built ]] || die "the build of $name+$code ($sha) left no apk"
@@ -120,7 +120,7 @@ build() {
   [[ $cert == "$CERT" ]] || die "apk signed by $cert, not the key the handsets trust"
 
   cp "$built" "$apk"
-  ls -t "$OUT"/striked-*.apk | tail -n +3 | xargs -r rm -f
+  ls -t "$OUT"/upgrade-*.apk | tail -n +3 | xargs -r rm -f
   echo "$apk"
 }
 
@@ -340,13 +340,13 @@ on() {
 # Sends a zstd patch against the apk the handset already holds, which it rebuilds
 # from its own base.apk. Any miss returns 1 and the caller sends the whole apk.
 patch_install() {
-  local label=$1 serial=$2 apk=$3 dir=/data/local/tmp/striked-deploy
+  local label=$1 serial=$2 apk=$3 dir=/data/local/tmp/upgrade-deploy
   local zstd_android=${DEPLOY_ZSTD_ANDROID:-} base have old cand want patch
   [[ -x $zstd_android ]] && command -v zstd >/dev/null || return 1
   base=$(on "$label" "$serial" shell pm path "$PKG" | sed -n 's/^package:\(.*\/base\.apk\)\r*$/\1/p')
   [[ -n $base ]] || return 1
   have=$(on "$label" "$serial" shell sha256sum "$base" | cut -d' ' -f1)
-  for cand in "$OUT/installed/$label.apk" "$OUT"/striked-*.apk; do
+  for cand in "$OUT/installed/$label.apk" "$OUT"/upgrade-*.apk; do
     [[ -f $cand && $(sha256sum "$cand" | cut -d' ' -f1) == "$have" ]] && old=$cand && break
   done
   [[ -n ${old:-} ]] || return 1

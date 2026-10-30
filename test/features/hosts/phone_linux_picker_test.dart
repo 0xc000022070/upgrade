@@ -3,9 +3,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/design/components/meta.dart';
-import 'package:striked/features/hosts/phone_linux_picker.dart';
-import 'package:striked/platform/phone_linux.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/features/hosts/phone_linux_picker.dart';
+import 'package:upgrade/platform/phone_linux.dart';
 
 import '../../support/themed_app.dart';
 

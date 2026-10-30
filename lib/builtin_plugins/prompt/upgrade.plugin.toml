@@ -1,0 +1,26 @@
+manifest_version = 3
+id = "upgrade.prompt"
+name = "Prompt"
+emblem = "bolt"
+purpose = "Hand an agent a sentence from the input bar."
+version = "1.0.0"
+upgrade_api = "^2.0.0"
+
+[runtime]
+kind = "native"
+entry = "main.dart"
+
+[services]
+"host.dispatch" = "dispatch@1"
+"host.workspaces" = "workspaces@1"
+
+[contributes]
+
+[[contributes.widgets]]
+id = "prompt"
+title = "Prompt"
+surface = "home.prompt"
+locations = ["home.composer", "home.card"]
+default_location = "home.composer"
+default_size = "auto"
+sizes = [{ id = "auto", title = "Automatic", min_width = 280, max_width = 720 }]

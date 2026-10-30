@@ -2,12 +2,12 @@ import 'dart:io';
 
 import 'package:uuid/uuid.dart';
 
-import 'package:striked/application/files/host_file_link.dart';
-import 'package:striked/application/files/phone_inbox.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/features/files/transfer_queue.dart';
-import 'package:striked/features/files/transfers.dart';
-import 'package:striked/platform/shell/remote_shell.dart' show remotePathFor;
+import 'package:upgrade/application/files/host_file_link.dart';
+import 'package:upgrade/application/files/phone_inbox.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/features/files/transfer_queue.dart';
+import 'package:upgrade/features/files/transfers.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart' show remotePathFor;
 
 String joinPath(String directory, String name) =>
     directory == '/' ? '/$name' : '$directory/$name';

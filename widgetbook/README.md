@@ -1,9 +1,9 @@
-# Striked catalog
+# Upgrade catalog
 
-Striked's design system in [Widgetbook](https://docs.widgetbook.io): tokens,
+Upgrade's design system in [Widgetbook](https://docs.widgetbook.io): tokens,
 components with their states, every bundled asset, and a few screens fed by
 fixtures. The real widgets, themes and assets: this package depends on
-`striked` by path and links `assets/` to the app's own directory.
+`upgrade` by path and links `assets/` to the app's own directory.
 
 ## Run
 

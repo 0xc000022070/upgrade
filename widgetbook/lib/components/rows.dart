@@ -1,24 +1,24 @@
 import 'package:flutter/widgets.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/data/enums.dart';
-import 'package:striked/design/components/bracket_label.dart';
-import 'package:striked/design/components/dot_spinner.dart';
-import 'package:striked/design/components/item_line.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/meta.dart';
-import 'package:striked/design/components/meta_row.dart';
-import 'package:striked/design/components/path_line.dart';
-import 'package:striked/design/components/picker_row.dart';
-import 'package:striked/design/components/priority_row.dart';
-import 'package:striked/design/components/status_tag.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/design/components/bracket_label.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/item_line.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/components/meta_row.dart';
+import 'package:upgrade/design/components/path_line.dart';
+import 'package:upgrade/design/components/picker_row.dart';
+import 'package:upgrade/design/components/priority_row.dart';
+import 'package:upgrade/design/components/status_tag.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
-import 'package:striked_widgetbook/components/knobs.dart';
-import 'package:striked_widgetbook/frame.dart';
+import 'package:upgrade_widgetbook/components/knobs.dart';
+import 'package:upgrade_widgetbook/frame.dart';
 
 final rowComponents = [
   WidgetbookComponent(
@@ -65,8 +65,8 @@ final rowComponents = [
                           )
                         : null,
                     leading: glyph
-                        ? StrikedIcon(
-                            StrikedIcons.hosts,
+                        ? UpgradeIcon(
+                            UpgradeIcons.hosts,
                             size: IconSizes.glyph,
                             color: tokens.textSecondary,
                           )
@@ -83,7 +83,7 @@ final rowComponents = [
         name: 'States',
         builder: (context) {
           final tokens = context.tokens;
-          Widget glyph(StrikedIcons icon, [Color? color]) => StrikedIcon(
+          Widget glyph(UpgradeIcons icon, [Color? color]) => UpgradeIcon(
             icon,
             size: IconSizes.glyph,
             color: color ?? tokens.textSecondary,
@@ -101,7 +101,7 @@ final rowComponents = [
                       title: 'nyx',
                       subtitle: 'dev@100.118.60.77:2222',
                       value: 'IDLE',
-                      leading: glyph(StrikedIcons.hosts),
+                      leading: glyph(UpgradeIcons.hosts),
                       onTap: _noop,
                     ),
                     ListRow(
@@ -112,7 +112,7 @@ final rowComponents = [
                       valueStrong: true,
                       titleColor: tokens.accent,
                       lead: true,
-                      leading: glyph(StrikedIcons.hosts, tokens.accent),
+                      leading: glyph(UpgradeIcons.hosts, tokens.accent),
                       onTap: _noop,
                     ),
                     ListRow(
@@ -120,12 +120,12 @@ final rowComponents = [
                       subtitle: 'no key on this phone',
                       titleColor: tokens.textDisabled,
                       subtitleColor: tokens.textDisabled,
-                      leading: glyph(StrikedIcons.hosts, tokens.textDisabled),
+                      leading: glyph(UpgradeIcons.hosts, tokens.textDisabled),
                     ),
                     ListRow(
                       title: 'fixture',
                       subtitle: 'connecting',
-                      leading: glyph(StrikedIcons.hosts),
+                      leading: glyph(UpgradeIcons.hosts),
                       trailing: const DotSpinner(),
                       onTap: _noop,
                     ),
@@ -135,7 +135,7 @@ final rowComponents = [
                       subtitleColor: tokens.danger,
                       value: 'REFUSED',
                       valueColor: tokens.danger,
-                      leading: glyph(StrikedIcons.hosts, tokens.danger),
+                      leading: glyph(UpgradeIcons.hosts, tokens.danger),
                       onTap: _noop,
                     ),
                   ],

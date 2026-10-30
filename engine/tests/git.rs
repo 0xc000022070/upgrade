@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-const BINARY: &str = env!("CARGO_BIN_EXE_strikedddd");
+const BINARY: &str = env!("CARGO_BIN_EXE_upgraded");
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
 struct Sandbox {
@@ -18,7 +18,7 @@ impl Sandbox {
     fn new(name: &str) -> Self {
         let unique = COUNTER.fetch_add(1, Ordering::SeqCst);
         let root = std::env::temp_dir().join(format!(
-            "strikedddd-git-{}-{name}-{unique}",
+            "upgraded-git-{}-{name}-{unique}",
             std::process::id()
         ));
         let _ = fs::remove_dir_all(&root);
@@ -42,11 +42,11 @@ impl Sandbox {
 
     fn raw(&self, request: Value) -> Value {
         let mut child = Command::new(BINARY)
-            .env("STRIKEDDDD_STATE", self.root.join("state"))
+            .env("UPGRADED_STATE", self.root.join("state"))
             .env("HOME", self.root.join("home"))
             .env("XDG_CONFIG_HOME", self.root.join("home/config"))
             .env("GIT_CONFIG_NOSYSTEM", "1")
-            .env_remove("STRIKEDDDD_CONFIG")
+            .env_remove("UPGRADED_CONFIG")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -73,9 +73,9 @@ impl Sandbox {
             .arg(&self.repo)
             .args([
                 "-c",
-                "user.name=Striked",
+                "user.name=Upgrade",
                 "-c",
-                "user.email=striked@example.invalid",
+                "user.email=upgrade@example.invalid",
             ])
             .args([
                 "-c",

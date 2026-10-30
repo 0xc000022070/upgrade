@@ -2,19 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:striked_luau/striked_luau.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
 
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/plugins/plugins.dart';
-import 'package:striked/design/components/dot_spinner.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_text_action.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/plugins/plugin_frames.dart';
-import 'package:striked/features/plugins/plugin_page.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked/platform/plugins/ui.dart';
-import 'package:striked/platform/ssh/connection_supervisor.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/plugins/plugin_frames.dart';
+import 'package:upgrade/features/plugins/plugin_page.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 
 typedef _Drawn = ({
   String stamp,

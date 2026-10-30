@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/files/phone_inbox.dart';
-import 'package:striked/features/files/send_sheet.dart';
-import 'package:striked/features/files/transfer_bar.dart';
+import 'package:upgrade/application/files/phone_inbox.dart';
+import 'package:upgrade/features/files/send_sheet.dart';
+import 'package:upgrade/features/files/transfer_bar.dart';
 
 class SharedInboxHost extends ConsumerStatefulWidget {
   const SharedInboxHost({super.key, required this.child});

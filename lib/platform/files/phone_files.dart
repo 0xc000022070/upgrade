@@ -59,7 +59,7 @@ List<SharedItem> parseSharedItems(Object? raw) => [
 
 class PhoneFiles implements TransferStatus {
   PhoneFiles({MethodChannel? channel})
-    : _channel = channel ?? const MethodChannel('dev.luisnquin.striked/files') {
+    : _channel = channel ?? const MethodChannel('dev.luisnquin.upgrade/files') {
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
         case 'shared':

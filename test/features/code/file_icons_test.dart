@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/features/code/file_icons.dart';
-import 'package:striked/features/code/syntax.dart';
+import 'package:upgrade/features/code/file_icons.dart';
+import 'package:upgrade/features/code/syntax.dart';
 
 import '../../support/themed_app.dart';
 

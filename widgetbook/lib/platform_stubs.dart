@@ -6,8 +6,8 @@ import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 void answerDeviceChannels() {
   webPluginRegistrar.registerMessageHandler();
   for (final name in const [
-    'dev.luisnquin.striked/device/throttle',
-    'dev.luisnquin.striked/device/network',
+    'dev.luisnquin.upgrade/device/throttle',
+    'dev.luisnquin.upgrade/device/network',
   ]) {
     webPluginRegistrar.setMessageHandler(
       name,

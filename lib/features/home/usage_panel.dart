@@ -4,13 +4,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/agent_usage.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/home/agent_mark.dart';
-import 'package:striked/platform/herdr/engine_agents.dart';
+import 'package:upgrade/application/agents/agent_usage.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/home/agent_mark.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
 
 class UsagePanel extends ConsumerStatefulWidget {
   const UsagePanel({super.key, this.usages, this.now});
@@ -363,7 +363,7 @@ class UsageCells extends CustomPainter {
 }
 
 Color windowColor(
-  StrikedTokens tokens,
+  UpgradeTokens tokens,
   String agent,
   UsageLimit limit,
   UsageWindow window,

@@ -56,7 +56,7 @@ final class SpeechCut extends SpeechEvent {
 }
 
 abstract final class Speech {
-  static const _channel = MethodChannel('dev.luisnquin.striked/speech');
+  static const _channel = MethodChannel('dev.luisnquin.upgrade/speech');
 
   static final _events = StreamController<SpeechEvent>.broadcast(
     onListen: () => _channel.setMethodCallHandler(_onCall),

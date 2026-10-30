@@ -1,42 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/drops/drop_selection.dart';
-import 'package:striked/application/formatting.dart';
-import 'package:striked/application/navigation.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/path_repository.dart';
-import 'package:striked/data/views.dart';
-import 'package:striked/data/project_icons.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/action_sheet.dart';
-import 'package:striked/design/components/ascii_mascot.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/design/components/picker_row.dart';
-import 'package:striked/design/components/section.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/design/effects/glitch.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/features/code/workspace_sheet.dart';
-import 'package:striked/features/home/capture_bar.dart';
-import 'package:striked/features/hosts/hosts_screen.dart';
-import 'package:striked/design/components/screen_scaffold.dart';
-import 'package:striked/features/tasks/drops_panel.dart';
-import 'package:striked/features/tasks/selection_bar.dart';
-import 'package:striked/features/tasks/task_row.dart';
-import 'package:striked/features/projects/project_form_screen.dart';
-import 'package:striked/features/projects/project_row.dart';
-import 'package:striked/features/projects/project_icon.dart';
-import 'package:striked/features/projects/project_task_filter.dart';
-import 'package:striked/app/static_surface.dart';
+import 'package:upgrade/application/drops/drop_selection.dart';
+import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/data/project_icons.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/action_sheet.dart';
+import 'package:upgrade/design/components/ascii_mascot.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/picker_row.dart';
+import 'package:upgrade/design/components/section.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/code/workspace_sheet.dart';
+import 'package:upgrade/features/home/capture_bar.dart';
+import 'package:upgrade/features/hosts/hosts_screen.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
+import 'package:upgrade/features/tasks/drops_panel.dart';
+import 'package:upgrade/features/tasks/selection_bar.dart';
+import 'package:upgrade/features/tasks/task_row.dart';
+import 'package:upgrade/features/projects/project_form_screen.dart';
+import 'package:upgrade/features/projects/project_row.dart';
+import 'package:upgrade/features/projects/project_icon.dart';
+import 'package:upgrade/features/projects/project_task_filter.dart';
+import 'package:upgrade/app/static_surface.dart';
 
 void openProjectDetail(BuildContext context, String projectId) {
   Navigator.of(context, rootNavigator: true).push(
@@ -252,7 +252,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   children: [
                     PanelAffordance(
                       'EDIT',
-                      icon: StrikedIcons.edit,
+                      icon: UpgradeIcons.edit,
                       onTap: () => openProjectForm(
                         context,
                         project: project,
@@ -315,7 +315,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                             const SizedBox(width: Spacing.lg),
                             PanelAffordance(
                               'NEW',
-                              icon: StrikedIcons.add,
+                              icon: UpgradeIcons.add,
                               onTap: () => openProjectForm(
                                 context,
                                 parentId: widget.projectId,
@@ -351,7 +351,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      StrikedField(
+                      UpgradeField(
                         key: const ValueKey('project-task-search'),
                         controller: _search,
                         hint: 'Search tasks',
@@ -385,7 +385,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       const SizedBox(width: Spacing.lg),
                       PanelAffordance(
                         'NEW',
-                        icon: StrikedIcons.add,
+                        icon: UpgradeIcons.add,
                         onTap: () => setState(() {
                           _renaming = null;
                           _creating = true;
@@ -479,7 +479,7 @@ class _CodePanel extends ConsumerWidget {
       title: 'CODE',
       affordance: PanelAffordance(
         'LINK',
-        icon: StrikedIcons.add,
+        icon: UpgradeIcons.add,
         onTap: () => _link(context, ref),
       ),
       bodyPadding: panelRowsPadding,
@@ -650,7 +650,7 @@ class _GoalEditorState extends State<_GoalEditor> {
         showIcon: false,
         onTap: widget.onCancel,
       ),
-      child: StrikedField(
+      child: UpgradeField(
         controller: _field,
         autofocus: true,
         style: context.tokens.rowTitleLead,
@@ -733,8 +733,8 @@ class _NoteRow extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: StrikedIcon(
-              StrikedIcons.note,
+            child: UpgradeIcon(
+              UpgradeIcons.note,
               size: IconSizes.glyph,
               color: context.tokens.textDisabled,
             ),

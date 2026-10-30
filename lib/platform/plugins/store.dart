@@ -5,9 +5,9 @@ import 'dart:math' show min;
 
 import 'package:crypto/crypto.dart';
 
-import 'package:striked/platform/plugins/index.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/serial.dart';
+import 'package:upgrade/platform/plugins/index.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/serial.dart';
 
 class PluginPackage {
   PluginPackage({
@@ -67,44 +67,44 @@ class PluginPackage {
   String _link() {
     if (files.isEmpty) return source;
     final buffer = StringBuffer()
-      ..writeln('local __striked_modules = {}')
-      ..writeln('local __striked_cache = {}')
-      ..writeln('local __striked_done = {}')
-      ..writeln('local __striked_loading = {}')
-      ..writeln('local __striked_depth = 0')
+      ..writeln('local __upgrade_modules = {}')
+      ..writeln('local __upgrade_cache = {}')
+      ..writeln('local __upgrade_done = {}')
+      ..writeln('local __upgrade_loading = {}')
+      ..writeln('local __upgrade_depth = 0')
       ..writeln('local function require(path)')
-      ..writeln('  if __striked_done[path] then')
-      ..writeln('    return __striked_cache[path]')
+      ..writeln('  if __upgrade_done[path] then')
+      ..writeln('    return __upgrade_cache[path]')
       ..writeln('  end')
-      ..writeln('  local factory = __striked_modules[path]')
+      ..writeln('  local factory = __upgrade_modules[path]')
       ..writeln('  if factory == nil then')
       ..writeln('    error("plugin module not found: " .. tostring(path), 0)')
       ..writeln('  end')
-      ..writeln('  if __striked_loading[path] then')
+      ..writeln('  if __upgrade_loading[path] then')
       ..writeln(
         '    error("plugin module require cycle: " .. tostring(path), 0)',
       )
       ..writeln('  end')
-      ..writeln('  __striked_depth = __striked_depth + 1')
-      ..writeln('  if __striked_depth > 32 then')
-      ..writeln('    __striked_depth = __striked_depth - 1')
+      ..writeln('  __upgrade_depth = __upgrade_depth + 1')
+      ..writeln('  if __upgrade_depth > 32 then')
+      ..writeln('    __upgrade_depth = __upgrade_depth - 1')
       ..writeln('    error("plugin module require depth exceeded", 0)')
       ..writeln('  end')
-      ..writeln('  __striked_loading[path] = true')
+      ..writeln('  __upgrade_loading[path] = true')
       ..writeln('  local ok, result = pcall(factory)')
-      ..writeln('  __striked_loading[path] = nil')
-      ..writeln('  __striked_depth = __striked_depth - 1')
+      ..writeln('  __upgrade_loading[path] = nil')
+      ..writeln('  __upgrade_depth = __upgrade_depth - 1')
       ..writeln('  if not ok then')
       ..writeln('    error(result, 0)')
       ..writeln('  end')
-      ..writeln('  __striked_done[path] = true')
-      ..writeln('  __striked_cache[path] = result')
+      ..writeln('  __upgrade_done[path] = true')
+      ..writeln('  __upgrade_cache[path] = result')
       ..writeln('  return result')
       ..writeln('end');
     for (final path in files.keys.toList()..sort()) {
       final module = path.substring(0, path.length - '.luau'.length);
       buffer
-        ..writeln('__striked_modules["$module"] = function()')
+        ..writeln('__upgrade_modules["$module"] = function()')
         ..writeln(files[path])
         ..writeln('end');
     }
@@ -361,7 +361,7 @@ class PluginStore {
     Set<PluginPermission> grants,
   ) => _change((entries) {
     if (package.manifest.native || package.packageOriginIsBuiltin) {
-      throw const PluginException('Built-in plugins are updated with Striked');
+      throw const PluginException('Built-in plugins are updated with Upgrade');
     }
     final previous = entries.where((p) => p.id == package.manifest.id);
     if (previous.isNotEmpty &&
@@ -460,9 +460,9 @@ class PluginFetcher {
   static const _releaseMode = bool.fromEnvironment('dart.vm.product');
   static const _profileMode = bool.fromEnvironment('dart.vm.profile');
   static const _debugMode = !_releaseMode && !_profileMode;
-  static const _originEnv = String.fromEnvironment('STRIKED_PLUGIN_ORIGIN');
+  static const _originEnv = String.fromEnvironment('UPGRADE_PLUGIN_ORIGIN');
 
-  /// Read from `--dart-define=STRIKED_PLUGIN_ORIGIN=http://host:port`, so an author can
+  /// Read from `--dart-define=UPGRADE_PLUGIN_ORIGIN=http://host:port`, so an author can
   /// serve a plugin or index from a local directory. Ignored outside debug builds.
   String? get _devOrigin {
     if (!_debugMode || _originEnv.isEmpty) return null;
@@ -533,7 +533,7 @@ class PluginFetcher {
       HttpHeaders.acceptHeader,
       'application/vnd.github+json',
     );
-    request.headers.set(HttpHeaders.userAgentHeader, 'striked-plugin-fetcher');
+    request.headers.set(HttpHeaders.userAgentHeader, 'upgrade-plugin-fetcher');
     final response = await request.close();
     if (response.statusCode == 404) {
       await response.drain<void>();
@@ -689,7 +689,7 @@ class PluginFetcher {
       ).timeout(const Duration(seconds: 20));
 
       final manifestText = await read(
-        'striked.plugin.toml',
+        'upgrade.plugin.toml',
         PluginManifest.maxBytes,
       );
       final manifest = await _parseManifest(manifestText);
@@ -733,8 +733,8 @@ class PluginFetcher {
     try {
       final text = await _read(
         client,
-        base.resolve('striked.index.toml'),
-        'striked.index.toml',
+        base.resolve('upgrade.index.toml'),
+        'upgrade.index.toml',
         PluginIndex.maxBytes,
       ).timeout(const Duration(seconds: 20));
       return await _parseIndex(text);

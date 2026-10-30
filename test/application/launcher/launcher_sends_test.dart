@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agent_kind.dart';
-import 'package:striked/application/agents/send.dart';
-import 'package:striked/application/agents/send_queue.dart';
-import 'package:striked/application/launcher/launcher_sends.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/path_repository.dart';
-import 'package:striked/platform/launcher_widget/launcher_widget.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
+import 'package:upgrade/application/launcher/launcher_sends.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/platform/launcher_widget/launcher_widget.dart';
 
 const _nyx = Host(
   id: 'h1',
@@ -20,8 +20,8 @@ final _target = PathTarget(
   path: AgentPath(
     id: 'p1',
     hostId: 'h1',
-    directory: '~/src/striked',
-    label: 'striked',
+    directory: '~/src/upgrade',
+    label: 'upgrade',
     createdAt: DateTime.utc(2026, 9, 3),
   ),
   host: _nyx,
@@ -54,7 +54,7 @@ void main() {
       'id': 'j1',
       'state': 'SENDING',
       'title': 'fix the parser',
-      'target': 'nyx · striked · claude',
+      'target': 'nyx · upgrade · claude',
       'at': first.millisecondsSinceEpoch,
       'host': 'h1',
     });

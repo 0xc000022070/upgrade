@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:striked/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
 
 const agentInputPause = Duration(milliseconds: 600);
 

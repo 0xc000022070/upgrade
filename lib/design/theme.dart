@@ -1,16 +1,16 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-import 'package:striked/design/motion.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/typography.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/typography.dart';
 
 /// Material is a substrate only. Everything that would leak a Material look — ripples,
 /// elevation tints, shadows, rounded defaults, overscroll glow, the zoom transition — is
 /// neutralized here.
-abstract final class StrikedTheme {
-  static ThemeData build([StrikedTokens tokens = StrikedTokens.house]) {
+abstract final class UpgradeTheme {
+  static ThemeData build([UpgradeTokens tokens = UpgradeTokens.house]) {
     final schemeBuilder = tokens.brightness == Brightness.dark
         ? ColorScheme.dark
         : ColorScheme.light;
@@ -76,7 +76,7 @@ abstract final class StrikedTheme {
     );
   }
 
-  static TextTheme _textTheme(StrikedTokens tokens) => TextTheme(
+  static TextTheme _textTheme(UpgradeTokens tokens) => TextTheme(
     headlineLarge: tokens.screenTitle,
     headlineMedium: tokens.heroName,
     titleMedium: tokens.rowTitle,
@@ -89,8 +89,8 @@ abstract final class StrikedTheme {
   );
 }
 
-final class StrikedScrollBehavior extends MaterialScrollBehavior {
-  const StrikedScrollBehavior();
+final class UpgradeScrollBehavior extends MaterialScrollBehavior {
+  const UpgradeScrollBehavior();
 
   @override
   Widget buildOverscrollIndicator(

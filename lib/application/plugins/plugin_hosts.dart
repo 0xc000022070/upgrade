@@ -6,22 +6,22 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:dartssh2/dartssh2.dart';
-import 'package:striked_luau/data_api.dart';
+import 'package:upgrade_luau/data_api.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/herdr/engine_agents.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked/platform/ssh/ssh_settle.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/shell/path_scan.dart';
-import 'package:striked/platform/plugins/serial.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/platform/ssh/ssh_settle.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/shell/path_scan.dart';
+import 'package:upgrade/platform/plugins/serial.dart';
 
 typedef PluginHostConfirm = Future<bool> Function(
   Host host,
@@ -104,6 +104,7 @@ class PluginHostRegistry {
         ?service.reconcile?.call(activeOwners),
     ]);
   }
+
   final _usage = <String, Map<String, PluginHostUsage>>{};
   Map<String, PluginHostUsage> usage(InstalledPlugin plugin) =>
       Map.unmodifiable(_usage[pluginHostOwner(plugin)] ?? {});
@@ -332,7 +333,7 @@ Future<Map<String, Object?>> engineOver(
   Map<String, Object?> args,
 ) async {
   final session = await openWithin(
-    execute('strikedddd'),
+    execute('upgraded'),
     const Duration(seconds: 10),
     endExec,
   );
@@ -376,7 +377,7 @@ Future<Map<String, Object?>> engineOver(
           .trim();
       // A machine with no engine answers over the shell instead: 127 and a line of its own.
       if (session.exitCode == 127 || complaint.endsWith('not found')) {
-        throw const PluginException('This host has no strikedddd installed');
+        throw const PluginException('This host has no upgraded installed');
       }
       throw PluginException('Host engine did not answer. $complaint');
     }

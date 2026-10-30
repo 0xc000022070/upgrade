@@ -7,36 +7,36 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flterm/flterm.dart';
 
-import 'package:striked/application/agents/agent_kind.dart';
-import 'package:striked/application/agents/agent_input.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/alerts/pin_alerts.dart';
-import 'package:striked/application/phone_linux.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/shell_tab_repository.dart';
-import 'package:striked/data/shell_snapshot_store.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/links/link_probe.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/notifications/pin_notifications.dart';
-import 'package:striked/platform/shell/host_clipboard.dart';
-import 'package:striked/platform/shell/host_system.dart';
-import 'package:striked/platform/shell/remote_shell.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
-import 'package:striked/platform/shell/shell_launch.dart';
-import 'package:striked/platform/shell/shell_tunnel.dart';
-import 'package:striked/platform/shell/strip_bytes.dart';
-import 'package:striked/platform/shell/udp_path.dart';
-import 'package:striked/platform/workspace/workspace_commands.dart';
-import 'package:striked/platform/vnc/keysyms.dart';
-import 'package:striked/features/shell/session/host_copy.dart';
-import 'package:striked/features/shell/session/private_osc.dart';
-import 'package:striked/features/shell/session/program_status.dart';
-import 'package:striked/features/shell/session/shell_engine.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/agent_input.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/application/phone_linux.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/shell_tab_repository.dart';
+import 'package:upgrade/data/shell_snapshot_store.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/links/link_probe.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/notifications/pin_notifications.dart';
+import 'package:upgrade/platform/shell/host_clipboard.dart';
+import 'package:upgrade/platform/shell/host_system.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/shell/shell_launch.dart';
+import 'package:upgrade/platform/shell/shell_tunnel.dart';
+import 'package:upgrade/platform/shell/strip_bytes.dart';
+import 'package:upgrade/platform/shell/udp_path.dart';
+import 'package:upgrade/platform/workspace/workspace_commands.dart';
+import 'package:upgrade/platform/vnc/keysyms.dart';
+import 'package:upgrade/features/shell/session/host_copy.dart';
+import 'package:upgrade/features/shell/session/private_osc.dart';
+import 'package:upgrade/features/shell/session/program_status.dart';
+import 'package:upgrade/features/shell/session/shell_engine.dart';
 
 /// A build log on the remote is the case this is sized for.
 const shellScrollback = 10000;
@@ -67,7 +67,7 @@ final class ShellReconnecting extends ShellState {
 }
 
 /// The remote session may still exist, but the transport has missed enough
-/// acknowledgements that Striked has no evidence of a usable connection.
+/// acknowledgements that Upgrade has no evidence of a usable connection.
 final class ShellDisconnected extends ShellState {
   const ShellDisconnected(this.transport);
 
@@ -944,7 +944,7 @@ class ShellSessions extends ChangeNotifier {
       return answer;
     } on HerdrFailure catch (error) {
       debugPrint(
-        'striked.shell ${session.host.name}: ${error.detail ?? error}',
+        'upgrade.shell ${session.host.name}: ${error.detail ?? error}',
       );
       return null;
     }
@@ -973,7 +973,7 @@ class ShellSessions extends ChangeNotifier {
     } catch (error) {
       if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
       debugPrint(
-        'striked.shell ${session.host.name}: foreground probe: $error',
+        'upgrade.shell ${session.host.name}: foreground probe: $error',
       );
       return null;
     }
@@ -1007,7 +1007,7 @@ class ShellSessions extends ChangeNotifier {
       }
     } catch (error) {
       if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-      debugPrint('striked.shell ${session.host.name}: pane agents: $error');
+      debugPrint('upgrade.shell ${session.host.name}: pane agents: $error');
       return null;
     }
     return null;
@@ -1115,7 +1115,7 @@ class ShellSessions extends ChangeNotifier {
           ..launch = launch
           ..ownConnection = ownConnection;
     session.painted.value = snapshot != null;
-    answerInColours(session.terminal, StrikedTokens.house.terminal);
+    answerInColours(session.terminal, UpgradeTokens.house.terminal);
     _byHost.putIfAbsent(host.id, () => []).add(session);
     _active[host.id] = number;
     _parkedHostId = host.id;
@@ -1144,14 +1144,14 @@ class ShellSessions extends ChangeNotifier {
             (_) {},
             onError: (Object error) {
               if (terminal.restoration != RestorationState.failed) return;
-              debugPrint('striked.shell snapshot $hostId/$number: $error');
+              debugPrint('upgrade.shell snapshot $hostId/$number: $error');
               unawaited(snapshots?.drop(hostId, number));
             },
           ),
         );
         return terminal;
       } catch (error) {
-        debugPrint('striked.shell snapshot $hostId/$number: $error');
+        debugPrint('upgrade.shell snapshot $hostId/$number: $error');
         unawaited(snapshots?.drop(hostId, number));
       }
     }
@@ -1172,14 +1172,14 @@ class ShellSessions extends ChangeNotifier {
         preserveSnapshotColors: false,
       );
     } catch (error) {
-      debugPrint('striked.shell ${session.host.name}: host snapshot: $error');
+      debugPrint('upgrade.shell ${session.host.name}: host snapshot: $error');
       return;
     }
     unawaited(
       next.restored.then(
         (_) {},
         onError: (Object error) => debugPrint(
-          'striked.shell ${session.host.name}: host snapshot: $error',
+          'upgrade.shell ${session.host.name}: host snapshot: $error',
         ),
       ),
     );
@@ -1194,7 +1194,7 @@ class ShellSessions extends ChangeNotifier {
       ..onSemanticPrompt = null
       ..onReset = null
       ..onResize = null;
-    answerInColours(next, StrikedTokens.house.terminal);
+    answerInColours(next, UpgradeTokens.house.terminal);
     session._terminal.value = next;
     _wireTerminal(session);
     final columns = session._columns;
@@ -1273,7 +1273,7 @@ class ShellSessions extends ChangeNotifier {
     session._stopAsking();
     unawaited(
       connection.suspend(suspended).catchError((Object error) {
-        debugPrint('striked.shell ${session.host.name}: suspend: $error');
+        debugPrint('upgrade.shell ${session.host.name}: suspend: $error');
       }),
     );
   }
@@ -1293,7 +1293,7 @@ class ShellSessions extends ChangeNotifier {
       connection
           .resume(reason)
           .catchError((Object error) {
-            debugPrint('striked.shell ${session.host.name}: resume: $error');
+            debugPrint('upgrade.shell ${session.host.name}: resume: $error');
           })
           .then((_) => _askHost(session)),
     );
@@ -1322,7 +1322,7 @@ class ShellSessions extends ChangeNotifier {
     try {
       bytes = session.terminal.snapshot();
     } catch (error) {
-      debugPrint('striked.shell ${session.host.name}: snapshot: $error');
+      debugPrint('upgrade.shell ${session.host.name}: snapshot: $error');
       return;
     }
     session._unsavedSince = null;
@@ -1332,7 +1332,7 @@ class ShellSessions extends ChangeNotifier {
       try {
         await store.write(hostId, session.number, bytes);
       } catch (error) {
-        debugPrint('striked.shell ${session.host.name}: snapshot: $error');
+        debugPrint('upgrade.shell ${session.host.name}: snapshot: $error');
       }
     });
   }
@@ -1348,7 +1348,7 @@ class ShellSessions extends ChangeNotifier {
     try {
       await persistence;
     } catch (error) {
-      debugPrint('striked.shell ${host.name}: tab save failed: $error');
+      debugPrint('upgrade.shell ${host.name}: tab save failed: $error');
       if (!session._closed) {
         session.state = ShellFailed(
           ShellFailureKind.streamClosed,
@@ -1507,7 +1507,7 @@ class ShellSessions extends ChangeNotifier {
           await connection?.terminateRemote(remoteSession, action: action) ??
           false;
     } catch (error) {
-      debugPrint('striked.shell ${session.host.name}: cleanup failed: $error');
+      debugPrint('upgrade.shell ${session.host.name}: cleanup failed: $error');
     } finally {
       await connection?.close(reason);
     }
@@ -1645,7 +1645,7 @@ class ShellSessions extends ChangeNotifier {
         system = await probeSystem(connection.channels);
       } catch (error) {
         if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-        debugPrint('striked.shell ${host.name}: system probe: $error');
+        debugPrint('upgrade.shell ${host.name}: system probe: $error');
         _systemAsked.remove(host.id);
         return;
       }
@@ -1681,7 +1681,7 @@ class ShellSessions extends ChangeNotifier {
     } catch (error) {
       if (session.connection == connection) session._probing = null;
       if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-      debugPrint('striked.shell ${session.host.name}: clipboard probe: $error');
+      debugPrint('upgrade.shell ${session.host.name}: clipboard probe: $error');
       return const HostClipboard(ClipboardBackend.none, reason: 'exec refused');
     }
     if (answer == null) {
@@ -1727,7 +1727,7 @@ class ShellSessions extends ChangeNotifier {
       );
     } catch (error) {
       if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-      debugPrint('striked.shell ${session.host.name}: pinentry mark: $error');
+      debugPrint('upgrade.shell ${session.host.name}: pinentry mark: $error');
     }
   }
 
@@ -1782,7 +1782,7 @@ class ShellSessions extends ChangeNotifier {
         } catch (error) {
           if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
           debugPrint(
-            'striked.shell ${session.host.name}: pinentry ask: $error',
+            'upgrade.shell ${session.host.name}: pinentry ask: $error',
           );
           return;
         }
@@ -1854,7 +1854,7 @@ class ShellSessions extends ChangeNotifier {
         channels = await connection.channelsFor(UserAction(intent));
       } catch (error) {
         if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-        debugPrint('striked.shell ${session.host.name}: pinentry dial: $error');
+        debugPrint('upgrade.shell ${session.host.name}: pinentry dial: $error');
         return unsent();
       }
       if (channels == null) return unsent();
@@ -1876,7 +1876,7 @@ class ShellSessions extends ChangeNotifier {
       return PinAnswer.expired;
     } catch (error) {
       if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-      debugPrint('striked.shell ${session.host.name}: pinentry answer: $error');
+      debugPrint('upgrade.shell ${session.host.name}: pinentry answer: $error');
       return PinAnswer.lost;
     } finally {
       _answering.remove(request.id);
@@ -1979,7 +1979,7 @@ class ShellSessions extends ChangeNotifier {
           await connection.terminateRemote(session.tab);
         }
       } catch (error) {
-        debugPrint('striked.shell ${host.name}: cleanup failed: $error');
+        debugPrint('upgrade.shell ${host.name}: cleanup failed: $error');
       } finally {
         await connection.discard();
       }
@@ -2069,7 +2069,7 @@ class ShellSessions extends ChangeNotifier {
           }
         },
         onError: (Object error) =>
-            debugPrint('striked.shell ${host.name}: snapshots: $error'),
+            debugPrint('upgrade.shell ${host.name}: snapshots: $error'),
       );
       session._foregroundProcesses = connection.foregroundProcesses.listen(
         (processes) {
@@ -2109,7 +2109,7 @@ class ShellSessions extends ChangeNotifier {
                 if (!isHostFailure(error) && !isKeyFailure(error)) {
                   Error.throwWithStackTrace(error, stack);
                 }
-                debugPrint('striked.shell ${host.name}: settle: $error');
+                debugPrint('upgrade.shell ${host.name}: settle: $error');
               },
             );
     if (_sleeping) {
@@ -2153,7 +2153,7 @@ class ShellSessions extends ChangeNotifier {
         }
       }
     } catch (error) {
-      debugPrint('striked.shell $hostId: cleanup failed: $error');
+      debugPrint('upgrade.shell $hostId: cleanup failed: $error');
     }
   }
 
@@ -2439,7 +2439,7 @@ class ShellSessions extends ChangeNotifier {
           .rehome(network: network)
           .catchError((Object error) {
             debugPrint(
-              'striked.shell ${session.host.name}: rehome failed: $error',
+              'upgrade.shell ${session.host.name}: rehome failed: $error',
             );
           })
           .whenComplete(() {

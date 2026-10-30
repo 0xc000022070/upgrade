@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/features/code/diff_jump.dart';
-import 'package:striked/features/code/diff_map.dart';
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/features/code/diff_jump.dart';
+import 'package:upgrade/features/code/diff_map.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 import '../../support/themed_app.dart';
 

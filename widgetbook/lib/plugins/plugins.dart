@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/design/components/meta.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/platform/plugins/ui.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/plugins/ui.dart';
 
-import 'package:striked_widgetbook/frame.dart';
+import 'package:upgrade_widgetbook/frame.dart';
 
 const _plugins = {
   'board': 'Board',

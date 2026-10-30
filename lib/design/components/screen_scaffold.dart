@@ -1,11 +1,11 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/path_line.dart';
-import 'package:striked/design/components/signal_text.dart';
-import 'package:striked/design/layout.dart';
-import 'package:striked/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/path_line.dart';
+import 'package:upgrade/design/components/signal_text.dart';
+import 'package:upgrade/design/layout.dart';
+import 'package:upgrade/design/spacing.dart';
 
 class ScreenScaffold extends StatelessWidget {
   const ScreenScaffold({

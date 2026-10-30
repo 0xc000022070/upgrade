@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agent_input.dart';
-import 'package:striked/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/agent_input.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
 
 Uint8List _bytes(String text) => Uint8List.fromList(utf8.encode(text));
 

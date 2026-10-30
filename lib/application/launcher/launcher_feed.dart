@@ -1,6 +1,6 @@
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/launcher_widget/launcher_widget.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/launcher_widget/launcher_widget.dart';
 
 LauncherTally? launcherTally(List<HostOutcome> outcomes) {
   if (outcomes.any((outcome) => !outcome.ok)) return null;

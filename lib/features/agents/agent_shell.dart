@@ -3,15 +3,15 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/navigation.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
-import 'package:striked/features/shell/session/shell_sessions.dart';
-import 'package:striked/features/shell/sheets/shell_sheet.dart';
-import 'package:striked/features/hosts/hosts_screen.dart';
-import 'package:striked/features/agents/agent_chat_screen.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
+import 'package:upgrade/features/hosts/hosts_screen.dart';
+import 'package:upgrade/features/agents/agent_chat_screen.dart';
 
 typedef AgentOpen = void Function(
   UserIntent intent,

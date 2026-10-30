@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/motion.dart';
+import 'package:upgrade/design/motion.dart';
 
 /// Repaints [child] in [base] with a hard-edged band of [lit] stepping across it, left to
 /// right and round again. It holds off for the spinner's threshold, so a wait that ends

@@ -1,12 +1,12 @@
 import 'dart:io';
 
-import 'package:striked/data/plugin_emblems.dart';
-import 'package:striked/features/plugins/plugin_board.dart';
-import 'package:striked/features/plugins/plugin_catalog.dart';
-import 'package:striked/features/plugins/plugin_graph.dart';
-import 'package:striked/features/plugins/plugin_reach.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
+import 'package:upgrade/data/plugin_emblems.dart';
+import 'package:upgrade/features/plugins/plugin_board.dart';
+import 'package:upgrade/features/plugins/plugin_catalog.dart';
+import 'package:upgrade/features/plugins/plugin_graph.dart';
+import 'package:upgrade/features/plugins/plugin_reach.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/native_plugins.dart';
@@ -28,25 +28,25 @@ void main() {
       _plugin('agents', enabled: false),
     ]);
     expect(graph.rows, [
-      ['striked.drops'],
-      ['striked.projects'],
+      ['upgrade.drops'],
+      ['upgrade.projects'],
     ]);
-    expect(graph.edges, [(from: 'striked.drops', to: 'striked.projects')]);
-    expect(graph.unlinked, ['striked.agents']);
+    expect(graph.edges, [(from: 'upgrade.drops', to: 'upgrade.projects')]);
+    expect(graph.unlinked, ['upgrade.agents']);
     expect(graph.missing, isEmpty);
   });
 
   test('a missing dependency is a node and blocks its dependent', () {
     final projects = _plugin('projects', enabled: false);
     final graph = pluginGraph([projects]);
-    expect(graph.missing, {'striked.drops'});
+    expect(graph.missing, {'upgrade.drops'});
     expect(graph.rows, [
-      ['striked.drops'],
-      ['striked.projects'],
+      ['upgrade.drops'],
+      ['upgrade.projects'],
     ]);
     expect(
       blockedReason(projects, {projects.id: projects}),
-      'NEEDS striked.drops · NOT INSTALLED',
+      'NEEDS upgrade.drops · NOT INSTALLED',
     );
   });
 
@@ -54,13 +54,13 @@ void main() {
     final drops = _plugin('drops', enabled: false);
     expect(pluginMatches(drops, ''), isTrue);
     expect(pluginMatches(drops, 'DROPS'), isTrue);
-    expect(pluginMatches(drops, 'striked drops'), isTrue);
+    expect(pluginMatches(drops, 'upgrade drops'), isTrue);
     expect(pluginMatches(drops, 'drops nonsense'), isFalse);
   });
 
   test('reach groups a host service into one line', () {
     final manifest = PluginManifest.parse(
-      File('plugins/agent-schedules/striked.plugin.toml').readAsStringSync(),
+      File('plugins/agent-schedules/upgrade.plugin.toml').readAsStringSync(),
     );
     final reach = pluginReach(manifest);
     final scheduler = reach.singleWhere(
@@ -95,7 +95,7 @@ id = "dev.local.runner"
 name = "Runner"
 purpose = "Run declared commands."
 version = "0.1.0"
-striked_api = "^2.1.0"
+upgrade_api = "^2.1.0"
 ui_api = 2
 
 [runtime]
@@ -140,26 +140,26 @@ timeout_seconds = 60
       _plugin('drops', enabled: false),
       _plugin('projects', enabled: false),
     ];
-    expect(switchPlan(off, 'striked.projects', true), [
-      'striked.drops',
-      'striked.projects',
+    expect(switchPlan(off, 'upgrade.projects', true), [
+      'upgrade.drops',
+      'upgrade.projects',
     ]);
-    expect(switchPlan(off, 'striked.drops', true), ['striked.drops']);
+    expect(switchPlan(off, 'upgrade.drops', true), ['upgrade.drops']);
 
     final on = [
       _plugin('drops', enabled: true),
       _plugin('projects', enabled: true),
     ];
-    expect(switchPlan(on, 'striked.drops', false), [
-      'striked.projects',
-      'striked.drops',
+    expect(switchPlan(on, 'upgrade.drops', false), [
+      'upgrade.projects',
+      'upgrade.drops',
     ]);
-    expect(switchPlan(on, 'striked.projects', false), ['striked.projects']);
+    expect(switchPlan(on, 'upgrade.projects', false), ['upgrade.projects']);
   });
 
   test('a plugin wears its declared emblem, else one fixed by its id', () {
     expect(_plugin('drops', enabled: false).manifest.emblem, 'crate');
-    expect(PluginEmblem.of('striked.drops', 'crate'), PluginEmblem.crate);
+    expect(PluginEmblem.of('upgrade.drops', 'crate'), PluginEmblem.crate);
     expect(
       PluginEmblem.of('acme.notes', 'unknown'),
       PluginEmblem.of('acme.notes', null),

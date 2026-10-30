@@ -1,0 +1,29 @@
+manifest_version = 5
+id = "dev.example.hello-card"
+name = "Hello card"
+purpose = "Show a greeting and how often Home refreshed it."
+version = "0.1.0"
+upgrade_api = "^2.1.0"
+ui_api = 2
+summary = "Phone-only Home card template"
+
+files = ["lib/card.luau"]
+
+[runtime]
+kind = "luau"
+entry = "main.luau"
+
+[permissions]
+ui = ["widget"]
+
+[[contributes.widgets]]
+id = "status"
+title = "Hello"
+locations = ["home.card"]
+default_location = "home.card"
+default_size = "compact"
+refresh_minutes = 15
+sizes = [
+  { id = "compact", title = "Compact", width = 320 },
+  { id = "wide", title = "Wide", min_width = 360, max_width = 720 },
+]

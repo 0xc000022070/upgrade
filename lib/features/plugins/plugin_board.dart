@@ -1,13 +1,13 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'package:striked/data/plugin_emblems.dart';
-import 'package:striked/design/effects/glitch.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/platform/plugins/store.dart';
+import 'package:upgrade/data/plugin_emblems.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 
 String? blockedReason(
   InstalledPlugin plugin,
@@ -102,8 +102,8 @@ class _NodeFace extends StatelessWidget {
     final lip = size * (pressed ? 0.03 : 0.09);
     final outline = size >= pluginNodeSize ? 3.0 : 2.0;
     final icon = emblem == null
-        ? StrikedIcon(
-            StrikedIcons.add,
+        ? UpgradeIcon(
+            UpgradeIcons.add,
             size: size * 0.4,
             color: tokens.textDisabled,
           )
@@ -168,8 +168,8 @@ class _NodeFace extends StatelessWidget {
                     borderRadius: BorderRadius.circular(2),
                     border: Border.all(color: ink, width: outline - 1),
                   ),
-                  child: StrikedIcon(
-                    StrikedIcons.blocked,
+                  child: UpgradeIcon(
+                    UpgradeIcons.blocked,
                     size: size * 0.24,
                     color: tokens.textPrimary,
                   ),

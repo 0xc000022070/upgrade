@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/access.dart';
-import 'package:striked/platform/plugins/serial.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/access.dart';
+import 'package:upgrade/platform/plugins/serial.dart';
 
 class NativeUsageFile {
   NativeUsageFile(this.file);

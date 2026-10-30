@@ -1,5 +1,5 @@
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/ui_tree.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/ui_tree.dart';
 
 const pluginToolSchemaVersion = 1;
 
@@ -356,7 +356,7 @@ List<PluginDiagnostic> validateUiTree(
       report(
         'UI_KIND_NEEDS_API',
         'ui.$kind needs ui_api = 2',
-        'Set ui_api = 2 in striked.plugin.toml.',
+        'Set ui_api = 2 in upgrade.plugin.toml.',
         expected: 'ui_api 2',
         actual: 'ui_api $uiApi',
       );
@@ -475,10 +475,10 @@ Object? stripUiLines(Object? tree) {
 Map<String, Object?> pluginSdkInventory() => {
   'schema_version': pluginToolSchemaVersion,
   'sdk': {
-    'striked_api': PluginManifest.apiVersion.toString(),
+    'upgrade_api': PluginManifest.apiVersion.toString(),
     'manifest_version': PluginManifest.filesManifestVersion,
     'ui_api': [1, pluginSdkUiApi],
-    'manifest_file': 'striked.plugin.toml',
+    'manifest_file': 'upgrade.plugin.toml',
     'max_manifest_bytes': PluginManifest.maxBytes,
     'max_source_bytes': 64 * 1024,
     'max_package_bytes': 512 * 1024,
@@ -487,7 +487,7 @@ Map<String, Object?> pluginSdkInventory() => {
   'supported': {
     'manifest_formats': {
       '2': 'record actions',
-      '3': 'native, bundled with Striked only',
+      '3': 'native, bundled with Upgrade only',
       '4': 'Luau UI; ui_api required',
       '5': 'Luau with up to 31 extra .luau files; ui_api optional',
     },
@@ -564,7 +564,7 @@ Map<String, Object?> pluginSdkInventory() => {
       'mode': 'fixtures',
       'fixtures': 'fixtures/*.json: {widget, events = [...], state?}',
       'transport': 'the phone reads the workspace over its SSH host link',
-      'result': '.striked/preview/latest.json',
+      'result': '.upgrade/preview/latest.json',
     },
   },
   'planned': [
@@ -581,7 +581,7 @@ Map<String, Object?> pluginSdkInventory() => {
 
 const pluginDiagnosticCodes = {
   'WORKSPACE_TOO_LARGE': 'more workspace files than a check reads',
-  'MANIFEST_MISSING': 'no striked.plugin.toml at the workspace root',
+  'MANIFEST_MISSING': 'no upgrade.plugin.toml at the workspace root',
   'MANIFEST_INVALID': 'the runtime refuses the manifest',
   'MANIFEST_UNSUPPORTED': 'the manifest parses but this app cannot run it',
   'FILE_MISSING': 'the entry or a declared file is absent',

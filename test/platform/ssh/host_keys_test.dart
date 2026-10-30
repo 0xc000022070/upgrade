@@ -4,15 +4,15 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/design/colors.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/features/hosts/host_key_sheet.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
-import 'package:striked/platform/shell/shell_tunnel.dart';
-import 'package:striked/platform/vnc/vnc_failure.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/features/hosts/host_key_sheet.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/shell/shell_tunnel.dart';
+import 'package:upgrade/platform/vnc/vnc_failure.dart';
 
 import '../../support/themed_app.dart';
 
@@ -243,7 +243,7 @@ void main() {
     final replace = tester.widget<ActionBlock>(
       find.widgetWithText(ActionBlock, 'REPLACE'),
     );
-    expect(replace.tone, StrikedColors.warning);
+    expect(replace.tone, UpgradeColors.warning);
     expect(replace.filled, isTrue);
 
     await tester.tap(find.text('KEEP OLD'));

@@ -2,18 +2,18 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:striked/data/repositories/shell_tab_repository.dart';
-import 'package:striked/data/shell_snapshot_store.dart';
-import 'package:striked/application/alerts/pin_alerts.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/host_repository.dart' show Host;
-import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/data/repositories/shell_tab_repository.dart';
+import 'package:upgrade/data/shell_snapshot_store.dart';
+import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart' show Host;
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:dartssh2/dartssh2.dart' show SSHChannelRequestError;
-import 'package:striked/platform/links/link_probe.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
-import 'package:striked/platform/ssh/host_files.dart'
+import 'package:upgrade/platform/links/link_probe.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/ssh/host_files.dart'
     show FileBody, PutProgress, collectBytes, putFile, putLanded;
-import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 
 class FakeShellConnection implements ShellConnection {
   FakeShellConnection({

@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/tokens.dart';
 
 enum Tone {
   none,
@@ -24,7 +24,7 @@ enum Tone {
   }
 }
 
-extension StrikedKnobs on BuildContext {
+extension UpgradeKnobs on BuildContext {
   Color? tone({String label = 'Tone', Tone initial = Tone.none}) => knobs.object
       .dropdown(
         label: label,

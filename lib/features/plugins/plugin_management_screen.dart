@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/app/static_surface.dart';
-import 'package:striked/application/plugins/plugins.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/components/screen_scaffold.dart';
-import 'package:striked/features/settings/plugins_panel.dart';
-import 'package:striked/features/plugins/plugin_catalog.dart';
+import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
+import 'package:upgrade/features/settings/plugins_panel.dart';
+import 'package:upgrade/features/plugins/plugin_catalog.dart';
 
 void openPluginManagement(BuildContext context) {
   Navigator.of(context, rootNavigator: true).push(
@@ -24,7 +24,7 @@ class PluginManagementScreen extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'PLUGINS',
-          breadcrumb: '/ STRIKED / PLUGINS',
+          breadcrumb: '/ UPGRADE / PLUGINS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PluginCatalogView(
@@ -52,7 +52,7 @@ class PluginBrowseScreen extends StatelessWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'BROWSE',
-          breadcrumb: '/ STRIKED / PLUGINS / BROWSE',
+          breadcrumb: '/ UPGRADE / PLUGINS / BROWSE',
           onBack: () => Navigator.of(context).pop(),
           children: const [
             PluginBrowseView(),

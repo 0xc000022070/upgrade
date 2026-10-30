@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/platform/plugins/contributions.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/ui.dart';
-import 'package:striked_luau/striked_luau.dart';
-import 'package:striked_luau/ui_sdk.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
+import 'package:upgrade_luau/ui_sdk.dart';
 
 String _manifest({
   String ui = '["widget"]',
@@ -14,7 +14,7 @@ manifest_version = 4
 id = "test.card"
 name = "Card test"
 version = "1.0.0"
-striked_api = "^2.1.0"
+upgrade_api = "^2.1.0"
 ui_api = 1
 [runtime]
 kind = "luau"

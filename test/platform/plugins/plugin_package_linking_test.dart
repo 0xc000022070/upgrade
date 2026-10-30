@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked_luau/striked_luau.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _manifest = '''
@@ -10,7 +10,7 @@ manifest_version = 2
 id = "test.linking"
 name = "Test linking"
 version = "1.0.0"
-striked_api = "^2.0.0"
+upgrade_api = "^2.0.0"
 [runtime]
 kind = "luau"
 entry = "main.luau"
@@ -33,7 +33,7 @@ void main() {
   late LuauWorker worker;
   late Directory directory;
   setUp(() async {
-    directory = await Directory.systemTemp.createTemp('striked-linking-test-');
+    directory = await Directory.systemTemp.createTemp('upgrade-linking-test-');
     worker = LuauWorker(dataDirectory: directory.path);
   });
   tearDown(() async {

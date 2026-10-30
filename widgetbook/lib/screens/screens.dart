@@ -2,19 +2,19 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/application/agents/agent_usage.dart';
-import 'package:striked/data/project_icons.dart';
-import 'package:striked/design/components/meta.dart';
-import 'package:striked/features/code/diff_pane.dart';
-import 'package:striked/features/devices/device_sheet.dart';
-import 'package:striked/features/home/usage_panel.dart';
-import 'package:striked/features/hosts/hook_sheet.dart';
-import 'package:striked/features/hosts/host_key_sheet.dart';
-import 'package:striked/features/projects/project_icon_picker.dart';
-import 'package:striked/features/tasks/link_preview_card.dart';
+import 'package:upgrade/application/agents/agent_usage.dart';
+import 'package:upgrade/data/project_icons.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/features/code/diff_pane.dart';
+import 'package:upgrade/features/devices/device_sheet.dart';
+import 'package:upgrade/features/home/usage_panel.dart';
+import 'package:upgrade/features/hosts/hook_sheet.dart';
+import 'package:upgrade/features/hosts/host_key_sheet.dart';
+import 'package:upgrade/features/projects/project_icon_picker.dart';
+import 'package:upgrade/features/tasks/link_preview_card.dart';
 
-import 'package:striked_widgetbook/frame.dart';
-import 'package:striked_widgetbook/screens/fixtures.dart';
+import 'package:upgrade_widgetbook/frame.dart';
+import 'package:upgrade_widgetbook/screens/fixtures.dart';
 
 final screenComponents = [
   WidgetbookComponent(

@@ -1,7 +1,7 @@
 import 'package:flterm/flterm.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/features/shell/session/program_status.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/features/shell/session/program_status.dart';
 
 import '../../../support/fake_shell.dart';
 import '../../../support/reasons.dart';

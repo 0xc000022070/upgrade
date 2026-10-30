@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:striked/platform/plugins/bindings.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked_luau/data_api.dart';
+import 'package:upgrade/platform/plugins/bindings.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade_luau/data_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../application/plugins/plugins_test.dart' as fixtures;
@@ -183,7 +183,7 @@ void main() {
     'old manifest and grants remain inert without resetting the catalog',
     () async {
       final directory = await Directory.systemTemp.createTemp(
-        'striked-retained-test-',
+        'upgrade-retained-test-',
       );
       try {
         final source = fixtures.manifest().replaceFirst(

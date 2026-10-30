@@ -25,8 +25,8 @@ const _shellScreen = 'lib/features/shell/host_shell_screen.dart';
 const _shellSheet = 'lib/features/shell/sheets/shell_sheet.dart';
 const _shellSessions = 'lib/features/shell/session/shell_sessions.dart';
 
-const _sshUri = 'package:striked/platform/ssh/connection_supervisor.dart';
-const _agentsUri = 'package:striked/application/agents/agents.dart';
+const _sshUri = 'package:upgrade/platform/ssh/connection_supervisor.dart';
+const _agentsUri = 'package:upgrade/application/agents/agents.dart';
 const _widgetsUri = 'package:flutter/src/widgets/framework.dart';
 
 const _seam =
@@ -177,7 +177,7 @@ bool _isMember(Element? element, String owner, String name) {
   return base != null &&
       base.name == name &&
       base.enclosingElement?.name == owner &&
-      (_uri(base)?.startsWith('package:striked/') ?? false);
+      (_uri(base)?.startsWith('package:upgrade/') ?? false);
 }
 
 bool _holdsToken(DartType? type) => switch (type) {
@@ -827,7 +827,7 @@ bool Function(String, Expression?, AstNode) _declared(
       _uri(base) == library;
 };
 
-const _hostLinksUri = 'package:striked/platform/ssh/host_links.dart';
+const _hostLinksUri = 'package:upgrade/platform/ssh/host_links.dart';
 
 /// Every read of [member]: a call, a property, a pattern field or an implicit `this`. A
 /// declaration names it with a token, not an identifier, so it never counts.
@@ -873,10 +873,10 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/platform/notifications/alert_notifications.dart';
-import 'package:striked/platform/device.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/platform/notifications/alert_notifications.dart';
+import 'package:upgrade/platform/device.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 ''';
 
 const _snippetHelpers = '''
@@ -1139,7 +1139,7 @@ Widget c(bool on) => Block(onTap: on ? null : (UserIntent.onGesture(go)));
 ''');
         await accepts(
           'Widget d() => Block(onTap: reasons.UserIntent.onGesture(go));',
-          imports: "import 'package:striked/platform/shell/shell_connection.dart' as reasons;\n",
+          imports: "import 'package:upgrade/platform/shell/shell_connection.dart' as reasons;\n",
         );
       });
 
@@ -1259,7 +1259,7 @@ Widget f() => Block(onTap: UserIntent.onGesture(tapped));
         await rejects('final ended = ShellEnded.unbound();');
         await rejects(
           'final tap = reasons.UserIntent.onGesture(go);',
-          imports: "import 'package:striked/platform/shell/shell_connection.dart' as reasons;\n",
+          imports: "import 'package:upgrade/platform/shell/shell_connection.dart' as reasons;\n",
         );
       });
 

@@ -2,7 +2,7 @@ SSH connection lifecycle follows the policy header in `lib/platform/ssh/connecti
 
 # Remote host development
 
-Use the NixOS VM as Striked's integrated remote computer. Build Striked and drive
+Use the NixOS VM as Upgrade's integrated remote computer. Build Upgrade and drive
 the Android emulator on the development host; do not install Android tooling in
 the VM.
 
@@ -11,9 +11,9 @@ the VM.
 3. The guest project is `/home/dev/Projects/fixture`.
 4. Herdr uses the guest session `development`.
 
-The development phone is `pixel_7-api36`, not Faraday. Its Striked host entry is:
+The development phone is `pixel_7-api36`, not Faraday. Its Upgrade host entry is:
 
-- name: `STRIKED HOST VM`
+- name: `UPGRADE HOST VM`
 - address: `100.118.60.77:2222`
 - user: `dev`
 - key: `test-key`
@@ -23,7 +23,7 @@ picks, with no form typed. Pass the bare IP (`100.118.60.77`); the scenario
 supplies the port. It refuses an address that does not answer with
 the declared host key, `SHA256:hDVbIZXceJXxmv9IiBarvzZx3utci+tvV5gyo8ya0Wc`
 (`nix/host-vm/fixtures/host_vm_host_key`, shared by every guest), and keeps
-the phone's private key in `$XDG_STATE_HOME/striked`, out of the repo.
+the phone's private key in `$XDG_STATE_HOME/upgrade`, out of the repo.
 
 SSH uses TCP 2222. Mosh uses UDP 60920-60935: every guest's `mosh-server` is
 pinned to its own sixteen ports, whatever range the app asks for. If the

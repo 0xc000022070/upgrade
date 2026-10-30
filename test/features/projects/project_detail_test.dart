@@ -5,22 +5,22 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/navigation.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/activity_repository.dart';
-import 'package:striked/data/repositories/attachment_repository.dart';
-import 'package:striked/data/repositories/goal_repository.dart';
-import 'package:striked/data/repositories/project_repository.dart';
-import 'package:striked/data/repositories/task_repository.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/features/projects/project_detail_screen.dart';
-import 'package:striked/features/projects/project_form_screen.dart';
-import 'package:striked/features/projects/projects_screen.dart';
-import 'package:striked/features/projects/project_task_filter.dart';
-import 'package:striked/features/tasks/selection_bar.dart';
-import 'package:striked/features/home/capture_bar.dart';
-import 'package:striked/features/home/capture_draft.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/repositories/goal_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/features/projects/project_detail_screen.dart';
+import 'package:upgrade/features/projects/project_form_screen.dart';
+import 'package:upgrade/features/projects/projects_screen.dart';
+import 'package:upgrade/features/projects/project_task_filter.dart';
+import 'package:upgrade/features/tasks/selection_bar.dart';
+import 'package:upgrade/features/home/capture_bar.dart';
+import 'package:upgrade/features/home/capture_draft.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -531,8 +531,8 @@ void main() {
             PathsCompanion.insert(
               id: id,
               hostId: 'host-1',
-              directory: '~/src/striked',
-              label: 'striked',
+              directory: '~/src/upgrade',
+              label: 'upgrade',
               createdAt: DateTime.utc(2026, 9, 3),
               projectId: Value(projectId),
             ),
@@ -550,9 +550,9 @@ void main() {
       expect(find.text('NO DIRECTORIES LINKED'), findsOneWidget);
 
       await tapText(tester, 'LINK');
-      await tapText(tester, '…/src/striked');
+      await tapText(tester, '…/src/upgrade');
 
-      expect(find.text('…/src/striked'), findsOneWidget);
+      expect(find.text('…/src/upgrade'), findsOneWidget);
       expect(find.text('NYX'), findsOneWidget);
 
       await unmount(tester);
@@ -582,7 +582,7 @@ void main() {
     testWidgets('a directory already filed elsewhere is not offered', (
       tester,
     ) async {
-      final other = await projects.create(name: 'Striked');
+      final other = await projects.create(name: 'Upgrade');
       final id = await projects.create(name: 'Infra personal');
       await seedPath(projectId: other);
 
@@ -591,7 +591,7 @@ void main() {
       await tapText(tester, 'LINK');
 
       expect(find.text('EVERY DIRECTORY IS LINKED'), findsOneWidget);
-      expect(find.text('…/src/striked'), findsNothing);
+      expect(find.text('…/src/upgrade'), findsNothing);
 
       await unmount(tester);
     });
@@ -604,9 +604,9 @@ void main() {
 
       await tester.pumpWidget(host(ProjectDetailScreen(projectId: id)));
       await _ready(tester);
-      expect(find.text('…/src/striked'), findsOneWidget);
+      expect(find.text('…/src/upgrade'), findsOneWidget);
 
-      await tester.longPress(find.text('…/src/striked'));
+      await tester.longPress(find.text('…/src/upgrade'));
       await _ready(tester);
       await tapText(tester, 'UNLINK');
 
@@ -626,7 +626,7 @@ void main() {
       await tester.runAsync(() => projects.delete(id));
       final rows = await tester.runAsync(() => db.select(db.paths).get());
       expect(rows!.single.projectId, isNull);
-      expect(rows.single.directory, '~/src/striked');
+      expect(rows.single.directory, '~/src/upgrade');
     });
   });
 }

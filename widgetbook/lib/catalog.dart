@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/design/theme.dart';
+import 'package:upgrade/design/theme.dart';
 
-import 'package:striked_widgetbook/assets/gallery.dart';
-import 'package:striked_widgetbook/components/actions.dart';
-import 'package:striked_widgetbook/components/containers.dart';
-import 'package:striked_widgetbook/components/feedback.dart';
-import 'package:striked_widgetbook/components/graphics.dart';
-import 'package:striked_widgetbook/components/inputs.dart';
-import 'package:striked_widgetbook/components/rows.dart';
-import 'package:striked_widgetbook/foundations/colors.dart';
-import 'package:striked_widgetbook/foundations/geometry.dart';
-import 'package:striked_widgetbook/foundations/typography.dart';
-import 'package:striked_widgetbook/notes.dart';
-import 'package:striked_widgetbook/plugins/plugins.dart';
-import 'package:striked_widgetbook/screens/screens.dart';
-import 'package:striked_widgetbook/themes.dart';
+import 'package:upgrade_widgetbook/assets/gallery.dart';
+import 'package:upgrade_widgetbook/components/actions.dart';
+import 'package:upgrade_widgetbook/components/containers.dart';
+import 'package:upgrade_widgetbook/components/feedback.dart';
+import 'package:upgrade_widgetbook/components/graphics.dart';
+import 'package:upgrade_widgetbook/components/inputs.dart';
+import 'package:upgrade_widgetbook/components/rows.dart';
+import 'package:upgrade_widgetbook/foundations/colors.dart';
+import 'package:upgrade_widgetbook/foundations/geometry.dart';
+import 'package:upgrade_widgetbook/foundations/typography.dart';
+import 'package:upgrade_widgetbook/notes.dart';
+import 'package:upgrade_widgetbook/plugins/plugins.dart';
+import 'package:upgrade_widgetbook/screens/screens.dart';
+import 'package:upgrade_widgetbook/themes.dart';
 
 const pixel7 = ViewportData(
   name: 'Pixel 7 (pixel_7-api36)',
@@ -55,21 +55,21 @@ final directories = <WidgetbookNode>[
   WidgetbookFolder(name: 'Plugins', children: pluginComponents),
 ];
 
-class StrikedCatalog extends StatelessWidget {
-  const StrikedCatalog({super.key});
+class UpgradeCatalog extends StatelessWidget {
+  const UpgradeCatalog({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Widgetbook.material(
       appBuilder: (context, child) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: StrikedTheme.build(),
-        scrollBehavior: const StrikedScrollBehavior(),
+        theme: UpgradeTheme.build(),
+        scrollBehavior: const UpgradeScrollBehavior(),
         home: Material(child: child),
       ),
       addons: [
         NotesAddon(),
-        MaterialThemeAddon(themes: strikedThemes),
+        MaterialThemeAddon(themes: upgradeThemes),
         ViewportAddon([
           pixel7,
           ...AndroidViewports.phones,

@@ -5,18 +5,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
-import 'package:striked/features/code/diff_jump.dart';
-import 'package:striked/features/code/diff_map.dart';
-import 'package:striked/features/code/diff_read.dart';
-import 'package:striked/features/code/hunk_pin.dart';
-import 'package:striked/features/code/intraline.dart';
-import 'package:striked/features/code/structural.dart';
-import 'package:striked/features/code/syntax.dart';
-import 'package:striked/features/code/syntax_style.dart';
+import 'package:upgrade/features/code/diff_jump.dart';
+import 'package:upgrade/features/code/diff_map.dart';
+import 'package:upgrade/features/code/diff_read.dart';
+import 'package:upgrade/features/code/hunk_pin.dart';
+import 'package:upgrade/features/code/intraline.dart';
+import 'package:upgrade/features/code/structural.dart';
+import 'package:upgrade/features/code/syntax.dart';
+import 'package:upgrade/features/code/syntax_style.dart';
 
 class _Rail extends StatelessWidget {
   const _Rail({

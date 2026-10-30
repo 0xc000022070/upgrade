@@ -5,23 +5,23 @@ import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/drops/clips.dart';
-import 'package:striked/application/files/phone_inbox.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/dot_spinner.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
-import 'package:striked/features/photos/photo_review.dart';
-import 'package:striked/features/shell/input/clip_paste.dart';
-import 'package:striked/features/shell/input/photo_attach.dart';
-import 'package:striked/features/shell/session/shell_sessions.dart';
-import 'package:striked/features/files/transfer_queue.dart';
-import 'package:striked/features/files/transfers.dart';
+import 'package:upgrade/application/drops/clips.dart';
+import 'package:upgrade/application/files/phone_inbox.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/features/photos/photo_review.dart';
+import 'package:upgrade/features/shell/input/clip_paste.dart';
+import 'package:upgrade/features/shell/input/photo_attach.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/features/files/transfer_queue.dart';
+import 'package:upgrade/features/files/transfers.dart';
 import 'package:uuid/uuid.dart';
 
 const attachSheetLinger = Duration(milliseconds: 700);
@@ -317,7 +317,7 @@ class _AttachHelp extends StatelessWidget {
         'the host clipboard and pasted with Ctrl+V as it lands. A host with no '
         'clipboard tool gets the file path typed at the cursor instead.',
     'PHONE picks any file off the phone. A PNG goes in like a photo; '
-        'anything else lands under /tmp/striked and its path is typed at the '
+        'anything else lands under /tmp/upgrade and its path is typed at the '
         'cursor.',
     'HELD is what a crop off the SCREEN viewer is kept in, for as long as '
         'the app is running. Tap one to attach it, × to drop it.',
@@ -397,8 +397,8 @@ class _ClipTile extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(Spacing.sm),
                     color: context.tokens.surfacePrimary,
-                    child: StrikedIcon(
-                      StrikedIcons.close,
+                    child: UpgradeIcon(
+                      UpgradeIcons.close,
                       size: IconSizes.affordance,
                       color: context.tokens.textSecondary,
                     ),

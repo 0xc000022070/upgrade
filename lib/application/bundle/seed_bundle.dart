@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:striked/platform/bundle_cipher.dart';
-import 'package:striked/application/bundle/bundle.dart';
+import 'package:upgrade/platform/bundle_cipher.dart';
+import 'package:upgrade/application/bundle/bundle.dart';
 
 Future<String?> applySeedBundle(BundleTransfer transfer) async {
   if (!kDebugMode) return null;

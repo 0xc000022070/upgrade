@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agent_state.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/launcher/launcher_feed.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/launcher_widget/launcher_widget.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/launcher/launcher_feed.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/launcher_widget/launcher_widget.dart';
 
 const _rose = Host(
   id: 'h1',

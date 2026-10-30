@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:striked/platform/devices/device_link.dart';
+import 'package:upgrade/platform/devices/device_link.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final _devices = File('test/fixtures/simctl/simctl_devices.json')

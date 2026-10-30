@@ -3,14 +3,14 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/drops/clips.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/features/screen/screen_preview.dart';
-import 'package:striked/features/shell/input/clip_paste.dart';
-import 'package:striked/features/shell/session/shell_sessions.dart';
-import 'package:striked/platform/shell/host_clipboard.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
-import 'package:striked/platform/ssh/host_files.dart';
+import 'package:upgrade/application/drops/clips.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
+import 'package:upgrade/features/shell/input/clip_paste.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/platform/shell/host_clipboard.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/ssh/host_files.dart';
 
 import '../../../support/fake_shell.dart';
 import '../../../support/reasons.dart';
@@ -69,7 +69,7 @@ void main() {
   late Clip clip;
 
   setUp(() async {
-    directory = Directory.systemTemp.createTempSync('striked-paste-test');
+    directory = Directory.systemTemp.createTempSync('upgrade-paste-test');
     clips = ClipStore(directory);
     clip = await clips.add(
       encodePng(PreviewFrame(width: 8, height: 8, rgb: Uint8List(8 * 8 * 3))),
@@ -169,7 +169,7 @@ void main() {
     expect(result.outcome, PasteOutcome.path);
     expect(result.line, 'PATH · no display server');
     expect(connection.execs.skip(2), hasLength(2));
-    expect(connection.written, contains('/tmp/striked/${clip.fileName}'));
+    expect(connection.written, contains('/tmp/upgrade/${clip.fileName}'));
     expect(connection.writes.any((bytes) => bytes.contains(0x16)), isFalse);
   });
 
@@ -199,7 +199,7 @@ void main() {
       connection.execs.map((exec) => exec.command),
       isNot(contains(contains('wl-copy --type'))),
     );
-    expect(connection.written, contains("'/tmp/striked/u1/notes.txt' "));
+    expect(connection.written, contains("'/tmp/upgrade/u1/notes.txt' "));
     expect(connection.writes.any((bytes) => bytes.contains(0x16)), isFalse);
   });
 
@@ -276,7 +276,7 @@ void main() {
     );
 
     expect(result.line, 'PATH · wayland exit 1');
-    expect(connection.written, contains('/tmp/striked/'));
+    expect(connection.written, contains('/tmp/upgrade/'));
   });
 
   test(
@@ -303,7 +303,7 @@ void main() {
       );
 
       expect(result.line, 'PATH · wayland failed');
-      expect(connection.written, contains('/tmp/striked/${clip.fileName}'));
+      expect(connection.written, contains('/tmp/upgrade/${clip.fileName}'));
       expect(connection.writes.any((bytes) => bytes.contains(0x16)), isFalse);
     },
   );

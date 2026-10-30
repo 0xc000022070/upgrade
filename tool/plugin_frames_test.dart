@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/platform/plugins/ui.dart';
-import 'package:striked_luau/striked_luau.dart';
+import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
 
 import '../test/plugins/agent_schedules_plugin_test.dart' as schedules;
 import '../test/plugins/board_plugin_test.dart' as board;
@@ -52,7 +52,7 @@ void main() {
     _out.createSync(recursive: true);
   });
   setUp(() async {
-    root = await Directory.systemTemp.createTemp('striked-frames-');
+    root = await Directory.systemTemp.createTemp('upgrade-frames-');
     worker = LuauWorker(dataDirectory: root.path);
   });
   tearDown(() async {

@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/send.dart';
-import 'package:striked/application/agents/send_queue.dart';
-import 'package:striked/application/launcher/launcher_sends.dart';
-import 'package:striked/application/prompt/prompt_target.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/features/tasks/send_steps.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
+import 'package:upgrade/application/launcher/launcher_sends.dart';
+import 'package:upgrade/application/prompt/prompt_target.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/features/tasks/send_steps.dart';
 
 String promptTitle(String text) => text.trim().split('\n').first.trim();
 

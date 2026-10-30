@@ -2,10 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:striked/application/agents/agent_kind.dart';
-import 'package:striked/application/agents/send.dart';
-import 'package:striked/application/alerts/toasts.dart';
-import 'package:striked/data/repositories/path_repository.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/alerts/toasts.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
 
 class PendingSend {
   const PendingSend({
@@ -106,7 +106,7 @@ class SendQueue extends Notifier<List<PendingSend>> {
     try {
       result = await send.run(send.id);
     } catch (error) {
-      debugPrint('striked.spawn ${send.target.host.name}: $error');
+      debugPrint('upgrade.spawn ${send.target.host.name}: $error');
       result = const SendFailed('send failed');
     }
     final toasts = ref.read(toastQueueProvider.notifier);

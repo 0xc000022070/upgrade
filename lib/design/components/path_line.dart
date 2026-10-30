@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/components/signal_text.dart';
+import 'package:upgrade/design/components/signal_text.dart';
 
 double lineWidth(BuildContext context, String text, TextStyle style) {
   final painter = TextPainter(

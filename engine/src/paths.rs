@@ -30,7 +30,7 @@ fn non_empty_var(key: &str) -> Option<PathBuf> {
 /// rather than the root below it: the root is the base with the owner joined on, so a
 /// unit that carried the root would have the owner joined on twice when it ran.
 pub fn state_base() -> EngineResult<PathBuf> {
-    if let Some(explicit) = non_empty_var("STRIKEDDDD_STATE") {
+    if let Some(explicit) = non_empty_var("UPGRADED_STATE") {
         return Ok(explicit);
     }
     let base = if cfg!(target_os = "macos") {
@@ -38,7 +38,7 @@ pub fn state_base() -> EngineResult<PathBuf> {
     } else {
         non_empty_var("XDG_STATE_HOME").unwrap_or(home()?.join(".local/state"))
     };
-    Ok(base.join("strikedddd"))
+    Ok(base.join("upgraded"))
 }
 
 /// Everything the engine writes lives under one directory, so `teardown` has a
@@ -51,17 +51,17 @@ pub fn state_root(owner: &str) -> EngineResult<PathBuf> {
 /// file a user can write can only ever add to the ceiling the machine's owner set.
 pub fn config_candidates() -> Vec<PathBuf> {
     let mut candidates = Vec::new();
-    if let Some(explicit) = non_empty_var("STRIKEDDDD_CONFIG") {
+    if let Some(explicit) = non_empty_var("UPGRADED_CONFIG") {
         candidates.push(explicit);
     }
     if let Ok(home) = home() {
         if cfg!(target_os = "macos") {
-            candidates.push(home.join("Library/Application Support/strikedddd/config.json"));
+            candidates.push(home.join("Library/Application Support/upgraded/config.json"));
         }
         let config_base = non_empty_var("XDG_CONFIG_HOME").unwrap_or(home.join(".config"));
-        candidates.push(config_base.join("strikedddd/config.json"));
+        candidates.push(config_base.join("upgraded/config.json"));
     }
-    candidates.push(PathBuf::from("/etc/strikedddd/config.json"));
+    candidates.push(PathBuf::from("/etc/upgraded/config.json"));
     candidates
 }
 

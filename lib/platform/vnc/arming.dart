@@ -1,4 +1,4 @@
-import 'package:striked/platform/vnc/keysyms.dart';
+import 'package:upgrade/platform/vnc/keysyms.dart';
 
 const maxArmingRepeat = 3;
 

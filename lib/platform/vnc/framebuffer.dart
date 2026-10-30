@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:striked/platform/vnc/rfb_messages.dart';
+import 'package:upgrade/platform/vnc/rfb_messages.dart';
 
 /// The byte order is `bgra8888`, so the three colour bytes of a BGRX pixel land where
 /// they already are. Only the fourth is this app's business: the server sends nothing in

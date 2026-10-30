@@ -2,18 +2,18 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'package:striked/application/plugins/plugin_scope_stub.dart'
-    if (dart.library.ffi) 'package:striked/application/plugins/native_plugins.dart'
+import 'package:upgrade/application/plugins/plugin_scope_stub.dart'
+    if (dart.library.ffi) 'package:upgrade/application/plugins/native_plugins.dart'
     show inheritPluginScope;
 
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/layout.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/keyboard_toolbar.dart';
-import 'package:striked/design/components/meta.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/sheet_route.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/layout.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/keyboard_toolbar.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/sheet_route.dart';
 
 Future<T?> showPanelSheet<T>(
   BuildContext context, {

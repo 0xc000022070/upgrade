@@ -1,16 +1,16 @@
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agent_kind.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/agents/send.dart';
-import 'package:striked/application/prompt/prompt_target.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/dispatch_repository.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/path_repository.dart';
-import 'package:striked/data/repositories/settings_repository.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/prompt/prompt_target.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/dispatch_repository.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
 
 const _nyx = Host(
   id: 'host-1',
@@ -41,7 +41,7 @@ PathTarget _at(Host host, String id, String label) => PathTarget(
   host: host,
 );
 
-final _striked = _at(_nyx, 'path-1', 'striked');
+final _upgrade = _at(_nyx, 'path-1', 'upgrade');
 final _dotfiles = _at(_rose, 'path-2', 'dotfiles');
 
 void main() {
@@ -74,31 +74,31 @@ void main() {
 
   test('a target falls away once its directory or agent is gone', () {
     const saved = PromptTarget(pathId: 'path-1', agent: 'claude');
-    final choice = saved.resolve([_striked, _dotfiles])!;
-    expect(choice.target, same(_striked));
+    final choice = saved.resolve([_upgrade, _dotfiles])!;
+    expect(choice.target, same(_upgrade));
     expect(choice.kind, isA<ClaudeKind>());
     expect(saved.resolve([_dotfiles]), isNull);
     expect(
-      const PromptTarget(pathId: 'path-1', agent: 'gone').resolve([_striked]),
+      const PromptTarget(pathId: 'path-1', agent: 'gone').resolve([_upgrade]),
       isNull,
     );
   });
 
   test('only directories on a multiplexed host are offered', () {
-    expect(promptOffered([_striked, _dotfiles], [_rose]), [_dotfiles]);
-    expect(promptOffered([_striked, _dotfiles], const []), isEmpty);
+    expect(promptOffered([_upgrade, _dotfiles], [_rose]), [_dotfiles]);
+    expect(promptOffered([_upgrade, _dotfiles], const []), isEmpty);
   });
 
   test('the label names host, directory and agent, then any model', () {
     expect(
-      promptTargetLabel(SendChoice(target: _striked, kind: const ClaudeKind())),
-      'nyx · striked · claude',
+      promptTargetLabel(SendChoice(target: _upgrade, kind: const ClaudeKind())),
+      'nyx · upgrade · claude',
     );
     expect(
       promptTargetLabel(
-        SendChoice(target: _striked, kind: const CodexKind(), model: 'gpt-5'),
+        SendChoice(target: _upgrade, kind: const CodexKind(), model: 'gpt-5'),
       ),
-      'nyx · striked · codex · gpt-5',
+      'nyx · upgrade · codex · gpt-5',
     );
   });
 
@@ -116,12 +116,12 @@ void main() {
             ),
             host: _nyx,
           );
-      final mine = under('a', '~/Projects/github.com/0xc000022070/striked');
-      final fork = under('b', '~/Projects/github.com/luisnquin/striked/');
-      expect(promptDirectoryLabel(mine, [mine, _dotfiles]), 'striked');
-      expect(promptDirectoryLabel(mine, [mine, fork]), '0xc000022070/striked');
-      expect(promptDirectoryLabel(fork, [mine, fork]), 'luisnquin/striked');
-      final named = under('c', '~/work/striked', 'work');
+      final mine = under('a', '~/Projects/github.com/0xc000022070/upgrade');
+      final fork = under('b', '~/Projects/github.com/luisnquin/upgrade/');
+      expect(promptDirectoryLabel(mine, [mine, _dotfiles]), 'upgrade');
+      expect(promptDirectoryLabel(mine, [mine, fork]), '0xc000022070/upgrade');
+      expect(promptDirectoryLabel(fork, [mine, fork]), 'luisnquin/upgrade');
+      final named = under('c', '~/work/upgrade', 'work');
       expect(
         promptDirectoryLabel(named, [named, under('d', '~/x/work')]),
         'work',
@@ -149,7 +149,7 @@ void main() {
           settingsRepositoryProvider.overrideWithValue(settings),
           sendsProvider.overrideWith((ref) => Stream.value(sends)),
           pathTargetsProvider.overrideWith(
-            (ref) => Stream.value([_striked, _dotfiles]),
+            (ref) => Stream.value([_upgrade, _dotfiles]),
           ),
           herdrHostsProvider.overrideWith((ref) => Stream.value(multiplexed)),
         ],
@@ -179,7 +179,7 @@ void main() {
     test('is none once its host has no multiplexer', () async {
       await savePromptTarget(
         settings,
-        SendChoice(target: _striked, kind: const ClaudeKind()),
+        SendChoice(target: _upgrade, kind: const ClaudeKind()),
       );
       final container = scope([_rose]);
       await pumpEventQueue();
@@ -190,7 +190,7 @@ void main() {
     test('falls back to the newest send still offered', () async {
       final container = scope(
         [_rose],
-        sends: [_sent('striked', 'path-1'), _sent('dotfiles', 'path-2')],
+        sends: [_sent('upgrade', 'path-1'), _sent('dotfiles', 'path-2')],
       );
       await pumpEventQueue();
       expect(container.read(promptSummaryProvider), 'rose · dotfiles · claude');
@@ -199,14 +199,14 @@ void main() {
     test('a saved target outranks the sends', () async {
       await savePromptTarget(
         settings,
-        SendChoice(target: _striked, kind: const CodexKind()),
+        SendChoice(target: _upgrade, kind: const CodexKind()),
       );
       final container = scope(
         [_nyx, _rose],
         sends: [_sent('dotfiles', 'path-2')],
       );
       await pumpEventQueue();
-      expect(container.read(promptSummaryProvider), 'nyx · striked · codex');
+      expect(container.read(promptSummaryProvider), 'nyx · upgrade · codex');
     });
   });
 }

@@ -2,12 +2,12 @@ import 'package:flutter/services.dart';
 
 /// All fail soft: on desktop and in tests the channels are simply absent.
 abstract final class Device {
-  static const _channel = MethodChannel('dev.luisnquin.striked/device');
+  static const _channel = MethodChannel('dev.luisnquin.upgrade/device');
   static const _throttleEvents = EventChannel(
-    'dev.luisnquin.striked/device/throttle',
+    'dev.luisnquin.upgrade/device/throttle',
   );
   static const _networkEvents = EventChannel(
-    'dev.luisnquin.striked/device/network',
+    'dev.luisnquin.upgrade/device/network',
   );
 
   /// Emits the current value immediately on subscribe, then again on every change: both
@@ -81,7 +81,7 @@ class BuildInfo {
   /// Injected by phone.toml and the flake with `git rev-parse --short HEAD`. `dev` when
   /// absent, which is every `flutter run` started by hand.
   static const revision = String.fromEnvironment(
-    'STRIKED_BUILD',
+    'UPGRADE_BUILD',
     defaultValue: 'dev',
   );
 

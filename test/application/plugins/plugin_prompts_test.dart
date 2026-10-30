@@ -1,21 +1,21 @@
 import 'dart:io';
 
-import 'package:striked/app/builtin_plugins.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/plugins/plugin_hosts.dart';
-import 'package:striked/application/plugins/plugin_placements.dart';
-import 'package:striked/application/plugins/plugins.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/plugin_placement_repository.dart';
-import 'package:striked/design/colors.dart';
-import 'package:striked/features/plugins/plugin_management_screen.dart';
-import 'package:striked/features/plugins/plugin_page.dart';
-import 'package:striked/platform/plugins/contributions.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked_luau/striked_luau.dart';
+import 'package:upgrade/app/builtin_plugins.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_hosts.dart';
+import 'package:upgrade/application/plugins/plugin_placements.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/features/plugins/plugin_management_screen.dart';
+import 'package:upgrade/features/plugins/plugin_page.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,7 +36,7 @@ Future<void> _drain(WidgetTester tester) async {
 /// The builtin fixtures leave a single widget able to take the input bar, so nothing ever
 /// contends for it. This one also accepts it.
 PluginPackage _contendingProjects() {
-  final toml = File('lib/builtin_plugins/projects/striked.plugin.toml')
+  final toml = File('lib/builtin_plugins/projects/upgrade.plugin.toml')
       .readAsStringSync()
       .replaceFirst(
         'locations = ["home.card"]',
@@ -45,7 +45,7 @@ PluginPackage _contendingProjects() {
   return PluginPackage(
     manifest: PluginManifest.parse(toml, allowNative: true),
     source: File('lib/builtin_plugins/projects/main.dart').readAsStringSync(),
-    origin: 'bundled:striked.projects',
+    origin: 'bundled:upgrade.projects',
     revision: '1.0.0',
   );
 }
@@ -163,15 +163,15 @@ void main() {
       ],
     );
 
-    await openPluginDetails(tester, 'striked.projects', _drain);
+    await openPluginDetails(tester, 'upgrade.projects', _drain);
     await adjustPlacement(
       tester,
-      'striked.projects:widget:next-action',
+      'upgrade.projects:widget:next-action',
       _drain,
     );
 
     final layout = find.byKey(
-      const ValueKey('layout-striked.projects:widget:next-action'),
+      const ValueKey('layout-upgrade.projects:widget:next-action'),
     );
     await tester.ensureVisible(layout);
     await tester.pump();
@@ -225,11 +225,11 @@ void main() {
       ],
     );
 
-    await openPluginDetails(tester, 'striked.drops', _drain);
-    await adjustPlacement(tester, 'striked.drops:widget:drops', _drain);
+    await openPluginDetails(tester, 'upgrade.drops', _drain);
+    await adjustPlacement(tester, 'upgrade.drops:widget:drops', _drain);
 
     final layout = find.byKey(
-      const ValueKey('layout-striked.drops:widget:drops'),
+      const ValueKey('layout-upgrade.drops:widget:drops'),
     );
     await tester.ensureVisible(layout);
     await tester.pump();
@@ -244,7 +244,7 @@ void main() {
     expect(find.byType(SnackBar), findsNothing);
     final failure = find.text('Storage is read only');
     expect(failure, findsOneWidget);
-    expect(tester.widget<Text>(failure).style?.color, StrikedColors.danger);
+    expect(tester.widget<Text>(failure).style?.color, UpgradeColors.danger);
 
     repository.refuse = false;
     await tester.tap(hide);

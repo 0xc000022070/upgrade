@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:striked/platform/workspace/workspace_commands.dart';
+import 'package:upgrade/platform/workspace/workspace_commands.dart';
 
 class WorkspaceStatus {
   const WorkspaceStatus({

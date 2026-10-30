@@ -1,4 +1,4 @@
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 class ChangeDir {
   ChangeDir(this.name, this.path);

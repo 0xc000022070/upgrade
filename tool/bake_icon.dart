@@ -3,8 +3,8 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:striked/design/ascii/braille.dart';
-import 'package:striked/design/ascii/kitten.dart';
+import 'package:upgrade/design/ascii/braille.dart';
+import 'package:upgrade/design/ascii/kitten.dart';
 
 const _ground = [0x08, 0x09, 0x0B];
 const _figure = [0xE8, 0xE8, 0xE3];

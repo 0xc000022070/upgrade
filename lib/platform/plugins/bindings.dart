@@ -1,7 +1,7 @@
-import 'package:striked_luau/data_api.dart';
+import 'package:upgrade_luau/data_api.dart';
 
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 
 DataOwner pluginDataOwner(InstalledPlugin plugin) =>
     DataOwner(plugin.id, plugin.package.origin);

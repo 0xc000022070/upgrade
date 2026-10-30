@@ -3,19 +3,19 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/plugins/plugin_placements.dart';
-import 'package:striked/data/repositories/plugin_placement_repository.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/design/components/panel_text_action.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/plugins/plugin_management_screen.dart';
-import 'package:striked/platform/plugins/contributions.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_placements.dart';
+import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/plugins/plugin_management_screen.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
 
 PluginWidgetRegistration? homeShown(
   PluginContributionCatalog catalog,
@@ -98,7 +98,7 @@ class _NameSheetState extends ConsumerState<_NameSheet> {
   Widget build(BuildContext context) => PanelSheetBody(
     title: widget.fresh ? 'NEW WORKSPACE' : 'RENAME WORKSPACE',
     children: [
-      StrikedField(
+      UpgradeField(
         controller: _field,
         autofocus: true,
         maxLength: homeNameLength,

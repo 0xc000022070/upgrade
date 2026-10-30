@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
 const _byName = {
   'playground': 'Try every option with the knobs on the right.',
@@ -89,7 +89,7 @@ const notes = {
   'components/containers/panel-sheet/body-with-footer':
       'Content with the buttons pinned at the bottom.',
   'components/containers/panel-sheet/confirm': 'A yes or no question.',
-  'components/inputs/strikedfield':
+  'components/inputs/upgradefield':
       'Text input in the app\'s style (host form, search, prompt bar).',
   'components/inputs/fieldpanel': 'A labelled input box used in forms.',
   'components/inputs/choicepanel':
@@ -109,7 +109,7 @@ const notes = {
   'components/feedback/signaltext':
       'Text that scrambles in like a decoding signal. Titles of panels and '
       'screens use it.',
-  'components/graphics/strikedicon': 'The app\'s icon set.',
+  'components/graphics/upgradeicon': 'The app\'s icon set.',
   'components/graphics/asciimascot': 'The mascot, drawn in ASCII characters.',
   'components/graphics/asciimascot/all-states': 'Every mood of the mascot.',
   'components/graphics/ditherfield':
@@ -135,7 +135,7 @@ const notes = {
       'The host\'s key differs from the one saved: it was reinstalled, or '
       'someone is in between.',
   'screens/hook-sheet':
-      'Offers to add Striked\'s hooks to an agent\'s config on a host, so the '
+      'Offers to add Upgrade\'s hooks to an agent\'s config on a host, so the '
       'app hears when the agent needs you.',
   'screens/hook-sheet/installed': 'Already in place.',
   'screens/hook-sheet/missing': 'Not there yet: INSTALL adds them.',
@@ -156,7 +156,7 @@ const notes = {
       'Lines added and removed in a change, as counts and a bar.',
   'plugins/board':
       'Board plugin: a whiteboard where you place notes and link them with '
-      'lines. Ships with Striked.',
+      'lines. Ships with Upgrade.',
   'plugins/board/mounted': 'First open: no boards yet.',
   'plugins/board/empty-board': 'A new board with no notes.',
   'plugins/board/note-selected': 'Two notes, one selected and open to edit.',

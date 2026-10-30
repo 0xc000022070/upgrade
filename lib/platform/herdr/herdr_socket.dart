@@ -131,7 +131,7 @@ class HerdrApi {
     return events.stream;
   }
 
-  String _next() => 'striked:${_id++}';
+  String _next() => 'upgrade:${_id++}';
 
   static List<int> _frame(
     String id,

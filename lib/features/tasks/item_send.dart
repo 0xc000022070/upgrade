@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/providers.dart';
-import 'package:striked/application/agents/send.dart';
-import 'package:striked/application/agents/send_queue.dart';
-import 'package:striked/application/launcher/launcher_sends.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/features/tasks/send_steps.dart';
-import 'package:striked/application/drops/attachment_files.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
+import 'package:upgrade/application/launcher/launcher_sends.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/features/tasks/send_steps.dart';
+import 'package:upgrade/application/drops/attachment_files.dart';
 
 class SendFlow extends ConsumerStatefulWidget {
   const SendFlow({
@@ -120,7 +120,7 @@ class _SendFlowState extends ConsumerState<SendFlow> {
       message: [
         SheetField(
           label: 'MESSAGE',
-          child: StrikedField(
+          child: UpgradeField(
             key: const ValueKey('send-message'),
             semanticLabel: 'Message to agent',
             controller: _message,

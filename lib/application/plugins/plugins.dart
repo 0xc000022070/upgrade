@@ -1,19 +1,19 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:striked_luau/striked_luau.dart';
-import 'package:striked_luau/data_api.dart';
-import 'package:striked_luau/ui_sdk.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
+import 'package:upgrade_luau/data_api.dart';
+import 'package:upgrade_luau/ui_sdk.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:striked/platform/plugins/bindings.dart';
-import 'package:striked/platform/plugins/index.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/plugins/plugin_hosts.dart';
+import 'package:upgrade/platform/plugins/bindings.dart';
+import 'package:upgrade/platform/plugins/index.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_hosts.dart';
 
 final pluginStoreProvider = FutureProvider<PluginStore>((ref) async {
   final directory = await getApplicationSupportDirectory();

@@ -1,0 +1,45 @@
+manifest_version = 5
+id = "upgrade.kanban"
+name = "Kanban"
+purpose = "See every agent session as columns, and answer approvals from them."
+version = "1.0.0"
+upgrade_api = "^2.1.0"
+ui_api = 2
+author = "Upgrade"
+homepage = "https://github.com/0xc000022070/upgrade"
+license = "MIT"
+summary = "The agent inbox opened out into columns, written only against the plugin API"
+
+[runtime]
+kind = "luau"
+entry = "main.luau"
+
+[datasets.preferences]
+schema_version = 1
+quota_bytes = 65536
+quota_records = 32
+
+[capabilities.preferences]
+api_version = 1
+dataset = "self:preferences"
+operations = ["get", "put"]
+
+[host_capabilities.agents]
+api_version = 1
+service = "agents"
+operations = ["list", "answer", "open"]
+
+[permissions]
+ui = ["page", "widget", "keep_awake"]
+
+[[contributes.pages]]
+id = "main"
+title = "Kanban"
+
+[[contributes.widgets]]
+id = "inbox"
+title = "Agent board"
+locations = ["home.card"]
+default_location = "home.card"
+default_size = "auto"
+sizes = [{ id = "auto", title = "Automatic", min_width = 280, max_width = 720 }]

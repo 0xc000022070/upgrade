@@ -1,5 +1,5 @@
-import 'package:striked/data/database.dart';
-import 'package:striked/data/enums.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
 
 class NextAction {
   const NextAction({

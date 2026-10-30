@@ -1,8 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/app/keyboard_release.dart';
-import 'package:striked/features/shell/shell_bar.dart';
+import 'package:upgrade/app/keyboard_release.dart';
+import 'package:upgrade/features/shell/shell_bar.dart';
 
 import '../../support/fake_shell.dart';
 import '../../support/platform_channels.dart';
@@ -16,7 +16,7 @@ void main() {
     imeUp = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-          const MethodChannel('dev.luisnquin.striked/device'),
+          const MethodChannel('dev.luisnquin.upgrade/device'),
           (call) async => call.method == 'ime' ? imeUp : null,
         );
     recordTextInput();

@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/motion.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/striked_field.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
 
 enum ToolbarGlyph {
   link(Icons.link, 'LINK'),
@@ -566,7 +566,7 @@ class _FieldLine extends StatelessWidget {
             Text(field.label, style: context.tokens.panelHeader),
             const SizedBox(width: Spacing.lg),
             Expanded(
-              child: StrikedField(
+              child: UpgradeField(
                 controller: field.controller,
                 focusNode: focus,
                 style: context.tokens.capture.copyWith(

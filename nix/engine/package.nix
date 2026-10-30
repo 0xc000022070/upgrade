@@ -8,7 +8,7 @@
 }:
 
 rustPlatform.buildRustPackage {
-  pname = "strikedddd";
+  pname = "upgraded";
   version = "0.1.0";
 
   # Only the crate's own files: the dev shell builds into engine/target, and a
@@ -36,8 +36,8 @@ rustPlatform.buildRustPackage {
   };
 
   meta = {
-    description = "The host side of a Striked plugin: one binary, exec'd per call";
-    mainProgram = "strikedddd";
+    description = "The host side of a Upgrade plugin: one binary, exec'd per call";
+    mainProgram = "upgraded";
     license = lib.licenses.mit;
     platforms = lib.platforms.unix;
   };

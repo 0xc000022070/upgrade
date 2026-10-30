@@ -1,14 +1,14 @@
-# Striked plugin workspace
+# Upgrade plugin workspace
 
-This folder is a Striked plugin: Luau code that draws cards on a phone's Home
+This folder is a Upgrade plugin: Luau code that draws cards on a phone's Home
 screen. The phone checks and renders it. Nothing here runs on this machine.
 
 ```
-striked.plugin.toml   manifest: id, name, permissions, widgets and their sizes
+upgrade.plugin.toml   manifest: id, name, permissions, widgets and their sizes
 main.luau             entry: state, events, and which function draws each card
 lib/*.luau            modules; list each one under `files` in the manifest
 fixtures/*.json       {widget, events, state?}: what the phone replays to check a card
-striked-sdk.json      the pinned SDK: manifest fields, every ui.* node and its
+upgrade-sdk.json      the pinned SDK: manifest fields, every ui.* node and its
                       properties, every diagnostic code; read it before writing UI
 ```
 
@@ -17,12 +17,12 @@ striked-sdk.json      the pinned SDK: manifest fields, every ui.* node and its
 The phone has this folder open in TOOLS > DEVELOP PLUGIN. It reads the files
 every two seconds and, for each new revision or ask, checks the manifest, runs
 every fixture and validates each card tree, then writes the result to
-`.striked/preview/latest.json`.
+`.upgrade/preview/latest.json`.
 
 After each edit run:
 
 ```
-sh .striked/wait.sh
+sh .upgrade/wait.sh
 ```
 
 It prints that result once the phone has checked the current files. Exit 0
@@ -37,9 +37,9 @@ empty list means no fixture reached a card.
 
 ## Rules
 
-- Only `striked.plugin.toml`, `*.luau` and `fixtures/*.json` count. Other files
+- Only `upgrade.plugin.toml`, `*.luau` and `fixtures/*.json` count. Other files
   are ignored by the phone.
-- Use only nodes and properties listed in `striked-sdk.json`. An unknown
+- Use only nodes and properties listed in `upgrade-sdk.json`. An unknown
   property is an error, not a warning.
 - Keep the plugin phone-only unless asked: no `host_capabilities`, no new
   permissions. Each permission is shown to the user at install.

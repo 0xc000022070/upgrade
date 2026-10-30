@@ -6,37 +6,37 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:striked/app/alerts_boot.dart';
-import 'package:striked/app/boot.dart';
-import 'package:striked/app/builtin_plugins.dart';
-import 'package:striked/app/striked_app.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/drops/clips.dart';
-import 'package:striked/application/bundle/bundle.dart';
-import 'package:striked/application/pip.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/application/plugins/plugins.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/bundle/seed_bundle.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/activity_repository.dart';
-import 'package:striked/data/repositories/note_repository.dart';
-import 'package:striked/data/repositories/project_repository.dart';
-import 'package:striked/data/repositories/settings_repository.dart';
-import 'package:striked/data/repositories/task_repository.dart';
-import 'package:striked/data/seed.dart';
-import 'package:striked/data/shell_snapshot_store.dart';
-import 'package:striked/design/ascii/grid.dart';
-import 'package:striked/design/components/ascii_mascot.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/typography.dart';
-import 'package:striked/features/shell/session/shell_sessions.dart';
-import 'package:striked/features/tasks/image_input.dart';
-import 'package:striked/platform/device.dart';
-import 'package:striked/platform/links/link_metadata.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked/platform/plugins/usage.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:upgrade/app/alerts_boot.dart';
+import 'package:upgrade/app/boot.dart';
+import 'package:upgrade/app/builtin_plugins.dart';
+import 'package:upgrade/app/upgrade_app.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/drops/clips.dart';
+import 'package:upgrade/application/bundle/bundle.dart';
+import 'package:upgrade/application/pip.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/bundle/seed_bundle.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/note_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/data/seed.dart';
+import 'package:upgrade/data/shell_snapshot_store.dart';
+import 'package:upgrade/design/ascii/grid.dart';
+import 'package:upgrade/design/components/ascii_mascot.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/typography.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/features/tasks/image_input.dart';
+import 'package:upgrade/platform/device.dart';
+import 'package:upgrade/platform/links/link_metadata.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/platform/plugins/usage.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 
 Future<void> main() => PlatformSignal.onLaunch(_boot);
 
@@ -114,7 +114,7 @@ Future<void> _boot(PlatformSignal launch) async {
   runApp(
     UncontrolledProviderScope(
       container: container,
-      child: StrikedApp(boot: boot),
+      child: UpgradeApp(boot: boot),
     ),
   );
 }

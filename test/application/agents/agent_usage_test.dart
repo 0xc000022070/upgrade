@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agent_usage.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/herdr/engine_agents.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:upgrade/application/agents/agent_usage.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 
 const _nyx = Host(
   id: 'nyx',

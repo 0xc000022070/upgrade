@@ -12,8 +12,8 @@ local function button(key, title, event, args, primary)
 end
 
 local function remember(key, value)
-    local saved = striked.data.get("preferences", key)
-    striked.data.put("preferences", key, value, saved and saved.revision or 0)
+    local saved = upgrade.data.get("preferences", key)
+    upgrade.data.put("preferences", key, value, saved and saved.revision or 0)
 end
 
 local function request(state, operation, args, id)
@@ -36,7 +36,7 @@ end
 
 local function update(state, event)
     if event.type == "mount" then
-        local saved = striked.data.get("preferences", "host")
+        local saved = upgrade.data.get("preferences", "host")
         state.host = saved and saved.value or ""
         return state, {ui.effect("hosts", "list", {}, "hosts")}
     end
@@ -108,7 +108,7 @@ local function update(state, event)
         state.mode = "edit"
         state.message = ""
         if not state.edit then
-            local saved = striked.data.get("preferences", "workspace_" .. state.host)
+            local saved = upgrade.data.get("preferences", "workspace_" .. state.host)
             state.edit = {id = event.token, revision = 0, title = "", directory = saved and saved.value or "", prompt = "",
                 agent = state.hostInfo.agents[1] or "codex", model = "", ["repeat"] = feature(state, "queue") and "now" or "once",
                 when = "", timezone = state.hostInfo.timezone or "UTC", timeout = "14400"}
@@ -197,7 +197,7 @@ local function editor(state)
             value = edit.when, mode = edit["repeat"] == "daily" and "time" or "datetime"})
         table.insert(children, text("zone_note", "Time on host · " .. edit.timezone))
     else
-        table.insert(children, text("queue_note", "Your host keeps working when you close Striked."))
+        table.insert(children, text("queue_note", "Your host keeps working when you close Upgrade."))
     end
     table.insert(children, ui.Disclosure {key = "options", title = "Agent and options", subtitle = string.upper(edit.agent) .. " · up to " .. tostring((tonumber(edit.timeout) or 0) / 3600) .. "h", gap = 12, children = {
         ui.Select {key = "agent", label = "Agent", value = edit.agent, options = agents},
@@ -269,7 +269,7 @@ local function view(state)
         end
         if state.hostInfo and not ready then
             local info = state.hostInfo
-            table.insert(children, text("setup_reason", info.supported and (info.installed and "Update the background runner to use this host's current engine. Tasks and history stay intact." or "Enable background tasks once. The host keeps working when you close Striked.") or info.reason))
+            table.insert(children, text("setup_reason", info.supported and (info.installed and "Update the background runner to use this host's current engine. Tasks and history stay intact." or "Enable background tasks once. The host keeps working when you close Upgrade.") or info.reason))
             table.insert(children, button("setup", info.supported and (info.installed and "Update background runner" or "Enable background tasks") or "Check host again", info.supported and "setup" or "inspect", nil, true))
         elseif ready then
             table.insert(children, ui.Choice {key = "tab", label = "Tasks", value = state.mode, onChange = "tab", options = {

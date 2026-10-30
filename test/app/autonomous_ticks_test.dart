@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/app/autonomous_ticks.dart';
+import 'package:upgrade/app/autonomous_ticks.dart';
 
 void main() {
   testWidgets('a screen kept offstage does not tick until it is back', (

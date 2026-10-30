@@ -1,8 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/host_repository.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
 
 /// `AgentPath` and not `Path`: `dart:ui` already owns that name in every widget file
 /// this type reaches.

@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/motion.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/tokens.dart';
 
 class ConnectionGlyph extends StatefulWidget {
   const ConnectionGlyph({super.key, required this.dedicated, this.traffic});

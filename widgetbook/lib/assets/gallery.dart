@@ -5,15 +5,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/design/ascii/grid.dart';
-import 'package:striked/design/components/ascii_mascot.dart';
-import 'package:striked/design/components/meta.dart';
-import 'package:striked/design/components/section.dart';
-import 'package:striked/design/components/segment_switch.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/design/components/dot_spinner.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/ascii/grid.dart';
+import 'package:upgrade/design/components/ascii_mascot.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/components/section.dart';
+import 'package:upgrade/design/components/segment_switch.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
 enum AssetKind {
   all('ALL'),
@@ -167,7 +167,7 @@ class _GalleryState extends State<_Gallery> {
                       width: Borders.hairline,
                     ),
                   ),
-                  child: StrikedField(
+                  child: UpgradeField(
                     controller: _query,
                     hint: 'search name or path',
                     style: tokens.value,

@@ -1,18 +1,18 @@
 import 'dart:io';
 
-import 'package:striked/application/plugins/plugins.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/activity_repository.dart';
-import 'package:striked/data/repositories/attachment_repository.dart';
-import 'package:striked/data/repositories/project_repository.dart';
-import 'package:striked/data/repositories/task_repository.dart';
-import 'package:striked/data/views.dart';
-import 'package:striked/features/tasks/plugin_adapter.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked_luau/data_api.dart';
-import 'package:striked_luau/striked_luau.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/features/tasks/plugin_adapter.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade_luau/data_api.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,11 +23,11 @@ Future<PluginPackage> fixturePlugin({bool dependent = false}) async {
   final name = dependent ? 'record-restore' : 'record-text';
   return PluginPackage(
     manifest: PluginManifest.parse(
-      await File('test/fixtures/plugins/$name/striked.plugin.toml')
+      await File('test/fixtures/plugins/$name/upgrade.plugin.toml')
           .readAsString(),
     ),
     source: await File('test/fixtures/plugins/$name/main.luau').readAsString(),
-    origin: 'fixture:striked.$name',
+    origin: 'fixture:upgrade.$name',
     revision: '2.0.0',
   );
 }
@@ -42,7 +42,7 @@ void main() {
   late ProviderContainer container;
 
   setUp(() async {
-    directory = await Directory.systemTemp.createTemp('striked-plugin-data-');
+    directory = await Directory.systemTemp.createTemp('upgrade-plugin-data-');
     db = AppDatabase(NativeDatabase.memory());
     final activity = ActivityRepository(db);
     tasks = TaskRepository(db, activity);
@@ -87,7 +87,7 @@ void main() {
   Future<RecordProposal> proposal() async {
     final plugin = PluginPackage(
       manifest: PluginManifest.parse(fixtures.manifest()),
-      source: "return {run = function() local r = striked.data.get('selected'); striked.data.propose('selected', r.key, 'Proposed', r.revision) end}",
+      source: "return {run = function() local r = upgrade.data.get('selected'); upgrade.data.propose('selected', r.key, 'Proposed', r.revision) end}",
       origin: 'bundled:test',
       revision: '1.2.0',
     );

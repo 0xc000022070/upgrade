@@ -3,14 +3,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/plugins/plugin_development.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/design/components/solid_action_bar.dart';
-import 'package:striked/features/plugins/plugin_development_screen.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/plugin_check.dart';
-import 'package:striked/platform/plugins/store.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_development.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/features/plugins/plugin_development_screen.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/plugin_check.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 
 import '../../support/themed_app.dart';
 
@@ -26,7 +26,7 @@ const _host = Host(
 PluginPackage _package(String origin, {String main = ''}) {
   const dir = 'plugins/templates/phone-card';
   final manifest = PluginManifest.parse(
-    File('$dir/striked.plugin.toml').readAsStringSync(),
+    File('$dir/upgrade.plugin.toml').readAsStringSync(),
   );
   return PluginPackage(
     manifest: manifest,

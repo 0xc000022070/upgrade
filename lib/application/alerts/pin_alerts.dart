@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:striked/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
 
 const pinNotificationTitle = 'AUTHORIZATION REQUIRED';
 

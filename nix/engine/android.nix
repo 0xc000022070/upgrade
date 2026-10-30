@@ -16,6 +16,6 @@ let
     inherit ghosttyVt;
   };
 in
-runCommand "strikedddd-android" { } ''
-  install -Dm755 ${lib.getExe engine} $out/arm64-v8a/libstrikedddd.so
+runCommand "upgraded-android" { } ''
+  install -Dm755 ${lib.getExe engine} $out/arm64-v8a/libupgraded.so
 ''

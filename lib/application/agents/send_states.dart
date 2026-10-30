@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/dispatch_repository.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/dispatch_repository.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 
 const endedState = 'ended';
 
@@ -45,7 +45,7 @@ final sendStatesProvider = Provider<void>((ref) {
       if (state == null || state == last) continue;
       dispatches
           .seen(send.id, state)
-          .catchError((Object error) => debugPrint('striked.sent: $error'));
+          .catchError((Object error) => debugPrint('upgrade.sent: $error'));
     }
   }
 

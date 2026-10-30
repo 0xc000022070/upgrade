@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/drops/capture_visibility.dart';
-import 'package:striked/application/home/composer_focus.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/keyboard_toolbar.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/dither_field.dart';
-import 'package:striked/design/layout.dart';
-import 'package:striked/design/spacing.dart';
+import 'package:upgrade/application/drops/capture_visibility.dart';
+import 'package:upgrade/application/home/composer_focus.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/keyboard_toolbar.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/dither_field.dart';
+import 'package:upgrade/design/layout.dart';
+import 'package:upgrade/design/spacing.dart';
 
 class ComposerPanel extends ConsumerStatefulWidget {
   const ComposerPanel({

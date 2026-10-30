@@ -64,7 +64,7 @@
    "kind": "text",
    "props": {
     "color": "muted",
-    "text": "Your host keeps working when you close Striked.",
+    "text": "Your host keeps working when you close Upgrade.",
     "key": "queue_note"
    },
    "children": []

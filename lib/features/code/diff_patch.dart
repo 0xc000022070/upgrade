@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 typedef HunkSpan = ({int start, int end, int newStart, int newCount});
 

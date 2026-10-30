@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/application/agents/send.dart';
-import 'package:striked/application/agents/send_queue.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
 
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/tokens.dart';
 
 class SentTag extends StatelessWidget {
   const SentTag({super.key});

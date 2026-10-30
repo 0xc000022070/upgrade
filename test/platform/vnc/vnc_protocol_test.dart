@@ -4,14 +4,14 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/platform/vnc/apple_auth.dart';
-import 'package:striked/platform/vnc/framebuffer.dart';
-import 'package:striked/platform/vnc/keysyms.dart';
-import 'package:striked/platform/vnc/rect_encoding.dart';
-import 'package:striked/platform/vnc/rfb_client.dart';
-import 'package:striked/platform/vnc/rfb_messages.dart';
-import 'package:striked/platform/vnc/vnc_auth.dart';
-import 'package:striked/platform/vnc/vnc_failure.dart';
+import 'package:upgrade/platform/vnc/apple_auth.dart';
+import 'package:upgrade/platform/vnc/framebuffer.dart';
+import 'package:upgrade/platform/vnc/keysyms.dart';
+import 'package:upgrade/platform/vnc/rect_encoding.dart';
+import 'package:upgrade/platform/vnc/rfb_client.dart';
+import 'package:upgrade/platform/vnc/rfb_messages.dart';
+import 'package:upgrade/platform/vnc/vnc_auth.dart';
+import 'package:upgrade/platform/vnc/vnc_failure.dart';
 
 import '../../support/vnc_channel.dart';
 

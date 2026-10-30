@@ -23,7 +23,7 @@ check: pub-build
 
 [group('dev')]
 apk: pub-build
-    flutter build apk --debug --target-platform android-arm64 --build-name={{build_name}} --build-number={{build_code}} --dart-define=STRIKED_BUILD=${STRIKED_BUILD:-dev}
+    flutter build apk --debug --target-platform android-arm64 --build-name={{build_name}} --build-number={{build_code}} --dart-define=UPGRADE_BUILD=${UPGRADE_BUILD:-dev}
 
 # Hot reload on rose's emulator: `kill -USR1 $(cat build/run.pid)` reloads, -USR2 restarts.
 [group('dev')]
@@ -33,7 +33,7 @@ run: pub-build
     ssh -fN -o ExitOnForwardFailure=yes -L 5038:127.0.0.1:5037 rose || true
     ADB_SERVER_SOCKET=tcp:127.0.0.1:5038 flutter run -d emulator-5554 \
         --pid-file build/run.pid \
-        --dart-define=STRIKED_BUILD=${STRIKED_BUILD:-dev}
+        --dart-define=UPGRADE_BUILD=${UPGRADE_BUILD:-dev}
 
 # Release build of HEAD onto the handsets; `watch` repeats it at every commit.
 [group('dev')]
@@ -51,7 +51,7 @@ host-vm scenario="full":
 # The disk image is kept: a test pins the host key in it.
 [group('dev')]
 host-vm-down scenario="full":
-    pkill -f 'qemu-system-.* -name striked-host{{ if scenario == "full" { "" } else { "-" + scenario } }}( |$)' || true
+    pkill -f 'qemu-system-.* -name upgrade-host{{ if scenario == "full" { "" } else { "-" + scenario } }}( |$)' || true
 
 [group('dev')]
 phone-host address scenario="full":
@@ -60,7 +60,7 @@ phone-host address scenario="full":
 [group('dev')]
 [positional-arguments]
 plugin *args:
-    @dart run tool/striked_plugin.dart "$@"
+    @dart run tool/upgrade_plugin.dart "$@"
 
 [group('dev')]
 plugin-sync dir scenario="":
@@ -101,7 +101,7 @@ test-all: pub-build
 
 [group('agents')]
 apk-release version=build_name code=build_code: pub-verify
-    flutter build apk --release --target-platform android-arm64 --build-name={{version}} --build-number={{code}} --dart-define=STRIKED_BUILD=${STRIKED_BUILD:-dev}
+    flutter build apk --release --target-platform android-arm64 --build-name={{version}} --build-number={{code}} --dart-define=UPGRADE_BUILD=${UPGRADE_BUILD:-dev}
 
 [group('agents')]
 publish:

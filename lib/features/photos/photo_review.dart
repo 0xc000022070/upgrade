@@ -3,12 +3,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/photos/photo_cut.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/photos/photo_cut.dart';
 
 Future<List<ReviewedPhoto>?> reviewPhotos(
   BuildContext context,
@@ -540,17 +540,17 @@ class _PhotoReviewState extends State<_PhotoReview> {
           ),
         ),
         _Tool(
-          StrikedIcons.crop,
+          UpgradeIcons.crop,
           key: const ValueKey('review-crop'),
           onTap: _photos[_at].aspect == null ? null : _crop,
         ),
         _Tool(
-          StrikedIcons.mark,
+          UpgradeIcons.mark,
           key: const ValueKey('review-mark'),
           onTap: _photos[_at].aspect == null ? null : _mark,
         ),
         _Tool(
-          StrikedIcons.close,
+          UpgradeIcons.close,
           key: const ValueKey('review-remove'),
           onTap: _remove,
         ),
@@ -602,9 +602,9 @@ class _PhotoReviewState extends State<_PhotoReview> {
         ),
         const Spacer(),
         for (final (shape, icon) in const [
-          (MarkShape.box, StrikedIcons.shapeBox),
-          (MarkShape.ring, StrikedIcons.shapeRing),
-          (MarkShape.arrow, StrikedIcons.shapeArrow),
+          (MarkShape.box, UpgradeIcons.shapeBox),
+          (MarkShape.ring, UpgradeIcons.shapeRing),
+          (MarkShape.arrow, UpgradeIcons.shapeArrow),
         ])
           _Tool(
             icon,
@@ -613,7 +613,7 @@ class _PhotoReviewState extends State<_PhotoReview> {
             onTap: () => setState(() => _shape = shape),
           ),
         _Tool(
-          StrikedIcons.undo,
+          UpgradeIcons.undo,
           key: const ValueKey('mark-undo'),
           onTap: _marking!.isEmpty ? null : _undo,
         ),
@@ -641,7 +641,7 @@ Offset _scaledPoint(Offset unit, Size size) =>
 class _Tool extends StatelessWidget {
   const _Tool(this.icon, {super.key, this.lit = false, this.onTap});
 
-  final StrikedIcons icon;
+  final UpgradeIcons icon;
   final bool lit;
   final VoidCallback? onTap;
 
@@ -653,7 +653,7 @@ class _Tool extends StatelessWidget {
       child: SizedBox.square(
         dimension: TapTargets.minHeight,
         child: Center(
-          child: StrikedIcon(
+          child: UpgradeIcon(
             icon,
             size: IconSizes.toolbar,
             color: onTap == null

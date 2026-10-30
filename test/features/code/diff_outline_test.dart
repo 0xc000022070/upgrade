@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/features/code/diff_outline.dart';
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/features/code/diff_outline.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 DiffScope fn(String name, int line, int end) =>
     DiffScope(line: line, end: end, name: name, kind: 'function');

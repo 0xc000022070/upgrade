@@ -1,18 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:striked_luau/striked_luau.dart';
-import 'package:striked_luau/data_api.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
+import 'package:upgrade_luau/data_api.dart';
 
 Future<void> main() async {
   final directory = await Directory.systemTemp.createTemp(
-    'striked-record-benchmark-',
+    'upgrade-record-benchmark-',
   );
   final worker = LuauWorker(dataDirectory: directory.path);
   const source = '''
 return { trim = function()
-  local item = striked.data.get('selected')
-  striked.data.propose('selected', item.key, string.gsub(item.value, "[ \\t]+", " "), item.revision)
+  local item = upgrade.data.get('selected')
+  upgrade.data.propose('selected', item.key, string.gsub(item.value, "[ \\t]+", " "), item.revision)
 end }
 ''';
   final samples = <int>[];

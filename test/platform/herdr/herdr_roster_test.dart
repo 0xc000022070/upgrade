@@ -1,4 +1,4 @@
-import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/ssh_exec.dart';

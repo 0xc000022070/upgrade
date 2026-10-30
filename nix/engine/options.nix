@@ -6,22 +6,22 @@
 }:
 
 let
-  cfg = config.services.strikedddd;
+  cfg = config.services.upgraded;
   format = pkgs.formats.json { };
 in
 {
-  options.services.strikedddd = {
+  options.services.upgraded = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
       description = ''
-        Install strikedddd on this machine and write the configuration it
+        Install upgraded on this machine and write the configuration it
         reads.
 
         The engine is not a daemon. The phone execs the binary over an ssh
         connection it already holds, and that process reads one request, writes
         one answer and exits. Enabling this puts the binary on PATH and writes
-        /etc/strikedddd/config.json. It starts nothing, and there is no unit to
+        /etc/upgraded/config.json. It starts nothing, and there is no unit to
         enable.
 
         The one thing that outlives a call is a shell/1 server, started by one: a
@@ -48,10 +48,10 @@ in
 
     package = lib.mkOption {
       type = lib.types.package;
-      defaultText = lib.literalMD "the `engine` package of the Striked flake";
+      defaultText = lib.literalMD "the `engine` package of the Upgrade flake";
       description = ''
         The engine build to install. Defaults to the engine package of the
-        Striked flake this module came from, which is built against that flake's
+        Upgrade flake this module came from, which is built against that flake's
         nixpkgs rather than this machine's.
       '';
     };
@@ -101,7 +101,7 @@ in
         Naming accounts puts it in only those users' profiles instead.
 
         This only decides who has the binary on PATH. The deny lists in
-        /etc/strikedddd/config.json apply to every account either way.
+        /etc/upgraded/config.json apply to every account either way.
 
         nix-darwin has no per-user profile to install into, so this list is
         ignored there and the engine is installed for the whole machine.
@@ -137,13 +137,13 @@ in
       readOnly = true;
       # The key names are the ones the engine deserializes, and it rejects a
       # file carrying any other key.
-      default = format.generate "strikedddd-config.json" (
+      default = format.generate "upgraded-config.json" (
         {
           inherit (cfg) denyCapabilities denyExec;
         }
         // lib.optionalAttrs (cfg.shellPorts != null) { inherit (cfg) shellPorts; }
       );
-      description = "The rendered /etc/strikedddd/config.json.";
+      description = "The rendered /etc/upgraded/config.json.";
     };
   };
 }

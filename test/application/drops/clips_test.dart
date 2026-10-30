@@ -2,8 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/drops/clips.dart';
-import 'package:striked/features/screen/screen_preview.dart';
+import 'package:upgrade/application/drops/clips.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
 
 Uint8List png(int width, int height) => encodePng(
   PreviewFrame(
@@ -18,7 +18,7 @@ void main() {
   late ClipStore clips;
 
   setUp(() {
-    directory = Directory.systemTemp.createTempSync('striked-clips-test');
+    directory = Directory.systemTemp.createTempSync('upgrade-clips-test');
     clips = ClipStore(directory);
   });
 

@@ -1,28 +1,28 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:striked/app/builtin_plugins.dart';
-import 'package:striked/app/striked_app.dart';
-import 'package:striked/app/nav_shell.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/navigation.dart';
-import 'package:striked/application/plugins/plugins.dart';
-import 'package:striked/application/plugins/plugin_hosts.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/activity_repository.dart';
-import 'package:striked/data/repositories/attachment_repository.dart';
-import 'package:striked/data/repositories/project_repository.dart';
-import 'package:striked/data/repositories/task_repository.dart';
-import 'package:striked/features/home/capture_bar.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/dot_spinner.dart';
-import 'package:striked/features/tasks/item_sheet.dart';
-import 'package:striked/features/plugins/plugin_management_screen.dart';
-import 'package:striked/features/plugins/plugin_page.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked/platform/plugins/usage.dart';
+import 'package:upgrade/app/builtin_plugins.dart';
+import 'package:upgrade/app/upgrade_app.dart';
+import 'package:upgrade/app/nav_shell.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
+import 'package:upgrade/application/plugins/plugin_hosts.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/features/home/capture_bar.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/features/tasks/item_sheet.dart';
+import 'package:upgrade/features/plugins/plugin_management_screen.dart';
+import 'package:upgrade/features/plugins/plugin_page.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/platform/plugins/usage.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -81,7 +81,7 @@ void main() {
   setUp(() async {
     stubDeviceChannels();
     closed = false;
-    root = await Directory.systemTemp.createTemp('striked-native-ui-');
+    root = await Directory.systemTemp.createTemp('upgrade-native-ui-');
     db = AppDatabase(NativeDatabase.memory());
     store = PluginStore(root);
     final catalog = await store.synchronizeBuiltins([
@@ -125,7 +125,7 @@ void main() {
   testWidgets(
     'TOOLS stays available and disabling a Luau page closes its route',
     (tester) async {
-      await tester.pumpWidget(host(const StrikedShell()));
+      await tester.pumpWidget(host(const UpgradeShell()));
       await drain(tester);
       expect(
         find.descendant(of: find.byType(NavBar), matching: find.text('TOOLS')),
@@ -133,7 +133,7 @@ void main() {
       );
       final controller = container.read(pluginsProvider.notifier);
       await tester.runAsync(
-        () => controller.setEnabled('striked.agent-schedules', true),
+        () => controller.setEnabled('upgrade.agent-schedules', true),
       );
       await drain(tester);
       expect(tester.takeException(), isNull);
@@ -165,7 +165,7 @@ void main() {
       Object? failure;
       await tester.runAsync(() async {
         controller
-            .setEnabled('striked.agent-schedules', false)
+            .setEnabled('upgrade.agent-schedules', false)
             .then<void>(
               (_) {
                 disabled = true;
@@ -197,13 +197,13 @@ void main() {
     await tester.runAsync(
       () => container
           .read(pluginsProvider.notifier)
-          .setEnabled('striked.drops', true),
+          .setEnabled('upgrade.drops', true),
     );
     await tester.pumpWidget(
       host(
         ProviderScope(
           overrides: [
-            currentPluginProvider.overrideWithValue('striked.agents'),
+            currentPluginProvider.overrideWithValue('upgrade.agents'),
           ],
           child: Builder(
             builder: (context) => inheritPluginScope(
@@ -219,7 +219,7 @@ void main() {
       ),
     );
     await drain(tester);
-    expect(find.text('striked.drops'), findsOneWidget);
+    expect(find.text('upgrade.drops'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.runAsync(closeContainer);
     await drain(tester);
@@ -231,9 +231,9 @@ void main() {
     await tester.runAsync(
       () => container
           .read(pluginsProvider.notifier)
-          .setEnabled('striked.board', true),
+          .setEnabled('upgrade.board', true),
     );
-    await tester.pumpWidget(host(const StrikedShell()));
+    await tester.pumpWidget(host(const UpgradeShell()));
     await drain(tester);
     await tester.tap(find.text('TOOLS'));
     await drain(tester);
@@ -275,15 +275,15 @@ void main() {
       final rows = await db.select(db.tasks).get();
       final projects = await db.select(db.projects).get();
       final attachments = await db.select(db.attachments).get();
-      await tester.pumpWidget(host(const StrikedShell()));
+      await tester.pumpWidget(host(const UpgradeShell()));
       await drain(tester);
       expect(find.byType(CaptureBar), findsNothing);
       expect(find.text('PROJECTS'), findsNothing);
       expect(find.text('MACHINES'), findsOneWidget);
       final controller = container.read(pluginsProvider.notifier);
-      await tester.runAsync(() => controller.setEnabled('striked.drops', true));
+      await tester.runAsync(() => controller.setEnabled('upgrade.drops', true));
       await tester.runAsync(
-        () => controller.setEnabled('striked.projects', true),
+        () => controller.setEnabled('upgrade.projects', true),
       );
       await drainUntil(
         tester,
@@ -299,10 +299,10 @@ void main() {
       await drain(tester);
       expect(find.byType(ItemSheet), findsOneWidget);
       await tester.runAsync(
-        () => controller.setEnabled('striked.projects', false),
+        () => controller.setEnabled('upgrade.projects', false),
       );
       await tester.runAsync(
-        () => controller.setEnabled('striked.drops', false),
+        () => controller.setEnabled('upgrade.drops', false),
       );
       await drain(tester);
       expect(find.byType(ItemSheet), findsNothing);
@@ -313,14 +313,14 @@ void main() {
       expect(
         container
             .read(pluginAuthorityProvider)
-            .usage('striked.drops')
+            .usage('upgrade.drops')
             .values
             .every((u) => u.activeSubscriptions == 0),
         isTrue,
       );
-      await tester.runAsync(() => controller.setEnabled('striked.drops', true));
+      await tester.runAsync(() => controller.setEnabled('upgrade.drops', true));
       await tester.runAsync(
-        () => controller.setEnabled('striked.projects', true),
+        () => controller.setEnabled('upgrade.projects', true),
       );
       await drain(tester);
       expect(find.text('Preserved drop'), findsOneWidget);
@@ -339,8 +339,8 @@ void main() {
     (tester) async {
       await tester.pumpWidget(host(const PluginManagementScreen()));
       await drain(tester);
-      final dropsRow = find.byKey(const ValueKey('node-striked.drops'));
-      final projectsRow = find.byKey(const ValueKey('node-striked.projects'));
+      final dropsRow = find.byKey(const ValueKey('node-upgrade.drops'));
+      final projectsRow = find.byKey(const ValueKey('node-upgrade.projects'));
       expect(
         find.descendant(of: dropsRow, matching: find.text('OFF')),
         findsOne,
@@ -350,7 +350,7 @@ void main() {
         findsOne,
       );
       expect(find.textContaining('EXAMPLE'), findsNothing);
-      await openPluginDetails(tester, 'striked.drops', drain);
+      await openPluginDetails(tester, 'upgrade.drops', drain);
       final enable = find.text('ENABLE');
       await tester.ensureVisible(enable);
       await tester.pumpAndSettle();
@@ -380,7 +380,7 @@ void main() {
       );
       expect(
         (await tester.runAsync(store.list))!
-            .singleWhere((p) => p.id == 'striked.drops')
+            .singleWhere((p) => p.id == 'upgrade.drops')
             .enabled,
         isTrue,
       );

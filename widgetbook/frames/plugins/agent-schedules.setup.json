@@ -26,7 +26,7 @@
    "kind": "text",
    "props": {
     "color": "muted",
-    "text": "Enable background tasks once. The host keeps working when you close Striked.",
+    "text": "Enable background tasks once. The host keeps working when you close Upgrade.",
     "key": "setup_reason"
    },
    "children": []

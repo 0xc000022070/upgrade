@@ -3,25 +3,25 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/formatting.dart';
-import 'package:striked/application/shell/pane_share.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/section.dart';
-import 'package:striked/design/components/segment_switch.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/layout.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/platform/workspace/workspace_model.dart';
-import 'package:striked/features/code/change_marks.dart';
-import 'package:striked/features/code/diff_sheet.dart';
-import 'package:striked/features/code/file_icons.dart';
-import 'package:striked/features/code/syntax.dart';
-import 'package:striked/features/code/syntax_style.dart';
-import 'package:striked/features/code/workspace_controller.dart';
+import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/application/shell/pane_share.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/section.dart';
+import 'package:upgrade/design/components/segment_switch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/layout.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
+import 'package:upgrade/features/code/change_marks.dart';
+import 'package:upgrade/features/code/diff_sheet.dart';
+import 'package:upgrade/features/code/file_icons.dart';
+import 'package:upgrade/features/code/syntax.dart';
+import 'package:upgrade/features/code/syntax_style.dart';
+import 'package:upgrade/features/code/workspace_controller.dart';
 
 class Explorer extends ConsumerStatefulWidget {
   const Explorer({super.key, required this.controller});
@@ -394,7 +394,7 @@ class _ExplorerState extends ConsumerState<Explorer> {
       title: 'FILES',
       affordance: PanelAffordance(
         'REFRESH',
-        icon: StrikedIcons.sync,
+        icon: UpgradeIcons.sync,
         onTap: _refresh,
       ),
       bodyPadding: EdgeInsets.zero,
@@ -681,11 +681,11 @@ class _ExplorerState extends ConsumerState<Explorer> {
             ),
           ),
           if (blocks.isNotEmpty) ...[
-            _verb(StrikedIcons.arrowUp, 'PREV', () => _step(tab, blocks, -1)),
-            _verb(StrikedIcons.arrowDown, 'NEXT', () => _step(tab, blocks, 1)),
+            _verb(UpgradeIcons.arrowUp, 'PREV', () => _step(tab, blocks, -1)),
+            _verb(UpgradeIcons.arrowDown, 'NEXT', () => _step(tab, blocks, 1)),
           ],
           _verb(
-            StrikedIcons.diff,
+            UpgradeIcons.diff,
             'DIFF',
             () => showDiffSheet(context, widget.controller, file: file),
           ),
@@ -694,7 +694,7 @@ class _ExplorerState extends ConsumerState<Explorer> {
     );
   }
 
-  Widget _verb(StrikedIcons icon, String label, VoidCallback onTap) =>
+  Widget _verb(UpgradeIcons icon, String label, VoidCallback onTap) =>
       Semantics(
         container: true,
         button: true,
@@ -708,7 +708,7 @@ class _ExplorerState extends ConsumerState<Explorer> {
             width: TapTargets.minHeight,
             height: RowMetrics.minHeight,
             child: Center(
-              child: StrikedIcon(
+              child: UpgradeIcon(
                 icon,
                 size: IconSizes.sm,
                 color: context.tokens.textSecondary,

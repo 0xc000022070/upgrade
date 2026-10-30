@@ -4,16 +4,16 @@ import 'package:flutter/material.dart' show SelectableText;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/dot_spinner.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/design/components/progress_bar.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/files/transfer_queue.dart';
-import 'package:striked/features/files/transfers.dart';
-import 'package:striked/platform/herdr/agent_watcher.dart' show AgentWatcher;
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/progress_bar.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/files/transfer_queue.dart';
+import 'package:upgrade/features/files/transfers.dart';
+import 'package:upgrade/platform/herdr/agent_watcher.dart' show AgentWatcher;
 
 const transferBarHeight = 36.0;
 

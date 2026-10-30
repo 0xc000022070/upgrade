@@ -4,10 +4,10 @@ import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:striked/features/photos/photo_cut.dart';
-import 'package:striked/features/photos/photo_pick.dart';
-import 'package:striked/features/screen/screen_preview.dart';
-import 'package:striked/features/tasks/image_input.dart';
+import 'package:upgrade/features/photos/photo_cut.dart';
+import 'package:upgrade/features/photos/photo_pick.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
+import 'package:upgrade/features/tasks/image_input.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -17,7 +17,7 @@ void main() {
   late Uint8List photo;
 
   setUp(() async {
-    support = await Directory.systemTemp.createTemp('striked-attachments');
+    support = await Directory.systemTemp.createTemp('upgrade-attachments');
     asked = {};
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;

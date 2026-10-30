@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/features/code/diff_read.dart';
-import 'package:striked/features/code/structural.dart';
-import 'package:striked/features/code/syntax.dart';
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/features/code/diff_read.dart';
+import 'package:upgrade/features/code/structural.dart';
+import 'package:upgrade/features/code/syntax.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 void main() {
   group('captured lines', () {

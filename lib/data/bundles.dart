@@ -1,4 +1,4 @@
-import 'package:striked/data/database.dart';
+import 'package:upgrade/data/database.dart';
 
 List<Task> withBundlesAdjacent(List<Task> items) {
   final byBundle = <String, List<Task>>{};

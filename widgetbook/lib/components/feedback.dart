@@ -1,15 +1,15 @@
 import 'package:flutter/widgets.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/design/components/connection_glyph.dart';
-import 'package:striked/design/components/dot_spinner.dart';
-import 'package:striked/design/components/progress_bar.dart';
-import 'package:striked/design/components/scan_sweep.dart';
-import 'package:striked/design/components/signal_text.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/components/connection_glyph.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/progress_bar.dart';
+import 'package:upgrade/design/components/scan_sweep.dart';
+import 'package:upgrade/design/components/signal_text.dart';
+import 'package:upgrade/design/tokens.dart';
 
-import 'package:striked_widgetbook/components/knobs.dart';
-import 'package:striked_widgetbook/frame.dart';
+import 'package:upgrade_widgetbook/components/knobs.dart';
+import 'package:upgrade_widgetbook/frame.dart';
 
 final feedbackComponents = [
   WidgetbookComponent(

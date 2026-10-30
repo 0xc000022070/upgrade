@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-export 'package:striked/platform/shell/remote_shell.dart'
+export 'package:upgrade/platform/shell/remote_shell.dart'
     show
         RemoteFile,
         remoteCommandDeadline,
@@ -9,8 +9,8 @@ export 'package:striked/platform/shell/remote_shell.dart'
         shellQuote,
         underSh;
 
-import 'package:striked/platform/shell/remote_shell.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 
 enum ClipboardBackend { wayland, x11, macos, none }
 
@@ -185,7 +185,7 @@ HostClipboard parseProbe(ExecResult result) {
 String? clipboardCommand(HostClipboard clipboard, String fileName) =>
     clipboardImageCommand(clipboard, remotePathFor(fileName), marked: true);
 
-const clipboardSetMarker = 'STRIKED_CLIPBOARD=set';
+const clipboardSetMarker = 'UPGRADE_CLIPBOARD=set';
 
 String? clipboardImageCommand(
   HostClipboard clipboard,

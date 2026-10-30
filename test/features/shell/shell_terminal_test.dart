@@ -5,14 +5,14 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/shell/shell_font.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/settings_repository.dart';
-import 'package:striked/design/colors.dart';
-import 'package:striked/features/shell/session/shell_engine.dart';
-import 'package:striked/features/shell/input/shell_selection.dart';
-import 'package:striked/features/shell/session/shell_sessions.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:upgrade/application/shell/shell_font.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/features/shell/session/shell_engine.dart';
+import 'package:upgrade/features/shell/input/shell_selection.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:flterm/flterm.dart';
 
 import '../../support/fake_shell.dart';
@@ -721,7 +721,7 @@ void main() {
           .selection;
       final wash = selection.background!.fixedColor!;
       expect(wash.a, lessThan(0.5));
-      expect(wash.withValues(alpha: 1), StrikedColors.accent);
+      expect(wash.withValues(alpha: 1), UpgradeColors.accent);
       expect(selection.foreground, isNull);
 
       await unmount(tester);
@@ -897,7 +897,7 @@ void main() {
           sessions,
           theme: testTheme.copyWith(
             colorScheme: testTheme.colorScheme.copyWith(
-              primary: StrikedColors.accentMuted,
+              primary: UpgradeColors.accentMuted,
             ),
           ),
         ),

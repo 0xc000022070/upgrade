@@ -2,20 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:striked_luau/striked_luau.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/plugins/plugin_hosts.dart';
-import 'package:striked/application/plugins/plugins.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/features/agents/agent_shell.dart';
-import 'package:striked/features/plugins/plugin_page.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked/platform/plugins/ui.dart';
-import 'package:striked/platform/ssh/connection_supervisor.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_hosts.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/features/agents/agent_shell.dart';
+import 'package:upgrade/features/plugins/plugin_page.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 
 mixin PluginFrames<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   InstalledPlugin get plugin;

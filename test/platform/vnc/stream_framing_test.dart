@@ -4,11 +4,11 @@ import 'dart:typed_data';
 
 import 'package:flterm/flterm.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/herdr/herdr_socket.dart';
-import 'package:striked/platform/vnc/framebuffer.dart';
-import 'package:striked/platform/vnc/rfb_client.dart';
-import 'package:striked/platform/vnc/rfb_messages.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/herdr/herdr_socket.dart';
+import 'package:upgrade/platform/vnc/framebuffer.dart';
+import 'package:upgrade/platform/vnc/rfb_client.dart';
+import 'package:upgrade/platform/vnc/rfb_messages.dart';
 
 import '../../support/chunking.dart';
 import '../../support/herdr_link.dart';
@@ -27,7 +27,7 @@ void main() {
 
       test('a reply comes out whole however the bytes were cut', () async {
         final answer = line({
-          'id': 'striked:0',
+          'id': 'upgrade:0',
           'result': agentListResult('w1:p1', status: 'blocked'),
         });
 
@@ -51,7 +51,7 @@ void main() {
         () async {
           final feed =
               line({
-                'id': 'striked:0',
+                'id': 'upgrade:0',
                 'result': {'type': 'subscription_started'},
               }) +
               line({
@@ -158,7 +158,7 @@ void main() {
 
   group('the terminal is framed by its escapes and not by its packets', () {
     final transcript = utf8.encode(
-      '\x1b]0;dev@striked-host\x07'
+      '\x1b]0;dev@upgrade-host\x07'
       'caf\u00e9 \u65e5\u672c\u8a9e \u2500\u2500\r\n'
       '\x1b[31mred\x1b[0m plain\r\n'
       '\u00e9\u00e9\u00e9\u00e9\u00e9\r\n',
@@ -220,7 +220,7 @@ void main() {
 
     test('the title arrives whole however the OSC is cut', () {
       for (final split in splitsOf(transcript)) {
-        expect(played(split).title, 'dev@striked-host', reason: split.reason);
+        expect(played(split).title, 'dev@upgrade-host', reason: split.reason);
       }
     });
   });

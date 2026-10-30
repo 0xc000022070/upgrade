@@ -11,12 +11,12 @@ local HOME_APPROVALS = 2
 local layout
 
 local function remember(key, value)
-    local saved = striked.data.get("preferences", key)
-    striked.data.put("preferences", key, value, saved and saved.revision or 0)
+    local saved = upgrade.data.get("preferences", key)
+    upgrade.data.put("preferences", key, value, saved and saved.revision or 0)
 end
 
 local function recall(key)
-    local saved = striked.data.get("preferences", key)
+    local saved = upgrade.data.get("preferences", key)
     return saved and saved.value or ""
 end
 

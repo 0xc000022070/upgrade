@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/providers.dart';
-import 'package:striked/application/alerts/toasts.dart';
-import 'package:striked/data/database.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/application/alerts/toasts.dart';
+import 'package:upgrade/data/database.dart';
 
 /// Keyed on the task, so turning one row over twice replaces its row instead of stacking a
 /// second one that reverts the same thing.

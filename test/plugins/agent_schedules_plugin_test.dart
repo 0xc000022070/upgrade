@@ -1,11 +1,11 @@
 import 'dart:io';
 
-import 'package:striked/platform/plugins/bindings.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked/platform/plugins/ui.dart';
-import 'package:striked_luau/striked_luau.dart';
-import 'package:striked_luau/ui_sdk.dart';
+import 'package:upgrade/platform/plugins/bindings.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade_luau/upgrade_luau.dart';
+import 'package:upgrade_luau/ui_sdk.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,10 +13,10 @@ import '../support/themed_app.dart';
 
 PluginPackage schedulePackage() => PluginPackage(
   manifest: PluginManifest.parse(
-    File('plugins/agent-schedules/striked.plugin.toml').readAsStringSync(),
+    File('plugins/agent-schedules/upgrade.plugin.toml').readAsStringSync(),
   ),
   source: File('plugins/agent-schedules/main.luau').readAsStringSync(),
-  origin: 'bundled:striked.agent-schedules',
+  origin: 'bundled:upgrade.agent-schedules',
   revision: '1.1.0',
 );
 
@@ -79,7 +79,7 @@ void main() {
     'started_label': '2026-09-13T09:00',
   };
   setUp(() async {
-    root = await Directory.systemTemp.createTemp('striked-schedule-ui-');
+    root = await Directory.systemTemp.createTemp('upgrade-schedule-ui-');
     worker = LuauWorker(dataDirectory: root.path);
     app = ScheduleHarness(worker, schedulePackage());
   });

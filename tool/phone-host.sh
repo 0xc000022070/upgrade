@@ -13,16 +13,16 @@ guest, and leaves a bundle the app applies at its next launch.
   address    where the phone reaches this machine, usually its Tailscale IP
   scenario   full (default) or a name from nix/host-vm/scenarios.nix
 
-The phone key lives in $XDG_STATE_HOME/striked, never in the repo. adb picks
+The phone key lives in $XDG_STATE_HOME/upgrade, never in the repo. adb picks
 the device as it always does: ANDROID_SERIAL and ADB_SERVER_SOCKET are taken
 from the caller.
 EOF
 }
 
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly PKG=dev.luisnquin.striked
+readonly PKG=dev.luisnquin.upgrade
 readonly HOST_PUB="$ROOT/nix/host-vm/fixtures/host_vm_host_key.pub"
-readonly STATE="${XDG_STATE_HOME:-$HOME/.local/state}/striked"
+readonly STATE="${XDG_STATE_HOME:-$HOME/.local/state}/upgrade"
 readonly KEY="$STATE/phone_key"
 
 die() {
@@ -38,7 +38,7 @@ address=$1
 scenario=${2:-full}
 
 case $scenario in
-  full) port=2222 name='STRIKED HOST VM' integrations='["herdr","agents"]' ;;
+  full) port=2222 name='UPGRADE HOST VM' integrations='["herdr","agents"]' ;;
   bare) port=2223 name='SCENARIO BARE' integrations='[]' ;;
   herdr) port=2224 name='SCENARIO HERDR' integrations='["herdr"]' ;;
   engine) port=2225 name='SCENARIO ENGINE' integrations='["agents"]' ;;

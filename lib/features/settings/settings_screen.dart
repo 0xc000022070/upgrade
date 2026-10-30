@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/app/static_surface.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/repositories/settings_repository.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/platform/device.dart';
-import 'package:striked/design/components/screen_scaffold.dart';
-import 'package:striked/features/settings/alerts_block.dart';
-import 'package:striked/features/settings/bundle_panel.dart';
-import 'package:striked/features/settings/key_bar_block.dart';
-import 'package:striked/features/settings/voice_block.dart';
+import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/device.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
+import 'package:upgrade/features/settings/alerts_block.dart';
+import 'package:upgrade/features/settings/bundle_panel.dart';
+import 'package:upgrade/features/settings/key_bar_block.dart';
+import 'package:upgrade/features/settings/voice_block.dart';
 
 void openSettings(BuildContext context) {
   Navigator.of(
@@ -53,7 +53,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'SETTINGS',
-          breadcrumb: '/ STRIKED / SYS',
+          breadcrumb: '/ UPGRADE / SYS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(
@@ -89,7 +89,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     runSpacing: 8,
                     children: [
                       ChoiceChip(
-                        label: const Text('Striked dark'),
+                        label: const Text('Upgrade dark'),
                         selected: !themeSystem,
                         onSelected: (_) => _setThemeSystem(false),
                       ),

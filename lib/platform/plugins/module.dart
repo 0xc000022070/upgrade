@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/platform/plugins/store.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 
-export 'package:striked/platform/plugins/store.dart' show BuiltinArrival;
+export 'package:upgrade/platform/plugins/store.dart' show BuiltinArrival;
 
 class NativePluginModule {
   const NativePluginModule({

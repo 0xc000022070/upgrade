@@ -1,0 +1,38 @@
+manifest_version = 4
+id = "upgrade.agent-schedules"
+name = "Agent tasks"
+purpose = "Queue tasks or schedule agent runs on registered hosts."
+version = "1.1.0"
+upgrade_api = "^2.1.0"
+ui_api = 2
+
+[runtime]
+kind = "luau"
+entry = "main.luau"
+
+[datasets.preferences]
+schema_version = 1
+quota_bytes = 65536
+quota_records = 32
+
+[capabilities.preferences]
+api_version = 1
+dataset = "self:preferences"
+operations = ["get", "put"]
+
+[host_capabilities.hosts]
+api_version = 1
+service = "hosts"
+operations = ["list", "workspaces"]
+
+[host_capabilities.scheduler]
+api_version = 1
+service = "scheduler"
+operations = ["inspect", "setup", "list", "get", "save", "pause", "resume", "run", "history", "output", "cancel", "pause_scope", "resume_scope"]
+
+[permissions]
+ui = ["page"]
+
+[[contributes.pages]]
+id = "main"
+title = "Agent tasks"

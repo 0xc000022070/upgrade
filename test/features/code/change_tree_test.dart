@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/features/code/change_tree.dart';
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/features/code/change_tree.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 WorkspaceFile file(
   String path, {

@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:striked/features/photos/photo_cut.dart';
-import 'package:striked/features/photos/photo_review.dart';
-import 'package:striked/features/screen/screen_preview.dart';
+import 'package:upgrade/features/photos/photo_cut.dart';
+import 'package:upgrade/features/photos/photo_review.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
 
 import '../../support/themed_app.dart';
 
@@ -63,7 +63,7 @@ void main() {
     var returned = false;
 
     setUp(() {
-      dir = Directory.systemTemp.createTempSync('striked-review');
+      dir = Directory.systemTemp.createTempSync('upgrade-review');
       paths = [
         for (final name in ['a', 'b'])
           (File(p.join(dir.path, '$name.png'))..writeAsBytesSync(

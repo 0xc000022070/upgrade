@@ -3,18 +3,18 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/agents.dart'
+import 'package:upgrade/application/agents/agents.dart'
     show registeredHostProvider;
-import 'package:striked/application/navigation.dart';
-import 'package:striked/application/alerts/toasts.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/design/components/drag_sheet.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
-import 'package:striked/platform/shell/shell_launch.dart';
-import 'package:striked/features/shell/host_shell_screen.dart';
-import 'package:striked/features/shell/sheets/launch_picker_sheet.dart';
-import 'package:striked/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/application/alerts/toasts.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/components/drag_sheet.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/shell/shell_launch.dart';
+import 'package:upgrade/features/shell/host_shell_screen.dart';
+import 'package:upgrade/features/shell/sheets/launch_picker_sheet.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
 
 final _openShellRoutes = Expando<ShellSheetRoute>();
 

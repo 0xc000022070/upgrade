@@ -3,15 +3,15 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-import 'package:striked/application/alerts/alerts.dart';
-import 'package:striked/application/alerts/pin_alerts.dart';
-import 'package:striked/platform/notifications/alert_notifications.dart';
-import 'package:striked/platform/herdr/engine_agents.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/ssh/keys.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
+import 'package:upgrade/application/alerts/alerts.dart';
+import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/platform/notifications/alert_notifications.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
 
 /// Android delivers an action tap to this app's background isolate when the activity is
 /// gone and to the main isolate when it is not, so this looks nothing up: the host comes
@@ -109,14 +109,14 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
       if (shared == null) links.close();
     }
   } on EngineRefused catch (error) {
-    debugPrint('striked.engine ${target.address}: $error');
+    debugPrint('upgrade.engine ${target.address}: $error');
     await redraw(
       line: alertFailedLine(error.notFound ? 'ALREADY ANSWERED' : 'REFUSED'),
       withActions: false,
     );
     return;
   } on HerdrFailure catch (error) {
-    debugPrint('striked.herdr ${target.address}: ${error.detail ?? error}');
+    debugPrint('upgrade.herdr ${target.address}: ${error.detail ?? error}');
     await redraw(
       line: alertFailedLine(alertFailureReason(error)),
       withActions: true,

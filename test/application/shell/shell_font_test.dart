@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/shell/shell_font.dart';
+import 'package:upgrade/application/shell/shell_font.dart';
 
 void main() {
   test('a pinch lands on a whole point', () {

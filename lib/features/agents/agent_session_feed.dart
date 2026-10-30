@@ -3,10 +3,10 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/herdr/engine_agents.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 
 typedef SessionKeyResolver = Future<String?> Function(
   EngineAgents engine,
@@ -169,7 +169,7 @@ class AgentSessionFeed extends ChangeNotifier {
       _changed();
     } catch (error) {
       final name = host?.name ?? 'host';
-      debugPrint('striked.engine $name $tag: $error');
+      debugPrint('upgrade.engine $name $tag: $error');
       _drop();
       if (_disposed) return;
       _failure = switch (error) {
@@ -242,7 +242,7 @@ class AgentSessionFeed extends ChangeNotifier {
     } on EngineRefused catch (error) {
       _answerLine = error.notFound ? 'ALREADY ANSWERED' : 'REFUSED';
     } catch (error) {
-      debugPrint('striked.engine ${host.name} answer: $error');
+      debugPrint('upgrade.engine ${host.name} answer: $error');
       _answerLine = 'FAILED';
     } finally {
       _answering = null;

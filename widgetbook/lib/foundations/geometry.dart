@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/design/components/meta.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/layout.dart';
-import 'package:striked/design/motion.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/layout.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
-import 'package:striked_widgetbook/foundations/colors.dart';
-import 'package:striked_widgetbook/frame.dart';
+import 'package:upgrade_widgetbook/foundations/colors.dart';
+import 'package:upgrade_widgetbook/frame.dart';
 
 final geometryUseCases = [
   WidgetbookUseCase(
@@ -119,8 +119,8 @@ final geometryUseCases = [
     builder: (context) {
       final icon = context.knobs.object.dropdown(
         label: 'Icon',
-        options: StrikedIcons.values,
-        initialOption: StrikedIcons.hosts,
+        options: UpgradeIcons.values,
+        initialOption: UpgradeIcons.hosts,
         labelBuilder: (icon) => icon.slug,
       );
       final tokens = context.tokens;
@@ -146,7 +146,7 @@ final geometryUseCases = [
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      StrikedIcon(icon, size: size, color: tokens.textPrimary),
+                      UpgradeIcon(icon, size: size, color: tokens.textPrimary),
                       const SizedBox(height: Spacing.sm),
                       Meta('$name ${size.toStringAsFixed(0)}'),
                     ],
@@ -167,7 +167,7 @@ final geometryUseCases = [
           Specimen(
             'No shadow tokens',
             note:
-                'Striked is flat: StrikedTheme.build neutralizes shadow, '
+                'Upgrade is flat: UpgradeTheme.build neutralizes shadow, '
                 'elevation and surface tint. The values below are read from '
                 'the selected theme.',
             child: Column(

@@ -1,21 +1,21 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
 
 class PanelTextAction extends StatelessWidget {
   const PanelTextAction({
     super.key,
     required this.label,
     required this.onTap,
-    this.icon = StrikedIcons.add,
+    this.icon = UpgradeIcons.add,
   });
 
   final String label;
   final VoidCallback? onTap;
-  final StrikedIcons icon;
+  final UpgradeIcons icon;
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +26,7 @@ class PanelTextAction extends StatelessWidget {
         height: TapTargets.minHeight,
         child: Row(
           children: [
-            StrikedIcon(
+            UpgradeIcon(
               icon,
               size: IconSizes.affordance,
               color: context.tokens.textMuted,

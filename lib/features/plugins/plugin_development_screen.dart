@@ -4,24 +4,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/plugins/plugin_development.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/picker_row.dart';
-import 'package:striked/design/components/screen_scaffold.dart';
-import 'package:striked/design/components/solid_action_bar.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/plugins/plugin_page.dart';
-import 'package:striked/features/settings/plugins_panel.dart';
-import 'package:striked/platform/plugins/plugin_check.dart';
-import 'package:striked/platform/plugins/plugin_sdk.dart';
-import 'package:striked/platform/plugins/plugin_template.dart';
-import 'package:striked/platform/plugins/ui.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_development.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/picker_row.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
+import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/plugins/plugin_page.dart';
+import 'package:upgrade/features/settings/plugins_panel.dart';
+import 'package:upgrade/platform/plugins/plugin_check.dart';
+import 'package:upgrade/platform/plugins/plugin_sdk.dart';
+import 'package:upgrade/platform/plugins/plugin_template.dart';
+import 'package:upgrade/platform/plugins/ui.dart';
 
 void openPluginDevelopment(BuildContext context) => Navigator.of(context).push(
   MaterialPageRoute<void>(builder: (_) => const PluginDevelopmentScreen()),
@@ -129,7 +129,7 @@ class _PluginDevelopmentScreenState
           padding: const EdgeInsets.symmetric(vertical: Spacing.md),
           child: Material(
             type: MaterialType.transparency,
-            child: StrikedField(
+            child: UpgradeField(
               controller: _path,
               hint: 'WORKSPACE PATH ON THE HOST',
               suggest: false,

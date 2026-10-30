@@ -1,20 +1,20 @@
 import 'dart:async';
 
 import 'package:dartssh2/dartssh2.dart';
-import 'package:striked/application/agents/agent_kind.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/plugins/plugin_hosts.dart';
-import 'package:striked/application/agents/reason_lines.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/devices/device_link.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/ssh/keys.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/vnc/vnc_tunnel.dart';
-import 'package:striked/platform/workspace/workspace_client.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/plugins/plugin_hosts.dart';
+import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/devices/device_link.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
+import 'package:upgrade/platform/workspace/workspace_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -5,31 +5,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:striked/app/static_surface.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/formatting.dart';
-import 'package:striked/application/phone_linux.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/key_repository.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/panel_text_action.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/design/components/meta_row.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/design/components/section.dart';
-import 'package:striked/design/components/solid_action_bar.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/features/hosts/host_key_sheet.dart';
-import 'package:striked/features/settings/key_form_screen.dart';
-import 'package:striked/features/screen/screen_preview.dart';
-import 'package:striked/design/components/screen_scaffold.dart';
+import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/application/phone_linux.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/components/meta_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/section.dart';
+import 'package:upgrade/design/components/solid_action_bar.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/features/hosts/host_key_sheet.dart';
+import 'package:upgrade/features/settings/key_form_screen.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
 
 void openHostForm(BuildContext context, {Host? host}) {
   Navigator.of(
@@ -277,7 +277,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         ),
       );
     } catch (error) {
-      debugPrint('striked.verify ${host.name}: $error');
+      debugPrint('upgrade.verify ${host.name}: $error');
     }
     if (mounted) setState(() => _verifying = false);
   }
@@ -318,7 +318,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       final previews = await ref.read(screenPreviewsProvider.future);
       await previews.delete(hostId);
     } catch (error) {
-      debugPrint('striked.vnc $hostId: preview not removed: $error');
+      debugPrint('upgrade.vnc $hostId: preview not removed: $error');
     }
   }
 
@@ -385,7 +385,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         body: StaticSurface(
           child: ScreenScaffold(
             title: widget.host == null ? 'NEW HOST' : 'HOST',
-            breadcrumb: '/ STRIKED / MACHINES',
+            breadcrumb: '/ UPGRADE / MACHINES',
             onBack: _handleBack,
             children: [
               PanelStack(
@@ -437,8 +437,8 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                               for (final key in items)
                                 ListRow(
                                   key: ValueKey('host-key-${key.id}'),
-                                  leading: StrikedIcon(
-                                    StrikedIcons.sshKey,
+                                  leading: UpgradeIcon(
+                                    UpgradeIcons.sshKey,
                                     size: IconSizes.glyph,
                                     color: context.tokens.textSecondary,
                                   ),
@@ -446,8 +446,8 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
                                   literalTitle: true,
                                   subtitle: key.fingerprint,
                                   trailing: key.id == _keyId
-                                      ? StrikedIcon(
-                                          StrikedIcons.check,
+                                      ? UpgradeIcon(
+                                          UpgradeIcons.check,
                                           size: IconSizes.check,
                                           color: context.tokens.accent,
                                         )
@@ -584,8 +584,8 @@ String _integrationLine(IntegrationKind kind) => switch (kind) {
   IntegrationKind.devices => 'Its emulators and simulators',
 };
 
-Widget _check(BuildContext context, bool on) => StrikedIcon(
-  on ? StrikedIcons.checkboxChecked : StrikedIcons.checkboxEmpty,
+Widget _check(BuildContext context, bool on) => UpgradeIcon(
+  on ? UpgradeIcons.checkboxChecked : UpgradeIcons.checkboxEmpty,
   size: IconSizes.check,
   color: on ? context.tokens.accent : context.tokens.textMuted,
 );
@@ -616,7 +616,7 @@ class _HostField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(label, style: context.tokens.label),
-        StrikedField(
+        UpgradeField(
           semanticLabel: label,
           semanticIdentifier: id,
           controller: controller,

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:striked/application/agents/agent_state.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 
 const agentsService = 'agents/1';
 

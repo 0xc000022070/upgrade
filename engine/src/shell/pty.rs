@@ -338,7 +338,7 @@ mod tests {
 
     #[test]
     fn foreground_selection_keeps_helpers_but_rejects_independent_roots() {
-        let root = std::env::temp_dir().join(format!("striked-foreground-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("upgrade-foreground-{}", std::process::id()));
         std::fs::create_dir_all(&root).unwrap();
         let add = |pid: u32, parent: u32, group: u32, name: &str| {
             let path = root.join(pid.to_string());
@@ -379,7 +379,7 @@ mod tests {
             argv: argv.iter().map(|arg| arg.to_string()).collect(),
             arg0: None,
             cwd: std::env::temp_dir(),
-            env: vec![("STRIKED_TEST".into(), "here".into())],
+            env: vec![("UPGRADE_TEST".into(), "here".into())],
             size: Size {
                 cols: 33,
                 rows: 11,
@@ -412,7 +412,7 @@ mod tests {
         let mut pty = spawn(&[
             "/bin/sh",
             "-c",
-            "stty size; echo $STRIKED_TEST; test -t 0 && echo tty",
+            "stty size; echo $UPGRADE_TEST; test -t 0 && echo tty",
         ]);
         let out = read_all(&mut pty);
         assert!(out.contains("11 33"), "{out:?}");

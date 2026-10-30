@@ -7,26 +7,26 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/plugins/plugin_placements.dart';
-import 'package:striked/data/repositories/plugin_placement_repository.dart';
-import 'package:striked/platform/plugins/contributions.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/activity_repository.dart';
-import 'package:striked/data/repositories/project_repository.dart';
-import 'package:striked/data/repositories/task_repository.dart';
-import 'package:striked/features/home/capture_bar.dart';
-import 'package:striked/features/tasks/item_pickers.dart';
-import 'package:striked/features/tasks/selection_bar.dart';
-import 'package:striked/features/home/home_screen.dart';
-import 'package:striked/app/toast_host.dart';
-import 'package:striked/application/alerts/toasts.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/plugins/plugin_placements.dart';
+import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/features/home/capture_bar.dart';
+import 'package:upgrade/features/tasks/item_pickers.dart';
+import 'package:upgrade/features/tasks/selection_bar.dart';
+import 'package:upgrade/features/home/home_screen.dart';
+import 'package:upgrade/app/toast_host.dart';
+import 'package:upgrade/application/alerts/toasts.dart';
 
-import 'package:striked/design/colors.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -34,10 +34,10 @@ import '../../support/themed_app.dart';
 Color? _verbColor(WidgetTester tester, IconData icon) =>
     tester.widget<Icon>(find.byIcon(icon)).color;
 
-Finder _box(String title, StrikedIcons icon) => find.descendant(
+Finder _box(String title, UpgradeIcons icon) => find.descendant(
   of: find.ancestor(of: find.text(title), matching: find.byType(ListRow)),
   matching: find.byWidgetPredicate(
-    (widget) => widget is StrikedIcon && widget.icon == icon,
+    (widget) => widget is UpgradeIcon && widget.icon == icon,
   ),
 );
 
@@ -158,7 +158,7 @@ void main() {
     await tester.tap(find.text('Drops'));
     await _ready(tester);
 
-    expect(find.text('/ STRIKED / PLUGINS'), findsOneWidget);
+    expect(find.text('/ UPGRADE / PLUGINS'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -204,8 +204,8 @@ void main() {
     );
     PluginPlacementState placements() =>
         scope.read(pluginPlacementsProvider).requireValue;
-    const agents = 'striked.agents:widget:agents';
-    const drops = 'striked.drops:widget:drops';
+    const agents = 'upgrade.agents:widget:agents';
+    const drops = 'upgrade.drops:widget:drops';
     HomeTile group() => (placements().tileOf(1)! as HomeSplit).children.first;
 
     await tester.tap(find.bySemanticsLabel('MORE'));
@@ -301,7 +301,7 @@ void main() {
     final row = state().tileOf(1)! as HomeSplit;
     expect(row.axis, HomeAxis.row);
     expect(row.children.last, isA<HomeCard>());
-    expect((row.children.last as HomeCard).id, 'striked.drops:widget:drops');
+    expect((row.children.last as HomeCard).id, 'upgrade.drops:widget:drops');
     expect(_card(tester, 'DROPS').top, _card(tester, 'AGENTS').top);
 
     final before = _card(tester, 'AGENTS').width;
@@ -330,7 +330,7 @@ void main() {
     final scope = ProviderScope.containerOf(
       tester.element(find.byType(HomeScreen)),
     );
-    const capture = 'striked.drops:widget:capture';
+    const capture = 'upgrade.drops:widget:capture';
     await tester.runAsync(
       () => scope
           .read(pluginPlacementsProvider.notifier)
@@ -376,7 +376,7 @@ void main() {
     final scope = ProviderScope.containerOf(
       tester.element(find.byType(HomeScreen)),
     );
-    const capture = 'striked.drops:widget:capture';
+    const capture = 'upgrade.drops:widget:capture';
     final layout = scope.read(pluginPlacementsProvider.notifier);
     await tester.runAsync(
       () => layout.placeWidget(capture, PluginPlacementLocation.homeCard),
@@ -403,7 +403,7 @@ void main() {
 
     unawaited(
       layout.moveHome(
-        'striked.drops:widget:drops',
+        'upgrade.drops:widget:drops',
         space: 1,
         path: const [2],
         edge: HomeEdge.right,
@@ -508,7 +508,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(host());
     await _ready(tester);
-    const capture = 'striked.drops:widget:capture';
+    const capture = 'upgrade.drops:widget:capture';
     final scope = ProviderScope.containerOf(
       tester.element(find.byType(HomeScreen)),
     );
@@ -714,7 +714,7 @@ void main() {
     await _ready(tester);
 
     expect(
-      _box('revisar pgbouncer', StrikedIcons.checkboxEmpty),
+      _box('revisar pgbouncer', UpgradeIcons.checkboxEmpty),
       findsOneWidget,
     );
     await _tapBox(tester, 'revisar pgbouncer');
@@ -752,7 +752,7 @@ void main() {
     await _ready(tester);
     expect(find.text('revisar pgbouncer'), findsOneWidget);
     expect(
-      _box('revisar pgbouncer', StrikedIcons.checkboxChecked),
+      _box('revisar pgbouncer', UpgradeIcons.checkboxChecked),
       findsOneWidget,
     );
 
@@ -913,10 +913,10 @@ void main() {
     expect(find.text('[ ]'), findsNWidgets(2));
     expect(find.text('[x]'), findsNothing);
     expect(find.text('SELECT'), findsNothing, reason: 'hidden in the mode');
-    expect(_verbColor(tester, Icons.arrow_forward), StrikedColors.textDisabled);
+    expect(_verbColor(tester, Icons.arrow_forward), UpgradeColors.textDisabled);
     expect(
       _verbColor(tester, Icons.delete_outline),
-      StrikedColors.textDisabled,
+      UpgradeColors.textDisabled,
     );
 
     await tester.tap(find.text('primero'));
@@ -924,7 +924,7 @@ void main() {
     expect(find.text('1 SELECTED'), findsOneWidget);
     expect(
       _verbColor(tester, Icons.arrow_forward),
-      StrikedColors.textSecondary,
+      UpgradeColors.textSecondary,
     );
 
     await unmount(tester);

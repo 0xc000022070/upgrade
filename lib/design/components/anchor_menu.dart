@@ -2,16 +2,16 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
 class MenuEntry {
   const MenuEntry(this.label, this.icon, this.onSelected);
 
   final String label;
-  final StrikedIcons icon;
+  final UpgradeIcons icon;
   final VoidCallback onSelected;
 }
 
@@ -80,7 +80,7 @@ class _AnchoredMenu extends StatelessWidget {
                         child: Row(
                           children: [
                             const SizedBox(width: Spacing.lg),
-                            StrikedIcon(
+                            UpgradeIcon(
                               entry.icon,
                               size: IconSizes.md,
                               color: context.tokens.textSecondary,

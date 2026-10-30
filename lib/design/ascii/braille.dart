@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:striked/design/ascii/noise.dart';
+import 'package:upgrade/design/ascii/noise.dart';
 
 const brailleCols = 2;
 const brailleRows = 4;

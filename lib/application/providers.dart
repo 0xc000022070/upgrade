@@ -3,31 +3,31 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
-import 'package:striked/data/database.dart';
-import 'package:striked/data/plugin_api.dart';
-import 'package:striked/data/plugin_host_api.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/data/repositories/activity_repository.dart';
-import 'package:striked/data/repositories/goal_repository.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/key_repository.dart';
-import 'package:striked/data/repositories/attachment_repository.dart';
-import 'package:striked/data/repositories/dispatch_repository.dart';
-import 'package:striked/data/repositories/note_repository.dart';
-import 'package:striked/data/repositories/path_repository.dart';
-import 'package:striked/data/repositories/project_repository.dart';
-import 'package:striked/data/repositories/settings_repository.dart';
-import 'package:striked/data/repositories/shell_tab_repository.dart';
-import 'package:striked/data/repositories/task_repository.dart';
-import 'package:striked/data/views.dart';
-import 'package:striked/platform/ssh/keys.dart';
-import 'package:striked/platform/links/link_metadata.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/shell/bar_layout.dart';
-import 'package:striked/application/links/link_preview.dart';
-import 'package:striked/application/shell/pane_share.dart';
-import 'package:striked/application/shell/shell_font.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/plugin_api.dart';
+import 'package:upgrade/data/plugin_host_api.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/goal_repository.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/repositories/dispatch_repository.dart';
+import 'package:upgrade/data/repositories/note_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/data/repositories/shell_tab_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/platform/links/link_metadata.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/shell/bar_layout.dart';
+import 'package:upgrade/application/links/link_preview.dart';
+import 'package:upgrade/application/shell/pane_share.dart';
+import 'package:upgrade/application/shell/shell_font.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
 
 final pluginDataGateProvider = Provider<PluginDataGate?>((ref) {
   final actor = ref.watch(currentPluginProvider);
@@ -307,7 +307,7 @@ final linkPreviewsProvider = Provider<LinkPreviews>((ref) {
   return LinkPreviews(
     fetcher: LinkMetadataFetcher(),
     cache: LinkPreviewCache.inDirectory(
-      Directory(p.join(Directory.systemTemp.path, 'striked')),
+      Directory(p.join(Directory.systemTemp.path, 'upgrade')),
     ),
   );
 });

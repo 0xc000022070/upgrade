@@ -3,9 +3,9 @@ import 'dart:io';
 
 import 'package:dartssh2/dartssh2.dart';
 
-import 'package:striked/application/agents/reason_lines.dart';
-import 'package:striked/platform/herdr/herdr_socket.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
+import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/platform/herdr/herdr_socket.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 
 sealed class HerdrFailure implements Exception {
   const HerdrFailure([this.detail]);

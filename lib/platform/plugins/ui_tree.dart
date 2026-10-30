@@ -1,5 +1,5 @@
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/plugin_sdk.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/plugin_sdk.dart';
 
 class PluginUiNode {
   const PluginUiNode(this.kind, this.props, this.children);

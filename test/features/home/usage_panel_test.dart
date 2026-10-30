@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agent_usage.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/home/agent_mark.dart';
-import 'package:striked/features/home/usage_panel.dart';
-import 'package:striked/platform/herdr/engine_agents.dart';
+import 'package:upgrade/application/agents/agent_usage.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/home/agent_mark.dart';
+import 'package:upgrade/features/home/usage_panel.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
 
 import '../../support/themed_app.dart';
 

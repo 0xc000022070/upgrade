@@ -16,7 +16,7 @@ jobs=$(getconf _NPROCESSORS_ONLN)
 
 # A testWidgets teardown that never completes ignores --timeout and hangs the run.
 run() {
-  local limit=${STRIKED_TEST_TIMEOUT:-600}
+  local limit=${UPGRADE_TEST_TIMEOUT:-600}
   local codes
   {
     # native_toolchain_c probes for MSVC on every OS; drop its PATH dump.
@@ -26,7 +26,7 @@ run() {
     codes=("${PIPESTATUS[@]}")
   } || true
   if [ "${codes[0]}" -eq 124 ]; then
-    echo "flutter test passed ${limit}s and was killed; set STRIKED_TEST_TIMEOUT to allow more" >&2
+    echo "flutter test passed ${limit}s and was killed; set UPGRADE_TEST_TIMEOUT to allow more" >&2
   fi
   [ "${codes[0]}" -eq 0 ] && [ "${codes[2]}" -eq 0 ]
 }

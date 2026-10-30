@@ -2,7 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/design/ascii/ramp.dart';
+import 'package:upgrade/design/ascii/ramp.dart';
 
 Future<double> _coverage(String ch, double size) async {
   final builder = ui.ParagraphBuilder(

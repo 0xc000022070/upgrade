@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
 class DiffKey extends StatefulWidget {
   const DiffKey({
@@ -20,7 +20,7 @@ class DiffKey extends StatefulWidget {
 
   final String says;
   final VoidCallback? onTap;
-  final StrikedIcons? icon;
+  final UpgradeIcons? icon;
   final String? label;
   final String? count;
   final bool on;
@@ -34,7 +34,7 @@ class DiffKey extends StatefulWidget {
 
   static double widthOf(
     BuildContext context, {
-    StrikedIcons? icon,
+    UpgradeIcons? icon,
     String? label,
   }) {
     if (label == null) return face + _margin * 2;
@@ -109,7 +109,7 @@ class _DiffKeyState extends State<DiffKey> {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (icon != null) StrikedIcon(icon, size: DiffKey._glyph, color: ink),
+          if (icon != null) UpgradeIcon(icon, size: DiffKey._glyph, color: ink),
           if (icon != null && label != null) const SizedBox(width: Spacing.sm),
           if (label != null)
             Flexible(

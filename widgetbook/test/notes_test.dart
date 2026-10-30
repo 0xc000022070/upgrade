@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked_widgetbook/catalog.dart';
-import 'package:striked_widgetbook/notes.dart';
+import 'package:upgrade_widgetbook/catalog.dart';
+import 'package:upgrade_widgetbook/notes.dart';
 
 Iterable<WidgetbookUseCase> _useCases(WidgetbookNode node) sync* {
   if (node is WidgetbookUseCase) yield node;

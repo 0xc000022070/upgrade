@@ -1,9 +1,9 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/activity_repository.dart';
-import 'package:striked/data/repositories/dispatch_repository.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/dispatch_repository.dart';
 
 void main() {
   late AppDatabase db;
@@ -31,8 +31,8 @@ void main() {
           PathsCompanion.insert(
             id: 'path-1',
             hostId: 'host-1',
-            directory: '~/src/striked',
-            label: 'striked',
+            directory: '~/src/upgrade',
+            label: 'upgrade',
             createdAt: DateTime.utc(2026, 9, 3),
           ),
         );
@@ -92,7 +92,7 @@ void main() {
     expect(await sends.watchSentItems().first, {'item-1'});
     expect(
       (await activity.watchRecent().first).single.context,
-      'nyx / striked',
+      'nyx / upgrade',
     );
   });
 

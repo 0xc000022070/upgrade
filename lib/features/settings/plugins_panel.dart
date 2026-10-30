@@ -3,41 +3,41 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:striked_luau/striked_luau.dart' show PluginDataReport;
+import 'package:upgrade_luau/upgrade_luau.dart' show PluginDataReport;
 
-import 'package:striked/application/plugins/plugins.dart';
-import 'package:striked/application/plugins/plugin_hosts.dart';
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/plugins/plugin_placements.dart';
-import 'package:striked/data/plugin_inventory.dart';
-import 'package:striked/data/repositories/plugin_placement_repository.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/design/components/dot_spinner.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_sheet.dart';
-import 'package:striked/design/components/panel_text_action.dart';
-import 'package:striked/design/components/segment_switch.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/platform/plugins/access.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/contributions.dart';
-import 'package:striked/platform/plugins/index.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked/features/plugins/plugin_board.dart';
-import 'package:striked/application/drops/capture_visibility.dart';
-import 'package:striked/application/drops/drop_selection.dart';
-import 'package:striked/application/drops/fresh_drops.dart';
-import 'package:striked/application/home/composer_focus.dart';
-import 'package:striked/features/home/capture_draft.dart';
-import 'package:striked/features/home/home_card_viewport.dart';
-import 'package:striked/features/home/home_screen.dart';
-import 'package:striked/features/home/prompt_bar.dart';
-import 'package:striked/features/plugins/plugin_card.dart';
-import 'package:striked/features/plugins/plugin_page.dart';
-import 'package:striked/features/plugins/plugin_reach.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
+import 'package:upgrade/application/plugins/plugin_hosts.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_placements.dart';
+import 'package:upgrade/data/plugin_inventory.dart';
+import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/components/segment_switch.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/plugins/access.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/platform/plugins/index.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/features/plugins/plugin_board.dart';
+import 'package:upgrade/application/drops/capture_visibility.dart';
+import 'package:upgrade/application/drops/drop_selection.dart';
+import 'package:upgrade/application/drops/fresh_drops.dart';
+import 'package:upgrade/application/home/composer_focus.dart';
+import 'package:upgrade/features/home/capture_draft.dart';
+import 'package:upgrade/features/home/home_card_viewport.dart';
+import 'package:upgrade/features/home/home_screen.dart';
+import 'package:upgrade/features/home/prompt_bar.dart';
+import 'package:upgrade/features/plugins/plugin_card.dart';
+import 'package:upgrade/features/plugins/plugin_page.dart';
+import 'package:upgrade/features/plugins/plugin_reach.dart';
 
 void openPluginSheet(
   BuildContext context, {
@@ -233,7 +233,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
     if (_error != null) ...[_errorText(), const SheetRule()],
     SheetField(
       label: 'PUBLIC GITHUB REPOSITORY',
-      child: StrikedField(
+      child: UpgradeField(
         controller: _repository,
         suggest: false,
         hint: 'https://github.com/owner/repository',
@@ -243,7 +243,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
     const SheetRule(),
     SheetField(
       label: 'REF',
-      child: StrikedField(
+      child: UpgradeField(
         controller: _revision,
         suggest: false,
         hint: 'full commit SHA, tag or branch name',
@@ -490,9 +490,9 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
       if (_diagnostics) ...[
         _fact('PLUGIN', '${manifest.id} ${manifest.version}'),
         if (package.packageOriginIsBuiltin)
-          _fact('DISTRIBUTION', 'Built-in · updated with Striked'),
+          _fact('DISTRIBUTION', 'Built-in · updated with Upgrade'),
         _fact('MANIFEST', '${manifest.formatVersion}'),
-        _fact('STRIKED API', '${manifest.api}'),
+        _fact('UPGRADE API', '${manifest.api}'),
         if (manifest.uiVersion != null)
           _fact('UI API', '${manifest.uiVersion}'),
         if (!manifest.supported) _fact('DISABLED', manifest.incompatibility!),
@@ -755,7 +755,7 @@ class _PluginSourcesViewState extends ConsumerState<PluginSourcesView> {
           ],
           SheetField(
             label: 'INDEX REPOSITORY',
-            child: StrikedField(
+            child: UpgradeField(
               controller: _repository,
               suggest: false,
               hint: 'https://github.com/owner/repository',
@@ -765,7 +765,7 @@ class _PluginSourcesViewState extends ConsumerState<PluginSourcesView> {
           const SheetRule(),
           SheetField(
             label: 'REF',
-            child: StrikedField(
+            child: UpgradeField(
               controller: _ref,
               suggest: false,
               hint: 'full commit SHA, tag or branch name',

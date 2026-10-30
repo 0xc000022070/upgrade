@@ -1,7 +1,7 @@
 [build.android]
-app = "dev.luisnquin.striked"
+app = "dev.luisnquin.upgrade"
 ready = "PERSONAL CONTROL PLANE"
-stale = "find lib assets android/app/src packages/striked_luau plugins pubspec.yaml pubspec.lock -type f | sort | xargs cksum | cksum"
+stale = "find lib assets android/app/src packages/upgrade_luau plugins pubspec.yaml pubspec.lock -type f | sort | xargs cksum | cksum"
 run = """
 nix develop -c just apk
 phone app install -t "$PHONE_ID" build/app/outputs/flutter-apk/app-debug.apk

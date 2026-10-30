@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/keyboard_toolbar.dart';
-import 'package:striked/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/keyboard_toolbar.dart';
+import 'package:upgrade/design/spacing.dart';
 
 class LinkMark extends StatelessWidget {
   const LinkMark({super.key, required this.count});

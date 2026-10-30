@@ -3,14 +3,14 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:striked/data/repositories/settings_repository.dart';
-import 'package:striked/platform/workspace/workspace_commands.dart';
-import 'package:striked/platform/workspace/workspace_model.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/platform/workspace/workspace_commands.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
-import 'package:striked/features/code/diff_outline.dart';
-import 'package:striked/features/code/diff_patch.dart';
-import 'package:striked/features/code/diff_read.dart';
-import 'package:striked/features/code/workspace_controller.dart';
+import 'package:upgrade/features/code/diff_outline.dart';
+import 'package:upgrade/features/code/diff_patch.dart';
+import 'package:upgrade/features/code/diff_read.dart';
+import 'package:upgrade/features/code/workspace_controller.dart';
 
 enum HunkWrite { stage, unstage, discard }
 

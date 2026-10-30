@@ -4,20 +4,20 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/app/nav_shell.dart';
-import 'package:striked/app/striked_app.dart';
-import 'package:striked/application/agents/agent_state.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/navigation.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/key_repository.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/features/shell/parked_shell_bar.dart';
-import 'package:striked/features/shell/session/shell_sessions.dart';
-import 'package:striked/features/shell/shell_status.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:upgrade/app/nav_shell.dart';
+import 'package:upgrade/app/upgrade_app.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/key_repository.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/shell/parked_shell_bar.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/features/shell/shell_status.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 
 import '../../support/fake_shell.dart';
 import '../../support/platform_channels.dart';
@@ -70,7 +70,7 @@ void main() {
       shellSessionsProvider.overrideWithValue(sessions),
       ...extra,
     ],
-    child: MaterialApp(theme: testTheme, home: StrikedShell()),
+    child: MaterialApp(theme: testTheme, home: UpgradeShell()),
   );
 
   Future<void> ready(WidgetTester tester) async {
@@ -300,7 +300,7 @@ void main() {
                       state: AgentState.of('blocked'),
                       terminalTitleStripped: 'work',
                       workspaceId: 'wQ',
-                      cwd: '/workspace/striked',
+                      cwd: '/workspace/upgrade',
                       stateChangeSeq: 1,
                     ),
                   ],
@@ -318,7 +318,7 @@ void main() {
 
     final line = find.byKey(const ValueKey('agent-status'));
     expect(
-      ProviderScope.containerOf(tester.element(find.byType(StrikedShell)))
+      ProviderScope.containerOf(tester.element(find.byType(UpgradeShell)))
           .read(navIndexProvider),
       1,
       reason: 'Loading plugin placements must not reset the selected page',
@@ -497,14 +497,14 @@ void main() {
     await ready(tester);
     expect(label, findsNothing);
 
-    transport.opened.single.emit('\x1b]0;luis@rose: ~/Projects/striked\x07');
+    transport.opened.single.emit('\x1b]0;luis@rose: ~/Projects/upgrade\x07');
     await ready(tester);
-    expect(find.text('striked'), findsOneWidget);
+    expect(find.text('upgrade'), findsOneWidget);
 
     sessions.open(intent: testIntent(), _nyx);
     await ready(tester);
     expect(label, findsNothing);
-    expect(find.text('striked'), findsNothing);
+    expect(find.text('upgrade'), findsNothing);
 
     await unmount(tester);
   });

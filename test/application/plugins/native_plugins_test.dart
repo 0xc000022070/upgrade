@@ -2,31 +2,31 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:io' as io show Link;
 
-import 'package:striked/app/builtin_plugins.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/plugin_api.dart';
-import 'package:striked/data/plugin_inventory.dart';
-import 'package:striked/data/repositories/settings_repository.dart';
-import 'package:striked/data/repositories/note_repository.dart';
-import 'package:striked/data/repositories/activity_repository.dart';
-import 'package:striked/data/repositories/attachment_repository.dart';
-import 'package:striked/data/repositories/dispatch_repository.dart';
-import 'package:striked/data/repositories/project_repository.dart';
-import 'package:striked/data/repositories/task_repository.dart';
-import 'package:striked/platform/plugins/access.dart';
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/store.dart';
-import 'package:striked/platform/plugins/usage.dart';
+import 'package:upgrade/app/builtin_plugins.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/plugin_api.dart';
+import 'package:upgrade/data/plugin_inventory.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/data/repositories/note_repository.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/repositories/dispatch_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/platform/plugins/access.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/platform/plugins/usage.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 PluginPackage builtinFixture(String name) => PluginPackage(
   manifest: PluginManifest.parse(
-    File('lib/builtin_plugins/$name/striked.plugin.toml').readAsStringSync(),
+    File('lib/builtin_plugins/$name/upgrade.plugin.toml').readAsStringSync(),
     allowNative: true,
   ),
   source: File('lib/builtin_plugins/$name/main.dart').readAsStringSync(),
-  origin: 'bundled:striked.$name',
+  origin: 'bundled:upgrade.$name',
   revision: '1.0.0',
 );
 
@@ -43,7 +43,7 @@ void main() {
     'fresh defaults survive closing and reopening before catalog creation',
     () async {
       final root = await Directory.systemTemp.createTemp(
-        'striked-fresh-marker-',
+        'upgrade-fresh-marker-',
       );
       addTearDown(() => root.delete(recursive: true));
       final file = File('${root.path}/app.sqlite');
@@ -73,24 +73,24 @@ void main() {
   );
 
   test('native counters persist without resurrecting subscriptions', () async {
-    final root = await Directory.systemTemp.createTemp('striked-native-usage-');
+    final root = await Directory.systemTemp.createTemp('upgrade-native-usage-');
     addTearDown(() => root.delete(recursive: true));
     final file = NativeUsageFile(File('${root.path}/usage.json'));
     final authority = PluginAuthority(persistUsage: file.write);
     authority.update(enabledBuiltins());
-    final lease = authority.acquire('striked.projects', 'items');
+    final lease = authority.acquire('upgrade.projects', 'items');
     await lease.call(() async => 1);
     expect(lease.read(() => 2), 2);
     expect(
-      () => authority.acquire('striked.drops', 'projects'),
+      () => authority.acquire('upgrade.drops', 'projects'),
       throwsA(isA<PluginException>()),
     );
     await authority.close();
     final restored = PluginAuthority(usage: await file.read());
     addTearDown(restored.close);
-    expect(restored.usage('striked.projects')['items']!.calls, 2);
-    expect(restored.usage('striked.projects')['items']!.activeSubscriptions, 0);
-    expect(restored.usage('striked.drops')['projects']!.rejected, 1);
+    expect(restored.usage('upgrade.projects')['items']!.calls, 2);
+    expect(restored.usage('upgrade.projects')['items']!.activeSubscriptions, 0);
+    expect(restored.usage('upgrade.drops')['projects']!.rejected, 1);
     await file.file.writeAsString('{"version": 99}');
     await expectLater(file.read(), throwsA(isA<PluginException>()));
     expect(await file.file.readAsString(), '{"version": 99}');
@@ -100,7 +100,7 @@ void main() {
     'dataset inventory partitions notes and measures retained image bytes',
     () async {
       final root = await Directory.systemTemp.createTemp(
-        'striked-native-inventory-',
+        'upgrade-native-inventory-',
       );
       addTearDown(() => root.delete(recursive: true));
       await Directory('${root.path}/attachments').create();
@@ -144,7 +144,7 @@ void main() {
     'inventory resolves the support root without counting escaped files',
     () async {
       final root = await Directory.systemTemp.createTemp(
-        'striked-inventory-link-',
+        'upgrade-inventory-link-',
       );
       addTearDown(() => root.delete(recursive: true));
       final support = await Directory('${root.path}/support').create();
@@ -184,8 +184,8 @@ void main() {
     );
     expect(plugins.every((p) => p.manifest.hostDatasets.length == 3), isTrue);
     expect(resolvePlugins({for (final p in plugins) p.id: p.manifest}), [
-      'striked.drops',
-      'striked.projects',
+      'upgrade.drops',
+      'upgrade.projects',
     ]);
     expect(
       () => PluginManifest.parse(plugins.first.manifest.source),
@@ -197,7 +197,7 @@ void main() {
     'fresh installs stay disabled; adoption and later choices persist',
     () async {
       final root = await Directory.systemTemp.createTemp(
-        'striked-native-catalog-',
+        'upgrade-native-catalog-',
       );
       addTearDown(() => root.delete(recursive: true));
       final packages = [builtinFixture('drops'), builtinFixture('projects')];
@@ -225,15 +225,15 @@ void main() {
         isTrue,
       );
       await expectLater(
-        existing.setEnabled('striked.drops', false),
+        existing.setEnabled('upgrade.drops', false),
         throwsA(isA<PluginException>()),
       );
       await expectLater(
-        existing.remove('striked.projects'),
+        existing.remove('upgrade.projects'),
         throwsA(isA<PluginException>()),
       );
-      await existing.setEnabled('striked.projects', false);
-      await existing.setEnabled('striked.drops', false);
+      await existing.setEnabled('upgrade.projects', false);
+      await existing.setEnabled('upgrade.drops', false);
       expect(
         (await PluginStore(existing.directory).synchronizeBuiltins(
           packages,
@@ -247,16 +247,16 @@ void main() {
   test(
     'prompt ships off and agents on, on fresh and existing installs alike',
     () async {
-      final root = await Directory.systemTemp.createTemp('striked-prompt-off-');
+      final root = await Directory.systemTemp.createTemp('upgrade-prompt-off-');
       addTearDown(() => root.delete(recursive: true));
       final arrivals = {
         for (final module in builtinModules) module.id: module.arrives,
       };
       expect(arrivals, {
-        'striked.agents': BuiltinArrival.on,
-        'striked.drops': BuiltinArrival.adopted,
-        'striked.projects': BuiltinArrival.adopted,
-        'striked.prompt': BuiltinArrival.off,
+        'upgrade.agents': BuiltinArrival.on,
+        'upgrade.drops': BuiltinArrival.adopted,
+        'upgrade.projects': BuiltinArrival.adopted,
+        'upgrade.prompt': BuiltinArrival.off,
       });
       final older = [builtinFixture('drops'), builtinFixture('projects')];
       final packages = [
@@ -278,10 +278,10 @@ void main() {
           ),
         ),
         {
-          'striked.agents': true,
-          'striked.drops': false,
-          'striked.projects': false,
-          'striked.prompt': false,
+          'upgrade.agents': true,
+          'upgrade.drops': false,
+          'upgrade.projects': false,
+          'upgrade.prompt': false,
         },
       );
 
@@ -296,14 +296,14 @@ void main() {
           ),
         ),
         {
-          'striked.agents': true,
-          'striked.drops': true,
-          'striked.projects': true,
-          'striked.prompt': false,
+          'upgrade.agents': true,
+          'upgrade.drops': true,
+          'upgrade.projects': true,
+          'upgrade.prompt': false,
         },
       );
 
-      await existing.setEnabled('striked.prompt', true);
+      await existing.setEnabled('upgrade.prompt', true);
       expect(
         enabled(
           await PluginStore(existing.directory).synchronizeBuiltins(
@@ -311,7 +311,7 @@ void main() {
             adoptEnabled: true,
             arrivals: arrivals,
           ),
-        )['striked.prompt'],
+        )['upgrade.prompt'],
         isTrue,
       );
     },
@@ -323,10 +323,10 @@ void main() {
     final entries = enabledBuiltins();
     authority.update(entries);
     expect(
-      () => authority.acquire('striked.drops', 'projects'),
+      () => authority.acquire('upgrade.drops', 'projects'),
       throwsA(isA<PluginException>()),
     );
-    final lease = authority.acquire('striked.projects', 'items');
+    final lease = authority.acquire('upgrade.projects', 'items');
     expect(await lease.call(() async => 7), 7);
     authority.update([entries.first, entries.last.withEnabled(false)]);
     await expectLater(
@@ -339,7 +339,7 @@ void main() {
       throwsA(isA<PluginException>()),
     );
     expect(
-      await authority.acquire('striked.projects', 'items').call(() async => 10),
+      await authority.acquire('upgrade.projects', 'items').call(() async => 10),
       10,
     );
   });
@@ -351,7 +351,7 @@ void main() {
     authority.update(entries);
     final source = StreamController<int>();
     addTearDown(source.close);
-    final lease = authority.acquire('striked.projects', 'items');
+    final lease = authority.acquire('upgrade.projects', 'items');
     final done = Completer<void>();
     final values = <int>[];
     final errors = <Object>[];
@@ -389,7 +389,7 @@ void main() {
       authority.update(entries);
       final api = PluginTaskApi(
         backend,
-        PluginDataGate(db, authority, 'striked.projects'),
+        PluginDataGate(db, authority, 'upgrade.projects'),
       );
       expect((await api.watchById(id).first)!.title, 'Existing drop');
       authority.update(entries.map((p) => p.withEnabled(false)));
@@ -407,7 +407,7 @@ void main() {
       expect(() => api.watchById(id), throwsA(isA<PluginException>()));
       final restored = PluginTaskApi(
         backend,
-        PluginDataGate(db, authority, 'striked.drops'),
+        PluginDataGate(db, authority, 'upgrade.drops'),
       );
       await restored.edit(id, title: 'Edited through API');
       expect((await restored.watchById(id).first)!.title, 'Edited through API');
@@ -437,8 +437,8 @@ void main() {
           PathsCompanion.insert(
             id: 'path-1',
             hostId: 'host-1',
-            directory: '~/src/striked',
-            label: 'striked',
+            directory: '~/src/upgrade',
+            label: 'upgrade',
             createdAt: DateTime.utc(2026, 9, 3),
           ),
         );
@@ -481,7 +481,7 @@ void main() {
     ]);
     final api = PluginTaskApi(
       backend,
-      PluginDataGate(db, authority, 'striked.drops'),
+      PluginDataGate(db, authority, 'upgrade.drops'),
     );
     await expectLater(() => api.delete(id), throwsA(isA<PluginException>()));
     expect(await backend.watchById(id).first, isNotNull);
@@ -490,7 +490,7 @@ void main() {
     authority.update(entries);
     await PluginTaskApi(
       backend,
-      PluginDataGate(db, authority, 'striked.drops'),
+      PluginDataGate(db, authority, 'upgrade.drops'),
     ).delete(id);
     expect(await backend.watchById(id).first, isNull);
     expect(await sends.watchOne('s1').first, isNull);
@@ -506,7 +506,7 @@ void main() {
       addTearDown(authority.close);
       final entries = enabledBuiltins();
       authority.update(entries);
-      final gate = PluginDataGate(db, authority, 'striked.drops');
+      final gate = PluginDataGate(db, authority, 'upgrade.drops');
       await expectLater(
         gate.call('items', () async {
           await backend.capture('Must roll back');

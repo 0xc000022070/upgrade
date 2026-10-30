@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/app/static_surface.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/meta.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_text_action.dart';
-import 'package:striked/design/components/section.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/platform/herdr/engine_agents.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
-import 'package:striked/features/home/agent_mark.dart';
-import 'package:striked/design/components/screen_scaffold.dart';
-import 'package:striked/features/agents/agent_session_feed.dart';
-import 'package:striked/features/agents/agent_shell.dart';
+import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/components/section.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/features/home/agent_mark.dart';
+import 'package:upgrade/design/components/screen_scaffold.dart';
+import 'package:upgrade/features/agents/agent_session_feed.dart';
+import 'package:upgrade/features/agents/agent_shell.dart';
 
 void openAgentChat(BuildContext context, Host host, AgentSnapshot agent) {
   Navigator.of(context, rootNavigator: true).push(
@@ -105,7 +105,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
       body: StaticSurface(
         child: ScreenScaffold(
           title: agentMarkName(widget.agent.agent),
-          breadcrumb: '/ STRIKED / AGENTS',
+          breadcrumb: '/ UPGRADE / AGENTS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(
@@ -223,7 +223,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
             if (link != null)
               PanelTextAction(
                 label: 'OPEN PANE',
-                icon: StrikedIcons.forward,
+                icon: UpgradeIcons.forward,
                 onTap: UserIntent.onGesture(
                   (intent) => openAgentPane(context, ref, _host, link, intent),
                 ),

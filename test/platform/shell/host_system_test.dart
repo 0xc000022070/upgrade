@@ -2,13 +2,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/features/hosts/host_mark.dart';
-import 'package:striked/platform/shell/host_system.dart';
-import 'package:striked/platform/ssh/connection_supervisor.dart';
-import 'package:striked/platform/ssh/host_files.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/features/hosts/host_mark.dart';
+import 'package:upgrade/platform/shell/host_system.dart';
+import 'package:upgrade/platform/ssh/connection_supervisor.dart';
+import 'package:upgrade/platform/ssh/host_files.dart';
 
 void main() {
   group('the probe answer', () {
@@ -103,14 +103,14 @@ void main() {
   });
 
   test('a known system draws its vendor mark and the rest a rack unit', () {
-    expect(systemGlyph(HostSystem.nixos), StrikedIcons.systemNixos);
-    expect(systemGlyph(HostSystem.darwin), StrikedIcons.systemDarwin);
-    expect(systemGlyph(HostSystem.ubuntu), StrikedIcons.systemUbuntu);
-    expect(systemGlyph(HostSystem.arch), StrikedIcons.systemArch);
-    expect(systemGlyph(HostSystem.alpine), StrikedIcons.systemAlpine);
-    expect(systemGlyph(HostSystem.linux), StrikedIcons.systemServer);
-    expect(systemGlyph(HostSystem.other), StrikedIcons.systemServer);
-    expect(systemGlyph(null), StrikedIcons.systemServer);
+    expect(systemGlyph(HostSystem.nixos), UpgradeIcons.systemNixos);
+    expect(systemGlyph(HostSystem.darwin), UpgradeIcons.systemDarwin);
+    expect(systemGlyph(HostSystem.ubuntu), UpgradeIcons.systemUbuntu);
+    expect(systemGlyph(HostSystem.arch), UpgradeIcons.systemArch);
+    expect(systemGlyph(HostSystem.alpine), UpgradeIcons.systemAlpine);
+    expect(systemGlyph(HostSystem.linux), UpgradeIcons.systemServer);
+    expect(systemGlyph(HostSystem.other), UpgradeIcons.systemServer);
+    expect(systemGlyph(null), UpgradeIcons.systemServer);
   });
 
   test(

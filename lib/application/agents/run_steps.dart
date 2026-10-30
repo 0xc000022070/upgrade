@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:striked/platform/herdr/engine_agents.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 
 const _verbs = <String, Map<String, String>>{
   'claude': {

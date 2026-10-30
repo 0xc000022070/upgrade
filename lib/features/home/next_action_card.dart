@@ -1,15 +1,15 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/views.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/components/list_row.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/features/tasks/item_sheet.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/tasks/item_sheet.dart';
 
 class NextActionCard extends ConsumerWidget {
   const NextActionCard({super.key});
@@ -44,8 +44,8 @@ class _NextActionRow extends StatelessWidget {
       if (blocked) '[ BLOCKED BY ] ${task.blockedReason}',
     ].join(' · ');
     return ListRow(
-      leading: StrikedIcon(
-        StrikedIcons.forward,
+      leading: UpgradeIcon(
+        UpgradeIcons.forward,
         size: IconSizes.glyph,
         color: context.tokens.accent,
       ),

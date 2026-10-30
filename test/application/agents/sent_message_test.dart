@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:striked/application/agents/send.dart';
-import 'package:striked/platform/shell/remote_shell.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
 
 void main() {
   const image = '/data/app/attachments/0192.png';

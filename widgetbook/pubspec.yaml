@@ -1,5 +1,5 @@
-name: striked_widgetbook
-description: Striked's design system, components, assets and screens in Widgetbook.
+name: upgrade_widgetbook
+description: Upgrade's design system, components, assets and screens in Widgetbook.
 publish_to: 'none'
 
 version: 0.1.0
@@ -14,7 +14,7 @@ dependencies:
   flutter_svg: ^2.3.0
   flutter_web_plugins:
     sdk: flutter
-  striked:
+  upgrade:
     path: ..
   widgetbook: ^3.25.0
 
@@ -34,7 +34,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Striked loads assets by bare key, which a dependency's assets do not get.
+  # Upgrade loads assets by bare key, which a dependency's assets do not get.
   # Declared again over the linked directory, they land on the same keys.
   assets:
     - assets/icons/

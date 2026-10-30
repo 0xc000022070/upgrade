@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/meta.dart';
-import 'package:striked/design/layout.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/meta.dart';
+import 'package:upgrade/design/layout.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
 class Stage extends StatelessWidget {
   const Stage({super.key, required this.children});

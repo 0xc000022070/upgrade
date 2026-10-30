@@ -6,23 +6,23 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/links/link_preview.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/application/links/urls.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/activity_repository.dart';
-import 'package:striked/data/repositories/goal_repository.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/attachment_repository.dart';
-import 'package:striked/data/repositories/project_repository.dart';
-import 'package:striked/data/repositories/task_repository.dart';
-import 'package:striked/data/views.dart';
-import 'package:striked/design/components/keyboard_toolbar.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/features/tasks/item_sheet.dart';
-import 'package:striked/features/tasks/item_pickers.dart';
-import 'package:striked/features/tasks/link_text.dart';
-import 'package:striked/platform/links/link_metadata.dart';
+import 'package:upgrade/application/links/link_preview.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/application/links/urls.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/goal_repository.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/attachment_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/data/repositories/task_repository.dart';
+import 'package:upgrade/data/views.dart';
+import 'package:upgrade/design/components/keyboard_toolbar.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/features/tasks/item_sheet.dart';
+import 'package:upgrade/features/tasks/item_pickers.dart';
+import 'package:upgrade/features/tasks/link_text.dart';
+import 'package:upgrade/platform/links/link_metadata.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -189,7 +189,7 @@ void main() {
     tester,
   ) async {
     const post = 'https://x.com/FaztTech/status/1';
-    final directory = Directory.systemTemp.createTempSync('striked-sheet-test');
+    final directory = Directory.systemTemp.createTempSync('upgrade-sheet-test');
     addTearDown(() => directory.deleteSync(recursive: true));
     final cache = LinkPreviewCache.inDirectory(directory);
     // The cache is a file, and a file is real I/O: it only settles on the real event loop,
@@ -631,7 +631,7 @@ void main() {
     await _ready(tester);
 
     final field = tester.widget<TextField>(find.byType(TextField));
-    expect(field.maxLines, StrikedField.bodyLines);
+    expect(field.maxLines, UpgradeField.bodyLines);
     expect(field.keyboardType, TextInputType.text);
     expect(field.textInputAction, TextInputAction.done);
 

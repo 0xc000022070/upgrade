@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/design/components/item_line.dart';
-import 'package:striked/design/components/list_row.dart';
+import 'package:upgrade/design/components/item_line.dart';
+import 'package:upgrade/design/components/list_row.dart';
 
 import '../../support/themed_app.dart';
 

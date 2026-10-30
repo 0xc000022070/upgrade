@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/features/screen/framebuffer_view.dart';
-import 'package:striked/features/screen/screen_transform.dart';
+import 'package:upgrade/features/screen/framebuffer_view.dart';
+import 'package:upgrade/features/screen/screen_transform.dart';
 
 import '../../support/themed_app.dart';
 

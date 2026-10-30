@@ -4,8 +4,8 @@ import 'dart:isolate';
 
 import 'package:toml/toml.dart';
 
-import 'package:striked/platform/plugins/manifest.dart';
-import 'package:striked/platform/plugins/serial.dart';
+import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/platform/plugins/serial.dart';
 
 class PluginIndexEntry {
   const PluginIndexEntry({

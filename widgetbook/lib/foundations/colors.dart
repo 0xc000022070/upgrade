@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
 
-import 'package:striked_widgetbook/frame.dart';
+import 'package:upgrade_widgetbook/frame.dart';
 
 String hex(Color color) =>
     '#${color.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';

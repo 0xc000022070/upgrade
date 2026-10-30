@@ -11,7 +11,7 @@ func TestReport(t *testing.T) {
 		"  analyzer 13.3.0 (14.5.0 available)",
 		"! dart_mosh 0.0.4 from path .dart_tool/dart_mosh (overridden)",
 		"Got dependencies!",
-		"Because striked depends on nothing_real any, version solving failed.",
+		"Because upgrade depends on nothing_real any, version solving failed.",
 		"",
 		"which: no vswhere.exe in (/nix/store/a/bin:/nix/store/b/bin)",
 		`{"type":"start","time":0}`,
@@ -48,7 +48,7 @@ func TestReport(t *testing.T) {
 
 	got := out.String()
 	for _, want := range []string{
-		"Because striked depends on nothing_real any, version solving failed.\n",
+		"Because upgrade depends on nothing_real any, version solving failed.\n",
 		"compiled shard_00.dart (1/2) in 2.4s\n",
 		"FAIL shard_01.dart\n",
 		"a stray line no error repeats\n",

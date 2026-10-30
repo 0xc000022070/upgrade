@@ -1,0 +1,58 @@
+manifest_version = 3
+id = "upgrade.drops"
+name = "Drops"
+emblem = "crate"
+purpose = "Capture, review, and file unstructured work."
+version = "1.0.0"
+upgrade_api = "^2.0.0"
+
+[runtime]
+kind = "native"
+entry = "main.dart"
+
+[exports]
+items = "items@1"
+attachments = "attachments@1"
+item_notes = "item-notes@1"
+
+[services]
+items = "items@1"
+attachments = "attachments@1"
+item_notes = "item-notes@1"
+"host.capture_targets" = "capture-targets@1"
+"host.dispatch" = "dispatch@1"
+"host.workspaces" = "workspaces@1"
+
+[datasets.items]
+schema_version = 1
+service = "items"
+
+[datasets.attachments]
+schema_version = 1
+service = "attachments"
+
+[datasets.notes]
+schema_version = 1
+service = "item_notes"
+
+[contributes]
+surfaces = ["item.detail"]
+
+[[contributes.widgets]]
+id = "drops"
+title = "Drops"
+surface = "home.drops"
+fill = true
+locations = ["home.card"]
+default_location = "home.card"
+default_size = "auto"
+sizes = [{ id = "auto", title = "Automatic", min_width = 280, max_width = 720 }]
+
+[[contributes.widgets]]
+id = "capture"
+title = "Capture"
+surface = "home.capture"
+locations = ["home.composer", "home.card"]
+default_location = "home.composer"
+default_size = "auto"
+sizes = [{ id = "auto", title = "Automatic", min_width = 280, max_width = 720 }]

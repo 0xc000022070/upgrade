@@ -132,10 +132,10 @@ class BundleCipher {
 
   static const marker = 'bundle';
 
-  /// The app was called Spectacle, then Dazzle, then Upgrade, when it wrote files its users now
-  /// import into Striked, so every name opens and the current one is written.
-  static const markerKey = 'striked';
-  static const legacyMarkerKeys = ['upgrade', 'dazzle', 'spectacle'];
+  /// The app was called Spectacle, then Dazzle, then Upgrade, then Striked, when it wrote files
+  /// its users now import into Upgrade, so every name opens and the current one is written.
+  static const markerKey = 'upgrade';
+  static const legacyMarkerKeys = ['striked', 'dazzle', 'spectacle'];
   static const version = 1;
   static const _saltLength = 16;
   static const _nonceLength = 24;

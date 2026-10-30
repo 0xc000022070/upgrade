@@ -1,7 +1,7 @@
-import 'package:striked_shade/striked_shade.dart';
+import 'package:upgrade_shade/upgrade_shade.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:striked/application/alerts/pin_alerts.dart';
+import 'package:upgrade/application/alerts/pin_alerts.dart';
 
 /// A channel of its own so the user can keep a blocked agent quiet and still hear a key
 /// being asked for. Posted natively: flutter_local_notifications can neither keep the
@@ -16,13 +16,13 @@ class PinNotifications implements PinNotifier {
 
   static Future<void> createChannel() async {
     try {
-      await StrikedShade.createChannel(
+      await UpgradeShade.createChannel(
         id: channelId,
         name: channelName,
         retired: _retired,
       );
     } catch (error) {
-      debugPrint('striked.pin channel: $error');
+      debugPrint('upgrade.pin channel: $error');
     }
   }
 
@@ -33,7 +33,7 @@ class PinNotifications implements PinNotifier {
     required String text,
   }) async {
     try {
-      await StrikedShade.show(
+      await UpgradeShade.show(
         id: pinNotificationId(hostId),
         channelId: channelId,
         title: pinNotificationTitle,
@@ -42,16 +42,16 @@ class PinNotifications implements PinNotifier {
         ask: askId,
       );
     } catch (error) {
-      debugPrint('striked.pin notification: $error');
+      debugPrint('upgrade.pin notification: $error');
     }
   }
 
   @override
   Future<void> withdraw(String hostId) async {
     try {
-      await StrikedShade.cancel(pinNotificationId(hostId));
+      await UpgradeShade.cancel(pinNotificationId(hostId));
     } catch (error) {
-      debugPrint('striked.pin notification: $error');
+      debugPrint('upgrade.pin notification: $error');
     }
   }
 }

@@ -14,8 +14,8 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
-        android:label="Striked"
-        android:name=".StrikedApplication"
+        android:label="Upgrade"
+        android:name=".UpgradeApplication"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round">
         <activity
@@ -132,7 +132,7 @@
             android:exported="false"
             android:excludeFromRecents="true"
             android:noHistory="true"
-            android:taskAffinity="dev.luisnquin.striked.compose"
+            android:taskAffinity="dev.luisnquin.upgrade.compose"
             android:theme="@android:style/Theme.NoDisplay"/>
         <activity
             android:name=".ComposeActivity"
@@ -140,7 +140,7 @@
             android:excludeFromRecents="true"
             android:noHistory="true"
             android:launchMode="singleTop"
-            android:taskAffinity="dev.luisnquin.striked.compose"
+            android:taskAffinity="dev.luisnquin.upgrade.compose"
             android:theme="@style/ComposeTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"

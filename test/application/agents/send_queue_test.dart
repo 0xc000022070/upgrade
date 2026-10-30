@@ -2,19 +2,19 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agent_kind.dart';
-import 'package:striked/application/agents/send.dart';
-import 'package:striked/application/agents/send_queue.dart';
-import 'package:striked/application/alerts/toasts.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/path_repository.dart';
+import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/agents/send.dart';
+import 'package:upgrade/application/agents/send_queue.dart';
+import 'package:upgrade/application/alerts/toasts.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
 
 final _target = PathTarget(
   path: AgentPath(
     id: 'path-1',
     hostId: 'host-1',
-    directory: '~/src/striked',
-    label: 'striked',
+    directory: '~/src/upgrade',
+    label: 'upgrade',
     createdAt: DateTime.utc(2026, 9, 3),
   ),
   host: const Host(

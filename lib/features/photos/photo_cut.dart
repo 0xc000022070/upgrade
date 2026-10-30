@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui';
 
-import 'package:striked/design/tokens.dart';
+import 'package:upgrade/design/tokens.dart';
 
 enum MarkShape { box, ring, arrow }
 
@@ -27,7 +27,7 @@ void paintMarks(
     ..style = PaintingStyle.stroke
     ..strokeWidth = weight
     ..strokeJoin = StrokeJoin.miter
-    ..color = color ?? StrikedTokens.house.markInk;
+    ..color = color ?? UpgradeTokens.house.markInk;
   for (final mark in marks) {
     final from = Offset(
       mark.from.dx * whole.width,

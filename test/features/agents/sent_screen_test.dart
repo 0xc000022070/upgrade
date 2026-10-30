@@ -4,17 +4,17 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agent_state.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/providers.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/enums.dart';
-import 'package:striked/data/repositories/dispatch_repository.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/data/repositories/path_repository.dart';
-import 'package:striked/features/agents/sent_screen.dart';
-import 'package:striked/platform/herdr/engine_agents.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/dispatch_repository.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/features/agents/sent_screen.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 
 import '../../support/native_plugins.dart';
 import '../../support/platform_channels.dart';
@@ -32,8 +32,8 @@ Dispatch _send(
   pathId: 'path-1',
   hostId: 'host-1',
   hostName: 'nyx',
-  label: 'striked',
-  directory: '~/src/striked',
+  label: 'upgrade',
+  directory: '~/src/upgrade',
   text: text,
   agent: 'claude',
   paneId: 'p1',
@@ -62,7 +62,7 @@ AgentSnapshot _agent({AgentApproval? approval, String? question}) =>
       state: AgentState.of('working'),
       terminalTitleStripped: '',
       workspaceId: '',
-      cwd: '~/src/striked',
+      cwd: '~/src/upgrade',
       stateChangeSeq: 1,
       herdrPane: 'p1',
       approval: approval,
@@ -178,7 +178,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('fix the gate'), findsOneWidget);
-    expect(find.text('nyx · striked · claude'), findsNWidgets(2));
+    expect(find.text('nyx · upgrade · claude'), findsNWidgets(2));
     expect(find.textContaining('DONE'), findsOneWidget);
     expect(find.textContaining('FAILED'), findsOneWidget);
     expect(find.text('KEY REJECTED'), findsOneWidget);

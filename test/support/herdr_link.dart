@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:striked/platform/herdr/herdr_socket.dart';
+import 'package:upgrade/platform/herdr/herdr_socket.dart';
 
 class FakeHerdrLink {
   FakeHerdrLink({Stream<Uint8List>? scripted}) {
@@ -55,13 +55,13 @@ class FakeHerdrLink {
 
 Map<String, Object?> herdrResult(
   Map<String, Object?> result, {
-  String id = 'striked:0',
+  String id = 'upgrade:0',
 }) => {'id': id, 'result': result};
 
 Map<String, Object?> herdrError(
   String code, {
   String message = '',
-  String id = 'striked:0',
+  String id = 'upgrade:0',
 }) => {
   'id': id,
   'error': {'code': code, 'message': message},
@@ -72,7 +72,7 @@ Map<String, Object?> agentListResult(
   String agent = 'claude',
   String status = 'working',
   int seq = 1,
-  String title = 'striked',
+  String title = 'upgrade',
   String cwd = '/home/dev/Projects/fixture',
 }) => {
   'type': 'agent_list',

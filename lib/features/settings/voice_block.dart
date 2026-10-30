@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/providers.dart';
-import 'package:striked/application/whisper.dart';
-import 'package:striked/data/repositories/settings_repository.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/platform/voice/whisper.dart';
+import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/application/whisper.dart';
+import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/voice/whisper.dart';
 
 String _size(WhisperSize size) =>
     '${(modelBytes(size.files) / 1e6).round()} MB';

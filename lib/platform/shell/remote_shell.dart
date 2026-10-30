@@ -24,7 +24,7 @@ String shellIn(String directory) => '${shellCd(directory)} && exec \$SHELL -l';
 
 /// Exported before the `exec`, which is what carries it into the login shell that
 /// replaces it.
-const shellMarkVariable = 'STRIKED_TAB';
+const shellMarkVariable = 'UPGRADE_TAB';
 
 /// Letters and digits, and nothing a shell or a `grep` reads as anything but itself.
 final shellMark = RegExp(r'^[a-z0-9]{6,32}$');
@@ -33,7 +33,7 @@ String shellMarked(String mark, {String? command}) {
   assert(shellMark.hasMatch(mark));
   return 'export $shellMarkVariable=$mark; '
       'if [ "\$(uname -s)" = Darwin ]; then '
-      '(d="/tmp/striked-\$(id -u)"; umask 077; '
+      '(d="/tmp/upgrade-\$(id -u)"; umask 077; '
       'mkdir -p "\$d" && [ -O "\$d" ] && '
       'tty > "\$d/$mark") 2>/dev/null; fi; '
       '${command ?? 'exec \$SHELL -l'}';
@@ -41,12 +41,12 @@ String shellMarked(String mark, {String? command}) {
 
 final durableShellSession = shellMark;
 
-const moshTabVariable = 'STRIKED_MOSH_TAB';
+const moshTabVariable = 'UPGRADE_MOSH_TAB';
 
 String moshServerProbeCommand() {
   const script =
       'p=\$(command -v mosh-server) || exit 127; '
-      'printf "STRIKED_MOSH=%s\\n" "\$p"';
+      'printf "UPGRADE_MOSH=%s\\n" "\$p"';
   return 'exec "\$SHELL" -lc ${shellQuote(script)}';
 }
 
@@ -60,7 +60,7 @@ String moshServerCleanupCommand(String session) {
     'for p in /proc/[0-9]*; do '
     '$marked$session" 2>/dev/null || continue; '
     'a=\$(tr "\\000" " " < "\$p/cmdline" 2>/dev/null); '
-    'case "\${a%% *}" in mosh-server|*/mosh-server|strikedddd|*/strikedddd) '
+    'case "\${a%% *}" in mosh-server|*/mosh-server|upgraded|*/upgraded) '
     'kill "\${p##*/}" 2>/dev/null || ok=0;; esac; '
     'done; '
     'l=\$(ps -A -ww -o pid=,command=) || [ -n "\$e" ] || exit 1; '
@@ -74,7 +74,7 @@ String moshServerCleanupCommand(String session) {
 
 String moshServerMark(String session) => '-l $moshTabVariable=$session';
 
-const _moshSwept = 'STRIKED_MOSH_SWEPT=';
+const _moshSwept = 'UPGRADE_MOSH_SWEPT=';
 
 enum MoshSweep { environments, arguments }
 
@@ -134,7 +134,7 @@ String shellForegroundProcessProbe(String mark) {
       r's=$(cat "/proc/$parent/stat") || continue; '
       r's=${s##*) }; set -- $s; '
       r'[ "$3" = "$group" ] && continue; '
-      r'tr "\000" "\n" < "$p/environ" | grep -qx "STRIKED_TAB='
+      r'tr "\000" "\n" < "$p/environ" | grep -qx "UPGRADE_TAB='
       '$mark'
       r'" || continue; '
       r'a=$(tr "\000" "\n" < "$p/cmdline" | sed -n "1p"); '
@@ -144,7 +144,7 @@ String shellForegroundProcessProbe(String mark) {
       r'done';
   final darwin =
       r'exec 2>/dev/null; '
-      r'd="/tmp/striked-$(id -u)"; [ -O "$d" ] || exit 1; '
+      r'd="/tmp/upgrade-$(id -u)"; [ -O "$d" ] || exit 1; '
       't=\$(cat "\$d/$mark") || exit 1; '
       r'case "$t" in /dev/*) ;; *) exit 1;; esac; '
       r'ps -ww -t "$t" -o pid=,ppid=,pgid=,tpgid=,comm=,command= | '
@@ -176,7 +176,7 @@ ShellPlace parseShellPlace(String source) {
 
 /// World-writable and cleared by the host's own reboot, which is the right lifetime for
 /// a file nothing ever comes back for.
-const remoteUploadDirectory = '/tmp/striked';
+const remoteUploadDirectory = '/tmp/upgrade';
 
 String remotePathFor(String fileName) => '$remoteUploadDirectory/$fileName';
 
@@ -221,7 +221,7 @@ String pinentryMarkCommand(String tab) {
     'tr "\\000" "\\n" < "\$p/environ" | grep -qx "$moshTabVariable=$tab" '
     '|| continue; '
     'a=\$(tr "\\000" " " < "\$p/cmdline"); '
-    'case "\${a%% *}" in mosh-server|*/mosh-server|strikedddd|*/strikedddd) h="\$h \${p##*/}";; esac; '
+    'case "\${a%% *}" in mosh-server|*/mosh-server|upgraded|*/upgraded) h="\$h \${p##*/}";; esac; '
     'done; '
     'ps -eo ppid=,tty= | awk -v h="\$h" '
     "'BEGIN { n = split(h, k, \" \"); for (i = 1; i <= n; i++) w[k[i]] = 1 } "
@@ -247,7 +247,7 @@ String pinentryOpenCommand() => underSh(
 /// command.
 final pinentryRequestId = RegExp(r'^[a-f0-9]{16,32}$');
 
-const pinentryAnswered = 'STRIKED_PIN=sent';
+const pinentryAnswered = 'UPGRADE_PIN=sent';
 
 /// A shell opening the fifo itself waits forever on one whose reader is gone, so the
 /// host's own pinentry takes the decision. A settled request exits non-zero and never

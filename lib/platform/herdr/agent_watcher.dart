@@ -5,21 +5,21 @@ import 'dart:io' show pid;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
-import 'package:striked/application/agents/agent_state.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/alerts/alerts.dart';
-import 'package:striked/application/alerts/pin_alerts.dart';
-import 'package:striked/application/alerts/watcher_backoff.dart';
-import 'package:striked/application/launcher/launcher_feed.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/notifications/alert_notifications.dart';
-import 'package:striked/platform/herdr/engine_agents.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/launcher_widget/launcher_widget.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/ssh/host_keys.dart';
-import 'package:striked/platform/ssh/keys.dart';
-import 'package:striked/platform/notifications/pin_notifications.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/alerts/alerts.dart';
+import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/application/alerts/watcher_backoff.dart';
+import 'package:upgrade/application/launcher/launcher_feed.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/notifications/alert_notifications.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/launcher_widget/launcher_widget.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/platform/notifications/pin_notifications.dart';
 
 /// The service runs its own isolate. Nothing in this file may reach for a provider, the
 /// database or a widget: what it needs travels through
@@ -31,11 +31,11 @@ const watcherLivenessPeriod = Duration(seconds: 10);
 
 const watcherChannelId = 'watcher';
 const watcherChannelName = 'Agent watcher';
-const watcherNotificationTitle = 'STRIKED';
+const watcherNotificationTitle = 'UPGRADE';
 
-const _hostsKey = 'striked.watcher.hosts';
-const _kindsKey = 'striked.watcher.kinds';
-const _shellsKey = 'striked.watcher.shells';
+const _hostsKey = 'upgrade.watcher.hosts';
+const _kindsKey = 'upgrade.watcher.kinds';
+const _shellsKey = 'upgrade.watcher.shells';
 
 const shellsAskPeriod = Duration(minutes: 1);
 
@@ -59,9 +59,9 @@ int decodeHeldShells(String? raw, {int? process}) {
   }
 }
 
-/// With `--dart-define=STRIKED_FAKE_WATCH=true` each host's stream is a canned pair of
+/// With `--dart-define=UPGRADE_FAKE_WATCH=true` each host's stream is a canned pair of
 /// snapshots, which is what produces the alert on an emulator with no key on the host.
-const _fakeWatch = bool.fromEnvironment('STRIKED_FAKE_WATCH');
+const _fakeWatch = bool.fromEnvironment('UPGRADE_FAKE_WATCH');
 
 String encodeWatcherHosts(
   List<Host> hosts, {
@@ -267,7 +267,7 @@ class AgentWatcher {
   static Future<void> _serial(Future<void> Function() step) {
     final next = _turn.then((_) => step());
     _turn = next.catchError((Object error) {
-      debugPrint('striked.herdr watcher: $error');
+      debugPrint('upgrade.herdr watcher: $error');
     });
     return next;
   }
@@ -296,7 +296,7 @@ class AgentWatcher {
       callback: agentWatcherEntry,
     );
     if (result is ServiceRequestFailure) {
-      debugPrint('striked.herdr watcher: ${result.error}');
+      debugPrint('upgrade.herdr watcher: ${result.error}');
     }
   }
 
@@ -868,7 +868,7 @@ class _HostLoop {
   }
 
   void _log(Object error) =>
-      debugPrint('striked.${source.name} ${host.name}: $error');
+      debugPrint('upgrade.${source.name} ${host.name}: $error');
 
   /// Every wait this loop takes goes through it: the service is torn down by Android's
   /// `onDestroy`, which is on a clock, and a loop asleep in its own backoff carries the
@@ -1114,7 +1114,7 @@ class _HostLoop {
         state: BlockedState(),
         terminalTitleStripped: 'RUN THE MIGRATION?',
         workspaceId: 'wF',
-        cwd: '~/src/striked',
+        cwd: '~/src/upgrade',
         stateChangeSeq: 2,
       ),
       AgentSnapshot(
@@ -1124,7 +1124,7 @@ class _HostLoop {
         state: WorkingState(),
         terminalTitleStripped: 'wiring the diff viewer',
         workspaceId: 'wF',
-        cwd: '~/src/striked',
+        cwd: '~/src/upgrade',
         stateChangeSeq: 7,
       ),
       AgentSnapshot(
@@ -1144,7 +1144,7 @@ class _HostLoop {
         state: WorkingState(),
         terminalTitleStripped: 'reading the spec',
         workspaceId: 'wG',
-        cwd: '~/src/striked',
+        cwd: '~/src/upgrade',
         stateChangeSeq: 3,
       ),
       AgentSnapshot(
@@ -1154,7 +1154,7 @@ class _HostLoop {
         state: IdleState(),
         terminalTitleStripped: 'zsh',
         workspaceId: 'wG',
-        cwd: '~/src/striked',
+        cwd: '~/src/upgrade',
         stateChangeSeq: 1,
       ),
     ];

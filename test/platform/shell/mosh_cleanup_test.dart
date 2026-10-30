@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/platform/shell/remote_shell.dart';
+import 'package:upgrade/platform/shell/remote_shell.dart';
 
 void main() {
   test('Mosh cleanup finds a server by its argument mark when its '
@@ -46,9 +46,9 @@ void main() {
   test('Mosh cleanup is confirmed only by its marker', () {
     expect(moshSwept(''), isNull);
     expect(
-      moshSwept('noise\nSTRIKED_MOSH_SWEPT=env\n'),
+      moshSwept('noise\nUPGRADE_MOSH_SWEPT=env\n'),
       MoshSweep.environments,
     );
-    expect(moshSwept('STRIKED_MOSH_SWEPT=argv\n'), MoshSweep.arguments);
+    expect(moshSwept('UPGRADE_MOSH_SWEPT=argv\n'), MoshSweep.arguments);
   });
 }

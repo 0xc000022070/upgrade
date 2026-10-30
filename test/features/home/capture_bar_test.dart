@@ -4,19 +4,19 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/drops/drop_selection.dart';
-import 'package:striked/data/database.dart';
-import 'package:striked/data/repositories/activity_repository.dart';
-import 'package:striked/data/repositories/goal_repository.dart';
-import 'package:striked/data/repositories/project_repository.dart';
-import 'package:striked/design/colors.dart';
-import 'package:striked/design/components/action_block.dart';
-import 'package:striked/design/components/keyboard_toolbar.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/features/home/capture_bar.dart';
-import 'package:striked/features/home/composer_panel.dart';
+import 'package:upgrade/application/drops/drop_selection.dart';
+import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/goal_repository.dart';
+import 'package:upgrade/data/repositories/project_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/keyboard_toolbar.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/home/capture_bar.dart';
+import 'package:upgrade/features/home/composer_panel.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -449,7 +449,7 @@ void main() {
     await _ready(tester);
 
     final field = tester.widget<TextField>(_capture);
-    expect(field.maxLines, StrikedField.bodyLines);
+    expect(field.maxLines, UpgradeField.bodyLines);
     expect(field.textInputAction, TextInputAction.done);
 
     await tester.enterText(_capture, 'revisar pgbouncer');
@@ -558,7 +558,7 @@ void main() {
 
     final blocked = tester.widget<ActionBlock>(find.byType(ActionBlock));
     expect(blocked.onTap, isNull);
-    expect(blocked.tone, StrikedColors.textDisabled);
+    expect(blocked.tone, UpgradeColors.textDisabled);
 
     await tester.tap(find.text('ATTACH'));
     await _ready(tester);
@@ -572,7 +572,7 @@ void main() {
     await _ready(tester);
     expect(
       tester.widget<ActionBlock>(find.byType(ActionBlock)).tone,
-      StrikedColors.accent,
+      UpgradeColors.accent,
     );
 
     await unmount(tester);

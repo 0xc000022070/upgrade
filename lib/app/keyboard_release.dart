@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/platform/device.dart';
+import 'package:upgrade/platform/device.dart';
 
 /// Android reports the IME as a bottom view inset and the whole app lays out above it. A
 /// window stopped with the keyboard still up (turning the screen off is the ordinary

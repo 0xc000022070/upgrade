@@ -2,21 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:striked/application/shell/launch_scan.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/design/colors.dart';
-import 'package:striked/design/components/cell_divider.dart';
-import 'package:striked/design/components/dot_spinner.dart';
-import 'package:striked/design/components/scan_sweep.dart';
-import 'package:striked/design/motion.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/features/shell/host_shell_screen.dart';
-import 'package:striked/features/shell/shell_header.dart';
-import 'package:striked/features/shell/session/shell_sessions.dart';
-import 'package:striked/features/shell/shell_status.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
-import 'package:striked/platform/shell/shell_connection.dart';
-import 'package:striked/platform/shell/shell_launch.dart';
+import 'package:upgrade/application/shell/launch_scan.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/colors.dart';
+import 'package:upgrade/design/components/cell_divider.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/components/scan_sweep.dart';
+import 'package:upgrade/design/motion.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/shell/host_shell_screen.dart';
+import 'package:upgrade/features/shell/shell_header.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/features/shell/shell_status.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/shell/shell_launch.dart';
 import 'package:flterm/flterm.dart';
 
 import '../../support/fake_shell.dart';
@@ -160,7 +160,7 @@ void main() {
       transport.opened.single.setHealth(health);
       await tester.pump();
       await tester.pump();
-      expect(tester.widget<ScanSweep>(sweep).lit, StrikedColors.warning);
+      expect(tester.widget<ScanSweep>(sweep).lit, UpgradeColors.warning);
       final band = find.descendant(
         of: sweep,
         matching: find.byType(ShaderMask),
@@ -181,7 +181,7 @@ void main() {
     transport.opened.single.drop();
     await tester.pump();
     await tester.pump();
-    expect(tester.widget<ScanSweep>(sweep).lit, StrikedColors.warning);
+    expect(tester.widget<ScanSweep>(sweep).lit, UpgradeColors.warning);
     expect(find.byType(DelayedSpinner), findsNothing);
 
     await tester.pump(shellReconnectDelays.first);
@@ -336,7 +336,7 @@ void main() {
                     HerdrWorkspaceEntry(
                       session: 'hub',
                       id: 'w2',
-                      label: 'striked',
+                      label: 'upgrade',
                       status: 'working',
                       focused: true,
                     ),
@@ -373,7 +373,7 @@ void main() {
     expect(find.byKey(const ValueKey('launch-herdr-hub')), findsOneWidget);
     expect(find.text('2 spaces · 1 working'), findsOneWidget);
     expect(find.text('hyprland'), findsNothing);
-    expect(find.text('striked'), findsNothing);
+    expect(find.text('upgrade'), findsNothing);
     expect(find.text('ATTACHED'), findsOneWidget);
     expect(find.text('tmux 1'), findsOneWidget);
     expect(
@@ -457,9 +457,9 @@ void main() {
     });
 
     test('a login shell reads where it is, not who it is', () {
-      expect(shellTabLabel('luis@nyx: ~/Projects/striked', 1), 'striked');
+      expect(shellTabLabel('luis@nyx: ~/Projects/upgrade', 1), 'upgrade');
       expect(shellTabLabel('luis@nyx: ~', 1), '~');
-      expect(shellTabLabel('~/Projects/striked', 1), 'striked');
+      expect(shellTabLabel('~/Projects/upgrade', 1), 'upgrade');
     });
 
     test('a title with a space in it is a sentence and is kept whole', () {
@@ -474,10 +474,10 @@ void main() {
       await ready(tester);
       expect(labelOfTab(tester, 1), '1');
 
-      transport.opened.first.emit('\x1b]0;luis@rose: ~/Projects/striked\x07');
+      transport.opened.first.emit('\x1b]0;luis@rose: ~/Projects/upgrade\x07');
       await ready(tester);
 
-      expect(labelOfTab(tester, 1), 'striked');
+      expect(labelOfTab(tester, 1), 'upgrade');
 
       await unmount(tester);
     });
@@ -511,12 +511,12 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      expect(dotOfTab(tester, 1), StrikedColors.accent);
+      expect(dotOfTab(tester, 1), UpgradeColors.accent);
 
       transport.opened.first.drop();
       await ready(tester);
 
-      expect(dotOfTab(tester, 1), isNot(StrikedColors.accent));
+      expect(dotOfTab(tester, 1), isNot(UpgradeColors.accent));
 
       expect(find.text('STOP'), findsNothing);
       await openInfo(tester);
@@ -590,7 +590,7 @@ void main() {
       addTearDown(tester.view.reset);
       const named = Host(
         id: 'h1',
-        name: 'STRIKED HOST VM',
+        name: 'UPGRADE HOST VM',
         address: '100.64.0.1',
         port: 22,
         user: 'luis',

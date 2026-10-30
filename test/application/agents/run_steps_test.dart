@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/agents/agent_state.dart';
-import 'package:striked/application/agents/agents.dart';
-import 'package:striked/application/agents/run_steps.dart';
-import 'package:striked/application/agents/send_states.dart';
-import 'package:striked/data/repositories/dispatch_repository.dart';
-import 'package:striked/data/repositories/host_repository.dart';
-import 'package:striked/platform/herdr/engine_agents.dart';
-import 'package:striked/platform/herdr/herdr_client.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/agents/run_steps.dart';
+import 'package:upgrade/application/agents/send_states.dart';
+import 'package:upgrade/data/repositories/dispatch_repository.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 
 TranscriptItem _item(
   int index,
@@ -36,8 +36,8 @@ Dispatch _send({List<SeenState> states = const []}) => Dispatch(
   pathId: 'path-1',
   hostId: _host.id,
   hostName: _host.name,
-  label: 'striked',
-  directory: '~/src/striked',
+  label: 'upgrade',
+  directory: '~/src/upgrade',
   text: 'fix the gate',
   agent: 'claude',
   paneId: 'p1',
@@ -53,7 +53,7 @@ AgentSnapshot _agent(String pane, String state) => AgentSnapshot(
   state: AgentState.of(state),
   terminalTitleStripped: '',
   workspaceId: 'w',
-  cwd: '~/src/striked',
+  cwd: '~/src/upgrade',
   stateChangeSeq: 1,
 );
 

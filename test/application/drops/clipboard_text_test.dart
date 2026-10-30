@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:striked/application/drops/clipboard_text.dart';
+import 'package:upgrade/application/drops/clipboard_text.dart';
 
 void main() {
   test('a drop is its title, a blank line, and its links one per line', () {

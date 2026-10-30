@@ -3,10 +3,10 @@ import 'dart:convert';
 
 import 'package:dartssh2/dartssh2.dart';
 
-import 'package:striked/platform/ssh/host_failure.dart';
-import 'package:striked/platform/ssh/exec_tracker.dart';
-import 'package:striked/platform/ssh/host_links.dart';
-import 'package:striked/platform/ssh/ssh_settle.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
+import 'package:upgrade/platform/ssh/exec_tracker.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/ssh/ssh_settle.dart';
 
 class WorkspaceReply {
   const WorkspaceReply({

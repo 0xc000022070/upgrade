@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:striked/application/plugins/native_plugins.dart';
-import 'package:striked/application/plugins/plugin_hosts.dart';
-import 'package:striked/application/plugins/plugins.dart';
-import 'package:striked/design/components/panel.dart';
-import 'package:striked/design/components/panel_text_action.dart';
-import 'package:striked/design/components/striked_field.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/tokens.dart';
-import 'package:striked/features/plugins/plugin_board.dart';
-import 'package:striked/features/plugins/plugin_graph.dart';
-import 'package:striked/platform/plugins/store.dart';
+import 'package:upgrade/application/plugins/native_plugins.dart';
+import 'package:upgrade/application/plugins/plugin_hosts.dart';
+import 'package:upgrade/application/plugins/plugins.dart';
+import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
+import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/plugins/plugin_board.dart';
+import 'package:upgrade/features/plugins/plugin_graph.dart';
+import 'package:upgrade/platform/plugins/store.dart';
 
 bool pluginMatches(InstalledPlugin plugin, String query) {
   final haystack = [
@@ -158,7 +158,7 @@ class _PluginCatalogViewState extends ConsumerState<PluginCatalogView> {
               decoration: BoxDecoration(
                 border: Border.all(color: tokens.borderNormal),
               ),
-              child: StrikedField(
+              child: UpgradeField(
                 controller: _search,
                 suggest: false,
                 hint: 'SEARCH PLUGINS',

@@ -4,13 +4,13 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
-import 'package:striked/design/tokens.dart';
-import 'package:striked/design/effects/glitch.dart';
-import 'package:striked/design/icons/striked_icon.dart';
-import 'package:striked/design/icons/striked_icons.dart';
-import 'package:striked/design/spacing.dart';
-import 'package:striked/design/components/path_line.dart';
-import 'package:striked/design/components/signal_text.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/effects/glitch.dart';
+import 'package:upgrade/design/icons/upgrade_icon.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/components/path_line.dart';
+import 'package:upgrade/design/components/signal_text.dart';
 
 class Panel extends StatelessWidget {
   const Panel({
@@ -268,7 +268,7 @@ class PanelAffordance extends StatefulWidget {
   const PanelAffordance(
     this.label, {
     super.key,
-    this.icon = StrikedIcons.forward,
+    this.icon = UpgradeIcons.forward,
     this.showIcon = true,
     this.showLabel = true,
     this.color,
@@ -276,7 +276,7 @@ class PanelAffordance extends StatefulWidget {
   });
 
   final String label;
-  final StrikedIcons icon;
+  final UpgradeIcons icon;
   final bool showIcon;
 
   final bool showLabel;
@@ -306,7 +306,7 @@ class _PanelAffordanceState extends State<PanelAffordance> {
               ),
               if (widget.showIcon) ...[
                 const SizedBox(width: Spacing.sm),
-                StrikedIcon(
+                UpgradeIcon(
                   widget.icon,
                   size: IconSizes.affordance,
                   color: tint,
@@ -317,7 +317,7 @@ class _PanelAffordanceState extends State<PanelAffordance> {
         : Semantics(
             label: widget.label,
             button: onTap != null,
-            child: StrikedIcon(widget.icon, size: IconSizes.glyph, color: tint),
+            child: UpgradeIcon(widget.icon, size: IconSizes.glyph, color: tint),
           );
     if (onTap == null) return content;
     return TapExpansion(
