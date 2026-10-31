@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:upgrade/design/components/anchor_menu.dart';
 import 'package:upgrade/design/components/toolbar_icon_action.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
-import 'package:upgrade/features/plugins/plugin_management_screen.dart';
 import 'package:upgrade/features/settings/settings_screen.dart';
 
 class HomeActions extends StatefulWidget {
@@ -31,11 +30,6 @@ class _HomeActionsState extends State<HomeActions> {
       title: 'MORE',
       entries: [
         ...widget.entries,
-        MenuEntry(
-          'MANAGE PLUGINS',
-          UpgradeIcons.plugins,
-          () => _push(() => openPluginManagement(context)),
-        ),
         MenuEntry(
           'SETTINGS',
           UpgradeIcons.settings,

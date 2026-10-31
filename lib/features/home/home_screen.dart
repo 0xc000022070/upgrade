@@ -90,7 +90,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _picked?.remove(id);
       _arranged = null;
     });
-    unawaited(_layout.setHomeHidden(id, true));
+    unawaited(_layout.takeOffHome(id));
   }
 
   PluginPlacements get _layout => ref.read(pluginPlacementsProvider.notifier);
@@ -242,125 +242,134 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _PluginsOffPanel(catalog: catalog),
     ];
 
-    return Column(
-      children: [
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final width =
-                  math.min(
-                    constraints.maxWidth -
-                        MediaQuery.paddingOf(context).horizontal,
-                    homeMaxContentWidth,
-                  ) -
-                  2 * Spacing.screenEdge;
-              drawn = width;
-              final split = _HomeTiles.splits(width, root);
-              return GestureDetector(
-                onHorizontalDragUpdate: (details) =>
-                    _swipe += details.primaryDelta ?? 0,
-                onHorizontalDragEnd: (details) =>
-                    _swiped(numbers, space, details.primaryVelocity ?? 0),
-                onHorizontalDragCancel: () => _swipe = 0,
-                child: ScreenScaffold(
-                  fill: split,
-                  maxContentWidth: homeMaxContentWidth,
-                  breadcrumbWidget: _SpaceStrip(
-                    numbers: numbers,
-                    labelOf: (n) =>
-                        placements == null ? '$n' : homeLabel(placements, n),
-                    current: space,
-                    free: free,
-                    onShow: (n) => unawaited(_layout.showHomeSpace(n)),
-                    onDrop: (id, n) =>
-                        unawaited(_layout.moveHome(id, space: n)),
-                  ),
-                  breadcrumbTrailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ToolbarIconAction(
-                        label: 'WORKSPACES',
-                        icon: UpgradeIcons.workspaces,
-                        lit: _overview,
-                        onTap: () async {
-                          setState(() => _overview = true);
-                          await showWorkspaces(context);
-                          if (mounted) setState(() => _overview = false);
-                        },
-                      ),
-                      HomeActions(
-                        beforeOpen: _leave,
-                        entries: [
-                          MenuEntry(
-                            'EDIT LAYOUT',
-                            UpgradeIcons.split,
-                            () => _edit(true),
-                          ),
-                          MenuEntry(
-                            'ADD WIDGETS',
-                            UpgradeIcons.add,
-                            () => showAddWidgets(context),
-                          ),
-                          MenuEntry(
-                            'RENAME WORKSPACE',
-                            UpgradeIcons.edit,
-                            () => showWorkspaceName(
-                              context,
-                              space: space,
-                              fresh: false,
+    return PopScope(
+      canPop: picked == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _edit(false);
+      },
+      child: Column(
+        children: [
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width =
+                    math.min(
+                      constraints.maxWidth -
+                          MediaQuery.paddingOf(context).horizontal,
+                      homeMaxContentWidth,
+                    ) -
+                    2 * Spacing.screenEdge;
+                drawn = width;
+                final split = _HomeTiles.splits(width, root);
+                return GestureDetector(
+                  onHorizontalDragUpdate: (details) =>
+                      _swipe += details.primaryDelta ?? 0,
+                  onHorizontalDragEnd: (details) =>
+                      _swiped(numbers, space, details.primaryVelocity ?? 0),
+                  onHorizontalDragCancel: () => _swipe = 0,
+                  child: ScreenScaffold(
+                    fill: split,
+                    maxContentWidth: homeMaxContentWidth,
+                    breadcrumbWidget: _SpaceStrip(
+                      numbers: numbers,
+                      labelOf: (n) =>
+                          placements == null ? '$n' : homeLabel(placements, n),
+                      current: space,
+                      free: free,
+                      onShow: (n) => unawaited(_layout.showHomeSpace(n)),
+                      onDrop: (id, n) =>
+                          unawaited(_layout.moveHome(id, space: n)),
+                    ),
+                    breadcrumbTrailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ToolbarIconAction(
+                          label: 'WORKSPACES',
+                          icon: UpgradeIcons.workspaces,
+                          lit: _overview,
+                          onTap: () async {
+                            setState(() => _overview = true);
+                            await showWorkspaces(context);
+                            if (mounted) setState(() => _overview = false);
+                          },
+                        ),
+                        HomeActions(
+                          beforeOpen: _leave,
+                          entries: [
+                            MenuEntry(
+                              'EDIT LAYOUT',
+                              UpgradeIcons.split,
+                              () => _edit(true),
                             ),
-                          ),
-                        ],
+                            MenuEntry(
+                              'ADD WIDGETS',
+                              UpgradeIcons.add,
+                              () => showAddWidgets(context),
+                            ),
+                            MenuEntry(
+                              'RENAME WORKSPACE',
+                              UpgradeIcons.edit,
+                              () => showWorkspaceName(
+                                context,
+                                space: space,
+                                fresh: false,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    children: [
+                      _HomeTiles(
+                        key: ValueKey(space),
+                        split: split,
+                        head: head,
+                        root: root,
+                        tail: tail,
+                        onBeside: beside,
+                        onWeights: (path, weights) {
+                          final row =
+                              placements!.homeTileAt(space, path)! as HomeSplit;
+                          unawaited(
+                            _layout.setRowWeights(space, path, [
+                              for (var i = 0; i < row.children.length; i++)
+                                weights[i] ?? row.children[i].weight,
+                            ]),
+                          );
+                        },
                       ),
                     ],
                   ),
-                  children: [
-                    _HomeTiles(
-                      key: ValueKey(space),
-                      split: split,
-                      head: head,
-                      root: root,
-                      tail: tail,
-                      onBeside: beside,
-                      onWeights: (path, weights) {
-                        final row =
-                            placements!.homeTileAt(space, path)! as HomeSplit;
-                        unawaited(
-                          _layout.setRowWeights(space, path, [
-                            for (var i = 0; i < row.children.length; i++)
-                              weights[i] ?? row.children[i].weight,
-                          ]),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-        if (picked != null)
-          HomeEditBar(
-            selected: picked.length,
-            arrangement: _arranged == null
-                ? null
-                : (_arranged!, homeArrangements(picked.length)),
-            onArrange: picked.length < 2 ? null : () => _arrange(picked),
-            onAdd: () => showAddWidgets(context),
-            onDone: () => _edit(false),
-          )
-        else if (selecting)
-          if (composer == null)
-            const SelectionBar(scope: DropSelection.homeScope)
-          else
-            _PlacedPluginBounds(
+          if (picked != null)
+            HomeEditBar(
+              selected: picked.length,
+              arrangement: _arranged == null
+                  ? null
+                  : (_arranged!, homeArrangements(picked.length)),
+              onArrange: picked.length < 2 ? null : () => _arrange(picked),
+              onAdd: () => showAddWidgets(context),
+              onDone: () => _edit(false),
+            )
+          else if (selecting)
+            if (composer == null)
+              const SelectionBar(scope: DropSelection.homeScope)
+            else
+              _PlacedPluginBounds(
+                registration: composer,
+                placements: placements!,
+                child: const SelectionBar(scope: DropSelection.homeScope),
+              )
+          else if (composer != null)
+            _PlacedPluginWidget(
               registration: composer,
               placements: placements!,
-              child: const SelectionBar(scope: DropSelection.homeScope),
-            )
-        else if (composer != null)
-          _PlacedPluginWidget(registration: composer, placements: placements!),
-      ],
+            ),
+        ],
+      ),
     );
   }
 }

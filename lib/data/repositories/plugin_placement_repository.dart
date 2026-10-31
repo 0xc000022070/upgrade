@@ -332,9 +332,8 @@ class PluginPlacementState {
   final int homeSpace;
   final List<String> pinnedPages;
 
-  List<String> get homeOrder => [
-    for (final tile in homeTiles.values) ...tile.cards,
-  ];
+  List<String> get homeOrder =>
+      {for (final tile in homeTiles.values) ...tile.cards}.toList();
 
   HomeTile? tileOf(int space) => homeTiles[space];
 
@@ -344,16 +343,17 @@ class PluginPlacementState {
   int spaceOf(String id) => homeSpaceOf(id) ?? 1;
 
   int? homeSpaceOf(String id) {
+    if (homeTiles[homeSpace]?.cards.contains(id) ?? false) return homeSpace;
     for (final MapEntry(key: space, value: tile) in homeTiles.entries) {
       if (tile.cards.contains(id)) return space;
     }
     return null;
   }
 
-  PluginPlacementState withoutHomeCard(String id) => copyWith(
+  PluginPlacementState withoutHomeCard(String id, {int? space}) => copyWith(
     homeTiles: {
-      for (final MapEntry(key: space, value: tile) in homeTiles.entries)
-        space: ?_without(tile, id),
+      for (final MapEntry(key: at, value: tile) in homeTiles.entries)
+        at: ?(space == null || space == at ? _without(tile, id) : tile),
     },
   );
 
@@ -366,6 +366,9 @@ class PluginPlacementState {
     double weight = 1,
   }) {
     final root = homeTiles[space];
+    if (root?.cards.contains(id) ?? false) {
+      throw const PluginPlacementException('Already on this workspace');
+    }
     final card = HomeCard(id, weight: weight);
     if (root == null) return copyWith(homeTiles: {...homeTiles, space: card});
     final (List<int> at, HomeEdge side) = switch ((path, edge)) {
@@ -409,7 +412,10 @@ class PluginPlacementState {
     final from = homeSpaceOf(id);
     if (from == null) throw const PluginPlacementException('Not on Home');
     if (path == null) {
-      return withoutHomeCard(id).withHomeCard(id, space: space);
+      final left = withoutHomeCard(id, space: from);
+      return left.homeTiles[space]?.cards.contains(id) ?? false
+          ? left
+          : left.withHomeCard(id, space: space);
     }
     final target = _at(homeTiles[space], path);
     if (target == null || edge == null) {
@@ -421,7 +427,7 @@ class PluginPlacementState {
       space: space,
       path: path,
       edge: edge,
-    ).withoutHomeCard(id);
+    ).withoutHomeCard(id, space: from).withoutHomeCard(id, space: space);
     var moved = _rename(placed.homeTiles[space]!, _moving, id);
     final own = _pathOf(homeTiles[from]!, id)!;
     final row = path.isEmpty ? path : path.sublist(0, path.length - 1);
@@ -564,6 +570,11 @@ class PluginPlacementState {
     final (a, b) = (homeSpaceOf(id), homeSpaceOf(other));
     if (a == null || b == null) {
       throw const PluginPlacementException('Not on Home');
+    }
+    if (a != b &&
+        (homeTiles[b]!.cards.contains(id) ||
+            homeTiles[a]!.cards.contains(other))) {
+      return this;
     }
     HomeTile swap(HomeTile tile) =>
         _rename(_rename(_rename(tile, id, _moving), other, id), _moving, other);
@@ -738,7 +749,9 @@ class PluginPlacementState {
       value['home'] ?? <String, Object?>{},
       columns: value['version'] == 2,
     );
-    _stringList([for (final tile in tiles.values) ...tile.cards], 'home order');
+    for (final tile in tiles.values) {
+      _stringList(tile.cards.toList(), 'home order');
+    }
     return state.copyWith(
       homeTiles: tiles,
       homeNames: _homeNames(value['home_names'] ?? <String, Object?>{}),

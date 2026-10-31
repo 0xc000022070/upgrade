@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/themed_app.dart';
 
 void main() {
-  testWidgets('MORE is one framed target that hangs plugins and settings', (
+  testWidgets('MORE is one framed target that hangs settings', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
@@ -28,7 +28,7 @@ void main() {
       await tester.tap(more);
       await tester.pumpAndSettle();
 
-      for (final label in ['MANAGE PLUGINS', 'SETTINGS']) {
+      for (final label in ['SETTINGS']) {
         final target = find.bySemanticsLabel(label);
         expect(target, findsOneWidget);
         expect(tester.getSize(target).height, greaterThanOrEqualTo(48));
@@ -40,6 +40,7 @@ void main() {
           isTrue,
         );
       }
+      expect(find.bySemanticsLabel('MANAGE PLUGINS'), findsNothing);
       expect(tester.takeException(), isNull);
     } finally {
       semantics.dispose();

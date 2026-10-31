@@ -372,6 +372,51 @@ void main() {
     expect(state.hiddenHome, contains(first));
   });
 
+  test(
+    'a card stands on several workspaces and comes off one at a time',
+    () async {
+      var scope = container();
+      final initial = await scope.read(pluginPlacementsProvider.future);
+      final [_, first, second] = initial.homeOrder;
+      final controller = scope.read(pluginPlacementsProvider.notifier);
+      PluginPlacementState state() =>
+          scope.read(pluginPlacementsProvider).requireValue;
+      Iterable<String> on(int space) => state().tileOf(space)?.cards ?? const [];
+
+      await controller.showHomeSpace(2);
+      await controller.bringHome(first);
+      expect(on(1), contains(first));
+      expect(on(2), [first]);
+      expect(state().homeOrder.where((id) => id == first), hasLength(1));
+
+      scope.dispose();
+      scope = container();
+      addTearDown(scope.dispose);
+      await scope.read(pluginPlacementsProvider.future);
+      final reopened = scope.read(pluginPlacementsProvider.notifier);
+      expect(on(1), contains(first));
+      expect(on(2), [first]);
+
+      await reopened.moveHome(first, space: 1);
+      expect(on(1).where((id) => id == first), hasLength(1));
+      expect(on(2), isEmpty);
+
+      await reopened.bringHome(first);
+      await reopened.takeOffHome(first);
+      expect(on(2), isEmpty);
+      expect(state().hiddenHome, isNot(contains(first)));
+      await reopened.showHomeSpace(1);
+      await reopened.takeOffHome(second);
+      expect(state().hiddenHome, contains(second));
+      expect(on(1), contains(second));
+
+      await reopened.showHomeSpace(2);
+      await reopened.bringHome(second);
+      expect(on(1), isNot(contains(second)));
+      expect(on(2), [second]);
+    },
+  );
+
   test('a file from before workspaces opens everything on the first', () async {
     final file = File('${root.path}/placements.json');
     final scope = container();

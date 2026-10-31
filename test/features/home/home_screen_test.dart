@@ -240,6 +240,15 @@ void main() {
     await _ready(tester);
     expect(find.textContaining('EDIT LAYOUT'), findsNothing);
 
+    await tester.tap(find.bySemanticsLabel('MORE'));
+    await _ready(tester);
+    await tester.tap(find.text('EDIT LAYOUT'));
+    await _ready(tester);
+    await tester.binding.handlePopRoute();
+    await _ready(tester);
+    expect(find.textContaining('EDIT LAYOUT'), findsNothing);
+    expect(find.byType(HomeScreen), findsOneWidget);
+
     await unmount(tester);
   });
 

@@ -183,12 +183,28 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
                   id: PluginPlacementLocation.homeCard,
                 },
               );
+    final hidden = placed.hiddenHome.contains(id);
     final shown = placed.copyWith(
       hiddenHome: {...placed.hiddenHome}..remove(id),
     );
-    return shown.homeSpaceOf(id) == space
-        ? shown
-        : shown.withoutHomeCard(id).withHomeCard(id, space: space);
+    if (shown.homeSpaceOf(id) == space) return shown;
+    return (hidden ? shown.withoutHomeCard(id) : shown).withHomeCard(
+      id,
+      space: space,
+    );
+  });
+
+  Future<void> takeOffHome(String id) => _change((current) {
+    final space = current.homeSpace;
+    if (current.homeSpaceOf(id) != space) {
+      throw const PluginPlacementException('Not on this workspace');
+    }
+    final elsewhere = current.homeTiles.entries.any(
+      (entry) => entry.key != space && entry.value.cards.contains(id),
+    );
+    return elsewhere
+        ? current.withoutHomeCard(id, space: space)
+        : current.copyWith(hiddenHome: {...current.hiddenHome, id});
   });
 
   Future<void> setHomeHidden(String id, bool hidden) => _change((current) {

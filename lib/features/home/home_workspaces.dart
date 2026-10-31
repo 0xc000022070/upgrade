@@ -34,8 +34,9 @@ List<int> homeNumbers(
   PluginContributionCatalog catalog,
   PluginPlacementState placements,
 ) => {
-  for (final id in placements.homeOrder)
-    if (homeShown(catalog, placements, id) != null) placements.spaceOf(id),
+  for (final MapEntry(key: space, value: tile) in placements.homeTiles.entries)
+    if (tile.cards.any((id) => homeShown(catalog, placements, id) != null))
+      space,
   ...placements.homeNames.keys,
   placements.homeSpace,
 }.toList()..sort();
@@ -359,7 +360,8 @@ class _AddWidgets extends ConsumerWidget {
           when placements.hiddenHome.contains(id) =>
         'HIDDEN',
       PluginPlacementLocation.homeCard =>
-        'ON ${homeLabel(placements, placements.spaceOf(id))}',
+        'ON ${[for (final MapEntry(key: at, value: tile) in placements.homeTiles.entries)
+          if (tile.cards.contains(id)) homeLabel(placements, at)].join(' · ')}',
       PluginPlacementLocation.homeComposer => 'INPUT BAR',
       null => 'NOT PLACED',
     };
