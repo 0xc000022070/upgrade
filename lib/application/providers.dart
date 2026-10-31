@@ -357,6 +357,12 @@ final staticEnabledProvider = StreamProvider<bool>(
       .watchFlag(SettingsRepository.staticEnabled, orElse: true),
 );
 
+final dropsByPriorityProvider = StreamProvider<bool>(
+  (ref) => ref
+      .watch(settingsRepositoryProvider)
+      .watchFlag(SettingsRepository.dropsByPriority, orElse: false),
+);
+
 final shellFontSizeProvider = StreamProvider<double>(
   (ref) => ref
       .watch(settingsRepositoryProvider)

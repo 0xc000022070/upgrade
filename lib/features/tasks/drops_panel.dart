@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,9 +7,11 @@ import 'package:upgrade/application/drops/drop_selection.dart';
 import 'package:upgrade/application/formatting.dart';
 import 'package:upgrade/application/drops/fresh_drops.dart';
 import 'package:upgrade/data/database.dart';
+import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/panel.dart';
+import 'package:upgrade/design/components/panel_text_action.dart';
 import 'package:upgrade/design/components/section.dart';
 import 'package:upgrade/design/effects/glitch.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
@@ -27,6 +31,10 @@ class DropsPanel extends ConsumerStatefulWidget {
     this.onCompleted,
     this.height,
     this.onSearch,
+    this.limit,
+    this.byPriority = false,
+    this.onOrder,
+    this.onViewAll,
   });
 
   final String scope;
@@ -43,6 +51,14 @@ class DropsPanel extends ConsumerStatefulWidget {
   final double? height;
 
   final VoidCallback? onSearch;
+
+  final int? limit;
+
+  final bool byPriority;
+
+  final VoidCallback? onOrder;
+
+  final VoidCallback? onViewAll;
 
   @override
   ConsumerState<DropsPanel> createState() => _DropsPanelState();
@@ -83,6 +99,29 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
     openItemSheet(context, id);
   }
 
+  /// A bundle ranks by its highest item and a fresh drop above critical, so a bundle stays
+  /// adjacent and a capture stays in sight; ties keep the newest-first order.
+  List<Task> _ordered(List<Task> rows, Set<String> fresh) {
+    if (!widget.byPriority) return rows;
+    final rank = <String, int>{};
+    for (final task in rows) {
+      final value = fresh.contains(task.id)
+          ? Priority.values.length
+          : task.priority.index;
+      rank.update(
+        task.bundleId ?? task.id,
+        (other) => max(other, value),
+        ifAbsent: () => value,
+      );
+    }
+    final index = {for (final (i, task) in rows.indexed) task.id: i};
+    int rankOf(Task task) => rank[task.bundleId ?? task.id]!;
+    return [...rows]..sort((a, b) {
+      final byRank = rankOf(b).compareTo(rankOf(a));
+      return byRank != 0 ? byRank : index[a.id]!.compareTo(index[b.id]!);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final selection = ref.watch(dropSelectionProvider);
@@ -94,16 +133,16 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
     final doneRows = widget.stateful
         ? const <Task>[]
         : allRows.where((task) => task.done).toList();
-    final visibleDrops = widget.stateful
-        ? widget.drops
-        : widget.drops.whenData(
-            (items) => items.where((task) => !task.done).toList(),
-          );
     final notifier = ref.read(dropSelectionProvider.notifier);
     _selection = notifier;
     final freshNotifier = ref.read(freshDropsProvider.notifier);
     _fresh = freshNotifier;
     final fresh = ref.watch(freshDropsProvider).idsIn(widget.scope);
+    final ordered = _ordered(rows, fresh);
+    final limit = widget.limit;
+    final shown = limit == null ? ordered : ordered.take(limit).toList();
+    final visibleDrops = widget.drops.whenData((_) => shown);
+    final viewAll = widget.onViewAll;
     final height = widget.height;
     Widget scrolls(Widget body) =>
         height == null ? body : SingleChildScrollView(child: body);
@@ -134,6 +173,14 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
         mainAxisSize: MainAxisSize.min,
         children: [
           PanelAffordance('${rows.length}', showIcon: false),
+          if (widget.onOrder case final order? when !selecting) ...[
+            const SizedBox(width: Spacing.lg),
+            PanelAffordance(
+              widget.byPriority ? 'PRIORITY' : 'NEWEST',
+              showIcon: false,
+              onTap: order,
+            ),
+          ],
           if (rows.isNotEmpty && !selecting) ...[
             const SizedBox(width: Spacing.lg),
             PanelAffordance(
@@ -191,6 +238,12 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
                     onLongPress: null,
                     trailing: null,
                   ),
+              if (viewAll != null && shown.length < rows.length && !selecting)
+                PanelTextAction(
+                  label: 'VIEW ALL ${rows.length}',
+                  icon: UpgradeIcons.forward,
+                  onTap: viewAll,
+                ),
             ],
           ),
         ),

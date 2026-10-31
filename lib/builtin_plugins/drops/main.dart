@@ -5,6 +5,7 @@ import 'package:upgrade/features/home/home_feedback.dart';
 import 'package:upgrade/features/home/home_card_viewport.dart';
 import 'package:upgrade/features/home/capture_bar.dart';
 import 'package:upgrade/features/tasks/drops_panel.dart';
+import 'package:upgrade/features/tasks/drops_screen.dart';
 import 'package:upgrade/features/tasks/item_search_screen.dart';
 import 'package:upgrade/platform/plugins/module.dart';
 import 'package:upgrade/application/providers.dart';
@@ -28,18 +29,29 @@ class _DropsContribution extends ConsumerWidget {
   const _DropsContribution();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => DropsPanel(
-    scope: DropSelection.homeScope,
-    drops: ref.watch(dropsProvider),
-    onCompleted: (task) => offerUndoDone(ref, task),
-    height: HomeCardViewport.maybeOf(context),
-    onSearch: () {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final byPriority = ref.watch(dropsByPriorityProvider).valueOrNull ?? false;
+    void leave(void Function(BuildContext) open) {
       ref.read(dropSelectionProvider.notifier).clear();
       ref.read(freshDropsProvider.notifier).clear();
-      openItemSearch(context);
-    },
-  );
+      open(context);
+    }
+
+    return DropsPanel(
+      scope: DropSelection.homeScope,
+      drops: ref.watch(dropsProvider),
+      onCompleted: (task) => offerUndoDone(ref, task),
+      height: HomeCardViewport.maybeOf(context),
+      limit: homeDropsLimit,
+      byPriority: byPriority,
+      onOrder: () => toggleDropsOrder(ref, byPriority),
+      onViewAll: () => leave(openDrops),
+      onSearch: () => leave(openItemSearch),
+    );
+  }
 }
+
+const homeDropsLimit = 8;
 
 void _deactivate(Ref ref) {
   ref.read(dropSelectionProvider.notifier).clear();

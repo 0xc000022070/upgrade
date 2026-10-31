@@ -7,6 +7,8 @@ class SettingsRepository {
 
   static const staticEnabled = 'static_enabled';
 
+  static const dropsByPriority = 'drops_by_priority';
+
   static const alertsBlockedAgents = 'alerts_blocked_agents';
   static const alertsDoneAgents = 'alerts_done_agents';
 
