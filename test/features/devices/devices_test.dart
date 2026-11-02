@@ -260,6 +260,7 @@ Future<void> _show(
       await Future<void>.delayed(const Duration(milliseconds: 2));
     }
   });
+  expect(controller.image, isNot(same(before)), reason: 'the frame never landed');
   await _settle(tester);
 }
 
@@ -1918,6 +1919,7 @@ void main() {
           await Future<void>.delayed(const Duration(milliseconds: 2));
         }
       });
+      expect(controller.frameCount, isNot(before), reason: 'the frame never landed');
       await _settle(tester);
     }
 

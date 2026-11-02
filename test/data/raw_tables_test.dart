@@ -69,14 +69,18 @@ void main() {
 
   test('the dump names every table the bundle does not map by hand', () async {
     final dumped = await RawTables(a).dump();
-    final expected = {
-      for (final table in a.allTables)
-        if (!curatedTables.contains(table.actualTableName))
-          table.actualTableName,
-    };
-    expect(dumped.keys.toSet(), expected);
-    expect(dumped.keys, isNot(contains('hosts')));
-    expect(expected, contains('tasks'));
+    expect(dumped.keys.toSet(), {
+      'projects',
+      'goals',
+      'tasks',
+      'links',
+      'attachments',
+      'notes',
+      'activity_events',
+      'settings',
+      'dispatches',
+      'shell_tabs',
+    });
   });
 
   test('a row comes back column for column', () async {

@@ -23,11 +23,8 @@ PluginPackage builtinFixture(String name) => PluginPackage(
 
 List<InstalledPlugin> builtinFixtures({bool enabled = true}) => [
   for (final name in ['agents', 'drops', 'projects'])
-    InstalledPlugin(
-      builtinFixture(name),
-      builtinFixture(name).manifest.permissions,
-      enabled: enabled,
-    ),
+    if (builtinFixture(name) case final package)
+      InstalledPlugin(package, package.manifest.permissions, enabled: enabled),
 ];
 
 List<Override> featureTestOverrides(AppDatabase db, {bool enabled = true}) {
