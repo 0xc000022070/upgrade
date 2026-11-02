@@ -58,6 +58,16 @@ class _ScreenRailState extends State<ScreenRail> {
   /// pull ends at almost no velocity and still means what it says.
   double _dragged = 0;
 
+  /// An [Alignment] y, so a resize never strands the rail off the picture.
+  double _along = 0;
+
+  void _onMove(DragUpdateDetails details, double room) {
+    if (room <= 0) return;
+    setState(
+      () => _along = (_along + details.delta.dy * 2 / room).clamp(-1, 1),
+    );
+  }
+
   void _onDragEnd(bool toward) {
     if (toward) {
       if (_dragged > _dragThreshold) widget.onShow();
@@ -68,41 +78,45 @@ class _ScreenRailState extends State<ScreenRail> {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: AnimatedSwitcher(
-        duration: _slide,
-        // The default builder centres the outgoing child on the incoming one, which would walk
-        // the handle in from the middle of the picture.
-        layoutBuilder: (current, previous) => Stack(
-          alignment: Alignment.centerLeft,
-          children: [...previous, ?current],
+    return LayoutBuilder(
+      builder: (context, constraints) => Align(
+        alignment: Alignment(-1, _along),
+        child: AnimatedSwitcher(
+          duration: _slide,
+          // The default builder centres the outgoing child on the incoming one, which would walk
+          // the handle in from the middle of the picture.
+          layoutBuilder: (current, previous) => Stack(
+            alignment: Alignment.centerLeft,
+            children: [...previous, ?current],
+          ),
+          transitionBuilder: (child, animation) => SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(-1, 0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+          child: widget.hidden
+              ? _handle(constraints.maxHeight - TapTargets.minHeight)
+              : _rail(),
         ),
-        transitionBuilder: (child, animation) => SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(-1, 0),
-            end: Offset.zero,
-          ).animate(animation),
-          child: child,
-        ),
-        child: widget.hidden ? _handle() : _rail(),
       ),
     );
   }
 
-  Widget _handle() {
+  Widget _handle(double room) {
     return GestureDetector(
       key: const ValueKey('rail-handle'),
-      // Opaque over the whole footprint, not over the drawn sliver: it is the one place on the
-      // picture where a pointer belongs to the rail instead of to the host.
-      behavior: HitTestBehavior.opaque,
-      onTap: widget.onShow,
+      // Translucent: drags win at the touch slop, taps and long presses reach the host.
+      behavior: HitTestBehavior.translucent,
+      onVerticalDragUpdate: (details) => _onMove(details, room),
       onHorizontalDragStart: (_) => _dragged = 0,
       onHorizontalDragUpdate: (details) => _dragged += details.delta.dx,
       onHorizontalDragEnd: (_) => _onDragEnd(true),
       child: Semantics(
         label: 'RAIL',
         button: true,
+        onTap: widget.onShow,
         child: SizedBox(
           width: _footprintWidth,
           height: TapTargets.minHeight,

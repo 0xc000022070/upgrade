@@ -326,9 +326,27 @@ void main() {
       const Offset(-26, 0),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('rail-handle')));
+    final centred = tester.getRect(find.byKey(const ValueKey('rail-handle')));
+    await tester.drag(
+      find.byKey(const ValueKey('rail-handle')),
+      const Offset(0, -120),
+    );
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('rail-panel')), findsOneWidget);
+    final moved = tester.getRect(find.byKey(const ValueKey('rail-handle')));
+    expect(moved.top, lessThan(centred.top - 80));
+    expect(moved.left, centred.left);
+    expect(find.byKey(const ValueKey('rail-panel')), findsNothing);
+
+    await tester.drag(
+      find.byKey(const ValueKey('rail-handle')),
+      const Offset(60, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.byKey(const ValueKey('rail-keyboard'))).top,
+      lessThan(centred.top),
+      reason: 'the rail opens where its handle was moved to',
+    );
 
     expect(find.byKey(const ValueKey('key-CTRL')), findsOneWidget);
     expect(keyboardUp(tester), isTrue);
@@ -409,14 +427,16 @@ void main() {
     }
 
     final before = connection.channel.sent.length;
-    await pointerDrag(footprint.right - 4);
+    await tester.tapAt(Offset(footprint.right - 4, footprint.center.dy));
     await settleAsync(tester);
+    expect(find.byKey(const ValueKey('rail-handle')), findsOneWidget);
     expect(
       connection.channel.sent.length,
-      before,
-      reason: 'the patch takes the pointer, hidden or shown',
+      greaterThan(before),
+      reason: 'a tap in the patch is a click at the host, not a pull',
     );
 
+    final afterTap = connection.channel.sent.length;
     await pointerDrag(footprint.right + 8);
     await settleAsync(tester);
     expect(
@@ -426,7 +446,7 @@ void main() {
     );
     expect(
       connection.channel.sent.length,
-      greaterThan(before),
+      greaterThan(afterTap),
       reason: 'a pixel to the right of it, the drag is a pointer at the host',
     );
   });
