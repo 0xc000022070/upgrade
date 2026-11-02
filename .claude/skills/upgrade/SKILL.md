@@ -14,7 +14,7 @@ You build and you review what you built. A ruling lands in the spec, the code fo
 - The spec has no section numbers and no section sign. A section is named by its title, and the title stays in the spec: never in comments, test names, strings or commit messages.
 - Emulator only. Faraday is the user's phone, a review surface: install a release build on it, never drive it.
 - Never edit `authorized_keys` on any host.
-- `just analyze` and `just test` at the end, in the background, one at a time. A second run beside the first stalls both.
+- `just analyze` and `just test` once, at the gate, in the background, one at a time. A second run beside the first stalls both. Subagents do not run the suite; the lead does.
 
 Open the reference for the step you are on:
 
