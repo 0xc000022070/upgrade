@@ -2323,6 +2323,8 @@ The running app rebuilds its theme the moment the row is written, on the same sc
 
 ## Plugins
 
+The development target for attached hosts, configured Luau widgets, discovery, and authoring with coding agents is [Plugins, attached hosts, and authoring with agents](PLUGIN-SPEC.md). The [roadmap](ROADMAP.md#competitive-delivery-program) schedules that work alongside phone integrations, customization, Android Home and Linux desktop development. Both distinguish planned behavior from the current contract below; delivered increments amend this section when implemented.
+
 ### Plugins run on the phone through declared capabilities
 
 Plugins contain Luau source and a `upgrade.plugin.toml` at the repository root. Upgrade bundles the compiler and interpreter. Scripts run in a worker isolate, in separate Lua states, and receive only the APIs their manifest declares and the user grants. Native libraries, arbitrary filesystem access, network access and shell execution are not script globals.
