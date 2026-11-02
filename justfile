@@ -7,7 +7,7 @@ build_code := `git rev-list --count HEAD 2>/dev/null || echo 1`
 
 [group('dev')]
 analyze: pub-build
-    flutter analyze
+    if command -v flock >/dev/null; then flock .dart_tool/test.lock flutter analyze; else flutter analyze; fi
 
 # tool/test.sh says what each tier holds.
 [group('dev')]
@@ -75,10 +75,11 @@ widgetbook-serve port="8096": widgetbook-build
     python3 -m http.server {{port}} --bind 127.0.0.1 --directory widgetbook/build/web
 
 [group('dev')]
-engine-gate:
+engine-gate: pub-build
     cargo fmt --manifest-path engine/Cargo.toml --check
     cargo clippy --manifest-path engine/Cargo.toml --all-targets -- -D warnings
     cargo test --manifest-path engine/Cargo.toml
+    bin=$(cargo build --manifest-path engine/Cargo.toml --message-format=json-render-diagnostics | grep -o '"executable":"[^"]*/upgraded"' | cut -d'"' -f4) && test -x "$bin" && UPGRADED_BIN=$bin tool/test.sh local test/platform/shell/engine_channel_live_test.dart
 
 [group('dev')]
 pub-build: (pub "dart_mosh") (pub "dartssh2") (pub "flterm") (pub "pointycastle") _libghostty
