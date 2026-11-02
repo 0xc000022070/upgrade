@@ -17,10 +17,16 @@ jobs=$(getconf _NPROCESSORS_ONLN)
 # A testWidgets teardown that never completes ignores --timeout and hangs the run.
 run() {
   local limit=${UPGRADE_TEST_TIMEOUT:-600}
-  local codes
+  local codes pub=()
+  # The implicit pub get costs a second or two a run; skip it while the resolution is current.
+  local config=.dart_tool/package_config.json
+  if [ -f "$config" ] && [ -z "$(find pubspec.yaml pubspec.lock packages/*/pubspec.yaml \
+    .dart_tool/{dart_mosh,dartssh2,flterm,libghostty,pointycastle}/pubspec.yaml -newer "$config" 2>/dev/null)" ]; then
+    pub=(--no-pub)
+  fi
   {
     # native_toolchain_c probes for MSVC on every OS; drop its PATH dump.
-    timeout --kill-after=10 "$limit" flutter test --reporter json "$@" 2>&1 |
+    timeout --kill-after=10 "$limit" flutter test "${pub[@]}" --reporter json "$@" 2>&1 |
       sed -e '/which: no vswhere\.exe in /d' -e '/^No Visual Studio installation found/d' |
       testfmt
     codes=("${PIPESTATUS[@]}")

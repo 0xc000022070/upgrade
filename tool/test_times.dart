@@ -42,7 +42,7 @@ void main(List<String> args) {
         if (path == null) continue;
         final file = path.contains('/test/shards/')
             ? '${name.split(' ').first}.dart'
-            : path.split('/').last;
+            : path.substring(path.lastIndexOf('/test/') + '/test/'.length);
         times[file] = (times[file] ?? 0) + (decoded['time'] as int) - began;
     }
   }
