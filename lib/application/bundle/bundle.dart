@@ -17,6 +17,7 @@ import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/application/phone_linux.dart';
 
 class Bundle {
   const Bundle({
@@ -347,9 +348,7 @@ class BundleTransfer {
     for (final row in rows['settings'] ?? const <Map<String, Object?>>[]) {
       if (row['key'] == SettingsRepository.phoneLinuxHosts) {
         final ids = row['value'];
-        if (ids is String) {
-          return ids.split(' ').where((id) => id.isNotEmpty).toSet();
-        }
+        if (ids is String) return PhoneLinuxHost.decodeIds(ids).toSet();
       }
     }
     return const {};

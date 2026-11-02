@@ -43,9 +43,9 @@ class PhoneLinuxHost {
 
   Stream<Set<String>> watchHostIds() => settings
       .watchRaw(SettingsRepository.phoneLinuxHosts)
-      .map((raw) => _parse(raw).toSet());
+      .map((raw) => decodeIds(raw).toSet());
 
-  Future<List<String>> hostIds() async => _parse(
+  Future<List<String>> hostIds() async => decodeIds(
     await settings.text(SettingsRepository.phoneLinuxHosts, orElse: ''),
   );
 
@@ -153,9 +153,11 @@ class PhoneLinuxHost {
 
   Future<void> _write(List<String> ids) => ids.isEmpty
       ? settings.clear(SettingsRepository.phoneLinuxHosts)
-      : settings.setText(SettingsRepository.phoneLinuxHosts, ids.join(' '));
+      : settings.setText(SettingsRepository.phoneLinuxHosts, encodeIds(ids));
 
-  static List<String> _parse(String? raw) => [
+  static String encodeIds(List<String> ids) => ids.join(' ');
+
+  static List<String> decodeIds(String? raw) => [
     for (final id in (raw ?? '').split(' '))
       if (id.isNotEmpty) id,
   ];

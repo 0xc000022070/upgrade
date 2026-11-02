@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/bundle/bundle.dart';
+import 'package:upgrade/application/phone_linux.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/raw_tables.dart';
@@ -203,7 +204,7 @@ void main() {
         .insert(
           SettingsCompanion.insert(
             key: SettingsRepository.phoneLinuxHosts,
-            value: 'h-phone',
+            value: PhoneLinuxHost.encodeIds(['h-gone', 'h-phone']),
           ),
         );
     for (final host in ['h1', 'h-phone']) {
