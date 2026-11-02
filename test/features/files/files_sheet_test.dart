@@ -156,6 +156,35 @@ void main() {
     expect(find.descendant(of: target, matching: find.text('src')), findsOne);
   });
 
+  testWidgets('folders, then files, then dot folders, then dotfiles, each '
+      'by name whatever the case', (tester) async {
+    files.tree['/home/luis'] = [
+      _file('b.txt', 1),
+      _dir('.cache'),
+      _file('.zshrc', 1),
+      _dir('Zeta'),
+      _file('A.txt', 1),
+      _file('.bashrc', 1),
+      _dir('alpha'),
+      _dir('.Config'),
+    ];
+    await open(tester, (context) => showHostFiles(context, _nyx));
+
+    final names = [
+      'alpha',
+      'Zeta',
+      'A.txt',
+      'b.txt',
+      '.cache',
+      '.Config',
+      '.bashrc',
+      '.zshrc',
+    ];
+    final tops = [for (final name in names) top(tester, name)];
+    expect(tops, [...tops]..sort());
+    expect(tops.toSet(), hasLength(names.length));
+  });
+
   testWidgets('a link that died is opened again by the next tap', (
     tester,
   ) async {
@@ -328,10 +357,16 @@ void main() {
       if (scratch.existsSync()) scratch.deleteSync(recursive: true);
     });
 
-    Future<void> settle(WidgetTester tester, Finder tap) async {
+    /// Real file IO runs outside the fake clock: pump real time until [done] holds, and
+    /// leave a miss to the expect after it.
+    Future<void> settle(
+      WidgetTester tester,
+      Finder tap,
+      bool Function() done,
+    ) async {
       await tester.runAsync(() async {
         await tester.tap(tap);
-        for (var i = 0; i < 20; i++) {
+        for (var i = 0; i < 200 && !done(); i++) {
           await Future<void>.delayed(const Duration(milliseconds: 10));
           await tester.pump();
         }
@@ -339,17 +374,27 @@ void main() {
       await tester.pump();
     }
 
+    bool shows(String text) => find.text(text).evaluate().isNotEmpty;
+
     testWidgets('a retry sends only the file that failed', (tester) async {
       files.failOnce.add('b.txt');
       await open(tester, (context) => showSendSheet(context, shared));
 
       await tester.tap(find.byKey(const ValueKey('send-folder')));
       await tester.pumpAndSettle();
-      await settle(tester, find.byKey(const ValueKey('files-put-here')));
+      await settle(
+        tester,
+        find.byKey(const ValueKey('files-put-here')),
+        () => shows('UPLOADING · 1 FAILED'),
+      );
       expect(files.puts.keys, ['/home/luis/a.txt']);
       expect(find.text('UPLOADING · 1 FAILED'), findsOneWidget);
 
-      await settle(tester, find.byKey(const ValueKey('send-retry')));
+      await settle(
+        tester,
+        find.byKey(const ValueKey('send-retry')),
+        () => shows('IN luis'),
+      );
       expect(files.puts.keys, ['/home/luis/a.txt', '/home/luis/b.txt']);
       expect(find.text('IN luis'), findsOneWidget);
       await tester.pumpAndSettle(sendSheetLinger);
@@ -367,7 +412,11 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('send-folder')));
       await tester.pumpAndSettle();
-      await settle(tester, find.byKey(const ValueKey('files-put-here')));
+      await settle(
+        tester,
+        find.byKey(const ValueKey('files-put-here')),
+        () => shows('UPLOADING · 1 FAILED'),
+      );
       expect(find.text('UPLOADING · 1 FAILED'), findsOneWidget);
       Navigator.of(tester.element(find.byType(SendSheet))).pop();
       await tester.pumpAndSettle();
@@ -375,7 +424,13 @@ void main() {
 
       unawaited(showTransfers(root));
       await tester.pumpAndSettle();
-      await settle(tester, find.byKey(const ValueKey('transfers-0-retry')));
+      await settle(
+        tester,
+        find.byKey(const ValueKey('transfers-0-retry')),
+        () =>
+            files.puts.length == 2 &&
+            !File((shared[1] as SharedFile).path).existsSync(),
+      );
       expect(files.puts.keys, ['/home/luis/a.txt', '/home/luis/b.txt']);
       expect(File((shared[1] as SharedFile).path).existsSync(), isFalse);
     });
@@ -386,9 +441,17 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('send-folder')));
       await tester.pumpAndSettle();
-      await settle(tester, find.byKey(const ValueKey('files-put-here')));
+      await settle(
+        tester,
+        find.byKey(const ValueKey('files-put-here')),
+        () => shows('UPLOADING · 1 FAILED'),
+      );
       File((shared[1] as SharedFile).path).deleteSync();
-      await settle(tester, find.byKey(const ValueKey('send-retry')));
+      await settle(
+        tester,
+        find.byKey(const ValueKey('send-retry')),
+        () => shows('IN luis · 1 FAILED'),
+      );
 
       expect(files.puts.keys, ['/home/luis/a.txt']);
       expect(find.text('IN luis · 1 FAILED'), findsOneWidget);
@@ -404,7 +467,11 @@ void main() {
         File(file.path).deleteSync();
       }
 
-      await settle(tester, find.byKey(const ValueKey('send-clipboard')));
+      await settle(
+        tester,
+        find.byKey(const ValueKey('send-clipboard')),
+        () => shows('2 FAILED'),
+      );
       expect(find.text('2 FAILED'), findsOneWidget);
     });
 
@@ -414,10 +481,18 @@ void main() {
       files.failOnce.add('b.txt');
       await open(tester, (context) => showSendSheet(context, shared));
 
-      await settle(tester, find.byKey(const ValueKey('send-clipboard')));
+      await settle(
+        tester,
+        find.byKey(const ValueKey('send-clipboard')),
+        () => find.byKey(const ValueKey('send-retry')).evaluate().isNotEmpty,
+      );
       File((shared[1] as SharedFile).path).deleteSync();
       files.copyFails = 'no clipboard';
-      await settle(tester, find.byKey(const ValueKey('send-retry')));
+      await settle(
+        tester,
+        find.byKey(const ValueKey('send-retry')),
+        () => shows('UPLOADING · 1 FAILED · CLIPBOARD · no clipboard'),
+      );
 
       expect(
         find.text('UPLOADING · 1 FAILED · CLIPBOARD · no clipboard'),
@@ -432,7 +507,11 @@ void main() {
       files.copyFails = 'no clipboard';
       await open(tester, (context) => showSendSheet(context, shared));
 
-      await settle(tester, find.byKey(const ValueKey('send-clipboard')));
+      await settle(
+        tester,
+        find.byKey(const ValueKey('send-clipboard')),
+        () => shows('CLIPBOARD · no clipboard'),
+      );
       expect(find.text('CLIPBOARD · no clipboard'), findsOneWidget);
       final landed = tester.widget<SelectableText>(
         find.byKey(const ValueKey('send-landed')),
@@ -440,7 +519,11 @@ void main() {
       expect(landed.data!.split('\n'), unorderedEquals(files.puts.keys));
 
       files.copyFails = null;
-      await settle(tester, find.byKey(const ValueKey('send-clipboard')));
+      await settle(
+        tester,
+        find.byKey(const ValueKey('send-clipboard')),
+        () => files.copies.length == 2,
+      );
       expect(files.puts, hasLength(2));
       expect(files.copies.last, landed.data);
       await tester.pumpAndSettle(sendSheetLinger);

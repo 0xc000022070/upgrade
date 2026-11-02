@@ -422,7 +422,9 @@ void main() {
     )..start();
     addTearDown(controller.dispose);
     link.frameStreams.single.add(_frame());
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    for (var i = 0; i < 2500 && controller.phase is! DeviceLive; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+    }
     expect(controller.phase, isA<DeviceLive>());
 
     controller

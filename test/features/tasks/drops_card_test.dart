@@ -71,6 +71,7 @@ void main() {
       lessThan(tester.getTopLeft(find.text('drop 9')).dy),
     );
 
+    await tester.ensureVisible(find.text('VIEW ALL 10'));
     await tester.tap(find.text('VIEW ALL 10'));
     await _ready(tester);
 
@@ -87,10 +88,11 @@ void main() {
   });
 
   testWidgets('the header fits the narrowest DROPS card', (tester) async {
-    for (var i = 0; i < 120; i++) {
-      await tasks.capture('drop $i');
-    }
-    final drops = await tasks.watchDrops().first;
+    final drop = (await tester.runAsync(() async {
+      await tasks.capture('drop');
+      return tasks.watchDrops().first;
+    }))!.single;
+    final drops = [for (var i = 0; i < 120; i++) drop.copyWith(id: '$i')];
 
     await tester.pumpWidget(
       ProviderScope(

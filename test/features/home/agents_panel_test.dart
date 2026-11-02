@@ -260,7 +260,7 @@ void main() {
     },
   );
 
-  test('the poll set is every host with HERDR on', () async {
+  testWidgets('the poll set is every host with HERDR on', (tester) async {
     final hosts = InMemoryHostRepository();
     await hosts.save(hostA);
     await hosts.save(hostB);
@@ -306,12 +306,13 @@ void main() {
     );
     addTearDown(subscription.close);
 
-    await _waitFor(() => addresses.contains(dialled(hostA)));
+    await _pumpFor(tester, () => addresses.contains(dialled(hostA)));
     expect(addresses, isNot(contains(dialled(hostB))));
 
     await hosts.setIntegration(hostB.id, IntegrationKind.herdr, true);
-    await _waitFor(() => addresses.contains(dialled(hostB)));
-    await _waitFor(
+    await _pumpFor(tester, () => addresses.contains(dialled(hostB)));
+    await _pumpFor(
+      tester,
       () => states.any(
         (state) =>
             state.outcomes.length == 2 &&
@@ -323,15 +324,17 @@ void main() {
 
     await hosts.setIntegration(hostA.id, IntegrationKind.herdr, false);
     await hosts.delete(hostB.id);
-    await _waitFor(() => states.last.noHost);
+    await _pumpFor(tester, () => states.last.noHost);
     final fetches = addresses.length;
-    await Future<void>.delayed(const Duration(milliseconds: 30));
+    await tester.pump(const Duration(seconds: 11));
 
     expect(addresses, containsAllInOrder([dialled(hostA), dialled(hostB)]));
     expect(addresses, hasLength(fetches));
   });
 
-  test('a feed that has stopped goes on handing out its last state', () async {
+  testWidgets('a feed that has stopped goes on handing out its last state', (
+    tester,
+  ) async {
     final hosts = InMemoryHostRepository();
     await hosts.save(hostA);
     await hosts.setIntegration(hostA.id, IntegrationKind.herdr, true);
@@ -367,16 +370,13 @@ void main() {
     await container.read(agentChannelsProvider.future);
     final subscription = container.listen(agentsFeedProvider, (_, _) {});
     addTearDown(subscription.close);
-    await _waitFor(
-      () =>
-          container.read(agentsFeedProvider).valueOrNull?.agents.isNotEmpty ??
-          false,
-    );
+    await tester.pump();
+    expect(container.read(agentsFeedProvider).valueOrNull?.agents, isNotEmpty);
     expect(container.read(agentsFeedLiveProvider), isTrue);
 
     container.read(homeAgentsVisibleProvider.notifier).state = false;
     final dialled = fetches;
-    await Future<void>.delayed(const Duration(milliseconds: 30));
+    await tester.pump(const Duration(seconds: 11));
 
     expect(fetches, dialled);
     expect(
@@ -1115,6 +1115,13 @@ _pollFailing(WidgetTester tester, HerdrFailure failure) async {
       await tester.pump(const Duration(minutes: 1));
     },
   );
+}
+
+Future<void> _pumpFor(WidgetTester tester, bool Function() condition) async {
+  for (var i = 0; i < 100 && !condition(); i++) {
+    await tester.pump(const Duration(milliseconds: 5));
+  }
+  expect(condition(), isTrue);
 }
 
 Future<void> _waitFor(bool Function() condition) async {

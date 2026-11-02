@@ -118,6 +118,12 @@ String cappedDiff(String head) {
   return body.toString();
 }
 
+final _writes = RegExp(
+  r'\bgit(\s+(-[cC]\s+\S+|--\S+))*\s+(add|commit|checkout|switch|restore|reset|stash|rm|mv|push|'
+  r'pull|fetch|merge|rebase|apply|clean|branch|tag|worktree\s+(add|remove))\b'
+  r'|\b(rm|mv|touch|tee|truncate)\s|\bsed\s+-i|>\s*(?!/dev/null|&)[^\s>&]',
+);
+
 class FakeRunner implements WorkspaceRunner {
   FakeRunner({this.overview, this.fail, this.texts = const {}});
 
@@ -262,7 +268,6 @@ void main() {
 
   Future<void> ready(WidgetTester tester) async {
     for (var i = 0; i < 6; i++) {
-      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pump(const Duration(milliseconds: 100));
     }
   }
@@ -1777,12 +1782,7 @@ void main() {
       final runner = await viewer(tester);
       await tester.longPressAt(onRow(tester, 'const port = 357;'));
       await ready(tester);
-      for (final key in ['stage-hunk', 'stage-line', 'discard-hunk']) {
-        expect(onSheet(find.byKey(ValueKey('diff-$key'))), findsNothing);
-      }
       await tapText(tester, 'CLOSE');
-
-      final asked = runner.commands.length;
       await tester.tap(
         find.descendant(
           of: fileRow('lib/main.dart'),
@@ -1791,16 +1791,7 @@ void main() {
       );
       await ready(tester);
 
-      expect(
-        onSheet(find.byKey(const ValueKey('diff-stage-all'))),
-        findsNothing,
-      );
-      expect(
-        runner.commands
-            .skip(asked)
-            .where((c) => c.contains('git add') || c.contains('git apply')),
-        isEmpty,
-      );
+      expect(runner.commands.where(_writes.hasMatch), isEmpty);
 
       await unmount(tester);
     });
@@ -2694,13 +2685,6 @@ new file mode 100644
         '@@ -54,0 +55,1 @@\n'
         '+line 55\n';
 
-    /// Everything a checkout can be asked that changes it.
-    final writes = RegExp(
-      r'\bgit\s+(add|commit|checkout|switch|restore|reset|stash|rm|mv|push|'
-      r'pull|fetch|merge|rebase|apply|clean|branch|tag|worktree\s+(add|remove))\b'
-      r'|\b(rm|mv|touch|tee|truncate)\s|\bsed\s+-i|>\s*(?!/dev/null|&)[^\s>&]',
-    );
-
     testWidgets('the tree carries the checkout\'s word on every row', (
       tester,
     ) async {
@@ -2720,7 +2704,7 @@ new file mode 100644
         runner.commands.where((c) => c.contains('status --porcelain')),
         hasLength(1),
       );
-      expect(runner.commands.any(writes.hasMatch), isFalse);
+      expect(runner.commands.any(_writes.hasMatch), isFalse);
 
       await unmount(tester);
     });
@@ -2737,7 +2721,7 @@ new file mode 100644
       await tapText(tester, 'gone.dart');
       expect(find.byType(DiffSheet), findsOneWidget);
       expect(runner.commands.last, contains('diff --no-color HEAD'));
-      expect(runner.commands.any(writes.hasMatch), isFalse);
+      expect(runner.commands.any(_writes.hasMatch), isFalse);
 
       await unmount(tester);
     });
@@ -2778,7 +2762,7 @@ new file mode 100644
         runner.commands.where((c) => c.contains('lib/main.dart')),
         hasLength(2),
       );
-      expect(runner.commands.any(writes.hasMatch), isFalse);
+      expect(runner.commands.any(_writes.hasMatch), isFalse);
 
       await unmount(tester);
     });

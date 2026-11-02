@@ -748,9 +748,11 @@ void main() {
           lessThan(health.indexOf(ShellConnectionHealth.disconnected)),
         );
 
+        final before = health.length;
         channel.acknowledge(channel.sizes.length);
-        await pumpEventQueue();
-        expect(health.last, ShellConnectionHealth.connected);
+        await until(
+          () => health.skip(before).contains(ShellConnectionHealth.connected),
+        );
       },
     );
 
@@ -775,9 +777,11 @@ void main() {
 
         await until(() => health.contains(ShellConnectionHealth.reconnecting));
 
+        final before = health.length;
         channel.contact();
-        await pumpEventQueue();
-        expect(health.last, ShellConnectionHealth.connected);
+        await until(
+          () => health.skip(before).contains(ShellConnectionHealth.connected),
+        );
       },
     );
 

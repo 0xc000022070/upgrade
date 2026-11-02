@@ -176,7 +176,7 @@ void main() {
   });
 
   testWidgets('the bar stays put when the panel scrolls off', (tester) async {
-    tester.view.physicalSize = const Size(400, 800);
+    tester.view.physicalSize = const Size(400, 400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     for (var i = 0; i < 20; i++) {
@@ -188,21 +188,17 @@ void main() {
 
     final list = find.byType(Scrollable).first;
     await tester.dragUntilVisible(
-      find.text('drop numero 0'),
+      find.text('drop numero 12'),
       list,
       const Offset(0, -120),
     );
     await _ready(tester);
-    await tester.longPress(find.text('drop numero 0'));
+    await tester.longPress(find.text('drop numero 12'));
     await _ready(tester);
     expect(find.text('DROPS'), findsOneWidget);
     final before = tester.getRect(find.byType(SelectionBar));
 
-    await tester.dragUntilVisible(
-      find.text('drop numero 19'),
-      list,
-      const Offset(0, -120),
-    );
+    await tester.drag(list, const Offset(0, -2000));
     await _ready(tester);
 
     // The page is one non-lazy scroll view, so the header stays in the tree after it leaves
@@ -235,14 +231,14 @@ void main() {
       expect(find.text('NEXT ACTION').hitTestable(), findsOneWidget);
 
       await tester.dragUntilVisible(
-        find.text('drop numero 0'),
+        find.text('drop numero 12'),
         find.text('drop numero 19'),
         const Offset(0, -120),
       );
       await _ready(tester);
 
       expect(tester.getRect(find.text('DROPS')), header);
-      expect(find.text('drop numero 0').hitTestable(), findsOneWidget);
+      expect(find.text('drop numero 12').hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       await unmount(tester);
