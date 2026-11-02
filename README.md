@@ -19,7 +19,7 @@ host so it keeps ownership of the adb server.
 
 ```sh
 just gen          # build_runner: drift output (*.g.dart, *.drift.dart) — not committed
-just pub-build    # flterm, dart_mosh and dartssh2, patched, into .dart_tool
+just pub-build    # flterm, dart_mosh, dartssh2 and pointycastle, patched, into .dart_tool
 just analyze
 just apk          # debug APK, arm64
 ```

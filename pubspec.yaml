@@ -55,6 +55,8 @@ dependency_overrides:
     path: .dart_tool/dart_mosh
   dartssh2:
     path: .dart_tool/dartssh2
+  pointycastle:
+    path: .dart_tool/pointycastle
 
 dev_dependencies:
   flutter_test:

@@ -27,11 +27,12 @@ pin() {
   case "$1" in
   dart_mosh) VERSION=0.0.4 ;;
   dartssh2) VERSION=4.0.0 ;;
+  pointycastle) VERSION=4.0.0 ;;
   flterm)
     VERSION=${LIBGHOSTTY_REV:?run inside the nix dev shell}
     SRC=${LIBGHOSTTY_SRC:?run inside the nix dev shell}/packages/flterm
     ;;
-  *) die "no package $1; have: dart_mosh dartssh2 flterm" ;;
+  *) die "no package $1; have: dart_mosh dartssh2 flterm pointycastle" ;;
   esac
 }
 

@@ -1,0 +1,39 @@
+# sqrt for p = 1 mod 4 seeds its own Fortuna and shifts Q left
+#
+# Against pointycastle 4.0.0. Regenerate with `just pub pointycastle generate`.
+
+diff --git a/lib/ecc/ecc_fp.dart b/lib/ecc/ecc_fp.dart
+index 30c7fa5..b0036b2 100644
+--- a/lib/ecc/ecc_fp.dart
++++ b/lib/ecc/ecc_fp.dart
+@@ -2,12 +2,14 @@
+ 
+ library impl.ecc.ecc_fp;
+ 
++import 'dart:math' show Random;
+ import 'dart:typed_data';
+ 
+ import 'package:pointycastle/api.dart';
+ import 'package:pointycastle/ecc/ecc_base.dart'
+     hide ECCurveBase, ECFieldElementBase, ECPointBase;
+ import 'package:pointycastle/ecc/ecc_base.dart' as ecc;
++import 'package:pointycastle/random/fortuna_random.dart';
+ import 'package:pointycastle/src/utils.dart' as utils;
+ 
+ /// return index of lowest 1-bit in x, x < 2^31 */
+@@ -110,10 +112,13 @@ class ECFieldElement extends ecc.ECFieldElementBase {
+     var k = (u << 1) + BigInt.one;
+ 
+     var Q = x!;
+-    var fourQ = (Q >> 2) % q!;
++    var fourQ = (Q << 2) % q!;
+ 
+     BigInt U, V;
+-    var rand = SecureRandom();
++    final entropy = Random.secure();
++    final rand = FortunaRandom()
++      ..seed(KeyParameter(Uint8List.fromList(
++          List.generate(32, (_) => entropy.nextInt(256)))));
+     do {
+       BigInt? P;
+       do {

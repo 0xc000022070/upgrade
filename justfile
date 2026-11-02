@@ -81,7 +81,7 @@ engine-gate:
     cargo test --manifest-path engine/Cargo.toml
 
 [group('dev')]
-pub-build: (pub "dart_mosh") (pub "dartssh2") (pub "flterm") _libghostty
+pub-build: (pub "dart_mosh") (pub "dartssh2") (pub "flterm") (pub "pointycastle") _libghostty
 
 [group('agents')]
 gen:
@@ -119,13 +119,13 @@ widgetbook-frames:
 linux-catalog *args:
     dart tool/linux_catalog.dart {{args}}
 
-# dart_mosh, dartssh2 or flterm, patched into .dart_tool: build (default), verify, generate, without.
+# dart_mosh, dartssh2, flterm or pointycastle, patched into .dart_tool: build (default), verify, generate, without.
 [group('agents')]
 pub package *cmd:
     tool/pub-patches.sh {{package}} {{ if cmd == "" { "build" } else { cmd } }}
 
 [group('agents')]
-pub-verify: (pub "dart_mosh" "verify") (pub "dartssh2" "verify") (pub "flterm" "verify")
+pub-verify: (pub "dart_mosh" "verify") (pub "dartssh2" "verify") (pub "flterm" "verify") (pub "pointycastle" "verify")
 
 _libghostty:
     #!/usr/bin/env bash
