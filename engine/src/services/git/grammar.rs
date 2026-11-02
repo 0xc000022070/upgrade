@@ -46,7 +46,9 @@ fn name_for_extension(extension: &str) -> Option<&'static str> {
     let name = match extension {
         "dart" => "dart",
         "rs" => "rust",
+        #[cfg(feature = "heavy-grammars")]
         "ts" | "mts" | "cts" => "typescript",
+        #[cfg(feature = "heavy-grammars")]
         "tsx" => "tsx",
         "js" | "mjs" | "cjs" | "jsx" => "javascript",
         "py" | "pyi" => "python",
@@ -89,6 +91,7 @@ fn name_for_shebang(line: &str) -> Option<&'static str> {
         "python" | "pypy" => "python",
         "sh" | "bash" | "zsh" | "dash" | "ksh" | "ash" | "mksh" => "bash",
         "node" | "nodejs" | "deno" | "bun" => "javascript",
+        #[cfg(feature = "heavy-grammars")]
         "ts-node" | "tsx" => "typescript",
         "lua" | "luajit" => "lua",
         "make" | "gmake" => "make",
@@ -127,10 +130,12 @@ fn code_parts(name: &str) -> Option<Parts> {
             tree_sitter_rust::LANGUAGE,
             &[tree_sitter_rust::HIGHLIGHTS_QUERY],
         ),
+        #[cfg(feature = "heavy-grammars")]
         "typescript" => (
             tree_sitter_typescript::LANGUAGE_TYPESCRIPT,
             &[JS, tree_sitter_typescript::HIGHLIGHTS_QUERY],
         ),
+        #[cfg(feature = "heavy-grammars")]
         "tsx" => (
             tree_sitter_typescript::LANGUAGE_TSX,
             &[JS, JSX, tree_sitter_typescript::HIGHLIGHTS_QUERY],
