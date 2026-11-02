@@ -6,7 +6,7 @@ import 'package:dart_mosh/dart_mosh.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart';
@@ -436,72 +436,27 @@ void _log(String endpoint, Object message) =>
 ShellFailure? shellFailureFor(Object error, [HostKeyRefusal? refusal]) =>
     switch (error) {
       ShellFailure() => error,
-      _ when refusal != null => ShellFailure(switch (refusal) {
-        HostKeyRefusal.unverified => ShellFailureKind.hostKeyUnverified,
-        HostKeyRefusal.changed => ShellFailureKind.hostKeyChanged,
-      }, detail: '$error'),
-      // Nobody refused anything and the key still did not check out: the server's signature
-      // was wrong, or it swapped its key across a rekey.
-      SSHHostkeyError() => ShellFailure(
-        ShellFailureKind.hostKeyChanged,
-        detail: '$error',
-      ),
-      // The channel open, or the pty or shell request on it. All three are the same sentence
-      // to the user: sshd would not give them a shell.
-      SSHChannelOpenError() => ShellFailure(
-        ShellFailureKind.shellRefused,
-        detail: '$error',
-      ),
-      SSHChannelRequestError() => ShellFailure(
-        ShellFailureKind.shellRefused,
-        detail: '$error',
-      ),
-      SSHAuthFailError() => ShellFailure(
-        ShellFailureKind.keyRejected,
-        detail: '$error',
-      ),
-      SSHKeyDecodeError() => ShellFailure(
-        ShellFailureKind.keyRejected,
-        detail: '$error',
-      ),
-      // Auth that ended without the server saying no: the connection went away under it, or
-      // nothing came back at all.
-      SSHAuthAbortError(:final reason?) =>
-        shellFailureFor(reason, refusal) ??
-            ShellFailure(ShellFailureKind.streamClosed, detail: '$error'),
-      SSHAuthAbortError() => ShellFailure(
-        ShellFailureKind.streamClosed,
-        detail: '$error',
-      ),
-      SSHStateError() => ShellFailure(
-        ShellFailureKind.streamClosed,
-        detail: '$error',
-      ),
-      // The socket's own error, unwrapped here so a refused connection under a handshake
-      // reads as the refusal it is.
-      SSHSocketError() =>
-        shellFailureFor(error.error, refusal) ??
-            ShellFailure(ShellFailureKind.unreachable, detail: '$error'),
-      // The only failure that happens before an address exists. The test is [HerdrClient]'s,
-      // deliberately: which errno family a lookup failure lands in is a platform detail.
-      SocketException() when HerdrClient.isLookupFailure(error) => ShellFailure(
-        ShellFailureKind.unresolved,
-        detail: socketWords(error),
-      ),
-      SocketException() => ShellFailure(
-        ShellFailureKind.unreachable,
-        detail: socketWords(error),
-      ),
-      TimeoutException() => ShellFailure(
-        ShellFailureKind.unreachable,
-        detail: timeoutWords(error),
-      ),
-      SSHError() => ShellFailure(
-        ShellFailureKind.unreachable,
-        detail: '$error',
-      ),
-      _ => null,
+      _ => switch (classifyHostFailure(error, refusal)) {
+        null => null,
+        final kind => ShellFailure(switch (kind) {
+          HostFailureKind.unresolved => ShellFailureKind.unresolved,
+          HostFailureKind.unreachable => ShellFailureKind.unreachable,
+          HostFailureKind.keyRejected => ShellFailureKind.keyRejected,
+          HostFailureKind.refused => ShellFailureKind.shellRefused,
+          HostFailureKind.streamClosed => ShellFailureKind.streamClosed,
+          HostFailureKind.hostKeyUnverified =>
+            ShellFailureKind.hostKeyUnverified,
+          HostFailureKind.hostKeyChanged => ShellFailureKind.hostKeyChanged,
+        }, detail: _words(error)),
+      },
     };
+
+String _words(Object error) => switch (error) {
+  SSHSocketError() => _words(error.error),
+  SocketException() => socketWords(error),
+  TimeoutException() => timeoutWords(error),
+  _ => '$error',
+};
 
 abstract class _ChannelConnection<E> implements ShellConnection {
   _ChannelConnection(

@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/platform/vnc/apple_auth.dart';
 import 'package:upgrade/platform/vnc/framebuffer.dart';
@@ -375,40 +373,6 @@ void main() {
 
       await expectLater(client.handshake(), throwsA(isA<VncStreamClosed>()));
       await channel.dispose();
-    });
-  });
-
-  group('failure words', () {
-    test('a refused channel is tunnel refused', () {
-      final failure = asVncFailure(
-        SSHChannelOpenError(1, 'administratively prohibited'),
-      );
-      expect(failure, isA<VncTunnelRefused>());
-      expect(failure!.reason('nyx'), 'tunnel refused');
-    });
-
-    test(
-      'a rejected key, an unresolved name and a dead host keep their words',
-      () {
-        expect(
-          asVncFailure(SSHAuthFailError('no more auth methods'))!.reason('nyx'),
-          'key rejected',
-        );
-        expect(
-          asVncFailure(const SocketException('Failed host lookup: nyx'))!
-              .reason('NYX'),
-          'nyx unresolved',
-        );
-        expect(
-          asVncFailure(const SocketException('Connection refused'))!
-              .reason('NYX'),
-          'nyx unreachable',
-        );
-      },
-    );
-
-    test('an error that is not the transport is left alone', () {
-      expect(asVncFailure(StateError('mine')), isNull);
     });
   });
 

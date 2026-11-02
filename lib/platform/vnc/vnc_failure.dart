@@ -1,7 +1,4 @@
-import 'package:dartssh2/dartssh2.dart';
-
 import 'package:upgrade/application/agents/reason_lines.dart';
-import 'package:upgrade/platform/herdr/herdr_socket.dart';
 import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 
@@ -108,27 +105,25 @@ final class VncHostKeyChanged extends VncFailure {
 VncFailure? asVncFailure(Object error, [HostKeyRefusal? refusal]) =>
     switch (error) {
       VncFailure() => error,
-      // The verifier's answer is the reason, whatever error the closing handshake surfaced.
-      _ when refusal != null => switch (refusal) {
-        HostKeyRefusal.unverified => VncHostKeyUnverified('$error'),
-        HostKeyRefusal.changed => VncHostKeyChanged('$error'),
-      },
-      // dartssh2 raises this when the server answers the channel open with a failure, which
-      // is what `restrict` and a missing `permitopen` both do.
-      SSHChannelOpenError() => VncTunnelRefused('$error'),
-      // A herdr reply cannot come down a VNC tunnel; one here is a bug, left as itself.
-      HerdrMalformed() => null,
-      _ => switch (asHerdrFailure(error)) {
+      HerdrUnresolved(:final detail) => VncUnresolved(detail ?? '$error'),
+      HerdrKeyRejected(:final detail) => VncKeyRejected(detail ?? '$error'),
+      HerdrHostKeyUnverified(:final detail) => VncHostKeyUnverified(
+        detail ?? '$error',
+      ),
+      HerdrHostKeyChanged(:final detail) => VncHostKeyChanged(
+        detail ?? '$error',
+      ),
+      HerdrFailure(:final detail) => VncUnreachable(detail ?? '$error'),
+      _ => switch (classifyHostFailure(error, refusal)) {
         null => null,
-        HerdrUnresolved(:final detail) => VncUnresolved(detail ?? '$error'),
-        HerdrKeyRejected(:final detail) => VncKeyRejected(detail ?? '$error'),
-        HerdrHostKeyUnverified(:final detail) => VncHostKeyUnverified(
-          detail ?? '$error',
-        ),
-        HerdrHostKeyChanged(:final detail) => VncHostKeyChanged(
-          detail ?? '$error',
-        ),
-        HerdrFailure(:final detail) => VncUnreachable(detail ?? '$error'),
+        HostFailureKind.unresolved => VncUnresolved('$error'),
+        HostFailureKind.unreachable => VncUnreachable('$error'),
+        HostFailureKind.keyRejected => VncKeyRejected('$error'),
+        // What `restrict` and a missing `permitopen` both answer the `direct-tcpip` open with.
+        HostFailureKind.refused => VncTunnelRefused('$error'),
+        HostFailureKind.streamClosed => VncStreamClosed('$error'),
+        HostFailureKind.hostKeyUnverified => VncHostKeyUnverified('$error'),
+        HostFailureKind.hostKeyChanged => VncHostKeyChanged('$error'),
       },
     };
 

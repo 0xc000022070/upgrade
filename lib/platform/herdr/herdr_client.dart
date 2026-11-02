@@ -2,7 +2,6 @@ export 'package:upgrade/platform/ssh/host_failure.dart';
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
@@ -12,9 +11,6 @@ import 'package:upgrade/application/agents/agent_state.dart';
 import 'package:upgrade/application/alerts/pin_alerts.dart';
 import 'package:upgrade/platform/herdr/herdr_socket.dart';
 import 'package:upgrade/platform/ssh/host_failure.dart';
-import 'package:upgrade/platform/ssh/host_failure.dart'
-    as failures
-    show isLookupFailure;
 import 'package:upgrade/platform/ssh/exec_tracker.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart'
     show ExecResult;
@@ -1429,9 +1425,6 @@ class HerdrClient {
 
   final HostLinks links;
   final HostUse use;
-
-  static bool isLookupFailure(SocketException error) =>
-      failures.isLookupFailure(error);
 
   static String parseWorkspacePane(Map<String, Object?> result) {
     final root = result['root_pane'];

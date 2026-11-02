@@ -32,9 +32,8 @@ bool isHostFailure(Object error) =>
 
 /// True when our key or the host's key was refused or unreadable, so dialling again never
 /// helps. A refused host key reaches `authenticated` wrapped in the abort it caused.
-bool isKeyFailure(Object error) => switch (error) {
-  SSHAuthFailError() || SSHKeyDecodeError() || SSHHostkeyError() => true,
-  SSHAuthAbortError(reason: SSHHostkeyError()) => true,
+bool isKeyFailure(Object error) => switch (classifyHostFailure(error)) {
+  HostFailureKind.keyRejected || HostFailureKind.hostKeyChanged => true,
   _ => false,
 };
 

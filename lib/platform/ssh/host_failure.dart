@@ -98,7 +98,7 @@ final class HerdrProtocolMismatch extends HerdrFailure {
 /// underneath is from the EAI_* namespace, which cannot be told apart from a connect
 /// errno by number alone. Matched over both halves because which one carries the words
 /// depends on the platform.
-bool isLookupFailure(SocketException error) {
+bool _isLookupFailure(SocketException error) {
   final said = '${error.message} ${error.osError?.message ?? ''}'.toLowerCase();
   return said.contains('failed host lookup') ||
       said.contains('name or service not known') ||
@@ -106,27 +106,60 @@ bool isLookupFailure(SocketException error) {
       said.contains('no address associated with hostname');
 }
 
-/// Null for anything this app did not expect from ssh: a bug in the layer above reads
-/// better as itself than as a reason line.
+enum HostFailureKind {
+  unresolved,
+  unreachable,
+  keyRejected,
+
+  /// sshd answered but would not open the channel, or the pty or shell request on it.
+  refused,
+
+  streamClosed,
+  hostKeyUnverified,
+  hostKeyChanged,
+}
+
+HostFailureKind? classifyHostFailure(
+  Object error, [
+  HostKeyRefusal? refusal,
+]) => switch (error) {
+  // The verifier's answer is the reason, whatever error the closing handshake surfaced.
+  _ when refusal != null => switch (refusal) {
+    HostKeyRefusal.unverified => HostFailureKind.hostKeyUnverified,
+    HostKeyRefusal.changed => HostFailureKind.hostKeyChanged,
+  },
+  SSHHostkeyError() => HostFailureKind.hostKeyChanged,
+  SSHChannelOpenError() || SSHChannelRequestError() => HostFailureKind.refused,
+  SSHAuthFailError() || SSHKeyDecodeError() => HostFailureKind.keyRejected,
+  SSHAuthAbortError(:final reason?) =>
+    classifyHostFailure(reason) ?? HostFailureKind.streamClosed,
+  SSHAuthAbortError() || SSHStateError() => HostFailureKind.streamClosed,
+  SSHSocketError() =>
+    classifyHostFailure(error.error) ?? HostFailureKind.unreachable,
+  SocketException() when _isLookupFailure(error) => HostFailureKind.unresolved,
+  SocketException() ||
+  TimeoutException() ||
+  SSHError() => HostFailureKind.unreachable,
+  _ => null,
+};
+
 HerdrFailure? asHerdrFailure(Object error, [HostKeyRefusal? refusal]) =>
     switch (error) {
       HerdrFailure() => error,
-      // The verifier's answer is the reason, whatever error the closing handshake surfaced.
-      _ when refusal != null => switch (refusal) {
-        HostKeyRefusal.unverified => HerdrHostKeyUnverified('$error'),
-        HostKeyRefusal.changed => HerdrHostKeyChanged('$error'),
-      },
-      HerdrMalformed() => HerdrProtocolMismatch(error.protocol, '$error'),
-      SSHHostkeyError() => HerdrHostKeyChanged('$error'),
-      SSHAuthFailError() => HerdrKeyRejected('$error'),
-      SSHKeyDecodeError() => HerdrKeyRejected('$error'),
-      SocketException() when isLookupFailure(error) => HerdrUnresolved(
+      HerdrMalformed() when refusal == null => HerdrProtocolMismatch(
+        error.protocol,
         '$error',
       ),
-      SocketException() => HerdrUnreachable('$error'),
-      TimeoutException() => HerdrUnreachable('$error'),
-      SSHError() => HerdrUnreachable('$error'),
-      _ => null,
+      _ => switch (classifyHostFailure(error, refusal)) {
+        null => null,
+        HostFailureKind.unresolved => HerdrUnresolved('$error'),
+        HostFailureKind.keyRejected => HerdrKeyRejected('$error'),
+        HostFailureKind.hostKeyUnverified => HerdrHostKeyUnverified('$error'),
+        HostFailureKind.hostKeyChanged => HerdrHostKeyChanged('$error'),
+        HostFailureKind.unreachable ||
+        HostFailureKind.refused ||
+        HostFailureKind.streamClosed => HerdrUnreachable('$error'),
+      },
     };
 
 Future<T> guardHerdr<T>(

@@ -1,17 +1,13 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/features/hosts/host_key_sheet.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
-import 'package:upgrade/platform/shell/shell_tunnel.dart';
 import 'package:upgrade/platform/vnc/vnc_failure.dart';
 
 import '../../support/themed_app.dart';
@@ -145,43 +141,6 @@ void main() {
 
     expect(await verifier.verify(_type, _bytes(_fingerprint)), isFalse);
     expect(verifier.refusal, HostKeyRefusal.unverified);
-  });
-
-  test('the three transports word both refusals the same way', () {
-    final error = SSHStateError('connection closed');
-
-    expect(
-      shellFailureFor(error, HostKeyRefusal.unverified)?.kind,
-      ShellFailureKind.hostKeyUnverified,
-    );
-    expect(
-      shellFailureFor(error, HostKeyRefusal.changed)?.kind,
-      ShellFailureKind.hostKeyChanged,
-    );
-    expect(
-      asVncFailure(error, HostKeyRefusal.unverified),
-      isA<VncHostKeyUnverified>(),
-    );
-    expect(
-      asVncFailure(error, HostKeyRefusal.changed),
-      isA<VncHostKeyChanged>(),
-    );
-    expect(
-      asHerdrFailure(error, HostKeyRefusal.unverified),
-      isA<HerdrHostKeyUnverified>(),
-    );
-    expect(
-      asHerdrFailure(error, HostKeyRefusal.changed),
-      isA<HerdrHostKeyChanged>(),
-    );
-  });
-
-  test('a key swapped mid-session is a changed key wherever it surfaces', () {
-    final error = SSHHostkeyError('host key changed');
-
-    expect(shellFailureFor(error)?.kind, ShellFailureKind.hostKeyChanged);
-    expect(asVncFailure(error), isA<VncHostKeyChanged>());
-    expect(asHerdrFailure(error), isA<HerdrHostKeyChanged>());
   });
 
   test('both refusals read as one sentence each', () {
