@@ -101,7 +101,7 @@ test-all: pub-build
 
 [group('agents')]
 apk-release version=build_name code=build_code: pub-verify
-    flutter build apk --release --target-platform android-arm64 --build-name={{version}} --build-number={{code}} --dart-define=UPGRADE_BUILD=${UPGRADE_BUILD:-dev}
+    flutter build apk --release --target-platform android-arm64 --build-name={{version}} --build-number={{code}} --obfuscate --split-debug-info=build/symbols/{{code}} --dart-define=UPGRADE_BUILD=${UPGRADE_BUILD:-dev}
 
 [group('agents')]
 publish:
