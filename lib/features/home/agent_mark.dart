@@ -13,12 +13,6 @@ import 'package:upgrade/design/typography.dart';
 /// because a kind whose file is missing renders an empty box rather than falling back.
 String? agentMarkAsset(String agent) => AgentKind.lookup(agent)?.markAsset;
 
-Color? agentBrandColor(String agent) => switch (agent) {
-  'codex' => const Color(0xFF10A37F),
-  'claude' => const Color(0xFFD97757),
-  _ => null,
-};
-
 String agentMarkName(String agent) => agent.isEmpty ? '?' : agent.toUpperCase();
 
 String agentMarkLetter(String agent) {

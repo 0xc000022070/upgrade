@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents/agent_usage.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/home/agent_mark.dart';
