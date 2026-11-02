@@ -164,14 +164,22 @@ fn answer(mut accounts: Vec<Account>, root: &Path) -> Value {
 fn note_accounts(root: &Path, accounts: &[Account]) -> EngineResult<()> {
     for account in accounts.iter().filter(|account| account.error.is_none()) {
         if let (Some(at), Some(window)) = (account.captured, weekly(&account.limits)) {
-            note(root, account.agent, sample(at, window.used_percent, window.resets_at))?;
+            note(
+                root,
+                account.agent,
+                sample(at, window.used_percent, window.resets_at),
+            )?;
         }
     }
     Ok(())
 }
 
 fn weekly(limits: &[Limit]) -> Option<&Window> {
-    limits.first()?.windows.iter().max_by_key(|window| window.window_minutes)
+    limits
+        .first()?
+        .windows
+        .iter()
+        .max_by_key(|window| window.window_minutes)
 }
 
 fn sample(at: u64, used: f64, resets: Option<u64>) -> Sample {
@@ -190,10 +198,9 @@ fn read_history(root: &Path, agent: AgentKind) -> Vec<Sample> {
 }
 
 fn noted(mut history: Vec<Sample>, sample: Sample) -> Option<Vec<Sample>> {
-    if history
-        .last()
-        .is_some_and(|last| last.at >= sample.at || (last.used == sample.used && last.resets == sample.resets))
-    {
+    if history.last().is_some_and(|last| {
+        last.at >= sample.at || (last.used == sample.used && last.resets == sample.resets)
+    }) {
         return None;
     }
     let cutoff = sample.at.saturating_sub(HISTORY_MS);
@@ -246,7 +253,9 @@ fn captured(limits: &Value, key: &str) -> Option<Captured> {
 }
 
 fn capture(input: &Value, now: u64) -> Option<Capture> {
-    let limits = input.get("rate_limits").filter(|limits| limits.is_object())?;
+    let limits = input
+        .get("rate_limits")
+        .filter(|limits| limits.is_object())?;
     let capture = Capture {
         captured: now,
         five_hour: captured(limits, "five_hour"),
@@ -735,8 +744,8 @@ fn parse_credits(credits: &Value) -> Option<Credits> {
 #[cfg(test)]
 mod tests {
     use super::{
-        bounded_line, capture, chain, claude, entry, is_fresh, merged_capture, noted, sample, Account, Cache,
-        Capture, Captured, FRESH_MS, HISTORY_MS, LINE_BYTES,
+        bounded_line, capture, chain, claude, entry, is_fresh, merged_capture, noted, sample,
+        Account, Cache, Capture, Captured, FRESH_MS, HISTORY_MS, LINE_BYTES,
     };
     use serde_json::{json, Value};
 
@@ -894,36 +903,78 @@ mod tests {
     fn a_status_line_without_rate_limits_captures_nothing() {
         assert!(capture(&json!({ "session_id": "s1" }), 7).is_none());
         assert!(capture(&json!({ "rate_limits": {} }), 7).is_none());
-        let half = capture(&json!({ "rate_limits": { "seven_day": { "used_percentage": 3, "resets_at": 9 } } }), 7)
-            .unwrap();
-        assert_eq!((half.five_hour.is_none(), half.seven_day.is_some()), (true, true));
+        let half = capture(
+            &json!({ "rate_limits": { "seven_day": { "used_percentage": 3, "resets_at": 9 } } }),
+            7,
+        )
+        .unwrap();
+        assert_eq!(
+            (half.five_hour.is_none(), half.seven_day.is_some()),
+            (true, true)
+        );
     }
 
     fn window(used_percentage: f64, resets_at: u64) -> Option<Captured> {
-        Some(Captured { used_percentage, resets_at })
+        Some(Captured {
+            used_percentage,
+            resets_at,
+        })
     }
 
     #[test]
     fn a_capture_keeps_the_newer_of_each_window() {
-        let old = || Capture { captured: 1, five_hour: window(20.0, 100), seven_day: window(40.0, 900) };
-        let older = Capture { captured: 2, five_hour: window(90.0, 50), seven_day: window(10.0, 900) };
+        let old = || Capture {
+            captured: 1,
+            five_hour: window(20.0, 100),
+            seven_day: window(40.0, 900),
+        };
+        let older = Capture {
+            captured: 2,
+            five_hour: window(90.0, 50),
+            seven_day: window(10.0, 900),
+        };
         assert_eq!(merged_capture(Some(old()), older), None);
-        let half = Capture { captured: 2, five_hour: None, seven_day: window(40.0, 900) };
+        let half = Capture {
+            captured: 2,
+            five_hour: None,
+            seven_day: window(40.0, 900),
+        };
         assert_eq!(merged_capture(Some(old()), half), None);
 
-        let grown = Capture { captured: 3, five_hour: window(5.0, 400), seven_day: window(41.0, 900) };
+        let grown = Capture {
+            captured: 3,
+            five_hour: window(5.0, 400),
+            seven_day: window(41.0, 900),
+        };
         assert_eq!(
             merged_capture(Some(old()), grown),
-            Some(Capture { captured: 3, five_hour: window(5.0, 400), seven_day: window(41.0, 900) })
+            Some(Capture {
+                captured: 3,
+                five_hour: window(5.0, 400),
+                seven_day: window(41.0, 900)
+            })
         );
-        let first = Capture { captured: 4, five_hour: None, seven_day: window(1.0, 2) };
-        assert_eq!(merged_capture(None, first).map(|capture| capture.captured), Some(4));
+        let first = Capture {
+            captured: 4,
+            five_hour: None,
+            seven_day: window(1.0, 2),
+        };
+        assert_eq!(
+            merged_capture(None, first).map(|capture| capture.captured),
+            Some(4)
+        );
     }
 
     #[test]
     fn a_capture_reads_back_as_the_claude_card() {
-        let sign_in = json!({ "emailAddress": "fixture@localhost", "organizationType": "claude_max" });
-        let card = claude(capture(&status_input(1_800_000_000), 7), &sign_in, 1_700_000_000_000).unwrap();
+        let sign_in =
+            json!({ "emailAddress": "fixture@localhost", "organizationType": "claude_max" });
+        let card = claude(
+            capture(&status_input(1_800_000_000), 7),
+            &sign_in,
+            1_700_000_000_000,
+        )
+        .unwrap();
         assert_eq!(
             serde_json::to_value(card).unwrap(),
             json!({
@@ -947,7 +998,12 @@ mod tests {
         assert!(!card.limits[0].reached);
         assert_eq!((card.account, card.plan), (None, None));
 
-        let gone = claude(capture(&status_input(1_800_000_000), 7), &Value::Null, 1_950_000_000_000).unwrap();
+        let gone = claude(
+            capture(&status_input(1_800_000_000), 7),
+            &Value::Null,
+            1_950_000_000_000,
+        )
+        .unwrap();
         assert!(gone.limits.is_empty());
         assert_eq!(gone.captured, Some(7));
         assert_eq!(gone.error, None);
@@ -958,14 +1014,22 @@ mod tests {
         let day = HISTORY_MS / 9;
         let first = noted(Vec::new(), sample(day, 1.0, Some(5))).unwrap();
         assert_eq!(noted(first.clone(), sample(2 * day, 1.0, Some(5))), None);
-        assert_eq!(noted(first.clone(), sample(day, 4.0, Some(5))), None, "a sample from the past");
+        assert_eq!(
+            noted(first.clone(), sample(day, 4.0, Some(5))),
+            None,
+            "a sample from the past"
+        );
 
         let mut history = first;
         for at in 2..=12 {
             history = noted(history, sample(at * day, at as f64, Some(5))).unwrap();
         }
         let kept: Vec<u64> = history.iter().map(|kept| kept.at / day).collect();
-        assert_eq!(kept, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "the last one past the cutoff is the baseline");
+        assert_eq!(
+            kept,
+            [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            "the last one past the cutoff is the baseline"
+        );
     }
 
     #[test]

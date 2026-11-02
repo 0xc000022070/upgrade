@@ -1505,7 +1505,10 @@ fn an_approval_taken_at_the_terminal_releases_the_hook_silently() {
     );
     let output = hook.wait_with_output().unwrap();
     assert!(output.status.success());
-    assert!(output.stdout.is_empty(), "the hook answered for the terminal");
+    assert!(
+        output.stdout.is_empty(),
+        "the hook answered for the terminal"
+    );
 
     let late = sandbox.agents(
         &owner,
@@ -1551,9 +1554,16 @@ fn an_allow_after_the_minute_is_refused_and_leaves_nothing_behind() {
         }]),
     );
 
-    let late = sandbox.agents(&owner, "answer", json!({ "id": "1-2", "decision": "allow" }));
+    let late = sandbox.agents(
+        &owner,
+        "answer",
+        json!({ "id": "1-2", "decision": "allow" }),
+    );
     assert_eq!(late["error"]["kind"], json!("not_found"), "{late}");
-    assert!(!root.join("answers").join("1-2").exists(), "an orphan answer was left");
+    assert!(
+        !root.join("answers").join("1-2").exists(),
+        "an orphan answer was left"
+    );
 }
 
 #[test]
@@ -1596,7 +1606,11 @@ fn a_permission_request_bigger_than_a_megabyte_still_reaches_the_phone() {
     );
     let approval = pending_approval(&sandbox, &owner, "claude:s1");
     assert_eq!(approval["summary"], json!("/w/big.txt"));
-    let answer = sandbox.agents(&owner, "answer", json!({ "id": approval["id"], "decision": "allow" }));
+    let answer = sandbox.agents(
+        &owner,
+        "answer",
+        json!({ "id": approval["id"], "decision": "allow" }),
+    );
     assert_eq!(answer["ok"], json!(true), "{answer}");
     let output = hook.wait_with_output().unwrap();
     assert!(output.status.success());
@@ -1652,7 +1666,10 @@ fn a_transcript_reads_as_a_conversation() {
 
     let answer = sandbox.agents(&owner, "transcript", json!({ "session": "claude:s1" }));
     let items = answer["result"]["items"].as_array().unwrap();
-    let kinds: Vec<&str> = items.iter().map(|item| item["kind"].as_str().unwrap()).collect();
+    let kinds: Vec<&str> = items
+        .iter()
+        .map(|item| item["kind"].as_str().unwrap())
+        .collect();
     assert_eq!(kinds, vec!["user", "assistant", "tool", "result"]);
     assert_eq!(items[2]["tool"], json!("Bash"));
     assert_eq!(items[2]["text"], json!("cargo test"));
@@ -1711,7 +1728,13 @@ fn install_adds_the_hooks_beside_the_user_own_and_teardown_takes_only_them() {
     let teardown = sandbox.call(json!({
         "service": "lifecycle", "op": "teardown", "owner": owner
     }));
-    assert_eq!(teardown["result"]["hooks_removed"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        teardown["result"]["hooks_removed"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
     let left: Value = serde_json::from_str(&fs::read_to_string(&settings).unwrap()).unwrap();
     assert_eq!(left["hooks"], json!({ "Stop": [mine] }));
 }
@@ -1810,7 +1833,10 @@ fn codex_usage_is_read_from_its_app_server_once_a_minute() {
     assert_eq!(entry["captured"], account["captured"]);
     assert_eq!(entry["limits"], account["limits"]);
     assert_eq!(fs::read_to_string(&calls).unwrap().lines().count(), 2);
-    assert_eq!(entry["history"], account["history"], "a failed read notes nothing");
+    assert_eq!(
+        entry["history"], account["history"],
+        "a failed read notes nothing"
+    );
 }
 
 #[test]
@@ -1827,7 +1853,11 @@ impl Sandbox {
         if !engine.exists() {
             std::os::unix::fs::symlink(BINARY, &engine).unwrap();
         }
-        let path = format!("{}:{}", self.bin().display(), std::env::var("PATH").unwrap_or_default());
+        let path = format!(
+            "{}:{}",
+            self.bin().display(),
+            std::env::var("PATH").unwrap_or_default()
+        );
         let mut child = Command::new("/bin/sh")
             .args(["-c", command])
             .env("UPGRADED_STATE", self.state())
@@ -1840,10 +1870,19 @@ impl Sandbox {
             .stderr(Stdio::piped())
             .spawn()
             .unwrap();
-        child.stdin.take().unwrap().write_all(input.as_bytes()).unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(input.as_bytes())
+            .unwrap();
         let output = child.wait_with_output().unwrap();
         assert!(output.status.success(), "the status line failed its agent");
-        assert!(output.stderr.is_empty(), "{}", String::from_utf8_lossy(&output.stderr));
+        assert!(
+            output.stderr.is_empty(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         output
     }
 
@@ -1878,7 +1917,10 @@ fn the_claude_status_line_keeps_its_windows_and_still_prints_the_user_own() {
     let sandbox = Sandbox::isolated("agents-statusline");
     let owner = sandbox.owner();
     let seen = sandbox.work().join("seen");
-    sandbox.stub("my-status", &format!("cat > '{}'; echo mine", seen.display()));
+    sandbox.stub(
+        "my-status",
+        &format!("cat > '{}'; echo mine", seen.display()),
+    );
     let settings = sandbox.home().join(".claude/settings.json");
     fs::create_dir_all(settings.parent().unwrap()).unwrap();
     let mine = json!({ "type": "command", "command": "my-status", "padding": 2 });
@@ -1890,23 +1932,38 @@ fn the_claude_status_line_keeps_its_windows_and_still_prints_the_user_own() {
     )
     .unwrap();
 
-    assert_eq!(sandbox.agents(&owner, "install", json!({ "agent": "claude" }))["ok"], json!(true));
-    assert_eq!(sandbox.agents(&owner, "install", json!({ "agent": "claude" }))["ok"], json!(true));
+    assert_eq!(
+        sandbox.agents(&owner, "install", json!({ "agent": "claude" }))["ok"],
+        json!(true)
+    );
+    assert_eq!(
+        sandbox.agents(&owner, "install", json!({ "agent": "claude" }))["ok"],
+        json!(true)
+    );
     let written = read_settings(&settings);
     assert_eq!(
         written["statusLine"],
         json!({ "type": "command", "command": "upgraded statusline 'my-status'", "padding": 2 })
     );
     let command = written["statusLine"]["command"].as_str().unwrap();
-    assert_eq!(sandbox.agents(&owner, "hooks", json!({}))["result"]["agents"][0]["installed"], json!(true));
+    assert_eq!(
+        sandbox.agents(&owner, "hooks", json!({}))["result"]["agents"][0]["installed"],
+        json!(true)
+    );
     assert_eq!(sandbox.claude_card(&owner), None);
 
     let input = status_input(now_ms() / 1000 + 3600);
     let output = sandbox.status_line(command, &input);
     assert_eq!(String::from_utf8(output.stdout).unwrap(), "mine\n");
     assert_eq!(fs::read_to_string(&seen).unwrap(), input);
-    let capture = sandbox.state().join(&owner).join("agents/claude-usage.json");
-    assert_eq!(fs::metadata(&capture).unwrap().permissions().mode() & 0o777, 0o600);
+    let capture = sandbox
+        .state()
+        .join(&owner)
+        .join("agents/claude-usage.json");
+    assert_eq!(
+        fs::metadata(&capture).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
 
     let card = sandbox.claude_card(&owner).unwrap();
     assert_eq!(card["account"], json!("fixture@localhost"));
@@ -1919,7 +1976,10 @@ fn the_claude_status_line_keeps_its_windows_and_still_prints_the_user_own() {
     assert_eq!(card["limits"][0]["windows"].as_array().unwrap().len(), 2);
 
     sandbox.status_line(command, &json!({ "session_id": "s1" }).to_string());
-    assert_eq!(sandbox.claude_card(&owner).unwrap()["captured"], json!(captured));
+    assert_eq!(
+        sandbox.claude_card(&owner).unwrap()["captured"],
+        json!(captured)
+    );
 
     std::thread::sleep(std::time::Duration::from_millis(5));
     let stale = json!({
@@ -1934,9 +1994,20 @@ fn the_claude_status_line_keeps_its_windows_and_still_prints_the_user_own() {
     assert_eq!(kept["captured"], json!(captured));
     assert_eq!(kept["limits"], card["limits"]);
 
-    assert!(!sandbox.state().join(&owner).join("agents/statusline.json").exists());
-    let teardown = sandbox.call(json!({ "service": "lifecycle", "op": "teardown", "owner": owner }));
-    assert_eq!(teardown["result"]["hooks_removed"].as_array().unwrap().len(), 1);
+    assert!(!sandbox
+        .state()
+        .join(&owner)
+        .join("agents/statusline.json")
+        .exists());
+    let teardown =
+        sandbox.call(json!({ "service": "lifecycle", "op": "teardown", "owner": owner }));
+    assert_eq!(
+        teardown["result"]["hooks_removed"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
     assert_eq!(read_settings(&settings), json!({ "statusLine": mine }));
 }
 
@@ -1975,9 +2046,15 @@ fn a_claude_without_a_status_line_gets_one_that_prints_nothing_and_loses_it_at_t
 
     sandbox.agents(&owner, "install", json!({ "agent": "claude" }));
     let written = read_settings(&settings);
-    assert_eq!(written["statusLine"], json!({ "type": "command", "command": "upgraded statusline" }));
+    assert_eq!(
+        written["statusLine"],
+        json!({ "type": "command", "command": "upgraded statusline" })
+    );
     let command = written["statusLine"]["command"].as_str().unwrap();
-    assert!(sandbox.status_line(command, &status_input(now_ms() / 1000 + 3600)).stdout.is_empty());
+    assert!(sandbox
+        .status_line(command, &status_input(now_ms() / 1000 + 3600))
+        .stdout
+        .is_empty());
     assert!(sandbox.claude_card(&owner).is_some());
 
     fs::remove_dir_all(sandbox.state().join(&owner).join("agents")).unwrap();
@@ -1996,7 +2073,11 @@ fn teardown_unquotes_a_carried_status_line_and_leaves_one_it_cannot_read() {
         "command": r#"upgraded statusline 'printf "%s" '\''it is'\'''"#,
         "padding": 1,
     });
-    fs::write(&settings, json!({ "model": "opus", "statusLine": carried }).to_string()).unwrap();
+    fs::write(
+        &settings,
+        json!({ "model": "opus", "statusLine": carried }).to_string(),
+    )
+    .unwrap();
 
     sandbox.call(json!({ "service": "lifecycle", "op": "teardown", "owner": owner }));
     assert_eq!(
@@ -2009,7 +2090,10 @@ fn teardown_unquotes_a_carried_status_line_and_leaves_one_it_cannot_read() {
     let unreadable = json!({ "type": "command", "command": "upgraded statusline 'a' 'b'" });
     fs::write(&settings, json!({ "statusLine": unreadable }).to_string()).unwrap();
     sandbox.call(json!({ "service": "lifecycle", "op": "teardown", "owner": owner }));
-    assert_eq!(read_settings(&settings), json!({ "statusLine": unreadable }));
+    assert_eq!(
+        read_settings(&settings),
+        json!({ "statusLine": unreadable })
+    );
 }
 
 #[test]
@@ -2030,14 +2114,18 @@ fn a_declared_claude_config_shows_the_status_line_with_the_hooks() {
     );
     assert!(claude["entries"]["hooks"]["Stop"].is_array());
 
-    let ours = json!({ "type": "command", "command": "upgraded statusline 'my-status'", "padding": 3 });
+    let ours =
+        json!({ "type": "command", "command": "upgraded statusline 'my-status'", "padding": 3 });
     fs::write(&store, json!({ "statusLine": ours }).to_string()).unwrap();
     let hooks = sandbox.agents(&owner, "hooks", json!({}));
     assert_eq!(hooks["result"]["agents"][0]["entries"]["statusLine"], ours);
 }
 
 fn gone(pid: &str) -> bool {
-    let output = Command::new("ps").args(["-o", "stat=", "-p", pid]).output().unwrap();
+    let output = Command::new("ps")
+        .args(["-o", "stat=", "-p", pid])
+        .output()
+        .unwrap();
     let stat = String::from_utf8_lossy(&output.stdout);
     stat.trim().is_empty() || stat.trim().starts_with('Z')
 }
@@ -2051,7 +2139,8 @@ fn a_declared_claude_config_carries_the_user_status_line_in_the_engine_entry() {
     let store = sandbox.work().join("settings.json");
     fs::write(
         &store,
-        json!({ "statusLine": { "type": "command", "command": mine, "refreshInterval": 5 } }).to_string(),
+        json!({ "statusLine": { "type": "command", "command": mine, "refreshInterval": 5 } })
+            .to_string(),
     )
     .unwrap();
     fs::create_dir_all(sandbox.home().join(".claude")).unwrap();
@@ -2077,9 +2166,16 @@ fn a_cancelled_status_line_takes_the_chained_command_with_it() {
     let pids = sandbox.work().join("pids");
     sandbox.stub(
         "slow-status",
-        &format!("echo $$ > '{0}'; sleep 30 & echo $! >> '{0}'; wait", pids.display()),
+        &format!(
+            "echo $$ > '{0}'; sleep 30 & echo $! >> '{0}'; wait",
+            pids.display()
+        ),
     );
-    let path = format!("{}:{}", sandbox.bin().display(), std::env::var("PATH").unwrap_or_default());
+    let path = format!(
+        "{}:{}",
+        sandbox.bin().display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
     let mut engine = sandbox
         .command(&path)
         .args(["statusline", "slow-status"])
@@ -2100,19 +2196,32 @@ fn a_cancelled_status_line_takes_the_chained_command_with_it() {
         if lines.len() == 2 {
             break lines;
         }
-        assert!(started.elapsed().as_secs() < 3, "the chained command never started");
+        assert!(
+            started.elapsed().as_secs() < 3,
+            "the chained command never started"
+        );
         std::thread::sleep(std::time::Duration::from_millis(20));
     };
     assert!(!gone(&running[0]) && !gone(&running[1]));
 
     let signalled = std::time::Instant::now();
-    let kill = Command::new("kill").args(["-TERM", &engine.id().to_string()]).status().unwrap();
+    let kill = Command::new("kill")
+        .args(["-TERM", &engine.id().to_string()])
+        .status()
+        .unwrap();
     assert!(kill.success());
     let output = engine.wait_with_output().unwrap();
     assert!(output.stdout.is_empty());
-    assert!(output.stderr.is_empty(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.stderr.is_empty(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     while !running.iter().all(|pid| gone(pid)) {
-        assert!(signalled.elapsed().as_secs() < 2, "the chained command outlived its status line");
+        assert!(
+            signalled.elapsed().as_secs() < 2,
+            "the chained command outlived its status line"
+        );
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
 }

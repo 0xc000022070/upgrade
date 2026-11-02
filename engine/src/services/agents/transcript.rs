@@ -108,7 +108,12 @@ fn codex_output(value: &Value) -> String {
     match value {
         Value::String(text) => serde_json::from_str::<Value>(text)
             .ok()
-            .and_then(|parsed| parsed.get("output").and_then(Value::as_str).map(str::to_owned))
+            .and_then(|parsed| {
+                parsed
+                    .get("output")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
             .unwrap_or_else(|| text.clone()),
         Value::Object(_) => value
             .get("content")
@@ -147,7 +152,10 @@ fn codex(index: usize, record: &Value, out: &mut Vec<Value>) {
             }
         }
         Some("function_call") => {
-            let arguments = payload.get("arguments").and_then(Value::as_str).unwrap_or("");
+            let arguments = payload
+                .get("arguments")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             let input = serde_json::from_str::<Value>(arguments).unwrap_or(json!(arguments));
             let mut tool = item(index, "tool", &summarize(&input), TEXT_CHARS);
             tool["tool"] = payload.get("name").cloned().unwrap_or(Value::Null);
@@ -184,10 +192,16 @@ pub fn read(args: &Value, sessions: &[(String, AgentKind, Option<String>)]) -> E
     let parse: fn(usize, &Value, &mut Vec<Value>) = match agent {
         AgentKind::Claude => claude,
         AgentKind::Codex => codex,
-        other => return Err(EngineError::unsupported(format!("{other} keeps no transcript the engine reads"))),
+        other => {
+            return Err(EngineError::unsupported(format!(
+                "{other} keeps no transcript the engine reads"
+            )))
+        }
     };
     let Some(path) = path else {
-        return Err(EngineError::not_found("the agent has not named its transcript yet"));
+        return Err(EngineError::not_found(
+            "the agent has not named its transcript yet",
+        ));
     };
     let file = fs::File::open(path)?;
 
@@ -228,10 +242,17 @@ mod tests {
     }
 
     fn read_file(name: &str, body: &[u8], after: Option<u64>) -> Value {
-        let file = format!("upgrade-transcript-unit-{}-{name}.jsonl", std::process::id());
+        let file = format!(
+            "upgrade-transcript-unit-{}-{name}.jsonl",
+            std::process::id()
+        );
         let path = std::env::temp_dir().join(file);
         fs::write(&path, body).unwrap();
-        let sessions = [("claude:s".to_owned(), AgentKind::Claude, Some(path.display().to_string()))];
+        let sessions = [(
+            "claude:s".to_owned(),
+            AgentKind::Claude,
+            Some(path.display().to_string()),
+        )];
         let args = match after {
             Some(after) => json!({ "session": "claude:s", "after": after }),
             None => json!({ "session": "claude:s" }),
@@ -242,7 +263,12 @@ mod tests {
     }
 
     fn texts(answer: &Value) -> Vec<&str> {
-        answer["items"].as_array().unwrap().iter().map(|item| item["text"].as_str().unwrap()).collect()
+        answer["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|item| item["text"].as_str().unwrap())
+            .collect()
     }
 
     #[test]
@@ -277,6 +303,9 @@ mod tests {
             said("<task-notification>\n<task-id>x</task-id>"),
             said("<command-name>/commit</command-name>\n<command-args>now</command-args>")
         );
-        assert_eq!(texts(&read_file("injected", body.as_bytes(), None)), vec!["/commit now"]);
+        assert_eq!(
+            texts(&read_file("injected", body.as_bytes(), None)),
+            vec!["/commit now"]
+        );
     }
 }

@@ -90,7 +90,10 @@ fn is_our_status_line(value: &Value) -> bool {
         .and_then(Value::as_str)
         .map(str::trim)
         .is_some_and(|command| {
-            command == STATUS_LINE || command.strip_prefix(STATUS_LINE).is_some_and(|rest| rest.starts_with(' '))
+            command == STATUS_LINE
+                || command
+                    .strip_prefix(STATUS_LINE)
+                    .is_some_and(|rest| rest.starts_with(' '))
         })
 }
 
@@ -115,7 +118,11 @@ fn shell_unquoted(word: &str) -> Option<String> {
 
 fn user_command(status_line: &Value) -> Option<String> {
     let command = status_line.get("command")?.as_str()?.trim();
-    let typed = status_line.get("type").and_then(Value::as_str).unwrap_or("command") == "command";
+    let typed = status_line
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or("command")
+        == "command";
     (!command.is_empty() && typed && !is_our_status_line(status_line)).then(|| command.to_owned())
 }
 
@@ -276,7 +283,9 @@ fn render(config: &Value, original: &str) -> EngineResult<String> {
     let mut out = Vec::new();
     let formatter = serde_json::ser::PrettyFormatter::with_indent(indent(original).as_bytes());
     config
-        .serialize(&mut serde_json::Serializer::with_formatter(&mut out, formatter))
+        .serialize(&mut serde_json::Serializer::with_formatter(
+            &mut out, formatter,
+        ))
         .map_err(|err| EngineError::failed(err.to_string()))?;
     let mut raw = String::from_utf8_lossy(&out).into_owned();
     if original.is_empty() || original.ends_with('\n') {
@@ -384,9 +393,13 @@ fn merged(agent: AgentKind, mut config: Value) -> EngineResult<Value> {
     };
     let ours = entries(agent);
     for event in events(agent) {
-        let list = hooks.entry((*event).to_owned()).or_insert_with(|| json!([]));
+        let list = hooks
+            .entry((*event).to_owned())
+            .or_insert_with(|| json!([]));
         let Value::Array(list) = list else {
-            return Err(EngineError::failed(format!("the config's {event} hooks are not a list")));
+            return Err(EngineError::failed(format!(
+                "the config's {event} hooks are not a list"
+            )));
         };
         list.retain(|entry| !is_ours(entry, agent));
         list.push(ours["hooks"][*event][0].clone());
@@ -453,13 +466,18 @@ fn installed_any(agent: AgentKind, path: &Path) -> bool {
         return installed(agent, path);
     }
     read_json(path).is_ok_and(|config| {
-        let status_line = agent == AgentKind::Claude && config.get("statusLine").is_some_and(is_our_status_line);
+        let status_line =
+            agent == AgentKind::Claude && config.get("statusLine").is_some_and(is_our_status_line);
         status_line
             || config
                 .get("hooks")
                 .and_then(Value::as_object)
                 .is_some_and(|hooks| {
-                    hooks.values().filter_map(Value::as_array).flatten().any(|entry| is_ours(entry, agent))
+                    hooks
+                        .values()
+                        .filter_map(Value::as_array)
+                        .flatten()
+                        .any(|entry| is_ours(entry, agent))
                 })
     })
 }
@@ -486,8 +504,8 @@ fn stripped(agent: AgentKind, mut config: Value) -> Option<Value> {
 #[cfg(test)]
 mod tests {
     use super::{
-        claim, merged, ours_over, parse, plugin, render, shell_quoted, shell_unquoted, stripped, with_status_line,
-        without_status_line, AgentKind, PLUGIN_MARK,
+        claim, merged, ours_over, parse, plugin, render, shell_quoted, shell_unquoted, stripped,
+        with_status_line, without_status_line, AgentKind, PLUGIN_MARK,
     };
     use crate::protocol::ErrorKind;
     use serde_json::{json, Value};
@@ -495,7 +513,8 @@ mod tests {
     use std::process::Command;
 
     fn scratch(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("upgrade-hooks-unit-{}-{name}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("upgrade-hooks-unit-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -503,17 +522,46 @@ mod tests {
 
     fn round_trip(agent: AgentKind, original: &str) -> (String, String) {
         let path = Path::new("settings.json");
-        let installed = render(&merged(agent, parse(original, path).unwrap()).unwrap(), original).unwrap();
-        let removed = render(&stripped(agent, parse(&installed, path).unwrap()).unwrap(), &installed).unwrap();
+        let installed = render(
+            &merged(agent, parse(original, path).unwrap()).unwrap(),
+            original,
+        )
+        .unwrap();
+        let removed = render(
+            &stripped(agent, parse(&installed, path).unwrap()).unwrap(),
+            &installed,
+        )
+        .unwrap();
         (installed, removed)
     }
 
     #[test]
     fn a_quoted_command_reads_back_as_itself_and_nothing_else_does() {
-        for text in ["", "my-status", r#"printf '%s' "a b""#, "'", "''", r"a'\''b", r"\'"] {
-            assert_eq!(shell_unquoted(&shell_quoted(text)).as_deref(), Some(text), "{text}");
+        for text in [
+            "",
+            "my-status",
+            r#"printf '%s' "a b""#,
+            "'",
+            "''",
+            r"a'\''b",
+            r"\'",
+        ] {
+            assert_eq!(
+                shell_unquoted(&shell_quoted(text)).as_deref(),
+                Some(text),
+                "{text}"
+            );
         }
-        for word in ["", "plain", "'open", "'a' 'b'", "'a'b", r"'a'\'", r#""a""#, r"'a'\'''x"] {
+        for word in [
+            "",
+            "plain",
+            "'open",
+            "'a' 'b'",
+            "'a'b",
+            r"'a'\'",
+            r#""a""#,
+            r"'a'\'''x",
+        ] {
             assert_eq!(shell_unquoted(word), None, "{word}");
         }
     }
@@ -522,16 +570,26 @@ mod tests {
     fn the_status_line_rides_in_the_engine_and_comes_back_out() {
         let mine = json!({ "statusLine": { "type": "command", "command": "echo 'hi'", "padding": 2 }, "model": "opus" });
         let installed = with_status_line(mine.clone()).unwrap();
-        assert_eq!(installed["statusLine"]["command"], json!(r"upgraded statusline 'echo '\''hi'\'''"));
+        assert_eq!(
+            installed["statusLine"]["command"],
+            json!(r"upgraded statusline 'echo '\''hi'\'''")
+        );
         assert_eq!(with_status_line(installed.clone()).unwrap(), installed);
-        assert_eq!(ours_over(installed.get("statusLine")), installed["statusLine"]);
+        assert_eq!(
+            ours_over(installed.get("statusLine")),
+            installed["statusLine"]
+        );
         assert_eq!(without_status_line(installed), mine);
 
         let bare = with_status_line(json!({ "model": "opus" })).unwrap();
-        assert_eq!(bare["statusLine"], json!({ "type": "command", "command": "upgraded statusline" }));
+        assert_eq!(
+            bare["statusLine"],
+            json!({ "type": "command", "command": "upgraded statusline" })
+        );
         assert_eq!(without_status_line(bare), json!({ "model": "opus" }));
 
-        let theirs = json!({ "statusLine": { "type": "command", "command": "upgraded-statusline" } });
+        let theirs =
+            json!({ "statusLine": { "type": "command", "command": "upgraded-statusline" } });
         assert_eq!(without_status_line(theirs.clone()), theirs);
     }
 
@@ -545,7 +603,10 @@ mod tests {
             .cloned()
             .collect();
         assert_eq!(keys, vec!["zeta", "alpha", "hooks"]);
-        assert!(installed.starts_with("{\n    \"zeta\": 1,\n    \"alpha\": {\n        \"b\": 1,"), "{installed}");
+        assert!(
+            installed.starts_with("{\n    \"zeta\": 1,\n    \"alpha\": {\n        \"b\": 1,"),
+            "{installed}"
+        );
         assert_eq!(removed, original);
     }
 
@@ -559,11 +620,22 @@ mod tests {
     #[test]
     fn teardown_leaves_the_user_own_empty_lists_and_adds_no_hooks_object() {
         let config = json!({ "hooks": { "PreToolUse": [], "Stop": [{ "hooks": [{ "type": "command", "command": "mine" }] }] } });
-        let back = stripped(AgentKind::Claude, merged(AgentKind::Claude, config.clone()).unwrap()).unwrap();
+        let back = stripped(
+            AgentKind::Claude,
+            merged(AgentKind::Claude, config.clone()).unwrap(),
+        )
+        .unwrap();
         assert_eq!(back, config);
 
         let bare = json!({ "model": "opus" });
-        assert_eq!(stripped(AgentKind::Claude, merged(AgentKind::Claude, bare.clone()).unwrap()).unwrap(), bare);
+        assert_eq!(
+            stripped(
+                AgentKind::Claude,
+                merged(AgentKind::Claude, bare.clone()).unwrap()
+            )
+            .unwrap(),
+            bare
+        );
     }
 
     #[test]
@@ -604,15 +676,28 @@ console.log(JSON.stringify(log));
         let dir = scratch("plugin-order");
         std::fs::write(dir.join("upgrade.mjs"), plugin()).unwrap();
         std::fs::write(dir.join("harness.mjs"), HARNESS).unwrap();
-        let Ok(output) = Command::new("node").arg(dir.join("harness.mjs")).arg(dir.join("upgrade.mjs")).output() else {
+        let Ok(output) = Command::new("node")
+            .arg(dir.join("harness.mjs"))
+            .arg(dir.join("upgrade.mjs"))
+            .output()
+        else {
             return;
         };
         let _ = std::fs::remove_dir_all(&dir);
-        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         let log: Vec<String> = serde_json::from_slice(&output.stdout).unwrap();
         assert_eq!(
             log,
-            vec!["start UserPromptSubmit", "end UserPromptSubmit", "start PermissionRequest", "end PermissionRequest"]
+            vec![
+                "start UserPromptSubmit",
+                "end UserPromptSubmit",
+                "start PermissionRequest",
+                "end PermissionRequest"
+            ]
         );
     }
 }

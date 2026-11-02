@@ -184,8 +184,9 @@ fn answers_dir(root: &Path) -> PathBuf {
 fn read_state(root: &Path) -> EngineResult<State> {
     match fs::read_to_string(root.join("state.json")) {
         Ok(raw) => {
-            let state: State = serde_json::from_str(&raw)
-                .map_err(|err| EngineError::failed(format!("the agent state is unreadable: {err}")))?;
+            let state: State = serde_json::from_str(&raw).map_err(|err| {
+                EngineError::failed(format!("the agent state is unreadable: {err}"))
+            })?;
             if state.version > SCHEMA_VERSION {
                 return Err(EngineError::unsupported("unsupported agent data version"));
             }
@@ -229,7 +230,9 @@ impl Store {
         self.state
             .sessions
             .retain(|session| now.saturating_sub(session.updated) < SESSION_KEPT_MS);
-        self.state.sessions.sort_by_key(|session| std::cmp::Reverse(session.updated));
+        self.state
+            .sessions
+            .sort_by_key(|session| std::cmp::Reverse(session.updated));
         self.state.sessions.truncate(MAX_SESSIONS);
         self.state.version = SCHEMA_VERSION;
         self.state.generation += 1;
@@ -247,7 +250,10 @@ impl Store {
     }
 
     fn session(&mut self, key: &str) -> Option<&mut Session> {
-        self.state.sessions.iter_mut().find(|session| session.key == key)
+        self.state
+            .sessions
+            .iter_mut()
+            .find(|session| session.key == key)
     }
 }
 
@@ -260,7 +266,9 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path) -> EngineResult<Value
         "hooks" => hooks::describe(),
         "install" => hooks::install(AgentKind::parse(arg_str(args, "agent")?)?),
         "usage" => usage::read(args, &root),
-        _ => Err(EngineError::unsupported(format!("{SERVICE} has no op {op}"))),
+        _ => Err(EngineError::unsupported(format!(
+            "{SERVICE} has no op {op}"
+        ))),
     }
 }
 
@@ -268,14 +276,19 @@ impl State {
     fn sessions_by_key(&self) -> Vec<(String, AgentKind, Option<String>)> {
         self.sessions
             .iter()
-            .map(|session| (session.key.clone(), session.agent, session.transcript.clone()))
+            .map(|session| {
+                (
+                    session.key.clone(),
+                    session.agent,
+                    session.transcript.clone(),
+                )
+            })
             .collect()
     }
 }
 
 fn alive(pid: i32) -> bool {
-    pid > 0
-        && matches!(kill(Pid::from_raw(pid), None), Ok(()) | Err(Errno::EPERM))
+    pid > 0 && matches!(kill(Pid::from_raw(pid), None), Ok(()) | Err(Errno::EPERM))
 }
 
 fn view(session: &Session) -> Value {
@@ -329,7 +342,9 @@ fn snapshot(state: &State) -> Value {
 
 fn watch(args: &Value, root: &Path) -> EngineResult<Value> {
     let seen = arg_u64_opt(args, "generation")?;
-    let wait = arg_u64_opt(args, "wait_ms")?.unwrap_or(0).min(MAX_WATCH_WAIT_MS);
+    let wait = arg_u64_opt(args, "wait_ms")?
+        .unwrap_or(0)
+        .min(MAX_WATCH_WAIT_MS);
     let deadline = now_millis() + wait;
     loop {
         let state = read_state(root)?;
@@ -352,10 +367,9 @@ fn answer(args: &Value, root: &Path) -> EngineResult<Value> {
     let store = Store::open(root)?;
     let now = now_millis();
     let waiting = store.state.sessions.iter().any(|session| {
-        session
-            .approval
-            .as_ref()
-            .is_some_and(|approval| approval.id == id && now < approval.expires && alive(approval.pid))
+        session.approval.as_ref().is_some_and(|approval| {
+            approval.id == id && now < approval.expires && alive(approval.pid)
+        })
     });
     if !waiting {
         return Err(EngineError::not_found("the approval is no longer waiting"));
@@ -384,10 +398,21 @@ fn text(value: &Value, key: &str) -> Option<String> {
 }
 
 fn summarize(input: &Value) -> String {
-    if let Some(question) = input.pointer("/questions/0").and_then(|first| text(first, "question")) {
+    if let Some(question) = input
+        .pointer("/questions/0")
+        .and_then(|first| text(first, "question"))
+    {
         return cut(&question, SUMMARY_CHARS);
     }
-    for key in ["command", "file_path", "path", "url", "pattern", "query", "description"] {
+    for key in [
+        "command",
+        "file_path",
+        "path",
+        "url",
+        "pattern",
+        "query",
+        "description",
+    ] {
         if let Some(value) = text(input, key) {
             return cut(&value, SUMMARY_CHARS);
         }
@@ -480,7 +505,9 @@ fn asked(input: &Value) -> Option<String> {
     if text(input, "tool_name").as_deref() != Some("AskUserQuestion") {
         return None;
     }
-    let questions = input.pointer("/tool_input/questions").and_then(Value::as_array)?;
+    let questions = input
+        .pointer("/tool_input/questions")
+        .and_then(Value::as_array)?;
     let first = questions.first()?;
     let question = text(first, "question")?;
     let head = match text(first, "header") {
@@ -488,7 +515,11 @@ fn asked(input: &Value) -> Option<String> {
         None => question,
     };
     let mut lines = vec![cut(&head, SUMMARY_CHARS)];
-    let options = first.get("options").and_then(Value::as_array).into_iter().flatten();
+    let options = first
+        .get("options")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten();
     let labels = options.filter_map(|option| text(option, "label"));
     for (index, label) in labels.enumerate() {
         lines.push(format!("{}. {}", index + 1, cut(&label, LINE_CHARS / 4)));
@@ -504,7 +535,9 @@ fn apply_event(session: &mut Session, event: &str, input: &Value) -> Option<Opti
         "SessionStart" => settle_state(session, "idle"),
         "UserPromptSubmit" => {
             settle_state(session, "working");
-            if let Some(prompt) = text(input, "prompt").and_then(|prompt| typed(session.agent, &prompt)) {
+            if let Some(prompt) =
+                text(input, "prompt").and_then(|prompt| typed(session.agent, &prompt))
+            {
                 session.prompt = Some(cut(&prompt, LINE_CHARS));
             }
         }
@@ -569,7 +602,9 @@ fn run_hook(agent: &str) -> EngineResult<()> {
     if input.get("agent_id").is_some_and(|value| !value.is_null()) {
         return Ok(());
     }
-    let (Some(event), Some(session_id)) = (text(&input, "hook_event_name"), text(&input, "session_id")) else {
+    let (Some(event), Some(session_id)) =
+        (text(&input, "hook_event_name"), text(&input, "session_id"))
+    else {
         return Ok(());
     };
     let root = root(&paths::state_root(&owner::account()?)?);
@@ -578,7 +613,10 @@ fn run_hook(agent: &str) -> EngineResult<()> {
     let mut store = Store::open(&root)?;
     let now = now_millis();
     if store.session(&key).is_none() {
-        store.state.sessions.push(new_session(&key, agent, &session_id, now));
+        store
+            .state
+            .sessions
+            .push(new_session(&key, agent, &session_id, now));
     }
     let session = store.session(&key).expect("the session was just inserted");
     session.updated = now;
@@ -605,13 +643,20 @@ fn read_answer(answer_file: &Path) -> Option<Option<&'static str>> {
 }
 
 fn holds(session: &Session, key: &str, approval: &Approval) -> bool {
-    session.key == key && session.approval.as_ref().is_some_and(|pending| pending.id == approval.id)
+    session.key == key
+        && session
+            .approval
+            .as_ref()
+            .is_some_and(|pending| pending.id == approval.id)
 }
 
 fn still_pending(root: &Path, key: &str, approval: &Approval) -> bool {
-    read_state(root)
-        .ok()
-        .is_some_and(|state| state.sessions.iter().any(|session| holds(session, key, approval)))
+    read_state(root).ok().is_some_and(|state| {
+        state
+            .sessions
+            .iter()
+            .any(|session| holds(session, key, approval))
+    })
 }
 
 fn close_approval(root: &Path, key: &str, approval: &Approval) -> Option<&'static str> {
@@ -620,7 +665,9 @@ fn close_approval(root: &Path, key: &str, approval: &Approval) -> Option<&'stati
     let decision = read_answer(&answer_file).flatten();
     let _ = fs::remove_file(&answer_file);
     let mut store = store.ok()?;
-    let session = store.session(key).filter(|session| holds(session, key, approval))?;
+    let session = store
+        .session(key)
+        .filter(|session| holds(session, key, approval))?;
     session.approval = None;
     session.updated = now_millis();
     match decision {
@@ -649,15 +696,16 @@ fn await_answer(root: &Path, key: &str, approval: &Approval) -> Option<&'static 
 #[cfg(test)]
 mod tests {
     use super::{
-        answers_dir, apply_event, close_approval, cut, new_session, request_approval, summarize, typed,
-        AgentKind, Store,
+        answers_dir, apply_event, close_approval, cut, new_session, request_approval, summarize,
+        typed, AgentKind, Store,
     };
     use crate::util::now_millis;
     use serde_json::json;
 
     #[test]
     fn an_answer_that_lands_as_the_wait_ends_is_taken_under_the_lock() {
-        let root = std::env::temp_dir().join(format!("upgrade-agents-close-{}", std::process::id()));
+        let root =
+            std::env::temp_dir().join(format!("upgrade-agents-close-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let mut store = Store::open(&root).unwrap();
         let mut session = new_session("claude:s1", AgentKind::Claude, "s1", now_millis());
@@ -680,9 +728,18 @@ mod tests {
 
     #[test]
     fn a_summary_is_the_argument_a_person_reads() {
-        assert_eq!(summarize(&json!({ "command": "rm -rf build", "description": "x" })), "rm -rf build");
-        assert_eq!(summarize(&json!({ "file_path": "/a/b.rs", "old_string": "x" })), "/a/b.rs");
-        assert_eq!(summarize(&json!({ "questions": [{ "question": "Ship it?", "options": [] }] })), "Ship it?");
+        assert_eq!(
+            summarize(&json!({ "command": "rm -rf build", "description": "x" })),
+            "rm -rf build"
+        );
+        assert_eq!(
+            summarize(&json!({ "file_path": "/a/b.rs", "old_string": "x" })),
+            "/a/b.rs"
+        );
+        assert_eq!(
+            summarize(&json!({ "questions": [{ "question": "Ship it?", "options": [] }] })),
+            "Ship it?"
+        );
         assert_eq!(summarize(&json!({ "other": 1 })), "{\"other\":1}");
     }
 
@@ -698,7 +755,10 @@ mod tests {
             ] },
         });
 
-        assert!(matches!(apply_event(&mut session, "PermissionRequest", &input), Some(None)));
+        assert!(matches!(
+            apply_event(&mut session, "PermissionRequest", &input),
+            Some(None)
+        ));
         assert!(session.approval.is_none());
         assert_eq!(session.state, "blocked");
         assert_eq!(
@@ -708,7 +768,10 @@ mod tests {
 
         let notice = json!({ "notification_type": "agent_needs_input", "message": "Claude needs your input" });
         apply_event(&mut session, "Notification", &notice);
-        assert!(session.question.as_deref().is_some_and(|line| line.starts_with("Token proof")));
+        assert!(session
+            .question
+            .as_deref()
+            .is_some_and(|line| line.starts_with("Token proof")));
     }
 
     #[test]
@@ -720,9 +783,17 @@ mod tests {
     #[test]
     fn a_harness_turn_keeps_the_prompt_a_person_typed() {
         let mut session = new_session("claude:s1", AgentKind::Claude, "s1", now_millis());
-        apply_event(&mut session, "UserPromptSubmit", &json!({ "prompt": "fix the tab strip" }));
+        apply_event(
+            &mut session,
+            "UserPromptSubmit",
+            &json!({ "prompt": "fix the tab strip" }),
+        );
         let notice = "<task-notification>\n<task-id>b1yu0brus</task-id>";
-        apply_event(&mut session, "UserPromptSubmit", &json!({ "prompt": notice }));
+        apply_event(
+            &mut session,
+            "UserPromptSubmit",
+            &json!({ "prompt": notice }),
+        );
 
         assert_eq!(session.prompt.as_deref(), Some("fix the tab strip"));
         assert_eq!(session.state, "working");
@@ -730,19 +801,41 @@ mod tests {
 
     #[test]
     fn only_what_a_person_typed_is_their_turn() {
-        assert_eq!(typed(AgentKind::Claude, "  <task-notification>x").as_deref(), None);
+        assert_eq!(
+            typed(AgentKind::Claude, "  <task-notification>x").as_deref(),
+            None
+        );
         let teammate = "Another Claude session sent a message:\n<teammate-message>";
         assert_eq!(typed(AgentKind::Claude, teammate).as_deref(), None);
-        let command = "<command-message>commit</command-message>\n<command-name>/commit</command-name>\n\
+        let command =
+            "<command-message>commit</command-message>\n<command-name>/commit</command-name>\n\
             <command-args>only the engine</command-args>";
-        assert_eq!(typed(AgentKind::Claude, command).as_deref(), Some("/commit only the engine"));
-        assert_eq!(typed(AgentKind::Claude, "<command-name>/clear</command-name>").as_deref(), Some("/clear"));
-        assert_eq!(typed(AgentKind::Claude, "<bash-input>ls</bash-input>").as_deref(), Some("! ls"));
+        assert_eq!(
+            typed(AgentKind::Claude, command).as_deref(),
+            Some("/commit only the engine")
+        );
+        assert_eq!(
+            typed(AgentKind::Claude, "<command-name>/clear</command-name>").as_deref(),
+            Some("/clear")
+        );
+        assert_eq!(
+            typed(AgentKind::Claude, "<bash-input>ls</bash-input>").as_deref(),
+            Some("! ls")
+        );
         let lookalike = "<command-foo> why does this parse";
-        assert_eq!(typed(AgentKind::Claude, lookalike).as_deref(), Some(lookalike));
-        assert_eq!(typed(AgentKind::Codex, "<environment_context>").as_deref(), None);
+        assert_eq!(
+            typed(AgentKind::Claude, lookalike).as_deref(),
+            Some(lookalike)
+        );
+        assert_eq!(
+            typed(AgentKind::Codex, "<environment_context>").as_deref(),
+            None
+        );
         let typed_tag = "<system-reminder> is a tag";
-        assert_eq!(typed(AgentKind::Codex, typed_tag).as_deref(), Some(typed_tag));
+        assert_eq!(
+            typed(AgentKind::Codex, typed_tag).as_deref(),
+            Some(typed_tag)
+        );
     }
 
     #[test]

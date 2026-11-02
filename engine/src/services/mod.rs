@@ -38,7 +38,9 @@ pub fn dispatch(request: &Request, policy: &Policy) -> EngineResult<Value> {
             schedule::dispatch(&request.op, &request.args, &state_root)
         }
         agents::SERVICE => agents::dispatch(&request.op, &request.args, &state_root),
-        crate::shell::SERVICE => crate::shell::dispatch(&request.op, &request.args, &state_root, policy),
+        crate::shell::SERVICE => {
+            crate::shell::dispatch(&request.op, &request.args, &state_root, policy)
+        }
         other => Err(EngineError::unsupported(format!(
             "this engine carries no service {other}; ask lifecycle probe for what it has"
         ))),
