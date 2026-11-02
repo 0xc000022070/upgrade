@@ -31,6 +31,10 @@ android {
         System.getenv("ENGINE_ANDROID_LIBS")
             ?: error("ENGINE_ANDROID_LIBS is unset; build from the nix dev shell"),
     )
+    // Plugins bring every locale's strings; the app ships English only.
+    androidResources {
+        localeFilters += "en"
+    }
     packaging {
         jniLibs {
             useLegacyPackaging = true
@@ -42,7 +46,7 @@ android {
             // TODO: a real signing config. Debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true
-            isShrinkResources = false
+            isShrinkResources = true
         }
     }
 }
@@ -51,7 +55,12 @@ android {
 // never reaches packaging: plugin libraries kept every ABI in the release apk.
 androidComponents {
     onVariants(selector().withBuildType("release")) { variant ->
-        variant.packaging.jniLibs.excludes.addAll("lib/x86_64/**", "lib/armeabi-v7a/**")
+        // sherpa_onnx's Dart side opens only the C API.
+        variant.packaging.jniLibs.excludes.addAll(
+            "lib/x86_64/**",
+            "lib/armeabi-v7a/**",
+            "lib/*/libsherpa-onnx-cxx-api.so",
+        )
     }
 }
 
