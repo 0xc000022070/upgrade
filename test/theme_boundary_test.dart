@@ -20,7 +20,7 @@ void main() {
 
     for (final root in _roots) {
       final dir = Directory(root);
-      if (!dir.existsSync()) continue;
+      expect(dir.existsSync(), isTrue, reason: '$root moved; update _roots');
       for (final entity in dir.listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
         final path = entity.path.replaceAll('\\', '/');

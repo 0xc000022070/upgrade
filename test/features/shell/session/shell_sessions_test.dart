@@ -373,6 +373,21 @@ void main() {
     expect(transport.opened.last.closed, isFalse);
   });
 
+  test('a close the connection refuses leaves the tab as it was', () async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+
+    final session = sessions.open(intent: testIntent(), _rose)!;
+    await _settle();
+    transport.opened.single.accepting = false;
+
+    await sessions.close(intent: testIntent(), _rose.id, session);
+
+    expect(sessions.forHost(_rose.id), [session]);
+    expect(transport.opened.single.closes, isEmpty);
+    expect(transport.opened.single.closed, isFalse);
+  });
+
   testWidgets('a reconnect reopens in the slot the session already holds', (
     tester,
   ) async {

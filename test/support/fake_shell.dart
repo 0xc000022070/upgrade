@@ -120,8 +120,10 @@ class FakeShellConnection implements ShellConnection {
     return true;
   }
 
+  var accepting = true;
+
   @override
-  bool accepts(DropReason reason) => true;
+  bool accepts(DropReason reason) => accepting;
 
   @override
   Future<void> close(DropReason reason) async {
