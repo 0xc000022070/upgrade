@@ -18,7 +18,7 @@ packages:
     source: hosted
     version: "13.3.0"
   archive:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: archive
       sha256: ace891da0862b0e4cabbb064ee3fd87b2728b898949fdb366d83fe98342c9f19
@@ -531,7 +531,7 @@ packages:
     source: hosted
     version: "4.1.2"
   image:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: image
       sha256: a1e7f4951e538a568e14b856702afc9ae1d2f4b202daced8d22c1b9cd211ce89

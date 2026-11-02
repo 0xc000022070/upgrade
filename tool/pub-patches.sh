@@ -132,7 +132,7 @@ generate() {
   local work=$TMP/series out=$TMP/patches
   upstream
   mkdir -p "$work" "$out"
-  cp -r "$UPSTREAM/lib" "$work/lib"
+  cp -r "$UPSTREAM/lib" "$UPSTREAM/pubspec.yaml" "$work/"
 
   # Hooks off too, from hooksPath and hook.* config: a throwaway repo inherits the global
   # ones, which would judge upstream's own source as though this commit had written it.
