@@ -617,53 +617,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b2231b7c3057d5e4ad0156fb3dc807d900806020c5ffa3ee6ff2c8c76fb8520"
 
 [[package]]
-name = "upgraded"
-version = "0.1.0"
-dependencies = [
- "aes",
- "chrono",
- "chrono-tz",
- "imara-diff",
- "libc",
- "memchr",
- "miniz_oxide 0.8.9",
- "nix",
- "ocb3",
- "png",
- "serde",
- "serde_json",
- "sha2",
- "tree-sitter",
- "tree-sitter-bash",
- "tree-sitter-c",
- "tree-sitter-containerfile",
- "tree-sitter-cpp",
- "tree-sitter-css",
- "tree-sitter-dart",
- "tree-sitter-go",
- "tree-sitter-graphql",
- "tree-sitter-html",
- "tree-sitter-java",
- "tree-sitter-javascript",
- "tree-sitter-json",
- "tree-sitter-kotlin-ng",
- "tree-sitter-language",
- "tree-sitter-lua",
- "tree-sitter-make",
- "tree-sitter-md",
- "tree-sitter-nix",
- "tree-sitter-proto",
- "tree-sitter-python",
- "tree-sitter-rust",
- "tree-sitter-scss",
- "tree-sitter-sequel",
- "tree-sitter-toml-ng",
- "tree-sitter-typescript",
- "tree-sitter-xml",
- "tree-sitter-yaml",
-]
-
-[[package]]
 name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -982,6 +935,53 @@ name = "unicode-ident"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d245f478577f809a851594d02313b640fb437e0bb33866753cff937863096954"
+
+[[package]]
+name = "upgraded"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "chrono",
+ "chrono-tz",
+ "imara-diff",
+ "libc",
+ "memchr",
+ "miniz_oxide 0.8.9",
+ "nix",
+ "ocb3",
+ "png",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tree-sitter",
+ "tree-sitter-bash",
+ "tree-sitter-c",
+ "tree-sitter-containerfile",
+ "tree-sitter-cpp",
+ "tree-sitter-css",
+ "tree-sitter-dart",
+ "tree-sitter-go",
+ "tree-sitter-graphql",
+ "tree-sitter-html",
+ "tree-sitter-java",
+ "tree-sitter-javascript",
+ "tree-sitter-json",
+ "tree-sitter-kotlin-ng",
+ "tree-sitter-language",
+ "tree-sitter-lua",
+ "tree-sitter-make",
+ "tree-sitter-md",
+ "tree-sitter-nix",
+ "tree-sitter-proto",
+ "tree-sitter-python",
+ "tree-sitter-rust",
+ "tree-sitter-scss",
+ "tree-sitter-sequel",
+ "tree-sitter-toml-ng",
+ "tree-sitter-typescript",
+ "tree-sitter-xml",
+ "tree-sitter-yaml",
+]
 
 [[package]]
 name = "version_check"
