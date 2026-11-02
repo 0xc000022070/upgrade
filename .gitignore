@@ -70,3 +70,6 @@ result-*
 /engine/target/
 
 /test/shards/
+
+# Design exports, regenerated from the .pen sources
+/docs/design/**/*.png

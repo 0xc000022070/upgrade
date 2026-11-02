@@ -1,0 +1,2487 @@
+{
+  "version": "2.21",
+  "children": [
+    {
+      "type": "frame",
+      "id": "Rh7dF",
+      "x": 0,
+      "y": 0,
+      "name": "Plugin Slice Plan",
+      "clip": true,
+      "width": 1700,
+      "fill": "$bg",
+      "layout": "vertical",
+      "padding": [
+        34,
+        46,
+        30,
+        46
+      ],
+      "children": [
+        {
+          "type": "frame",
+          "id": "dQ2cU",
+          "name": "Header",
+          "width": "fill_container",
+          "stroke": "$rule",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "layout": "vertical",
+          "gap": 14,
+          "padding": [
+            0,
+            0,
+            24,
+            0
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "Qo9qV",
+              "name": "Kicker",
+              "fill": "$muted",
+              "content": "08 / PLUGIN SLICE",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "600",
+              "letterSpacing": 0.3
+            },
+            {
+              "type": "text",
+              "id": "OSlgX",
+              "name": "Title",
+              "fill": "$text",
+              "content": "One package. Many hosts. Every answer attributed.",
+              "fontFamily": "Inter",
+              "fontSize": 42,
+              "fontWeight": "600",
+              "letterSpacing": -0.6
+            },
+            {
+              "type": "text",
+              "id": "EkW3b",
+              "name": "Subtitle",
+              "fill": "$muted",
+              "content": "Closes P0  •  attach → check → grant → place  •  packages reference docs/PLUGIN-SPEC.md  •  no dates or completion claims inferred",
+              "fontFamily": "Inter",
+              "fontSize": 18,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "HIJnF",
+          "name": "Attach Flow",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 16,
+          "padding": [
+            30,
+            0,
+            0,
+            0
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "uBRBJ",
+              "name": "Section Label",
+              "fill": "$muted",
+              "content": "ATTACH FLOW ON THE PHONE",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "600",
+              "letterSpacing": 0.3
+            },
+            {
+              "type": "frame",
+              "id": "Ad5Gk",
+              "name": "Steps",
+              "width": "fill_container",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "dF4yq",
+                  "name": "Step 1",
+                  "width": "fill_container",
+                  "height": 178,
+                  "fill": "$card",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "hs4cv",
+                      "name": "Step Head",
+                      "gap": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Jxaaz",
+                          "name": "No",
+                          "fill": "$muted",
+                          "content": "1",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "sgXOp",
+                          "name": "Step Title",
+                          "fill": "$text",
+                          "content": "Plugin details",
+                          "fontFamily": "Inter",
+                          "fontSize": 19,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "zFtQ3",
+                      "name": "Step Body",
+                      "fill": "$muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Installed package, version, declared needs: engine, tool, grants",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "s9CWVr",
+                  "name": "Arrow",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "arrow-right",
+                  "library": "lucide",
+                  "fill": "$muted"
+                },
+                {
+                  "type": "frame",
+                  "id": "n5PBu",
+                  "name": "Step 2",
+                  "width": "fill_container",
+                  "height": 178,
+                  "fill": "$card",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "ghCog",
+                      "name": "Step Head",
+                      "gap": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ihqA6",
+                          "name": "No",
+                          "fill": "$muted",
+                          "content": "2",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Xct8e",
+                          "name": "Step Title",
+                          "fill": "$text",
+                          "content": "Attach to hosts",
+                          "fontFamily": "Inter",
+                          "fontSize": 19,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "AJt2x",
+                      "name": "Step Body",
+                      "fill": "$muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Pick PHONE LINUX installs and remote hosts in one sheet",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "MUV4M",
+                  "name": "Arrow",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "arrow-right",
+                  "library": "lucide",
+                  "fill": "$muted"
+                },
+                {
+                  "type": "frame",
+                  "id": "q4lZls",
+                  "name": "Step 3",
+                  "width": "fill_container",
+                  "height": 178,
+                  "fill": "$ink",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "u82Sk2",
+                      "name": "Step Head",
+                      "gap": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "qvemN",
+                          "name": "No",
+                          "fill": "$lime",
+                          "content": "3",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "CTx58",
+                          "name": "Step Title",
+                          "fill": "#F2F3EF",
+                          "content": "Compatibility",
+                          "fontFamily": "Inter",
+                          "fontSize": 19,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "U2VqUt",
+                      "name": "Step Body",
+                      "fill": "#A9AEAB",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Checked per host before any grant",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "mpNJr",
+                      "name": "Check Matrix",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 5,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "KGoQi",
+                          "name": "PHONE LINUX",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "TEKoI",
+                              "name": "Host",
+                              "fill": "#E6E8E3",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "PHONE LINUX",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 11,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "WvLSb",
+                              "name": "Eng",
+                              "fill": "#C9CDC9",
+                              "content": "eng ✓",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "p1xdZh",
+                              "name": "Tool",
+                              "fill": "#C9CDC9",
+                              "content": "tool ✓",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "gnTjx",
+                          "name": "UPGRADE HOST VM",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Y7iPWE",
+                              "name": "Host",
+                              "fill": "#E6E8E3",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "UPGRADE HOST VM",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 11,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Cm0D3",
+                              "name": "Eng",
+                              "fill": "#C9CDC9",
+                              "content": "eng ✓",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "kJyog",
+                              "name": "Tool",
+                              "fill": "#E07B6C",
+                              "content": "tool ✗",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "JkpdS",
+                          "name": "SCENARIO BARE",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "qlls5",
+                              "name": "Host",
+                              "fill": "#E6E8E3",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "SCENARIO BARE",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 11,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "cNNAr",
+                              "name": "Eng",
+                              "fill": "#E07B6C",
+                              "content": "eng ✗",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "R2u15T",
+                              "name": "Tool",
+                              "fill": "#E07B6C",
+                              "content": "tool ✗",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "r3bnX",
+                  "name": "Arrow",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "arrow-right",
+                  "library": "lucide",
+                  "fill": "$muted"
+                },
+                {
+                  "type": "frame",
+                  "id": "IaqT7",
+                  "name": "Step 4",
+                  "width": "fill_container",
+                  "height": 178,
+                  "fill": "$card",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "M1HVw",
+                      "name": "Step Head",
+                      "gap": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "oTib2",
+                          "name": "No",
+                          "fill": "$muted",
+                          "content": "4",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "G09gX",
+                          "name": "Step Title",
+                          "fill": "$text",
+                          "content": "Grants",
+                          "fontFamily": "Inter",
+                          "fontSize": 19,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "qdC2P",
+                      "name": "Step Body",
+                      "fill": "$muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Per attachment, scoped to what the package declares",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "MG8sV",
+                  "name": "Arrow",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "arrow-right",
+                  "library": "lucide",
+                  "fill": "$muted"
+                },
+                {
+                  "type": "frame",
+                  "id": "H7kF13",
+                  "name": "Step 5",
+                  "width": "fill_container",
+                  "height": 178,
+                  "fill": "$card",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "UytVw",
+                      "name": "Step Head",
+                      "gap": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "mOHRE",
+                          "name": "No",
+                          "fill": "$muted",
+                          "content": "5",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Nsae5",
+                          "name": "Step Title",
+                          "fill": "$text",
+                          "content": "Place a widget",
+                          "fontFamily": "Inter",
+                          "fontSize": 19,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "t3kDu",
+                      "name": "Step Body",
+                      "fill": "$muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Home card bound to one attachment, not to the package",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "J8gHrR",
+              "name": "Flow Rule",
+              "fill": "$muted",
+              "content": "Unchecked hosts never reach the grant step. A failed check names the missing piece (engine or tool) and offers setup; it does not hide the host.",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "vNyB4",
+          "name": "Model + Home",
+          "width": "fill_container",
+          "gap": 30,
+          "padding": [
+            34,
+            0,
+            0,
+            0
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "GUCae",
+              "name": "Attachment Model",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "d2va0R",
+                  "name": "Section Label",
+                  "fill": "$muted",
+                  "content": "ATTACHMENT MODEL",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600",
+                  "letterSpacing": 0.3
+                },
+                {
+                  "type": "frame",
+                  "id": "PdKEA",
+                  "name": "Model Diagram",
+                  "width": "fill_container",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "zrR2l",
+                      "name": "Package",
+                      "width": 230,
+                      "fill": "$ink",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 18,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "z2ppLb",
+                          "name": "Pkg Title",
+                          "fill": "#F2F3EF",
+                          "content": "Repository status",
+                          "fontFamily": "Inter",
+                          "fontSize": 18,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "g2ayVS",
+                          "name": "Pkg Body",
+                          "fill": "#A9AEAB",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "One installed package.\nCode, manifest, version. Holds no host state.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "icon",
+                      "id": "sPon7",
+                      "name": "Fan Out",
+                      "rotation": -90,
+                      "width": 18,
+                      "height": 18,
+                      "icon": "git-fork",
+                      "library": "lucide",
+                      "fill": "$muted"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "V8WyWD",
+                      "name": "Attachments",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "yk3oF",
+                          "name": "att_7f3c",
+                          "width": "fill_container",
+                          "fill": "$card",
+                          "gap": 14,
+                          "padding": [
+                            12,
+                            14
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Udxtd",
+                              "name": "Id",
+                              "fill": "$muted",
+                              "content": "att_7f3c",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "v6ehZz",
+                              "name": "Binding",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 3,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "JY7oV",
+                                  "name": "Host",
+                                  "fill": "$text",
+                                  "content": "PHONE LINUX  /  ~/src/upgrade",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "DHTK9",
+                                  "name": "Own",
+                                  "fill": "$muted",
+                                  "content": "config: poll 30s  •  own grants",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Uc64o",
+                          "name": "att_2b91",
+                          "width": "fill_container",
+                          "fill": "$card",
+                          "gap": 14,
+                          "padding": [
+                            12,
+                            14
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "v19lb",
+                              "name": "Id",
+                              "fill": "$muted",
+                              "content": "att_2b91",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "MrmLV",
+                              "name": "Binding",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 3,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "dVedR",
+                                  "name": "Host",
+                                  "fill": "$text",
+                                  "content": "UPGRADE HOST VM  /  fixture",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "fIVpv",
+                                  "name": "Own",
+                                  "fill": "$muted",
+                                  "content": "config: poll 30s, fetch on  •  own grants",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "StrAo",
+                          "name": "att_c04e",
+                          "width": "fill_container",
+                          "fill": "$card",
+                          "gap": 14,
+                          "padding": [
+                            12,
+                            14
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "jUN2w",
+                              "name": "Id",
+                              "fill": "$muted",
+                              "content": "att_c04e",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "ygiNV",
+                              "name": "Binding",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 3,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "R5nXL",
+                                  "name": "Host",
+                                  "fill": "$text",
+                                  "content": "UPGRADE HOST VM  /  dotfiles",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "J1F74D",
+                                  "name": "Own",
+                                  "fill": "$muted",
+                                  "content": "config: manual refresh  •  own grants",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "P2tZRF",
+                  "name": "Rename Rule",
+                  "width": "fill_container",
+                  "stroke": "$rule",
+                  "strokeWidth": 1,
+                  "gap": 12,
+                  "padding": [
+                    12,
+                    14
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "ozQpt",
+                      "name": "Pin",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "key-round",
+                      "library": "lucide",
+                      "fill": "$text"
+                    },
+                    {
+                      "type": "text",
+                      "id": "I6ZyJV",
+                      "name": "Rename Text",
+                      "fill": "$text",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Id is stable per host + workspace. Ownership follows the host's id, not its label: rename UPGRADE HOST VM → dev-vm and att_2b91 keeps its config, grants and Home placement.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ZSxPK",
+              "name": "Home Card",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "H0dspU",
+                  "name": "Section Label",
+                  "fill": "$muted",
+                  "content": "HOME CARD WITH A TARGET",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600",
+                  "letterSpacing": 0.3
+                },
+                {
+                  "type": "frame",
+                  "id": "QGtuQ",
+                  "name": "Switch States",
+                  "width": "fill_container",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "f805fx",
+                      "name": "Before",
+                      "width": "fill_container",
+                      "fill": "$card",
+                      "cornerRadius": 4,
+                      "layout": "vertical",
+                      "gap": 12,
+                      "padding": 16,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "HawxW",
+                          "name": "Card Head",
+                          "width": "fill_container",
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "xxCQb",
+                              "name": "Card Title",
+                              "fill": "$text",
+                              "content": "Repository status",
+                              "fontFamily": "Inter",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "N7yHx",
+                              "name": "Target Chip",
+                              "fill": "$ink",
+                              "gap": 4,
+                              "padding": [
+                                4,
+                                8
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "Ej76g",
+                                  "name": "Target",
+                                  "fill": "#F2F3EF",
+                                  "content": "PHONE LINUX",
+                                  "fontFamily": "JetBrains Mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "nIwSK",
+                                  "name": "Caret",
+                                  "width": 12,
+                                  "height": 12,
+                                  "icon": "chevron-down",
+                                  "library": "lucide",
+                                  "fill": "#F2F3EF"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "A1ndn",
+                          "name": "Line 0",
+                          "fill": "$text",
+                          "content": "main  ↑2  ~3",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "mWVNA",
+                          "name": "Line 1",
+                          "fill": "$muted",
+                          "content": "checked 12s ago on PHONE LINUX",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "icon",
+                      "id": "pD0Zu",
+                      "name": "Switch",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "arrow-right-left",
+                      "library": "lucide",
+                      "fill": "$muted"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Lo5K4",
+                      "name": "After Switch",
+                      "width": "fill_container",
+                      "fill": "$card",
+                      "cornerRadius": 4,
+                      "layout": "vertical",
+                      "gap": 12,
+                      "padding": 16,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "DWKvc",
+                          "name": "Card Head",
+                          "width": "fill_container",
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "qyTrh",
+                              "name": "Card Title",
+                              "fill": "$text",
+                              "content": "Repository status",
+                              "fontFamily": "Inter",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "P7nhn",
+                              "name": "Target Chip",
+                              "fill": "$ink",
+                              "gap": 4,
+                              "padding": [
+                                4,
+                                8
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "m7eBoF",
+                                  "name": "Target",
+                                  "fill": "#F2F3EF",
+                                  "content": "dev-vm",
+                                  "fontFamily": "JetBrains Mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "WB0XG",
+                                  "name": "Caret",
+                                  "width": 12,
+                                  "height": 12,
+                                  "icon": "chevron-down",
+                                  "library": "lucide",
+                                  "fill": "#F2F3EF"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "ehI3L",
+                          "name": "Line 0",
+                          "fill": "$muted",
+                          "content": "waiting for dev-vm",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "nB3FB",
+                          "name": "Line 1",
+                          "fill": "$muted",
+                          "content": "nothing shown from the previous host",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "XuQe7",
+                  "name": "Dropped Reply",
+                  "width": "fill_container",
+                  "fill": "$ink",
+                  "gap": 12,
+                  "padding": [
+                    12,
+                    14
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "EulUU",
+                      "name": "Drop",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "circle-slash",
+                      "library": "lucide",
+                      "fill": "$lime"
+                    },
+                    {
+                      "type": "text",
+                      "id": "YYKPi",
+                      "name": "Drop Text",
+                      "fill": "#E6E8E3",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Late reply for req 41 from PHONE LINUX arrives → discarded. Each request carries attachment id + request id; only the current target's request may paint the card.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ty9TL",
+          "name": "Host + Jobs",
+          "width": "fill_container",
+          "gap": 30,
+          "padding": [
+            34,
+            0,
+            0,
+            0
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "tmCZc",
+              "name": "Host Detail",
+              "width": 620,
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "A80Vcb",
+                  "name": "Section Label",
+                  "fill": "$muted",
+                  "content": "HOST DETAIL: ATTACHED PLUGINS",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600",
+                  "letterSpacing": 0.3
+                },
+                {
+                  "type": "frame",
+                  "id": "IoMl7",
+                  "name": "Host Sheet",
+                  "width": "fill_container",
+                  "fill": "$card",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "OfEOX",
+                      "name": "Sheet Head",
+                      "width": "fill_container",
+                      "stroke": "$rule",
+                      "strokeWidth": {
+                        "bottom": 1
+                      },
+                      "padding": [
+                        14,
+                        18
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "JZGHx",
+                          "name": "Host Name",
+                          "fill": "$text",
+                          "content": "dev-vm",
+                          "fontFamily": "Inter",
+                          "fontSize": 18,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Y3aY9",
+                          "name": "Host Addr",
+                          "fill": "$muted",
+                          "content": "100.118.60.77:2222  •  dev",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "wLEI6",
+                      "name": "Repository status fixture",
+                      "width": "fill_container",
+                      "stroke": "$rule",
+                      "strokeWidth": {
+                        "bottom": 1
+                      },
+                      "gap": 14,
+                      "padding": [
+                        12,
+                        18
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "tGGRc",
+                          "name": "Who",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 3,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "vBbgV",
+                              "name": "Plugin",
+                              "fill": "$text",
+                              "content": "Repository status  /  fixture",
+                              "fontFamily": "Inter",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "l6aJtn",
+                              "name": "Why",
+                              "fill": "$muted",
+                              "content": "last run 12s ago",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "y9QYdU",
+                          "name": "State",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "p7sy8T",
+                              "name": "Dot",
+                              "fill": "$ok",
+                              "width": 8,
+                              "height": 8
+                            },
+                            {
+                              "type": "text",
+                              "id": "a4g4W",
+                              "name": "State Label",
+                              "fill": "$ok",
+                              "content": "Ready",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "NZoGl",
+                      "name": "Repository status dotfiles",
+                      "width": "fill_container",
+                      "stroke": "$rule",
+                      "strokeWidth": {
+                        "bottom": 1
+                      },
+                      "gap": 14,
+                      "padding": [
+                        12,
+                        18
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "HKY3U",
+                          "name": "Who",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 3,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "QnbiJ",
+                              "name": "Plugin",
+                              "fill": "$text",
+                              "content": "Repository status  /  dotfiles",
+                              "fontFamily": "Inter",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "hCONn",
+                              "name": "Why",
+                              "fill": "$muted",
+                              "content": "tool missing: git",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ZIZx1",
+                          "name": "State",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "Mckrh",
+                              "name": "Dot",
+                              "fill": "$warn",
+                              "width": 8,
+                              "height": 8
+                            },
+                            {
+                              "type": "text",
+                              "id": "sjSKM",
+                              "name": "State Label",
+                              "fill": "$warn",
+                              "content": "Needs setup",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "QrJ9R",
+                      "name": "Disk report home",
+                      "width": "fill_container",
+                      "stroke": "$rule",
+                      "strokeWidth": {
+                        "bottom": 1
+                      },
+                      "gap": 14,
+                      "padding": [
+                        12,
+                        18
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "Q8vOjH",
+                          "name": "Who",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 3,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "X2PtG",
+                              "name": "Plugin",
+                              "fill": "$text",
+                              "content": "Disk report  /  home",
+                              "fontFamily": "Inter",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "z75Ze",
+                              "name": "Why",
+                              "fill": "$muted",
+                              "content": "paused by you; keeps grants",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "VpLih",
+                          "name": "State",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "PAl5O",
+                              "name": "Dot",
+                              "fill": "$idle",
+                              "width": 8,
+                              "height": 8
+                            },
+                            {
+                              "type": "text",
+                              "id": "MHOH6",
+                              "name": "State Label",
+                              "fill": "$idle",
+                              "content": "Paused",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "s18u2",
+                      "name": "Service logs system",
+                      "width": "fill_container",
+                      "stroke": "$rule",
+                      "strokeWidth": {
+                        "bottom": 1
+                      },
+                      "gap": 14,
+                      "padding": [
+                        12,
+                        18
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "bGpUE",
+                          "name": "Who",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 3,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "hgBQF",
+                              "name": "Plugin",
+                              "fill": "$text",
+                              "content": "Service logs  /  system",
+                              "fontFamily": "Inter",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "H9vY9",
+                              "name": "Why",
+                              "fill": "$muted",
+                              "content": "engine unreachable; last result 4m old",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "DgLAX",
+                          "name": "State",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "DQdva",
+                              "name": "Dot",
+                              "fill": "$down",
+                              "width": 8,
+                              "height": 8
+                            },
+                            {
+                              "type": "text",
+                              "id": "NDnJO",
+                              "name": "State Label",
+                              "fill": "$down",
+                              "content": "Offline",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "fnqW0",
+                  "name": "Host Note",
+                  "fill": "$muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Example attachments. Each row opens its own config and grants; setup actions live on the row that needs them.",
+                  "lineHeight": 1.4,
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "J5PZyD",
+              "name": "Exec Jobs",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "VQree",
+                  "name": "Section Label",
+                  "fill": "$muted",
+                  "content": "GENERAL HOST EXEC JOB LIFECYCLE",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600",
+                  "letterSpacing": 0.3
+                },
+                {
+                  "type": "frame",
+                  "id": "e5xSUF",
+                  "name": "State Machine",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "rUL7y",
+                      "name": "Live",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "pJpEc",
+                          "name": "SUBMITTED",
+                          "width": "fill_container",
+                          "fill": "$card",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": [
+                            12,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "D18Qjp",
+                              "name": "State",
+                              "fill": "$text",
+                              "content": "SUBMITTED",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "W9vx2b",
+                              "name": "Sub",
+                              "fill": "$muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "request id minted on the phone",
+                              "lineHeight": 1.35,
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "icon",
+                          "id": "hqpPf",
+                          "name": "Arrow",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "arrow-right",
+                          "library": "lucide",
+                          "fill": "$muted"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "RWm4P",
+                          "name": "RUNNING",
+                          "width": "fill_container",
+                          "fill": "$ink",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": [
+                            12,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "L6Vgo5",
+                              "name": "State",
+                              "fill": "$lime",
+                              "content": "RUNNING",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "h52vT",
+                              "name": "Sub",
+                              "fill": "#A9AEAB",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "stdout/stderr capped; tail kept, overflow counted",
+                              "lineHeight": 1.35,
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "icon",
+                      "id": "NooE1",
+                      "name": "Arrow",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$muted"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Px7QR",
+                      "name": "Terminal",
+                      "width": 170,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "l637y",
+                          "name": "DONE",
+                          "width": "fill_container",
+                          "fill": "$card",
+                          "gap": 8,
+                          "padding": [
+                            8,
+                            12
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "Q7zdY",
+                              "name": "Dot",
+                              "fill": "$ok",
+                              "width": 8,
+                              "height": 8
+                            },
+                            {
+                              "type": "text",
+                              "id": "f9g1x",
+                              "name": "State",
+                              "fill": "$text",
+                              "content": "DONE",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "O78NZT",
+                          "name": "FAILED",
+                          "width": "fill_container",
+                          "fill": "$card",
+                          "gap": 8,
+                          "padding": [
+                            8,
+                            12
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "Hx2E5",
+                              "name": "Dot",
+                              "fill": "$down",
+                              "width": 8,
+                              "height": 8
+                            },
+                            {
+                              "type": "text",
+                              "id": "N7ekZ",
+                              "name": "State",
+                              "fill": "$text",
+                              "content": "FAILED",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "c30TT2",
+                          "name": "CANCELLED",
+                          "width": "fill_container",
+                          "fill": "$card",
+                          "gap": 8,
+                          "padding": [
+                            8,
+                            12
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "j9s4p",
+                              "name": "Dot",
+                              "fill": "$idle",
+                              "width": 8,
+                              "height": 8
+                            },
+                            {
+                              "type": "text",
+                              "id": "YrQI5",
+                              "name": "State",
+                              "fill": "$text",
+                              "content": "CANCELLED",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Y2xU8N",
+                  "name": "Answer Lost Path",
+                  "width": "fill_container",
+                  "stroke": "$text",
+                  "strokeWidth": 1,
+                  "gap": 12,
+                  "padding": [
+                    14,
+                    16
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "tPwJd",
+                      "name": "ANSWER LOST",
+                      "width": "fill_container",
+                      "fill": "$card",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        12,
+                        14
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "tIzar",
+                          "name": "State",
+                          "fill": "$text",
+                          "content": "ANSWER LOST",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "ad2xJ",
+                          "name": "Sub",
+                          "fill": "$muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "link dropped after submit; outcome unknown",
+                          "lineHeight": 1.35,
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "icon",
+                      "id": "mC0MM",
+                      "name": "Arrow",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$muted"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "wA9Hw",
+                      "name": "RECONCILE",
+                      "width": "fill_container",
+                      "fill": "$card",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        12,
+                        14
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "F6dvbx",
+                          "name": "State",
+                          "fill": "$text",
+                          "content": "RECONCILE",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "WoGoS",
+                          "name": "Sub",
+                          "fill": "$muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "ask host for request id: running, finished or unknown",
+                          "lineHeight": 1.35,
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "icon",
+                      "id": "BrPp3",
+                      "name": "Arrow",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$muted"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "j8yaoJ",
+                      "name": "NEVER RE-RUN",
+                      "width": "fill_container",
+                      "fill": "$ink",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        12,
+                        14
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "GdAIb",
+                          "name": "State",
+                          "fill": "$lime",
+                          "content": "NEVER RE-RUN",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "r1ZpmI",
+                          "name": "Sub",
+                          "fill": "#A9AEAB",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "resume its output or show its terminal state. A duplicate is never started.",
+                          "lineHeight": 1.35,
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "emYMw",
+                  "name": "Jobs Note",
+                  "fill": "$muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Same lifecycle for every plugin and for plain host exec. Cancel is a request to the host, shown as CANCELLED only once the host confirms.",
+                  "lineHeight": 1.4,
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "nBIP9",
+          "name": "Proof",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 16,
+          "padding": [
+            34,
+            0,
+            30,
+            0
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "GLvm3",
+              "name": "Section Label",
+              "fill": "$muted",
+              "content": "PROOF: REPOSITORY STATUS REFERENCE PACKAGE",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "600",
+              "letterSpacing": 0.3
+            },
+            {
+              "type": "frame",
+              "id": "nYA1z",
+              "name": "Proof Row",
+              "width": "fill_container",
+              "gap": 30,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "F6x4Hb",
+                  "name": "Hosts",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "lsIha",
+                      "name": "PHONE LINUX",
+                      "width": "fill_container",
+                      "fill": "$card",
+                      "layout": "vertical",
+                      "gap": 10,
+                      "padding": [
+                        16,
+                        18
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "uuFHB",
+                          "name": "Head",
+                          "width": "fill_container",
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "xGZzI",
+                              "name": "Host",
+                              "fill": "$text",
+                              "content": "PHONE LINUX",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "lzyqy",
+                              "name": "State",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "ellipse",
+                                  "id": "D7oeJ",
+                                  "name": "Dot",
+                                  "fill": "$ok",
+                                  "width": 8,
+                                  "height": 8
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "ZjPMm",
+                                  "name": "State Label",
+                                  "fill": "$ok",
+                                  "content": "Ready",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "nHhvy",
+                          "name": "Result",
+                          "fill": "$text",
+                          "content": "main  ↑2  ~3",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 16,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "F10Vd7",
+                          "name": "Note",
+                          "fill": "$muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Runs in the phone's own Linux install",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "N5oAe",
+                      "name": "dev-vm",
+                      "width": "fill_container",
+                      "fill": "$card",
+                      "layout": "vertical",
+                      "gap": 10,
+                      "padding": [
+                        16,
+                        18
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "kV1Ez",
+                          "name": "Head",
+                          "width": "fill_container",
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "DLKtI",
+                              "name": "Host",
+                              "fill": "$text",
+                              "content": "dev-vm",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "XUdEl",
+                              "name": "State",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "ellipse",
+                                  "id": "xARha",
+                                  "name": "Dot",
+                                  "fill": "$ok",
+                                  "width": 8,
+                                  "height": 8
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "ErNOt",
+                                  "name": "State Label",
+                                  "fill": "$ok",
+                                  "content": "Ready",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "gRPa4",
+                          "name": "Result",
+                          "fill": "$text",
+                          "content": "fixture  main  clean",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 16,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "P0eiIT",
+                          "name": "Note",
+                          "fill": "$muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Remote host over SSH, own attachment",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "nPWZH",
+                      "name": "SCENARIO HERDR",
+                      "width": "fill_container",
+                      "fill": "$card",
+                      "layout": "vertical",
+                      "gap": 10,
+                      "padding": [
+                        16,
+                        18
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "vvZkV",
+                          "name": "Head",
+                          "width": "fill_container",
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "dcrxF",
+                              "name": "Host",
+                              "fill": "$text",
+                              "content": "SCENARIO HERDR",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "ON5bc",
+                              "name": "State",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "ellipse",
+                                  "id": "qpY6e",
+                                  "name": "Dot",
+                                  "fill": "$down",
+                                  "width": 8,
+                                  "height": 8
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "eYV4F",
+                                  "name": "State Label",
+                                  "fill": "$down",
+                                  "content": "Offline",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "AbAUT",
+                          "name": "Result",
+                          "fill": "$muted",
+                          "content": "main  ↑1  •  4m old",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 16,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "XtDnT",
+                          "name": "Note",
+                          "fill": "$muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Dropped mid-run; reconciled on return",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "HFsGJ",
+                  "name": "Proof Criteria",
+                  "width": 520,
+                  "layout": "vertical",
+                  "gap": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "wLGFD",
+                      "name": "Crit Title",
+                      "fill": "$text",
+                      "content": "Passes when, on device",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Qw6Tf",
+                      "name": "Crit Body",
+                      "fill": "$muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "One package, three attachments, three Home cards.\nThe offline host shows Offline with the age of its last result.\nThe other two keep refreshing; no card shows another host's answer.\nHost back → reconcile by request id → card resumes.",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "XVM9U",
+          "name": "Close Wrap",
+          "width": "fill_container",
+          "layout": "vertical",
+          "padding": [
+            0,
+            0,
+            26,
+            0
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "vaelC",
+              "name": "Close P0",
+              "width": "fill_container",
+              "fill": "$ink",
+              "gap": 30,
+              "padding": [
+                22,
+                20
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "dcQlN",
+                  "name": "Close Label",
+                  "width": 328,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "t7tZh",
+                      "name": "Close Title",
+                      "fill": "$lime",
+                      "content": "Closing P0",
+                      "fontFamily": "Inter",
+                      "fontSize": 21,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "iLSvU",
+                  "name": "Close Steps",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "o8ufSo",
+                      "name": "Close Step 0",
+                      "fill": "#F2F3EF",
+                      "content": "Preview a plugin workspace",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "icon",
+                      "id": "AF9Sk",
+                      "name": "Arrow",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$lime"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Mg18i",
+                      "name": "Close Step 1",
+                      "fill": "#F2F3EF",
+                      "content": "Install it as a package",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "icon",
+                      "id": "F9TfDI",
+                      "name": "Arrow",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$lime"
+                    },
+                    {
+                      "type": "text",
+                      "id": "YLFuM",
+                      "name": "Close Step 2",
+                      "fill": "#F2F3EF",
+                      "content": "Attach to a host",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "icon",
+                      "id": "L4uWo",
+                      "name": "Arrow",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "arrow-right",
+                      "library": "lucide",
+                      "fill": "$lime"
+                    },
+                    {
+                      "type": "text",
+                      "id": "h1Ln1",
+                      "name": "Close Step 3",
+                      "fill": "#F2F3EF",
+                      "content": "Place its widget",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "QVCoF",
+                  "name": "Close Note",
+                  "fill": "#A9AEAB",
+                  "content": "Same package bytes the preview ran.",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "gfL3j",
+          "name": "Footer",
+          "width": "fill_container",
+          "stroke": "$rule",
+          "strokeWidth": {
+            "top": 1
+          },
+          "padding": [
+            16,
+            0,
+            0,
+            0
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "b5l2R",
+              "name": "Evidence",
+              "fill": "$muted",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Evidence: slice brief for the next plugin package. Host names follow AGENTS.md scenarios; plugin names, ids, workspaces and results on cards are illustrative. No dates, completion or runtime claims.",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "bg": {
+      "type": "color",
+      "value": "#EDEDE9"
+    },
+    "card": {
+      "type": "color",
+      "value": "#F8F8F5"
+    },
+    "ink": {
+      "type": "color",
+      "value": "#131716"
+    },
+    "text": {
+      "type": "color",
+      "value": "#1C201F"
+    },
+    "muted": {
+      "type": "color",
+      "value": "#6B706E"
+    },
+    "rule": {
+      "type": "color",
+      "value": "#D2D2CC"
+    },
+    "lime": {
+      "type": "color",
+      "value": "#B6F23E"
+    },
+    "ok": {
+      "type": "color",
+      "value": "#3C8F55"
+    },
+    "warn": {
+      "type": "color",
+      "value": "#B97D12"
+    },
+    "down": {
+      "type": "color",
+      "value": "#B04A3C"
+    },
+    "idle": {
+      "type": "color",
+      "value": "#8A8F8D"
+    }
+  },
+  "fileToken": "71be1a02-5f5b-40b1-80b6-5f1464cf7c1b"
+}
