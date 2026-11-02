@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:upgrade/application/plugins/home_layout.dart';
 import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
 import 'package:upgrade/platform/plugins/contributions.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
@@ -45,13 +46,10 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
       }
       _reconcileCatalog(next);
     });
-    var resolved = _withDefaults(
-      stored,
-      ref.read(pluginContributionCatalogProvider),
-    );
+    var resolved = _home(stored).withDefaults();
     var persisted = stored;
     while (true) {
-      _validate(resolved);
+      _home(resolved).validate();
       if (jsonEncode(persisted.encode()) != jsonEncode(resolved.encode())) {
         await repository.write(resolved);
         persisted = resolved;
@@ -59,7 +57,7 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
       final pending = _pendingCatalog;
       _pendingCatalog = null;
       if (pending == null) break;
-      resolved = _withDefaults(resolved, pending);
+      resolved = HomeLayout(resolved, pending).withDefaults();
     }
     return resolved;
   }
@@ -68,47 +66,12 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
     String id,
     PluginPlacementLocation location, {
     bool replaceExisting = false,
-  }) => _change((current) {
-    final registration = _widget(id);
-    if (!registration.contribution.locations.contains(location)) {
-      throw PluginPlacementException(
-        '${registration.contribution.title} does not support ${location.id}',
-      );
-    }
-    if (current.placements[id] == location) return current;
-    final placements = Map.of(current.placements);
-    if (location.exclusive) {
-      final occupant = placements.entries
-          .where((entry) => entry.key != id && entry.value == location)
-          .firstOrNull;
-      if (occupant != null && !replaceExisting) {
-        throw PluginPlacementException(
-          '${location.id} already contains ${occupant.key}',
-        );
-      }
-      if (occupant != null) placements.remove(occupant.key);
-    }
-    placements[id] = location;
-    final next = current.withoutHomeCard(id).copyWith(placements: placements);
-    return location == PluginPlacementLocation.homeCard
-        ? next.withHomeCard(id, space: current.homeSpace)
-        : next;
-  });
+  }) => _change(
+    (home) => home.placeWidget(id, location, replaceExisting: replaceExisting),
+  );
 
-  Future<void> setWidgetPlaced(String id, bool placed) => _change((current) {
-    final registration = _widget(id);
-    if (placed) {
-      throw PluginPlacementException(
-        'Choose one of ${registration.contribution.locations.map((value) => value.id).join(', ')}',
-      );
-    }
-    return current
-        .withoutHomeCard(id)
-        .copyWith(
-          placements: Map.of(current.placements)..remove(id),
-          hiddenHome: {...current.hiddenHome}..remove(id),
-        );
-  });
+  Future<void> setWidgetPlaced(String id, bool placed) =>
+      _change((home) => home.setWidgetPlaced(id, placed));
 
   /// Swaps [id] with the card [over], or moves it into [space]: beside the
   /// tile at [path] on [edge], or to the bottom when no [path] is given.
@@ -118,140 +81,49 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
     int? space,
     List<int>? path,
     HomeEdge? edge,
-  }) => _change((current) {
-    if (current.homeSpaceOf(id) == null ||
-        current.placements[id] != PluginPlacementLocation.homeCard ||
-        (over == null) == (space == null) ||
-        over != null && (path != null || edge != null) ||
-        (path == null) != (edge == null) ||
-        space != null && (space < 1 || space > homeSpaceCount)) {
-      throw const PluginPlacementException('Invalid Home widget order');
-    }
-    if (over == id) return current;
-    if (over != null) return current.withHomeSwap(id, over);
-    return current.withHomeMove(id, space: space!, path: path, edge: edge);
-  });
-
-  Future<void> setRowWeights(int space, List<int> path, List<double> weights) =>
-      _change((current) => current.withRowWeights(space, path, weights));
-
-  Future<void> showHomeSpace(int space) => _change((current) {
-    if (space < 1 || space > homeSpaceCount) {
-      throw const PluginPlacementException('Invalid Home workspace');
-    }
-    return current.copyWith(homeSpace: space);
-  });
-
-  Future<void> nameHomeSpace(int space, String name, {bool show = false}) =>
-      _change((current) {
-        final trimmed = name.trim();
-        if (space < 1 ||
-            space > homeSpaceCount ||
-            trimmed.isNotEmpty && !validHomeName(trimmed)) {
-          throw const PluginPlacementException('Invalid Home workspace name');
-        }
-        return current.copyWith(
-          homeSpace: show ? space : null,
-          homeNames: {...current.homeNames, space: trimmed}
-            ..removeWhere((_, name) => name.isEmpty),
-        );
-      });
-
-  Future<void> arrangeHome(List<String> ids, int index) => _change(
-    (current) => current.withHomeGroup(
-      current.homeSpace,
-      ids,
-      homeArrangement(ids, index),
-    ),
+  }) => _change(
+    (home) =>
+        home.moveHome(id, over: over, space: space, path: path, edge: edge),
   );
 
-  Future<void> bringHome(String id) => _change((current) {
-    final contribution = _widget(id).contribution;
-    if (!contribution.locations.contains(PluginPlacementLocation.homeCard)) {
-      throw PluginPlacementException(
-        '${contribution.title} does not support ${PluginPlacementLocation.homeCard.id}',
-      );
-    }
-    final space = current.homeSpace;
-    final placed = current.placements[id] == PluginPlacementLocation.homeCard
-        ? current
-        : current
-              .withoutHomeCard(id)
-              .copyWith(
-                placements: {
-                  ...current.placements,
-                  id: PluginPlacementLocation.homeCard,
-                },
-              );
-    final hidden = placed.hiddenHome.contains(id);
-    final shown = placed.copyWith(
-      hiddenHome: {...placed.hiddenHome}..remove(id),
-    );
-    if (shown.homeSpaceOf(id) == space) return shown;
-    return (hidden ? shown.withoutHomeCard(id) : shown).withHomeCard(
-      id,
-      space: space,
-    );
-  });
+  Future<void> setRowWeights(int space, List<int> path, List<double> weights) =>
+      _change((home) => home.setRowWeights(space, path, weights));
 
-  Future<void> takeOffHome(String id) => _change((current) {
-    final space = current.homeSpace;
-    if (current.homeSpaceOf(id) != space) {
-      throw const PluginPlacementException('Not on this workspace');
-    }
-    final elsewhere = current.homeTiles.entries.any(
-      (entry) => entry.key != space && entry.value.cards.contains(id),
-    );
-    return elsewhere
-        ? current.withoutHomeCard(id, space: space)
-        : current.copyWith(hiddenHome: {...current.hiddenHome, id});
-  });
+  Future<void> showHomeSpace(int space) =>
+      _change((home) => home.showHomeSpace(space));
 
-  Future<void> setHomeHidden(String id, bool hidden) => _change((current) {
-    if (current.placements[id] != PluginPlacementLocation.homeCard) {
-      throw const PluginPlacementException('Only Home cards can be hidden');
-    }
-    final values = {...current.hiddenHome};
-    hidden ? values.add(id) : values.remove(id);
-    return current.copyWith(hiddenHome: values);
-  });
+  Future<void> nameHomeSpace(int space, String name, {bool show = false}) =>
+      _change((home) => home.nameHomeSpace(space, name, show: show));
+
+  Future<void> arrangeHome(List<String> ids, int index) =>
+      _change((home) => home.arrangeHome(ids, index));
+
+  Future<void> bringHome(String id) => _change((home) => home.bringHome(id));
+
+  Future<void> takeOffHome(String id) =>
+      _change((home) => home.takeOffHome(id));
+
+  Future<void> setHomeHidden(String id, bool hidden) =>
+      _change((home) => home.setHomeHidden(id, hidden));
 
   Future<void> setWidgetSize(String id, String sizeId, {CardWidth? width}) =>
-      _change((current) => _withWidgetSize(current, id, sizeId, width));
+      _change((home) => home.setWidgetSize(id, sizeId, width: width));
 
   Future<void> setWidgetWidth(String id, CardWidth? width) =>
-      _change((current) {
-        final contribution = _widget(id).contribution;
-        final sizeId = current.selectedSizes[id] ?? contribution.defaultSize;
-        return _withWidgetSize(current, id, sizeId, width);
-      });
+      _change((home) => home.setWidgetWidth(id, width));
 
   Future<void> setPagePinned(
     String id,
     bool pinned, {
     bool replaceExisting = false,
-  }) => _change((current) {
-    _page(id);
-    if (!pinned) {
-      return current.copyWith(
-        pinnedPages: current.pinnedPages.where((value) => value != id).toList(),
-      );
-    }
-    final occupied = current.pinnedPages.where((value) => value != id);
-    if (occupied.isNotEmpty && !replaceExisting) {
-      throw PluginPlacementException(
-        'Plugin navigation slot already contains ${occupied.first}',
-      );
-    }
-    return current.copyWith(pinnedPages: [id]);
-  });
+  }) => _change(
+    (home) => home.setPagePinned(id, pinned, replaceExisting: replaceExisting),
+  );
 
-  Future<void> _change(
-    PluginPlacementState Function(PluginPlacementState current) update,
-  ) {
+  Future<void> _change(PluginPlacementState Function(HomeLayout home) update) {
     final operation = _mutationTail.then((_) async {
-      final next = update(state.requireValue);
-      _validate(next);
+      final next = update(_home(state.requireValue));
+      _home(next).validate();
       if (jsonEncode(next.encode()) ==
           jsonEncode(state.requireValue.encode())) {
         return;
@@ -269,7 +141,7 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
 
   void _reconcileCatalog(PluginContributionCatalog catalog) {
     unawaited(
-      _change((current) => _withDefaults(current, catalog))
+      _change((home) => HomeLayout(home.state, catalog).withDefaults())
           .catchError((Object error, StackTrace stackTrace) {
             if (_disposed) return;
             state = AsyncError<PluginPlacementState>(
@@ -280,174 +152,6 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
     );
   }
 
-  PluginPlacementState _withWidgetSize(
-    PluginPlacementState current,
-    String id,
-    String sizeId,
-    CardWidth? width,
-  ) {
-    final contribution = _widget(id).contribution;
-    final matches = contribution.sizes.where((size) => size.id == sizeId);
-    if (matches.isEmpty) {
-      throw PluginPlacementException(
-        '${contribution.title} does not declare size $sizeId',
-      );
-    }
-    if (width != null && !matches.single.supportsRange(width)) {
-      throw PluginPlacementException(_rangeMessage(matches.single, width));
-    }
-    final sizes = {...current.selectedSizes, id: sizeId};
-    final widths = Map.of(current.selectedWidths);
-    if (width == null) {
-      widths.remove(id);
-    } else {
-      widths[id] = width;
-    }
-    return current.copyWith(selectedSizes: sizes, selectedWidths: widths);
-  }
-
-  PluginWidgetRegistration _widget(String id) {
-    final value = ref.read(pluginContributionCatalogProvider).widget(id);
-    if (value == null) throw const PluginPlacementException('Unknown widget');
-    return value;
-  }
-
-  PluginPageRegistration _page(String id) {
-    final value = ref.read(pluginContributionCatalogProvider).page(id);
-    if (value == null) throw const PluginPlacementException('Unknown page');
-    return value;
-  }
-
-  void _validate(PluginPlacementState value) {
-    if (value.pinnedPages.length > 1) {
-      throw const PluginPlacementException(
-        'Only one plugin page can be pinned',
-      );
-    }
-    final catalog = ref.read(pluginContributionCatalogProvider);
-    final occupied = <PluginPlacementLocation, String>{};
-    for (final entry in value.placements.entries) {
-      if (entry.value.exclusive &&
-          occupied.putIfAbsent(entry.value, () => entry.key) != entry.key) {
-        throw PluginPlacementException(
-          'Multiple widgets occupy ${entry.value.id}',
-        );
-      }
-      final registration = catalog.widget(entry.key);
-      if (registration == null) continue;
-      if (!registration.contribution.locations.contains(entry.value)) {
-        throw PluginPlacementException(
-          '${registration.contribution.title} does not support ${entry.value.id}',
-        );
-      }
-    }
-    for (final registration in catalog.widgets) {
-      final id = registration.stableId;
-      final placement = value.placements[id];
-      if (placement == PluginPlacementLocation.homeCard &&
-          !value.homeOrder.contains(id)) {
-        throw PluginPlacementException(
-          '${registration.contribution.title} is missing from Home order',
-        );
-      }
-      if (placement != PluginPlacementLocation.homeCard &&
-          value.homeOrder.contains(id)) {
-        throw PluginPlacementException(
-          '${registration.contribution.title} has an invalid Home order',
-        );
-      }
-      if (value.hiddenHome.contains(id) &&
-          placement != PluginPlacementLocation.homeCard) {
-        throw PluginPlacementException(
-          '${registration.contribution.title} is not a Home card',
-        );
-      }
-      final sizeId = value.selectedSizes[id];
-      if (sizeId != null) {
-        final sizes = registration.contribution.sizes.where(
-          (size) => size.id == sizeId,
-        );
-        if (sizes.isEmpty) {
-          throw PluginPlacementException(
-            '${registration.contribution.title} does not declare size $sizeId',
-          );
-        }
-        final width = value.selectedWidths[id];
-        if (width != null && !sizes.single.supportsRange(width)) {
-          throw PluginPlacementException(_rangeMessage(sizes.single, width));
-        }
-      }
-    }
-  }
-}
-
-String _rangeMessage(PluginWidgetSize size, CardWidth width) =>
-    switch ((size.supportsWidth(width.min), size.supportsWidth(width.max))) {
-      (false, _) => size.unsupportedWidthMessage(width.min),
-      (_, false) => size.unsupportedWidthMessage(width.max),
-      _ => 'Minimum width is over the maximum',
-    };
-
-PluginPlacementState _withDefaults(
-  PluginPlacementState stored,
-  PluginContributionCatalog catalog,
-) {
-  final placements = Map.of(stored.placements);
-  final sizes = Map.of(stored.selectedSizes);
-  final arrivals = <String>[];
-  final knownWidgets = {...stored.knownWidgets};
-  final enabled = {
-    for (final widget in catalog.widgets)
-      if (widget.owner.enabled) widget.stableId,
-  };
-  final occupied = {
-    for (final entry in placements.entries)
-      if (entry.value.exclusive && enabled.contains(entry.key))
-        entry.value: entry.key,
-  };
-  for (final widget in catalog.widgets) {
-    if (!widget.owner.enabled) continue;
-    if (knownWidgets.add(widget.stableId)) {
-      sizes[widget.stableId] = widget.contribution.defaultSize;
-      final location = widget.contribution.defaultLocation;
-      if (!location.exclusive || !occupied.containsKey(location)) {
-        if (location.exclusive) {
-          placements.removeWhere((_, placed) => placed == location);
-        }
-        placements[widget.stableId] = location;
-        if (location.exclusive) occupied[location] = widget.stableId;
-      }
-      if (location == PluginPlacementLocation.homeCard) {
-        arrivals.add(widget.stableId);
-      }
-    }
-  }
-  final pinned = [...stored.pinnedPages];
-  final knownPages = {...stored.knownPages};
-  for (final page in catalog.pages) {
-    if (knownPages.add(page.stableId) &&
-        page.contribution.defaultPinned &&
-        pinned.isEmpty) {
-      pinned.add(page.stableId);
-    }
-  }
-  var next = stored.copyWith(
-    placements: placements,
-    selectedSizes: sizes,
-    pinnedPages: pinned,
-    knownWidgets: knownWidgets,
-    knownPages: knownPages,
-  );
-  final space = stored.homeSpace;
-  final agentsFirst = [
-    ...arrivals.where((id) => id == agentsCardId),
-    ...arrivals.where((id) => id != agentsCardId),
-  ];
-  for (final id in agentsFirst) {
-    if (next.homeSpaceOf(id) != null) continue;
-    next = id == agentsCardId
-        ? next.withHomeCard(id, space: space, front: true)
-        : next.withHomeCard(id, space: space, weight: 2);
-  }
-  return next;
+  HomeLayout _home(PluginPlacementState value) =>
+      HomeLayout(value, ref.read(pluginContributionCatalogProvider));
 }

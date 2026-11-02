@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:upgrade/application/plugins/home_layout.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/plugins/plugin_placements.dart';
 import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
@@ -16,35 +17,6 @@ import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/plugins/plugin_management_screen.dart';
 import 'package:upgrade/platform/plugins/contributions.dart';
-
-PluginWidgetRegistration? homeShown(
-  PluginContributionCatalog catalog,
-  PluginPlacementState placements,
-  String id,
-) => switch (catalog.widget(id)) {
-  final widget?
-      when widget.enabled &&
-          placements.placements[id] == PluginPlacementLocation.homeCard &&
-          !placements.hiddenHome.contains(id) =>
-    widget,
-  _ => null,
-};
-
-List<int> homeNumbers(
-  PluginContributionCatalog catalog,
-  PluginPlacementState placements,
-) => {
-  for (final MapEntry(key: space, value: tile) in placements.homeTiles.entries)
-    if (tile.cards.any((id) => homeShown(catalog, placements, id) != null))
-      space,
-  ...placements.homeNames.keys,
-  placements.homeSpace,
-}.toList()..sort();
-
-int? homeFreeNumber(List<int> numbers) => [
-  for (var n = 1; n <= homeSpaceCount; n++)
-    if (!numbers.contains(n)) n,
-].firstOrNull;
 
 String homeLabel(PluginPlacementState placements, int space) =>
     placements.homeNames[space]?.toUpperCase() ?? '$space';
@@ -154,8 +126,9 @@ class _Overview extends ConsumerWidget {
     final catalog = ref.watch(pluginContributionCatalogProvider);
     final placements = ref.watch(pluginPlacementsProvider).valueOrNull;
     if (placements == null) return const SizedBox.shrink();
-    final numbers = homeNumbers(catalog, placements);
-    final free = homeFreeNumber(numbers);
+    final home = HomeLayout(placements, catalog);
+    final numbers = home.numbers;
+    final free = home.freeNumber;
     final layout = ref.read(pluginPlacementsProvider.notifier);
     return PanelSheetBody(
       title: 'WORKSPACES',
@@ -177,7 +150,7 @@ class _Overview extends ConsumerWidget {
                     lit: n == placements.homeSpace,
                     tile: _pruned(
                       placements.tileOf(n),
-                      (id) => homeShown(catalog, placements, id) != null,
+                      (id) => home.shown(id) != null,
                     ),
                     titleOf: (id) =>
                         catalog.widget(id)?.contribution.title ?? id,
@@ -344,6 +317,7 @@ class _AddWidgets extends ConsumerWidget {
     final placements = ref.watch(pluginPlacementsProvider).valueOrNull;
     if (placements == null) return const SizedBox.shrink();
     final space = placements.homeSpace;
+    final home = HomeLayout(placements, catalog);
     final layout = ref.read(pluginPlacementsProvider.notifier);
     final offered = [
       for (final widget in catalog.widgets)
@@ -351,7 +325,7 @@ class _AddWidgets extends ConsumerWidget {
             widget.contribution.locations.contains(
               PluginPlacementLocation.homeCard,
             ) &&
-            !(homeShown(catalog, placements, widget.stableId) != null &&
+            !(home.shown(widget.stableId) != null &&
                 placements.spaceOf(widget.stableId) == space))
           widget,
     ];

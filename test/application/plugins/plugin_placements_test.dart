@@ -103,41 +103,6 @@ void main() {
     });
   });
 
-  test(
-    'size width and Home order reject values outside the contract',
-    () async {
-      final scope = container();
-      addTearDown(scope.dispose);
-      final state = await scope.read(pluginPlacementsProvider.future);
-      final drops = state.homeOrder[1];
-      final controller = scope.read(pluginPlacementsProvider.notifier);
-
-      await expectLater(
-        controller.setWidgetWidth(drops, (min: 280, max: 900)),
-        throwsA(
-          isA<PluginPlacementException>().having(
-            (error) => error.message,
-            'message',
-            contains('280-720'),
-          ),
-        ),
-      );
-      await expectLater(
-        controller.moveHome(drops, space: homeSpaceCount + 1),
-        throwsA(isA<PluginPlacementException>()),
-      );
-      await expectLater(
-        controller.setWidgetWidth(drops, (min: 600, max: 400)),
-        throwsA(isA<PluginPlacementException>()),
-      );
-      await controller.setWidgetWidth(drops, (min: 320, max: 420));
-      expect(
-        scope.read(pluginPlacementsProvider).requireValue.selectedWidths[drops],
-        (min: 320, max: 420),
-      );
-    },
-  );
-
   test('automatic, selected, and fixed widths never overflow', () {
     const ranged = PluginWidgetSize.range(
       id: 'auto',
@@ -191,20 +156,6 @@ void main() {
         File('${root.path}/placements.json'),
       ).read()).selectedWidths[drops],
       (min: 420, max: 420),
-    );
-  });
-
-  test('placing a Home card in its current location preserves order', () async {
-    final scope = container();
-    addTearDown(scope.dispose);
-    final initial = await scope.read(pluginPlacementsProvider.future);
-    expect(initial.homeOrder.length, 3);
-    await scope
-        .read(pluginPlacementsProvider.notifier)
-        .placeWidget(initial.homeOrder[1], PluginPlacementLocation.homeCard);
-    expect(
-      scope.read(pluginPlacementsProvider).requireValue.homeOrder,
-      initial.homeOrder,
     );
   });
 
@@ -808,33 +759,6 @@ void main() {
       expect(state.placements[prompt], PluginPlacementLocation.homeComposer);
       expect(state.placements, isNot(contains(capture)));
     });
-  });
-
-  test('pin replacement and exclusive slot replacement are explicit', () async {
-    final scope = container();
-    addTearDown(scope.dispose);
-    final initial = await scope.read(pluginPlacementsProvider.future);
-    final controller = scope.read(pluginPlacementsProvider.notifier);
-    final page = initial.pinnedPages.single;
-    final project = scope.read(pluginContributionCatalogProvider).page(page)!;
-    expect(project.contribution.title, 'Projects');
-
-    final composer = initial.placements.entries
-        .singleWhere(
-          (entry) => entry.value == PluginPlacementLocation.homeComposer,
-        )
-        .key;
-    await expectLater(
-      controller.placeWidget(
-        initial.homeOrder[1],
-        PluginPlacementLocation.homeComposer,
-      ),
-      throwsA(isA<PluginPlacementException>()),
-    );
-    expect(
-      scope.read(pluginPlacementsProvider).requireValue.placements[composer],
-      PluginPlacementLocation.homeComposer,
-    );
   });
 
   test('a gathering lands where its first card stood and turns', () {

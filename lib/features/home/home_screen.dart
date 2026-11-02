@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:upgrade/application/drops/drop_selection.dart';
 import 'package:upgrade/application/drops/fresh_drops.dart';
 import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/application/plugins/home_layout.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/plugins/plugin_placements.dart';
 import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
@@ -118,22 +119,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final selecting = ref
         .watch(dropSelectionProvider)
         .ownedBy(DropSelection.homeScope);
-    PluginWidgetRegistration? shown(String id) =>
-        homeShown(catalog, placements!, id);
+    final home = HomeLayout(placements ?? PluginPlacementState(), catalog);
+    final shown = home.shown;
     final space = placements?.homeSpace ?? 1;
     var drawn = double.infinity;
     VoidCallback? beside(String id, List<int> path, HomeEdge edge) =>
-        placements!.movesHome(
-          id,
-          space: space,
-          path: path,
-          edge: edge,
-          width: drawn,
-          boundsOf: (card) => switch (shown(card)) {
-            final card? => homeCardBounds(card, placements),
-            null => null,
-          },
-        )
+        home.moves(id, space: space, path: path, edge: edge, width: drawn)
         ? () => unawaited(
             _layout.moveHome(id, space: space, path: path, edge: edge),
           )
@@ -142,10 +133,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       for (final id in placements?.homeOrder ?? const <String>[])
         if (shown(id) != null) id,
     ];
-    final numbers = placements == null
-        ? [space]
-        : homeNumbers(catalog, placements);
-    final free = homeFreeNumber(numbers);
+    final numbers = home.numbers;
+    final free = home.freeNumber;
     final picked = _picked?.where((id) {
       final card = shown(id);
       return card != null && placements!.spaceOf(id) == space;
@@ -156,12 +145,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final card? => _Leaf(
           id: card.stableId,
           path: path,
-          bounds: homeCardBounds(card, placements!),
+          bounds: home.bounds(card),
           entry: (width, sideways) => _HomeEntry(
             key: ValueKey(card.stableId),
             id: card.stableId,
             path: path,
-            min: homeCardBounds(card, placements).$1,
+            min: home.bounds(card).$1,
             title: card.contribution.title,
             width: width,
             sideways: sideways,
@@ -180,7 +169,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               key: _entryKeys.putIfAbsent(card.stableId, GlobalKey.new),
               child: _PlacedPluginWidget(
                 registration: card,
-                placements: placements,
+                placements: placements!,
                 fill: true,
               ),
             ),
@@ -372,21 +361,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-}
-
-const homeMaxContentWidth = 1100.0;
-
-(double, double) homeCardBounds(
-  PluginWidgetRegistration registration,
-  PluginPlacementState placements,
-) {
-  final contribution = registration.contribution;
-  final size = contribution.size(
-    placements.selectedSizes[registration.stableId] ?? contribution.defaultSize,
-  );
-  if (size.fixedWidth case final fixed?) return (fixed, fixed);
-  final chosen = placements.selectedWidths[registration.stableId];
-  return (chosen?.min ?? size.minWidth!, chosen?.max ?? size.maxWidth!);
 }
 
 sealed class _Shape {

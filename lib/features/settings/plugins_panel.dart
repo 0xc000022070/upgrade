@@ -7,6 +7,7 @@ import 'package:upgrade_luau/upgrade_luau.dart' show PluginDataReport;
 
 import 'package:upgrade/application/plugins/plugins.dart';
 import 'package:upgrade/application/plugins/plugin_hosts.dart';
+import 'package:upgrade/application/plugins/home_layout.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/plugins/plugin_placements.dart';
 import 'package:upgrade/data/plugin_inventory.dart';
@@ -33,7 +34,6 @@ import 'package:upgrade/application/drops/fresh_drops.dart';
 import 'package:upgrade/application/home/composer_focus.dart';
 import 'package:upgrade/features/home/capture_draft.dart';
 import 'package:upgrade/features/home/home_card_viewport.dart';
-import 'package:upgrade/features/home/home_screen.dart';
 import 'package:upgrade/features/home/prompt_bar.dart';
 import 'package:upgrade/features/plugins/plugin_card.dart';
 import 'package:upgrade/features/plugins/plugin_page.dart';
@@ -1101,14 +1101,8 @@ class _WhereItSitsState extends ConsumerState<_WhereItSits> {
     ];
     final order = neighbours.indexOf(id);
     final catalog = ref.watch(pluginContributionCatalogProvider);
-    (double, double)? boundsOf(String card) => switch (catalog.widget(card)) {
-      final shown?
-          when shown.enabled &&
-              state.placements[card] == PluginPlacementLocation.homeCard =>
-        homeCardBounds(shown, state),
-      _ => null,
-    };
-    final home =
+    final home = HomeLayout(state, catalog);
+    final page =
         math.min(
           MediaQuery.sizeOf(context).width -
               MediaQueryData.fromView(View.of(context)).padding.horizontal,
@@ -1148,8 +1142,7 @@ class _WhereItSitsState extends ConsumerState<_WhereItSits> {
             (HomeEdge.top, 'MOVE UP'),
             (HomeEdge.bottom, 'MOVE DOWN'),
           ])
-            if (state.homeStep(id, edge, width: home, boundsOf: boundsOf)
-                case (final path, final side)?)
+            if (home.step(id, edge, width: page) case (final path, final side)?)
               PanelTextAction(
                 label: label,
                 onTap: () => _run(
