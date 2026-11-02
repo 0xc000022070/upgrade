@@ -1,9 +1,9 @@
-# an application reading the mouse owns the drag on either screen
+# an application reading the mouse owns the drag on either screen, and glyphs rasterize at the ratio MediaQuery declares
 #
 # Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just pub flterm generate`.
 
 diff --git a/lib/src/view/terminal_view.dart b/lib/src/view/terminal_view.dart
-index 11b21dc..2e90c75 100644
+index 11b21dc..83d270b 100644
 --- a/lib/src/view/terminal_view.dart
 +++ b/lib/src/view/terminal_view.dart
 @@ -205,7 +205,11 @@ final class _TerminalViewState extends State<TerminalView>
@@ -19,3 +19,21 @@ index 11b21dc..2e90c75 100644
                  ? const NeverScrollableScrollPhysics()
                  : widget.scrollPhysics;
              final content = Focus(
+@@ -354,7 +358,7 @@ final class _TerminalViewState extends State<TerminalView>
+       _attachment.attach(_focusNode, _scrollController, viewId: viewId);
+     }
+ 
+-    final devicePixelRatio = View.of(context).devicePixelRatio;
++    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+     if (_devicePixelRatio == devicePixelRatio) return;
+     _devicePixelRatio = devicePixelRatio;
+     _metrics = _measureMetrics();
+@@ -364,7 +368,7 @@ final class _TerminalViewState extends State<TerminalView>
+   @override
+   void didChangeMetrics() {
+     if (!_active) return;
+-    final devicePixelRatio = View.of(context).devicePixelRatio;
++    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+     if (_devicePixelRatio == devicePixelRatio) return;
+     setState(() {
+       _devicePixelRatio = devicePixelRatio;
