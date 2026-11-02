@@ -265,12 +265,17 @@ void main() {
       unawaited(dictation().press(_session()));
       await tester.pump();
       expect(dictation().failure, 'MIC DENIED');
-      await tester.pump(const Duration(seconds: 2));
+      expect(dictation().advice, 'ALLOW THE MICROPHONE IN ANDROID SETTINGS');
+      await tester.pump(const Duration(seconds: 5));
       answer = 'unavailable';
       unawaited(dictation().press(_session()));
       await tester.pump();
       expect(dictation().failure, 'NO RECOGNIZER');
-      await tester.pump(const Duration(seconds: 2));
+      expect(dictation().advice, 'DOWNLOAD A WHISPER MODEL IN SYS · VOICE');
+      await tester.pump(const Duration(seconds: 4));
+      expect(dictation().showing, isTrue);
+      await tester.pump(const Duration(seconds: 1));
+      expect(dictation().showing, isFalse);
     });
 
     testWidgets('a grant starts nothing until the next press', (tester) async {
@@ -468,7 +473,7 @@ void main() {
       dictation().pause();
       await tester.pump();
       expect(dictation().paused, isTrue);
-      expect(dictation().failure, 'VOICE FAILED');
+      expect(dictation().failure, 'WHISPER FAILED');
       dictation().resume();
       await tester.pump();
       expect(dictation().failure, isNull);
@@ -497,8 +502,8 @@ void main() {
       dictation().done();
       await tester.pump();
       expect(delivered.single.$2, 'first part');
-      expect(dictation().failure, 'VOICE FAILED');
-      await tester.pump(const Duration(seconds: 2));
+      expect(dictation().failure, 'WHISPER FAILED');
+      await tester.pump(const Duration(seconds: 5));
     });
 
     testWidgets('a resume the phone refuses lands the words already heard', (
@@ -515,8 +520,8 @@ void main() {
       dictation().resume();
       await tester.pump();
       expect(delivered.single.$2, 'first part');
-      expect(dictation().failure, 'NO RECOGNIZER');
-      await tester.pump(const Duration(seconds: 2));
+      expect(dictation().failure, 'RECORDING FAILED');
+      await tester.pump(const Duration(seconds: 5));
     });
 
     testWidgets('a failure on a tapped take offers no controls', (
@@ -529,7 +534,7 @@ void main() {
       events.add(const SpeechEnded());
       expect(dictation().failure, 'MIC DENIED');
       expect(dictation().latched, isFalse);
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 5));
     });
 
     testWidgets('an end left over from a cancelled take spares the next', (
@@ -603,16 +608,16 @@ void main() {
       expect(delivered.single.$2, 'first part first part');
     });
 
-    testWidgets('a model that fails says VOICE FAILED', (tester) async {
+    testWidgets('a model that fails says WHISPER FAILED', (tester) async {
       whisper = _Whisper(() async => throw const TranscriptionFailed('load'));
       recorded = _pcm(4000);
       unawaited(dictation().press(_session()));
       await tester.pump(voiceHold);
       dictation().lift();
       await tester.pump();
-      expect(dictation().failure, 'VOICE FAILED');
+      expect(dictation().failure, 'WHISPER FAILED');
       expect(delivered, isEmpty);
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 5));
     });
 
     testWidgets('cancel throws the recording away', (tester) async {
@@ -737,6 +742,25 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('shell-voice-done')));
       await tester.pump();
       expect(delivered.single.$2, 'make it');
+    });
+
+    testWidgets('the float names a failed recognizer and what to do about it', (
+      tester,
+    ) async {
+      await pumpFloat(tester);
+      unawaited(dictation().press(_session()));
+      await tester.pump(voiceHold);
+      dictation().lift();
+      events.add(const SpeechFailed(denied: false));
+      events.add(const SpeechEnded());
+      await tester.pump();
+      expect(find.text('PHONE RECOGNIZER FAILED'), findsOneWidget);
+      expect(
+        find.text('DOWNLOAD A WHISPER MODEL IN SYS · VOICE'),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 5));
+      expect(find.byKey(const ValueKey('shell-voice-float')), findsNothing);
     });
 
     testWidgets('the float dropped on the close target throws the take away', (

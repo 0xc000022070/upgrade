@@ -26,11 +26,29 @@ const voiceHold = Duration(milliseconds: 400);
 
 const _failureShown = Duration(seconds: 2);
 
+const _adviceShown = Duration(seconds: 5);
+
 const _endWait = Duration(seconds: 5);
 
 const _micDenied = 'MIC DENIED';
 
-const _voiceFailed = 'VOICE FAILED';
+const _noRecognizer = 'NO RECOGNIZER';
+
+const _phoneFailed = 'PHONE RECOGNIZER FAILED';
+
+const _recordingFailed = 'RECORDING FAILED';
+
+const _whisperFailed = 'WHISPER FAILED';
+
+const _getWhisper = 'DOWNLOAD A WHISPER MODEL IN SYS · VOICE';
+
+const _advice = {
+  _micDenied: 'ALLOW THE MICROPHONE IN ANDROID SETTINGS',
+  _noRecognizer: _getWhisper,
+  _phoneFailed: _getWhisper,
+  _recordingFailed: 'TRY AGAIN',
+  _whisperFailed: 'TRY AGAIN',
+};
 
 const _returnAfterPaste = Duration(milliseconds: 80);
 
@@ -137,6 +155,8 @@ class ShellDictation extends ChangeNotifier {
 
   String? get failure => _failure;
 
+  String? get advice => _advice[_failure];
+
   ShellSession? get session => _session;
 
   Future<void> press(ShellSession session) async {
@@ -184,7 +204,7 @@ class ShellDictation extends ChangeNotifier {
       case SpeechStart.denied:
         _refused(_micDenied);
       case SpeechStart.unavailable:
-        _refused('NO RECOGNIZER');
+        _refused(whisper != null ? _recordingFailed : _noRecognizer);
     }
   }
 
@@ -301,7 +321,7 @@ class ShellDictation extends ChangeNotifier {
           final recorded = await pcm;
           if (run != _run) return;
           if (recorded == null) {
-            _failure = _voiceFailed;
+            _failure = _recordingFailed;
             return;
           }
           final samples = pcmSamples(recorded);
@@ -310,7 +330,7 @@ class ShellDictation extends ChangeNotifier {
             final text = spokenText(await whisper.transcribe(samples));
             if (run == _run && text.isNotEmpty) _settled.add(text);
           } on Object {
-            if (run == _run) _failure = _voiceFailed;
+            if (run == _run) _failure = _whisperFailed;
           }
         })
         .whenComplete(() {
@@ -344,7 +364,7 @@ class ShellDictation extends ChangeNotifier {
         _settled.add(text);
         _partial = '';
       case SpeechFailed(:final denied):
-        _failure = denied ? _micDenied : _voiceFailed;
+        _failure = denied ? _micDenied : _phoneFailed;
       case SpeechEnded():
         _ended();
         return;
@@ -399,7 +419,7 @@ class ShellDictation extends ChangeNotifier {
     _latched = false;
     _failure = reason;
     _clear?.cancel();
-    _clear = Timer(_failureShown, _reset);
+    _clear = Timer(advice != null ? _adviceShown : _failureShown, _reset);
     notifyListeners();
   }
 
@@ -878,6 +898,21 @@ class _VoicePanel extends StatelessWidget {
               ),
             ),
           ),
+          if (failure != null && dictation.advice != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                RowMetrics.padding,
+                0,
+                RowMetrics.padding,
+                Spacing.md,
+              ),
+              child: Text(
+                dictation.advice!,
+                key: const ValueKey('shell-voice-advice'),
+                textAlign: TextAlign.center,
+                style: tokens.label,
+              ),
+            ),
           if (settled.isNotEmpty || partial.isNotEmpty)
             ConstrainedBox(
               constraints: BoxConstraints(

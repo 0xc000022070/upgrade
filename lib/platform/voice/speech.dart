@@ -78,10 +78,10 @@ abstract final class Speech {
     try {
       return await _channel.invokeMethod<Uint8List>('finish');
     } on MissingPluginException {
-      // ignored: no recording reads as VOICE FAILED to the caller.
+      // ignored: no recording reads as RECORDING FAILED to the caller.
       return null;
     } on PlatformException {
-      // ignored: no recording reads as VOICE FAILED to the caller.
+      // ignored: no recording reads as RECORDING FAILED to the caller.
       return null;
     }
   }
