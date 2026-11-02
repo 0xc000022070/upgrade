@@ -1,12 +1,17 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/application/files/host_file_link.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/features/files/host_transfers.dart' show copyGone;
 import 'package:upgrade/features/files/transfer_bar.dart';
 import 'package:upgrade/features/files/transfer_queue.dart';
 import 'package:upgrade/features/files/transfers.dart';
-import 'package:upgrade/platform/files/phone_files.dart' show TransferStatus;
+import 'package:upgrade/platform/files/phone_files.dart'
+    show SharedFile, TransferStatus;
 import 'package:upgrade/platform/ssh/host_files.dart';
 
 import '../../support/themed_app.dart';
@@ -23,18 +28,113 @@ final class _Status implements TransferStatus {
   void done(String title) => dones.add(title);
 }
 
+const _nyx = Host(
+  id: 'h1',
+  name: 'nyx',
+  address: '100.64.0.1',
+  port: 22,
+  user: 'luis',
+  keyId: 'key-1',
+);
+
+final class _Files implements HostFiles {
+  final failOnce = <String>{};
+  final puts = <String>[];
+
+  @override
+  Host get host => _nyx;
+
+  @override
+  bool closed = false;
+
+  @override
+  Future<String> home() async => '/home';
+
+  @override
+  Future<List<DirEntry>?> list(String directory) async => const [];
+
+  @override
+  Future<FileWrite> put(
+    String path,
+    FileBody body, {
+    int sharing = 1,
+    PutProgress? onProgress,
+  }) async {
+    if (failOnce.remove(path.split('/').last)) {
+      return const FileWrite.failed(FileRoute.sftp, 'denied');
+    }
+    puts.add(path);
+    return const FileWrite.landed(FileRoute.sftp);
+  }
+
+  @override
+  Future<FileWrite> get(
+    String path,
+    File into, {
+    required int size,
+    int sharing = 1,
+    PutProgress? onProgress,
+    TransferStop? stop,
+  }) async {
+    if (failOnce.remove(path.split('/').last)) {
+      return const FileWrite.failed(FileRoute.sftp, 'denied');
+    }
+    await into.writeAsBytes(List.filled(size, 1));
+    return const FileWrite.landed(FileRoute.sftp);
+  }
+
+  @override
+  Future<String?> copy({String? text, String? imageAt, String? mime}) async =>
+      null;
+
+  @override
+  void close() => closed = true;
+}
+
 void main() {
   late _Status status;
   late DateTime now;
   late Transfers transfers;
+  late _Files files;
+  late Directory temp;
+  String? unreachable;
+
+  Future<HostFiles> open(Host _) async {
+    if (unreachable case final line?) throw HostFilesFailure(line);
+    return files;
+  }
 
   setUp(() {
     status = _Status();
     now = DateTime(2026);
-    transfers = Transfers(status: status, now: () => now);
+    files = _Files();
+    unreachable = null;
+    temp = Directory.systemTemp.createTempSync('transfers');
+    transfers = Transfers(open: open, status: status, now: () => now);
   });
 
-  tearDown(() => transfers.dispose());
+  tearDown(() {
+    transfers.dispose();
+    temp.deleteSync(recursive: true);
+  });
+
+  SharedFile copyOf(String name) {
+    final file = File('${temp.createTempSync().path}/$name')
+      ..writeAsStringSync(name);
+    return SharedFile(path: file.path, name: name, size: 1, mime: 'text/plain');
+  }
+
+  Future<void> failedPull(Object sheet, [Transfers? on]) {
+    files.failOnce.add('a.txt');
+    return (on ?? transfers).pull(
+      _nyx,
+      '/home/a.txt',
+      const DirEntry(name: 'a.txt', kind: DirEntryKind.file, size: 3),
+      verb: 'SAVING',
+      sheet: sheet,
+      into: temp.createTemp,
+    );
+  }
 
   test('rate words', () {
     expect(rateWord(512), '512 B/s');
@@ -108,66 +208,93 @@ void main() {
     expect(transfers.jobs.single.seen, isTrue);
   });
 
-  testWidgets('a batch with a retry stays until retried or dismissed', (
-    tester,
-  ) async {
-    final job = transfers.begin(
-      verb: 'UPLOADING',
-      host: 'nyx',
-      files: const [QueuedFile(name: 'a', bytes: 1)],
-    );
-    job.report(0, job.items[0].to(AttachStage.stopped));
-    job.retry = () async {};
-    job.end();
+  test('a batch with a retry stays until retried or dismissed', () async {
+    await failedPull(Object());
+    final job = transfers.jobs.single;
     transfers.seeAll();
     now = now.add(transferLinger * 3);
-    await tester.pump(transferTick * 2);
+    await Future<void>.delayed(transferTick * 2);
     expect(transfers.jobs, [job]);
 
     transfers.dismiss(job);
     expect(transfers.jobs, isEmpty);
   });
 
-  test('a retried batch takes the place of the one it retries', () async {
-    final first = transfers.begin(verb: 'A', host: 'nyx', files: const []);
-    transfers.begin(verb: 'B', host: 'nyx', files: const []);
-    first.end();
-    first.retry = () async {
-      await Future<void>.delayed(Duration.zero);
-      transfers.begin(
-        verb: 'AGAIN',
-        host: 'nyx',
-        files: const [],
-        replacing: first,
+  test(
+    'an upload retry resends only what failed, then drops the copies',
+    () async {
+      final a = copyOf('a.txt');
+      final b = copyOf('b.txt');
+      final c = copyOf('c.txt');
+      File(c.path).deleteSync();
+      files.failOnce.add('b.txt');
+      await transfers.upload(_nyx, [a, b, c], into: '/home');
+      final first = transfers.jobs.single;
+      expect(
+        [for (final item in first.items) item.stage],
+        [AttachStage.landed, AttachStage.failed, AttachStage.failed],
       );
-    };
+      expect(first.items.last.detail, copyGone);
+      expect(first.retryable, isTrue);
+      expect(files.puts, ['/home/a.txt']);
+      expect(File(a.path).existsSync() && File(b.path).existsSync(), isTrue);
+
+      await transfers.retry(first);
+      expect(files.puts, ['/home/a.txt', '/home/b.txt']);
+      expect(transfers.jobs.single.files.single.name, 'b.txt');
+      expect(transfers.jobs.single.retryable, isFalse);
+      expect(File(a.path).existsSync() || File(b.path).existsSync(), isFalse);
+    },
+  );
+
+  test('a retried batch takes the place of the one it retries', () async {
+    final sheet = Object();
+    await failedPull(sheet);
+    final first = transfers.jobs.single;
+    transfers.begin(verb: 'B', host: 'nyx', files: const []);
     final run = transfers.retry(first);
     transfers.begin(verb: 'C', host: 'nyx', files: const []);
     await run;
-    expect([for (final job in transfers.jobs) job.verb], ['AGAIN', 'B', 'C']);
+    expect([for (final job in transfers.jobs) job.verb], ['SAVING', 'B', 'C']);
+    expect(transfers.jobs.first, isNot(first));
   });
 
-  test('a retry that could not start keeps its batch', () async {
-    final job = transfers.begin(verb: 'SAVING', host: 'nyx', files: const []);
-    job.end();
-    final words = <String>[];
-    Future<void> again() async {
-      words.add(jobWord(job));
-      job.retry = again;
-    }
+  test('a pull that fails drops its copy and retries until its sheet '
+      'is released', () async {
+    final sheet = Object();
+    await failedPull(sheet);
+    expect(temp.listSync(), isEmpty);
+    expect(transfers.jobs.single.retryable, isTrue);
 
-    job.retry = again;
-    await transfers.retry(job);
-    expect(transfers.jobs, [job]);
-    expect(job.retry, isNotNull);
-    expect(words, ['RETRYING']);
-    expect(jobWord(job), 'DONE');
+    transfers.release(sheet);
+    expect(transfers.jobs.single.retryable, isFalse);
   });
+
+  test(
+    'a pull retried while the host is unreachable keeps its batch',
+    () async {
+      final sheet = Object();
+      await failedPull(sheet);
+      final job = transfers.jobs.single;
+      unreachable = 'unreachable';
+      final words = <String>[];
+      transfers.addListener(() => words.add(jobWord(job)));
+      await transfers.retry(job);
+      expect(transfers.jobs, [job]);
+      expect(job.retryable, isTrue);
+      expect(words.first, 'RETRYING');
+
+      unreachable = null;
+      await transfers.retry(job);
+      expect(transfers.jobs.single.retryable, isFalse);
+      expect(transfers.jobs.single.items.single.stage, AttachStage.landed);
+    },
+  );
 
   testWidgets('the bar names what is left to retry beside what finished', (
     tester,
   ) async {
-    final transfers = Transfers(status: status, now: () => now);
+    final transfers = Transfers(open: open, status: status, now: () => now);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [transfersProvider.overrideWith((ref) => transfers)],
@@ -177,14 +304,7 @@ void main() {
         ),
       ),
     );
-    final stopped = transfers.begin(
-      verb: 'UPLOADING',
-      host: 'nyx',
-      files: const [QueuedFile(name: 'a', bytes: 1)],
-    );
-    stopped.stop.stop();
-    stopped.retry = () async {};
-    stopped.end();
+    await tester.runAsync(() => failedPull(Object(), transfers));
     transfers.begin(verb: 'UPLOADING', host: 'nyx', files: const []).end();
     await tester.pump();
     expect(find.text('DONE · RETRY 1'), findsOneWidget);
@@ -224,7 +344,7 @@ void main() {
   testWidgets('the bar shows a moving job and opens the transfers', (
     tester,
   ) async {
-    final transfers = Transfers(status: status, now: () => now);
+    final transfers = Transfers(open: open, status: status, now: () => now);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [transfersProvider.overrideWith((ref) => transfers)],

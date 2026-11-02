@@ -3,11 +3,15 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
+import 'package:upgrade/application/files/host_file_link.dart';
 import 'package:upgrade/application/files/phone_inbox.dart';
 import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/features/files/host_transfers.dart';
 import 'package:upgrade/features/files/transfer_queue.dart';
-import 'package:upgrade/platform/ssh/host_files.dart' show TransferStop;
+import 'package:upgrade/platform/shell/remote_shell.dart' show remotePathFor;
 
 export 'package:upgrade/platform/ssh/host_files.dart' show TransferStop;
 
@@ -33,6 +37,18 @@ String rateWord(double bytesPerSecond) {
   return '${m < 10 ? m.toStringAsFixed(1) : m.round()} M/s';
 }
 
+typedef AfterUpload = Future<String?> Function(
+  HostFiles link,
+  Map<String, String> sent,
+  Set<String>? taken,
+);
+
+typedef UploadEnded = void Function(
+  TransferJob? job,
+  Map<String, String> sent,
+  String? failure,
+);
+
 final class TransferJob {
   TransferJob._(
     this._owner,
@@ -53,12 +69,15 @@ final class TransferJob {
   DateTime? endedAt;
   bool seen = false;
 
-  Future<void> Function()? retry;
+  Future<void> Function()? _retry;
+  Object? _sheet;
   String? note;
 
-  final kept = <String>[];
+  final _kept = <String>[];
 
   bool get ended => endedAt != null;
+
+  bool get retryable => _retry != null;
 
   bool get retrying => _owner._retrying.contains(this);
 
@@ -111,13 +130,15 @@ final class TransferTally {
 }
 
 class Transfers extends ChangeNotifier {
-  Transfers({this.status, DateTime Function()? now})
+  Transfers({required this._open, this.status, DateTime Function()? now})
     : _now = now ?? DateTime.now;
 
+  final HostFilesOpener _open;
   final TransferStatus? status;
   final DateTime Function() _now;
 
   final _jobs = <TransferJob>[];
+  final _sheets = <Object>{};
   final _retrying = <TransferJob>{};
   final _samples = <(DateTime, int)>[];
   int _moved = 0;
@@ -138,33 +159,239 @@ class Transfers extends ChangeNotifier {
   }
 
   void drop(TransferJob job) {
-    job.retry = null;
-    job.kept.clear();
+    job._retry = null;
+    job._kept.clear();
     if (_jobs.remove(job)) notifyListeners();
   }
 
   void dismiss(TransferJob job) {
-    unawaited(discardCopies(job.kept));
+    unawaited(discardCopies(job._kept));
     drop(job);
   }
 
-  void release(TransferJob job) {
-    if (job.retry == null) return;
-    job.retry = null;
+  void release(Object sheet) {
+    _sheets.remove(sheet);
+    for (final job in _jobs) {
+      if (job._sheet == sheet) job._retry = null;
+    }
     _ticker ??= Timer.periodic(transferTick, (_) => _tick());
   }
 
   Future<void> retry(TransferJob job) {
-    final again = job.retry;
+    final again = job._retry;
     if (again == null) return Future.value();
-    job.retry = null;
-    job.kept.clear();
+    job._retry = null;
+    job._kept.clear();
     _retrying.add(job);
     notifyListeners();
     return again().whenComplete(() {
       _retrying.remove(job);
-      job.retry == null ? drop(job) : notifyListeners();
+      job._retry == null ? drop(job) : notifyListeners();
     });
+  }
+
+  Future<void> upload(
+    Host host,
+    List<SharedFile> files, {
+    String? into,
+    Map<String, String> sent = const {},
+    AfterUpload? then,
+    void Function(TransferJob job)? began,
+    UploadEnded? ended,
+  }) {
+    Future<void> attempt(
+      List<SharedFile> files,
+      Map<String, String> sent,
+      TransferJob? replacing,
+    ) async {
+      final job = files.isEmpty
+          ? null
+          : begin(
+              verb: 'UPLOADING',
+              host: host.name,
+              hostId: host.id,
+              files: [
+                for (final file in files)
+                  QueuedFile(name: file.name, bytes: file.size),
+              ],
+              replacing: replacing,
+            );
+      if (job != null) began?.call(job);
+      final landed = {...sent};
+      HostFiles? link;
+      String? failure;
+      var missed = const <SharedFile>[];
+      try {
+        try {
+          link = await _open(host);
+        } catch (error) {
+          failure = filesFailureLine(error);
+        }
+        Set<String>? taken;
+        if (link != null && into != null) {
+          final listed = await link.list(into);
+          if (listed == null) {
+            failure = 'FOLDER · $unreadFolder';
+          } else {
+            taken = {for (final entry in listed) entry.name};
+          }
+        }
+        final paths = <String>[];
+        if (failure == null) {
+          for (final file in files) {
+            if (taken == null) {
+              paths.add(remotePathFor('${const Uuid().v4()}/${file.name}'));
+              continue;
+            }
+            final name = freeName(file.name, taken);
+            taken.add(name);
+            paths.add(joinPath(into!, name));
+          }
+        }
+        final List<String?> failures;
+        if (job == null) {
+          failures = const [];
+        } else if (failure case final line?) {
+          for (var i = 0; i < files.length; i++) {
+            job.report(i, job.items[i].to(AttachStage.failed, detail: line));
+          }
+          failures = List.filled(files.length, line);
+        } else {
+          final sharing = uploadsSharing(files.length);
+          failures = await runQueue(
+            job.files,
+            (i, report, stop) async {
+              final copy = File(files[i].path);
+              if (!await copy.exists()) return copyGone;
+              return pushFile(
+                link!,
+                paths[i],
+                copy,
+                report,
+                sharing: sharing,
+                stop: stop,
+              );
+            },
+            stop: job.stop,
+            onItem: job.report,
+          );
+        }
+        for (var i = 0; i < failures.length; i++) {
+          if (failures[i] == null) landed[files[i].path] = paths[i];
+        }
+        missed = [
+          for (var i = 0; i < failures.length; i++)
+            if (failures[i] != null && failures[i] != copyGone) files[i],
+        ];
+        if (job != null && missed.isNotEmpty) {
+          job._kept.addAll([
+            ...landed.keys,
+            for (final file in missed) file.path,
+          ]);
+          job._retry = () => attempt(missed, landed, job);
+        } else if (failure == null && then != null) {
+          failure = await then(link!, landed, taken);
+          if (job != null && failure != null) {
+            job.note = [failure, if (into == null) ...landed.values].join('\n');
+          }
+        }
+      } finally {
+        link?.close();
+        job?.end();
+      }
+      if (missed.isEmpty && (failure == null || ended == null)) {
+        await discardCopies(landed.keys);
+      }
+      ended?.call(job, landed, failure);
+    }
+
+    return attempt(files, sent, null);
+  }
+
+  Future<void> pull(
+    Host host,
+    String path,
+    DirEntry entry, {
+    required String verb,
+    required Object sheet,
+    required Future<Directory> Function() into,
+    ({Host host, String folder})? to,
+    bool keep = false,
+    Future<void> Function(File copy)? landed,
+  }) {
+    _sheets.add(sheet);
+    Future<void> attempt(TransferJob? replacing) async {
+      HostFiles? from;
+      String? unreached;
+      try {
+        from = await _open(host);
+      } catch (error) {
+        unreached = filesFailureLine(error);
+      }
+      if (replacing != null && unreached != null) {
+        if (_sheets.contains(sheet)) {
+          replacing._retry = () => attempt(replacing);
+        }
+        return;
+      }
+      final job = begin(
+        verb: verb,
+        host: host.name,
+        hostId: host.id,
+        files: [QueuedFile(name: entry.name, bytes: entry.size)],
+        replacing: replacing,
+      ).._sheet = sheet;
+      HostFiles? there;
+      File? copy;
+      final String? failed;
+      try {
+        failed = (await runQueue(
+          job.files,
+          (_, report, stop) async {
+            final link = from;
+            if (link == null) return unreached;
+            final file = copy = File('${(await into()).path}/${entry.name}');
+            final failed = await pullFile(
+              link,
+              path,
+              file,
+              entry.size,
+              report,
+              stop: stop,
+            );
+            if (failed != null || to == null) return failed;
+            final target = there = to.host.id == host.id
+                ? link
+                : await _open(to.host);
+            final listed = await target.list(to.folder);
+            if (listed == null) return unreadFolder;
+            final taken = {for (final e in listed) e.name};
+            return pushFile(
+              target,
+              joinPath(to.folder, freeName(entry.name, taken)),
+              file,
+              report,
+              stop: stop,
+            );
+          },
+          stop: job.stop,
+          onItem: job.report,
+        )).single;
+        if (failed != null && _sheets.contains(sheet)) {
+          job._retry = () => attempt(job);
+        }
+      } finally {
+        if (there != from) there?.close();
+        from?.close();
+        job.end();
+      }
+      final file = copy;
+      if (file == null) return;
+      if (failed == null) await landed?.call(file);
+      if (failed != null || !keep) await discardCopies([file.path]);
+    }
+
+    return attempt(null);
   }
 
   void stopAll() {
@@ -260,7 +487,7 @@ class Transfers extends ChangeNotifier {
     final gone = [
       for (final job in _jobs)
         if (job.ended &&
-            job.retry == null &&
+            job._retry == null &&
             !_retrying.contains(job) &&
             (job.seen || !job.failed) &&
             now.difference(job.endedAt!) >= transferLinger)
@@ -268,7 +495,7 @@ class Transfers extends ChangeNotifier {
     ];
     for (final job in gone) {
       _jobs.remove(job);
-      unawaited(discardCopies(job.kept));
+      unawaited(discardCopies(job._kept));
     }
     if (_dirty || gone.isNotEmpty) {
       _dirty = false;
@@ -276,7 +503,7 @@ class Transfers extends ChangeNotifier {
     }
     if ((++_ticks).isEven && active) _post();
     if (!active &&
-        _jobs.every((job) => job.retry != null || (job.failed && !job.seen))) {
+        _jobs.every((job) => job._retry != null || (job.failed && !job.seen))) {
       _ticker?.cancel();
       _ticker = null;
       _samples.clear();
@@ -329,7 +556,10 @@ class Transfers extends ChangeNotifier {
 
 final transfersProvider = ChangeNotifierProvider<Transfers>((ref) {
   final phone = ref.read(phoneFilesProvider);
-  final transfers = Transfers(status: phone);
+  final transfers = Transfers(
+    open: (host) => ref.read(hostFilesOpenerProvider)(host),
+    status: phone,
+  );
   final stops = phone.stops.listen((_) => transfers.stopAll());
   ref.onDispose(stops.cancel);
   return transfers;

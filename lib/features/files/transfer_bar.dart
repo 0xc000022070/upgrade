@@ -18,10 +18,10 @@ import 'package:upgrade/platform/herdr/agent_watcher.dart' show AgentWatcher;
 const transferBarHeight = 36.0;
 
 String _settled(Transfers transfers) {
-  final retry = transfers.jobs.where((job) => job.retry != null).length;
+  final retry = transfers.jobs.where((job) => job.retryable).length;
   final rest = [
     for (final job in transfers.jobs)
-      if (job.retry == null) job,
+      if (!job.retryable) job,
   ];
   final failed = rest
       .expand((job) => job.items)
@@ -299,7 +299,7 @@ class TransferJobView extends ConsumerWidget {
                 tone: tokens.danger,
                 onTap: () => transfers.stop(job),
               )
-            else if (job.ended && job.retry != null) ...[
+            else if (job.ended && job.retryable) ...[
               ActionBlock(
                 key: ValueKey('$keyPrefix-dismiss'),
                 label: 'DISMISS',

@@ -89,11 +89,9 @@ class _SendSheetState extends ConsumerState<SendSheet> {
           ? 'CLIPBOARD'
           : 'FOLDER';
     });
-    return uploadFiles(
-      transfers: transfers,
-      open: ref.read(hostFilesOpenerProvider),
-      host: host,
-      files: files,
+    return transfers.upload(
+      host,
+      files,
       into: into,
       sent: sent,
       then: into == null ? _copyTo(widget.items) : _writeTo(widget.items, into),
@@ -152,7 +150,7 @@ class _SendSheetState extends ConsumerState<SendSheet> {
     Map<String, String> sent,
     String? failure,
   ) async {
-    final pending = job != null && job.retry != null ? job : null;
+    final pending = job != null && job.retryable ? job : null;
     if (!mounted) {
       if (pending == null && failure != null) await discardCopies(sent.keys);
       return;

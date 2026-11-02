@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
@@ -23,7 +22,6 @@ import 'package:upgrade/features/code/file_icons.dart';
 import 'package:upgrade/features/code/syntax.dart';
 import 'package:upgrade/features/files/host_transfers.dart';
 import 'package:upgrade/features/files/transfer_bar.dart' show TransferJobView;
-import 'package:upgrade/features/files/transfer_queue.dart';
 import 'package:upgrade/features/files/transfers.dart';
 
 Future<void> showHostFiles(BuildContext context, Host host) async {
@@ -88,8 +86,6 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
 
   String? _status;
   late final Transfers _transfers;
-  final _pulls = <TransferJob>{};
-  final _running = <Future<void>>{};
 
   @override
   void initState() {
@@ -100,9 +96,8 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
 
   @override
   void dispose() {
-    _pulls.forEach(_transfers.release);
-    final files = _files;
-    unawaited(Future.wait(_running).whenComplete(() => files?.close()));
+    _transfers.release(this);
+    _files?.close();
     super.dispose();
   }
 
@@ -138,17 +133,6 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     } catch (error) {
       if (mounted) setState(() => _error = filesFailureLine(error));
     }
-  }
-
-  Future<HostFiles?> _linkFor(
-    TransferJob? replacing,
-    Future<void> Function(TransferJob replacing) again,
-  ) async {
-    final files = await _live();
-    if (files == null && replacing != null && mounted) {
-      replacing.retry = () => again(replacing);
-    }
-    return files;
   }
 
   Future<HostFiles?> _live() async {
@@ -213,54 +197,14 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     if (_open.contains(directory)) unawaited(_read(directory));
   }
 
-  Future<List<String?>> _run(
-    String verb,
-    List<QueuedFile> queue,
-    QueueTask task, {
-    required Future<void> Function(TransferJob replacing) again,
-    TransferJob? replacing,
-  }) {
-    final job = _transfers.begin(
-      verb: verb,
-      host: _host.name,
-      hostId: widget.host.id,
-      files: queue,
-      replacing: replacing,
-    );
-    _pulls.add(job);
-    setState(() => _status = null);
-    Future<List<String?>> work() async {
-      try {
-        final failures = await runQueue(
-          queue,
-          task,
-          stop: job.stop,
-          onItem: job.report,
-        );
-        if (mounted && failures.any((f) => f != null)) {
-          job.retry = () => again(job);
-        }
-        return failures;
-      } finally {
-        job.end();
-      }
-    }
-
-    final run = work();
-    _running.add(run);
-    return run.whenComplete(() => _running.remove(run));
-  }
-
   Future<void> _uploadInto(String directory) async {
     final picked = await ref.read(phoneFilesProvider).pick();
     if (picked.isEmpty) return;
     if (!mounted) return discardCopies(picked.map((f) => f.path));
     setState(() => _status = null);
-    await uploadFiles(
-      transfers: ref.read(transfersProvider),
-      open: ref.read(hostFilesOpenerProvider),
-      host: _host,
-      files: picked,
+    await _transfers.upload(
+      _host,
+      picked,
       into: directory,
       ended: (_, _, _) {
         if (!mounted) return;
@@ -270,150 +214,63 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
     );
   }
 
-  Future<String?> _pullOne(
-    String verb,
-    HostFiles files,
-    String path,
-    DirEntry entry,
-    File into, {
-    required Future<void> Function(TransferJob replacing) again,
-    TransferJob? replacing,
-    Future<String?> Function(
-      void Function(AttachItem item) report,
-      TransferStop? stop,
-    )?
-    then,
-  }) async {
-    final failures = await _run(
-      verb,
-      [QueuedFile(name: entry.name, bytes: entry.size)],
-      (_, report, stop) async {
-        final failed = await pullFile(
-          files,
-          path,
-          into,
-          entry.size,
-          report,
-          stop: stop,
-        );
-        if (failed != null || then == null) return failed;
-        return then(report, stop);
+  Future<void> _share(String path, DirEntry entry) {
+    final phone = ref.read(phoneFilesProvider);
+    setState(() => _status = null);
+    return _transfers.pull(
+      _host,
+      path,
+      entry,
+      verb: 'SHARING',
+      sheet: this,
+      into: phone.outgoing,
+      keep: true,
+      landed: (copy) => phone.share([copy.path]),
+    );
+  }
+
+  Future<void> _save(String path, DirEntry entry) {
+    final phone = ref.read(phoneFilesProvider);
+    setState(() => _status = null);
+    return _transfers.pull(
+      _host,
+      path,
+      entry,
+      verb: 'SAVING',
+      sheet: this,
+      into: phone.scratch,
+      landed: (copy) async {
+        String line;
+        try {
+          line = await phone.save(copy.path, entry.name)
+              ? 'SAVED'
+              : 'NOT SAVED';
+        } on PlatformException catch (error) {
+          line = 'SAVING · ${error.message ?? error.code}';
+        }
+        if (mounted) setState(() => _status = line);
       },
-      replacing: replacing,
-      again: again,
     );
-    return failures.single;
   }
 
-  Future<void> _share(
-    String path,
-    DirEntry entry, {
-    TransferJob? replacing,
-  }) async {
-    final files = await _linkFor(
-      replacing,
-      (job) => _share(path, entry, replacing: job),
-    );
-    if (files == null) return;
-    final phone = ref.read(phoneFilesProvider);
-    final into = File('${(await phone.outgoing()).path}/${entry.name}');
-    if (!mounted) return;
-    final failed = await _pullOne(
-      'SHARING',
-      files,
-      path,
-      entry,
-      into,
-      replacing: replacing,
-      again: (job) => _share(path, entry, replacing: job),
-    );
-    if (failed == null) await phone.share([into.path]);
-  }
-
-  Future<void> _save(
-    String path,
-    DirEntry entry, {
-    TransferJob? replacing,
-  }) async {
-    final files = await _linkFor(
-      replacing,
-      (job) => _save(path, entry, replacing: job),
-    );
-    if (files == null) return;
-    final phone = ref.read(phoneFilesProvider);
-    final scratch = await phone.scratch();
-    final into = File('${scratch.path}/${entry.name}');
-    if (!mounted) return;
-    final failed = await _pullOne(
-      'SAVING',
-      files,
-      path,
-      entry,
-      into,
-      replacing: replacing,
-      again: (job) => _save(path, entry, replacing: job),
-    );
-    String? line;
-    if (failed == null) {
-      try {
-        line = await phone.save(into.path, entry.name) ? 'SAVED' : 'NOT SAVED';
-      } on PlatformException catch (error) {
-        line = 'SAVING · ${error.message ?? error.code}';
-      }
-    }
-    await discardCopies([into.path]);
-    if (mounted && line != null) setState(() => _status = line);
-  }
-
-  Future<void> _sendToHost(
-    String path,
-    DirEntry entry, {
-    Host? to,
-    String? into,
-    TransferJob? replacing,
-  }) async {
-    final files = await _linkFor(
-      replacing,
-      (job) => _sendToHost(path, entry, to: to, into: into, replacing: job),
-    );
-    if (files == null || !mounted) return;
-    final target = to ?? await pickHost(context, ref, title: 'SEND TO');
+  Future<void> _sendToHost(String path, DirEntry entry) async {
+    final target = await pickHost(context, ref, title: 'SEND TO');
     if (target == null || !mounted) return;
-    final folder = into ?? await pickHostFolder(context, target);
+    final folder = await pickHostFolder(context, target);
     if (folder == null || !mounted) return;
-    final scratch = await ref.read(phoneFilesProvider).scratch();
-    final copy = File('${scratch.path}/${entry.name}');
-    final opener = ref.read(hostFilesOpenerProvider);
-    HostFiles? there;
-    if (!mounted) return discardCopies([copy.path]);
-    await _pullOne(
-      'SENDING',
-      files,
+    setState(() => _status = null);
+    await _transfers.pull(
+      _host,
       path,
       entry,
-      copy,
-      then: (report, stop) async {
-        final to = there = target.id == widget.host.id
-            ? files
-            : await opener(target);
-        final listed = await to.list(folder);
-        if (listed == null) return unreadFolder;
-        final taken = {for (final e in listed) e.name};
-        return pushFile(
-          to,
-          joinPath(folder, freeName(entry.name, taken)),
-          copy,
-          report,
-          stop: stop,
-        );
+      verb: 'SENDING',
+      sheet: this,
+      into: ref.read(phoneFilesProvider).scratch,
+      to: (host: target, folder: folder),
+      landed: (_) async {
+        if (mounted && target.id == widget.host.id) await _read(folder);
       },
-      replacing: replacing,
-      again: (job) =>
-          _sendToHost(path, entry, to: target, into: folder, replacing: job),
     );
-    if (there != null && there != files) there!.close();
-    await discardCopies([copy.path]);
-    if (target.id == widget.host.id) await _read(folder);
   }
 
   void _directoryActions(String directory) {
