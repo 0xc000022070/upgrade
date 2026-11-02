@@ -12,9 +12,11 @@ let
     zigBuildFlags = lib.toList old.zigBuildFlags ++ [ "-Dtarget=aarch64-linux-musl" ];
     dontFixup = true;
   });
-  engine = pkgsCross.aarch64-multiplatform-musl.pkgsStatic.callPackage ./package.nix {
-    inherit ghosttyVt;
-  };
+  engine =
+    (pkgsCross.aarch64-multiplatform-musl.pkgsStatic.callPackage ./package.nix {
+      inherit ghosttyVt;
+    }).overrideAttrs
+      { cargoBuildNoDefaultFeatures = true; };
 in
 runCommand "upgraded-android" { } ''
   install -Dm755 ${lib.getExe engine} $out/arm64-v8a/libupgraded.so

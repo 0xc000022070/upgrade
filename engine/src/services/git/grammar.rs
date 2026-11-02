@@ -57,8 +57,10 @@ fn name_for_extension(extension: &str) -> Option<&'static str> {
         "yaml" | "yml" => "yaml",
         "toml" => "toml",
         "c" | "h" => "c",
+        #[cfg(feature = "heavy-grammars")]
         "cc" | "cpp" | "cxx" | "c++" | "hh" | "hpp" | "hxx" | "h++" => "cpp",
         "java" => "java",
+        #[cfg(feature = "heavy-grammars")]
         "kt" | "kts" => "kotlin",
         "lua" => "lua",
         "css" => "css",
@@ -67,6 +69,7 @@ fn name_for_extension(extension: &str) -> Option<&'static str> {
         "md" | "markdown" => "markdown",
         "dockerfile" | "containerfile" => "dockerfile",
         "mk" | "make" => "make",
+        #[cfg(feature = "heavy-grammars")]
         "sql" => "sql",
         "xml" | "xsd" | "xsl" | "xslt" | "svg" | "plist" | "csproj" | "fsproj" | "xaml" => "xml",
         "proto" => "proto",
@@ -150,6 +153,7 @@ fn code_parts(name: &str) -> Option<Parts> {
             &[tree_sitter_bash::HIGHLIGHT_QUERY],
         ),
         "c" => (tree_sitter_c::LANGUAGE, &[tree_sitter_c::HIGHLIGHT_QUERY]),
+        #[cfg(feature = "heavy-grammars")]
         "cpp" => (
             tree_sitter_cpp::LANGUAGE,
             &[
@@ -161,6 +165,7 @@ fn code_parts(name: &str) -> Option<Parts> {
             tree_sitter_java::LANGUAGE,
             &[tree_sitter_java::HIGHLIGHTS_QUERY],
         ),
+        #[cfg(feature = "heavy-grammars")]
         "kotlin" => (tree_sitter_kotlin_ng::LANGUAGE, &[]),
         "lua" => (
             tree_sitter_lua::LANGUAGE,
@@ -168,6 +173,7 @@ fn code_parts(name: &str) -> Option<Parts> {
         ),
         "proto" => (tree_sitter_proto::LANGUAGE, &[]),
         "graphql" => (tree_sitter_graphql::LANGUAGE, &[]),
+        #[cfg(feature = "heavy-grammars")]
         "sql" => (
             tree_sitter_sequel::LANGUAGE,
             &[tree_sitter_sequel::HIGHLIGHTS_QUERY],
