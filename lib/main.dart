@@ -28,7 +28,6 @@ import 'package:upgrade/data/seed.dart';
 import 'package:upgrade/data/shell_snapshot_store.dart';
 import 'package:upgrade/design/ascii/grid.dart';
 import 'package:upgrade/design/components/ascii_mascot.dart';
-import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/typography.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/tasks/image_input.dart';
@@ -85,8 +84,6 @@ Future<void> _boot(PlatformSignal launch) async {
     ..add(const BootStep('mount link previews', 'ok'))
     ..add(BootStep('mounted device ${model ?? 'unknown'}', 'ok'))
     ..add(const BootStep('arm alerts', 'ok'));
-
-  unawaited(warmGlitchIcons());
 
   final container = ProviderContainer(
     overrides: [

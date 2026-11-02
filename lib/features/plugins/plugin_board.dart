@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:vector_graphics/vector_graphics.dart';
 
 import 'package:upgrade/data/plugin_emblems.dart';
 import 'package:upgrade/design/effects/glitch.dart';
@@ -107,11 +107,14 @@ class _NodeFace extends StatelessWidget {
             size: size * 0.4,
             color: tokens.textDisabled,
           )
-        : SvgPicture.asset(
-            emblem!.asset,
+        : VectorGraphic(
+            loader: AssetBytesLoader(emblem!.asset),
             width: size * 0.56,
             height: size * 0.56,
-            theme: SvgTheme(currentColor: lit ? ink : tokens.textMuted),
+            colorFilter: ColorFilter.mode(
+              lit ? ink : tokens.textMuted,
+              BlendMode.srcIn,
+            ),
             excludeFromSemantics: true,
           );
     return AnimatedContainer(

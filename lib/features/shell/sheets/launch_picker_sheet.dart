@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:vector_graphics/vector_graphics.dart';
 
 import 'package:upgrade/application/phone_linux.dart';
 import 'package:upgrade/application/shell/launch_scan.dart';
@@ -53,11 +53,14 @@ class LaunchLogo extends StatelessWidget {
   final Color? color;
 
   @override
-  Widget build(BuildContext context) => SvgPicture.asset(
-    asset,
+  Widget build(BuildContext context) => VectorGraphic(
+    loader: AssetBytesLoader(asset),
     width: _logo,
     height: _logo,
-    theme: SvgTheme(currentColor: color ?? context.tokens.textSecondary),
+    colorFilter: ColorFilter.mode(
+      color ?? context.tokens.textSecondary,
+      BlendMode.srcIn,
+    ),
   );
 }
 

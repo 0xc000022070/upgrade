@@ -65,7 +65,7 @@ lib/
 assets/ fonts/ icons/ textures/ sprites/ project_emblems/ plugin_emblems/
 ```
 
-The design system is the app's own, not default Material. Colours, typography, spacing, radii, borders, motion and icon sizing are all tokens. Icons are SVG through `flutter_svg`. A Material or Lucide glyph is never substituted for a house icon because it is faster; placeholders are allowed while isolated functionality is being built and are never what ships.
+The design system is the app's own, not default Material. Colours, typography, spacing, radii, borders, motion and icon sizing are all tokens. Icons are SVG, compiled at build time and drawn through `vector_graphics`. A Material or Lucide glyph is never substituted for a house icon because it is faster; placeholders are allowed while isolated functionality is being built and are never what ships.
 
 ### The objective
 

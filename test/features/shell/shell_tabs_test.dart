@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:vector_graphics/vector_graphics.dart';
 import 'package:upgrade/application/shell/launch_scan.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/colors.dart';
@@ -575,10 +575,10 @@ void main() {
         matching: find.byType(type),
       );
       for (final number in [1, 2]) {
-        expect(inTab(number, SvgPicture), findsOneWidget);
+        expect(inTab(number, VectorGraphic), findsOneWidget);
         expect(inTab(number, ShellStateDot), findsNothing);
       }
-      expect(inTab(3, SvgPicture), findsNothing);
+      expect(inTab(3, VectorGraphic), findsNothing);
       expect(inTab(3, ShellStateDot), findsOneWidget);
 
       await unmount(tester);

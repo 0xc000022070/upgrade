@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:vector_graphics/vector_graphics.dart';
 
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/effects/glitch.dart';
@@ -28,11 +28,11 @@ class UpgradeIcon extends StatelessWidget {
   final List<GlitchStep> steps;
 
   Widget _svg({required bool asSignal, required Color paint}) {
-    return SvgPicture.asset(
-      asSignal ? icon.signalAsset : icon.asset,
+    return VectorGraphic(
+      loader: AssetBytesLoader(asSignal ? icon.signalAsset : icon.asset),
       width: size,
       height: size,
-      theme: SvgTheme(currentColor: paint),
+      colorFilter: ColorFilter.mode(paint, BlendMode.srcIn),
     );
   }
 
@@ -62,21 +62,6 @@ const glitchIcons = [
   UpgradeIcons.screens,
   UpgradeIcons.voice,
 ];
-
-/// flutter_svg keys its cache on the asset/colour pair, so the first play of a sequence
-/// decodes entries it has never seen and renders nothing until each one lands. Not
-/// awaited by `main()`: it gates nothing.
-Future<void> warmGlitchIcons() {
-  const paints = [UpgradeColors.textPrimary, UpgradeColors.accent];
-  return Future.wait([
-    for (final icon in glitchIcons)
-      for (final paint in paints)
-        SvgAssetLoader(
-          icon.asset,
-          theme: SvgTheme(currentColor: paint),
-        ).loadBytes(null),
-  ]);
-}
 
 @immutable
 class GlitchStep {

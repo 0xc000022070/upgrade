@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:vector_graphics/vector_graphics.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'package:upgrade/design/ascii/grid.dart';
@@ -305,10 +305,10 @@ class Preview extends StatelessWidget {
     final tokens = context.tokens;
     final path = asset.path;
     return switch (asset.kind) {
-      AssetKind.svg => SvgPicture.asset(
-        path,
+      AssetKind.svg => VectorGraphic(
+        loader: AssetBytesLoader(path),
         fit: BoxFit.contain,
-        theme: SvgTheme(currentColor: tokens.textPrimary),
+        colorFilter: ColorFilter.mode(tokens.textPrimary, BlendMode.srcIn),
       ),
       AssetKind.png => Image.asset(
         path,

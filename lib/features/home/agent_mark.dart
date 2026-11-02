@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:vector_graphics/vector_graphics.dart';
 
 import 'package:upgrade/application/agents/agent_kind.dart';
 import 'package:upgrade/application/agents/agent_state.dart';
@@ -78,12 +78,13 @@ class AgentMark extends StatelessWidget {
                   color: tint ?? context.tokens.textSecondary,
                 ),
               )
-            : SvgPicture.asset(
-                asset,
+            : VectorGraphic(
+                loader: AssetBytesLoader(asset),
                 width: size,
                 height: size,
-                theme: SvgTheme(
-                  currentColor: tint ?? context.tokens.textPrimary,
+                colorFilter: ColorFilter.mode(
+                  tint ?? context.tokens.textPrimary,
+                  BlendMode.srcIn,
                 ),
               ),
       ),

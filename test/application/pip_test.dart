@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:vector_graphics/vector_graphics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents/agent_state.dart';
 import 'package:upgrade/application/agents/agents.dart';
@@ -91,13 +91,13 @@ List<String> drawnRows(WidgetTester tester) => tester
     .toList();
 
 List<String> markAssets(WidgetTester tester) => [
-  for (final picture in tester.widgetList<SvgPicture>(
+  for (final picture in tester.widgetList<VectorGraphic>(
     find.descendant(
       of: find.byType(AgentMark),
-      matching: find.byType(SvgPicture),
+      matching: find.byType(VectorGraphic),
     ),
   ))
-    if (picture.bytesLoader case final SvgAssetLoader loader) loader.assetName,
+    if (picture.loader case final AssetBytesLoader loader) loader.assetName,
 ];
 
 void main() {

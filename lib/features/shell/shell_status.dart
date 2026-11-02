@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:vector_graphics/vector_graphics.dart';
 
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
@@ -69,11 +69,14 @@ class ShellStateMark extends StatelessWidget {
       null => null,
     };
     if (logo == null) return ShellStateDot(state: session.state);
-    return SvgPicture.asset(
-      logo,
+    return VectorGraphic(
+      loader: AssetBytesLoader(logo),
       width: IconSizes.glyph,
       height: IconSizes.glyph,
-      theme: SvgTheme(currentColor: shellStateColor(context, session.state)),
+      colorFilter: ColorFilter.mode(
+        shellStateColor(context, session.state),
+        BlendMode.srcIn,
+      ),
     );
   }
 }

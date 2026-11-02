@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'dart:async';
 
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:vector_graphics/vector_graphics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents/agent_kind.dart';
 import 'package:upgrade/application/agents/agent_state.dart';
@@ -991,7 +991,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byType(AgentMark),
-        matching: find.byType(SvgPicture),
+        matching: find.byType(VectorGraphic),
       ),
       findsNothing,
     );
@@ -1127,9 +1127,9 @@ Future<void> _waitFor(bool Function() condition) async {
 String? markAsset(WidgetTester tester) {
   final marks = find.descendant(
     of: find.byType(AgentMark),
-    matching: find.byType(SvgPicture),
+    matching: find.byType(VectorGraphic),
   );
   if (marks.evaluate().isEmpty) return null;
-  final loader = tester.widget<SvgPicture>(marks).bytesLoader;
-  return loader is SvgAssetLoader ? loader.assetName : null;
+  final loader = tester.widget<VectorGraphic>(marks).loader;
+  return loader is AssetBytesLoader ? loader.assetName : null;
 }
