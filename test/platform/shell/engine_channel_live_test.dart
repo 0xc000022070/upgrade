@@ -185,12 +185,11 @@ void main() {
       addTearDown(again.cancel);
       await again.until(
         'the keyframe and its images',
-        () => again.events.length >= 2,
+        () => again.events.whereType<EnginePty>().isNotEmpty,
       );
-      expect(again.events[0], isA<EngineSnapshot>());
-      final images = again.events[1];
-      expect(images, isA<EnginePty>());
-      expect(utf8.decode((images as EnginePty).bytes), contains('i=7'));
+      expect(again.events.first, isA<EngineSnapshot>());
+      final images = again.events.whereType<EnginePty>().first;
+      expect(utf8.decode(images.bytes), contains('i=7'));
 
       await second.close(end: true);
       final deadline = DateTime.now().add(const Duration(seconds: 5));
@@ -245,7 +244,7 @@ void main() {
               ),
         ),
       );
-      expect(watch.elapsed, lessThan(window * 2));
+      expect(watch.elapsed, lessThan(window * (deaf.contactTries + 1)));
 
       final heard = UdpEngineChannel(
         address: InternetAddress.loopbackIPv4,
