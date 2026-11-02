@@ -271,7 +271,10 @@ void main() {
       unawaited(dictation().press(_session()));
       await tester.pump();
       expect(dictation().failure, 'NO RECOGNIZER');
-      expect(dictation().advice, 'DOWNLOAD A WHISPER MODEL IN SYS · VOICE');
+      expect(
+        dictation().advice,
+        'DOWNLOAD A WHISPER MODEL IN SYS\u00a0·\u00a0VOICE',
+      );
       await tester.pump(const Duration(seconds: 4));
       expect(dictation().showing, isTrue);
       await tester.pump(const Duration(seconds: 1));
@@ -756,7 +759,7 @@ void main() {
       await tester.pump();
       expect(find.text('PHONE RECOGNIZER FAILED'), findsOneWidget);
       expect(
-        find.text('DOWNLOAD A WHISPER MODEL IN SYS · VOICE'),
+        find.text('DOWNLOAD A WHISPER MODEL IN SYS\u00a0·\u00a0VOICE'),
         findsOneWidget,
       );
       await tester.pump(const Duration(seconds: 5));
