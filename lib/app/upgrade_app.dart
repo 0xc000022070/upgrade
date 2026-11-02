@@ -28,6 +28,7 @@ import 'package:upgrade/app/autonomous_ticks.dart';
 import 'package:upgrade/app/boot.dart';
 import 'package:upgrade/app/keyboard_release.dart';
 import 'package:upgrade/app/launcher_widget_host.dart';
+import 'package:upgrade/app/legible_scale.dart';
 import 'package:upgrade/app/nav_shell.dart';
 import 'package:upgrade/app/pip_host.dart';
 import 'package:upgrade/app/static_surface.dart';
@@ -86,9 +87,11 @@ class UpgradeApp extends ConsumerWidget {
           navigatorKey: rootNavigatorKey,
           navigatorObservers: [rootRoutes],
           builder: (context, child) => KeyboardRelease(
-            child: houseText(
-              context,
-              PipHost(child: DeviceFloat(child: child!)),
+            child: LegibleScale(
+              child: houseText(
+                context,
+                PipHost(child: DeviceFloat(child: child!)),
+              ),
             ),
           ),
           home: AlertsHost(

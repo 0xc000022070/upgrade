@@ -158,6 +158,10 @@ Screen titles are Barlow Condensed with a trailing `_` cursor: `TODAY_`, `PROJEC
 
 Rows are content-driven on a 4px rhythm — 10 of padding, a 4 line gap, which lands around 40, 57 and 70 for one, two and three lines — and the row box is the tap target. Panels gap 8. Screen side padding is 16.
 
+### On a monitor the whole app is drawn larger
+
+The type is sized for a phone held in the hand, and a monitor in desktop mode gives the window fewer than one pixel per point, where mono 11 is a few pixels tall and nothing on the screen can be read. So the app never draws at fewer than one and a half pixels per point: below that it lays out on a smaller canvas and draws it scaled up to the window, type, spacing, glyphs, hit boxes and the terminal together, with nothing to press or set. A density the user raises past that on the display is theirs and is kept. Every phone screen is far above the line, so the phone's own screens, folded or unfolded, are never touched by it.
+
 ### A row has an anatomy
 
 Left: a 14px glyph — a checkbox, a node, a warning — when the row is actionable. Middle: a title over a subtitle, both mono. Right: one value column, mono 11, right-aligned, carrying a percent, a duration, a time or a count. A progress bar is short and inline on the right, 48–64 wide and 2 tall, beside its percent, and never full-width under the row.
