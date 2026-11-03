@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:dartssh2/dartssh2.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pinenacl/ed25519.dart' as ed25519;
 import 'package:pointycastle/digests/sha256.dart';
@@ -108,7 +110,16 @@ class Ed25519Keys {
     return GeneratedSshKey(publicKey: publicKey, fingerprint: fingerprint);
   }
 
-  Future<String?> privateKey(String id) => _store.read(id);
+  /// Null when the key is absent or the keystore cannot decrypt it: a dial reports either
+  /// as a refused key. Export reads the store itself, so it still stops on the failure.
+  Future<String?> privateKey(String id) async {
+    try {
+      return await _store.read(id);
+    } on PlatformException catch (error) {
+      debugPrint('upgrade.keys $id: $error');
+      return null;
+    }
+  }
 
   Future<void> delete(String id) => _store.delete(id);
 }

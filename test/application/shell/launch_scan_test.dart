@@ -6,6 +6,7 @@ import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/shell/shell_launch.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/ssh_exec.dart';
@@ -130,5 +131,6 @@ Future<LaunchTargets> _unreached({
 
 class _ThrowingStore extends MemoryPrivateKeyStore {
   @override
-  Future<String?> read(String id) async => throw StateError('keystore locked');
+  Future<String?> read(String id) async =>
+      throw PlatformException(code: 'AEADBadTagException');
 }
