@@ -24,6 +24,7 @@ import 'package:upgrade/platform/plugins/store.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/native_plugins.dart';
@@ -171,6 +172,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: featureTestOverrides(db),
         child: MaterialApp(
           theme: testTheme,
@@ -226,6 +228,7 @@ void main() {
     ];
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: _catalogOverrides(db, catalog),
         child: MaterialApp(
           theme: testTheme,
@@ -272,6 +275,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: featureTestOverrides(db),
         child: MaterialApp(
           theme: testTheme,
@@ -320,6 +324,7 @@ void main() {
     ];
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: _catalogOverrides(db, catalog),
         child: MaterialApp(theme: testTheme, home: PluginLibraryScreen()),
       ),
@@ -351,6 +356,7 @@ void main() {
     ];
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: _catalogOverrides(
           db,
           catalog,
@@ -399,6 +405,7 @@ void main() {
     final plugins = _SwitchingPlugins(catalog);
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: _catalogOverrides(db, catalog, plugins: () => plugins),
         child: MaterialApp(theme: testTheme, home: PluginManagementScreen()),
       ),
@@ -439,6 +446,7 @@ void main() {
     final plugins = _SwitchingPlugins(catalog);
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: _catalogOverrides(db, catalog, plugins: () => plugins),
         child: MaterialApp(theme: testTheme, home: PluginManagementScreen()),
       ),
@@ -479,6 +487,7 @@ void main() {
     final plugins = _SwitchingPlugins(catalog);
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           ..._catalogOverrides(db, catalog, plugins: () => plugins),
           ..._marketplaceOverrides(),
@@ -523,6 +532,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           ..._catalogOverrides(db, const []),
           ..._marketplaceOverrides(),
@@ -558,6 +568,7 @@ void main() {
     );
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           ..._catalogOverrides(db, const []),
           ..._marketplaceOverrides(sources: [existing]),
@@ -600,6 +611,7 @@ void main() {
     final directory = Directory.systemTemp.createTempSync('plugin-sources');
     addTearDown(() => directory.deleteSync(recursive: true));
     final container = ProviderContainer(
+      retry: noRetry,
       overrides: [
         pluginSourceStoreProvider.overrideWith(
           (ref) async => PluginSourceStore(directory),
@@ -658,6 +670,7 @@ void main() {
     );
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           ..._catalogOverrides(db, catalog),
           ..._marketplaceOverrides(
@@ -708,6 +721,7 @@ void main() {
       final package = _workspace();
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           overrides: _catalogOverrides(db, const [], plugins: () => plugins),
           child: MaterialApp(
             theme: testTheme,

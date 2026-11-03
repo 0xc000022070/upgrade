@@ -145,6 +145,7 @@ void main() {
       List<Dispatch> sends = const [],
     }) {
       final container = ProviderContainer(
+        retry: noRetry,
         overrides: [
           settingsRepositoryProvider.overrideWithValue(settings),
           sendsProvider.overrideWith((ref) => Stream.value(sends)),

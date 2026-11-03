@@ -190,14 +190,14 @@ class _CaptureBarState extends ConsumerState<CaptureBar> {
   String _targetLabel() {
     if (_target.projectId == null) return 'DROPS';
     final projects =
-        ref.watch(captureProjectsProvider).valueOrNull ?? const <Project>[];
+        ref.watch(captureProjectsProvider).value ?? const <Project>[];
     final project = projects
         .where((p) => p.id == _target.projectId)
         .firstOrNull;
     final projectName = (project?.name ?? 'PROJECT').toUpperCase();
     if (_target.goalId == null) return projectName;
     final goals =
-        ref.watch(captureGoalsProvider(_target.projectId!)).valueOrNull ??
+        ref.watch(captureGoalsProvider(_target.projectId!)).value ??
         const <GoalSummary>[];
     final goal = goals.where((g) => g.goalId == _target.goalId).firstOrNull;
     if (goal == null) return projectName;

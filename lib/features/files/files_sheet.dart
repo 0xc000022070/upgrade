@@ -9,6 +9,7 @@ import 'package:upgrade/application/agents/agents.dart'
 import 'package:upgrade/application/files/host_file_link.dart';
 import 'package:upgrade/application/files/phone_inbox.dart';
 import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/design/components/action_sheet.dart';
@@ -46,7 +47,7 @@ Future<Host?> pickHost(
   WidgetRef ref, {
   required String title,
 }) async {
-  final hosts = await ref.read(hostsProvider.future);
+  final hosts = await readFirst(ref, hostsProvider.future);
   if (!context.mounted || hosts.isEmpty) return null;
   Host? picked;
   await showActionSheet(

@@ -18,6 +18,7 @@ import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/shell/shell_launch.dart';
 import 'package:flterm/flterm.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/fake_shell.dart';
 import '../../support/launch_scan.dart';
@@ -303,6 +304,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           shellSessionsProvider.overrideWithValue(sessions),
           noWorkspaces,

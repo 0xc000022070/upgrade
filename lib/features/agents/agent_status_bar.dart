@@ -27,7 +27,7 @@ class AgentStatusBar extends ConsumerWidget {
     // on its own evidence that anything is still being counted.
     if (!ref.watch(agentsFeedLiveProvider)) return const SizedBox.shrink();
 
-    final data = ref.watch(agentsFeedProvider).valueOrNull;
+    final data = ref.watch(agentsFeedProvider).value;
     if (data == null || data.noHost) return const SizedBox.shrink();
 
     final failures = data.failures;

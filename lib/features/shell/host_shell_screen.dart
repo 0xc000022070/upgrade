@@ -364,7 +364,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   }
 
   Iterable<AgentSnapshot> _agentsOn(Host host) sync* {
-    final state = ref.read(agentsFeedProvider).valueOrNull;
+    final state = ref.read(agentsFeedProvider).value;
     if (state == null) return;
     for (final outcome in state.outcomes) {
       if (outcome.host.id == host.id) yield* outcome.agents;
@@ -373,7 +373,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
 
   Iterable<AgentSnapshot> _freshAgentsOn(Host host) sync* {
     if (!ref.exists(agentsFeedProvider)) return;
-    final state = ref.read(agentsFeedProvider).valueOrNull;
+    final state = ref.read(agentsFeedProvider).value;
     if (state == null) return;
     final now = DateTime.now();
     for (final outcome in state.outcomes) {
@@ -762,8 +762,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
 
   List<({String directory, String label})> _diffTargets() {
     final groups =
-        ref.watch(workspacesByHostProvider).valueOrNull ??
-        const <HostWorkspaces>[];
+        ref.watch(workspacesByHostProvider).value ?? const <HostWorkspaces>[];
     return [
       for (final group in groups)
         if (group.host.id == widget.host.id)
@@ -883,9 +882,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   }
 
   double get _fontSize =>
-      _pinched ??
-      ref.read(shellFontSizeProvider).valueOrNull ??
-      shellFontSizeDefault;
+      _pinched ?? ref.read(shellFontSizeProvider).value ?? shellFontSizeDefault;
 
   void _onPinchStart(ScaleStartDetails _) {
     _pinchBase = _fontSize;
@@ -961,11 +958,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     final store = ref.watch(shellSessionsProvider);
     if (ref.exists(agentsFeedProvider)) ref.watch(agentsFeedProvider);
     final persisted =
-        ref.watch(shellFontSizeProvider).valueOrNull ?? shellFontSizeDefault;
+        ref.watch(shellFontSizeProvider).value ?? shellFontSizeDefault;
     // The pinched size is let go the moment the row says the same thing, so a
     // change written from another tab is drawn here too.
     ref.listen(shellFontSizeProvider, (_, next) {
-      if (_pinched != null && next.valueOrNull == _pinched) {
+      if (_pinched != null && next.value == _pinched) {
         setState(() => _pinched = null);
       }
     });
@@ -978,8 +975,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           builder: (context) {
             final active = store.activeFor(widget.host.id);
             _drawn = _drawnFrom(active);
-            final registered =
-                ref.watch(hostsProvider).valueOrNull ?? const <Host>[];
+            final registered = ref.watch(hostsProvider).value ?? const <Host>[];
             final known = {
               for (final host in registered) host.id: host,
               widget.host.id: widget.host,
@@ -1147,7 +1143,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                       searching: _searching,
                       onFind: _onFind,
                       layout:
-                          ref.watch(shellBarLayoutProvider).valueOrNull ??
+                          ref.watch(shellBarLayoutProvider).value ??
                           BarLayout.house,
                       onAttach: () => showAttachSheet(context, session: active),
                       dictation: _dictation,

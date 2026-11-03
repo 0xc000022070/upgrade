@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide ColorScheme;
+import 'package:material_ui/material_ui.dart' show ColorScheme;
 
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/tokens.dart';

@@ -83,9 +83,9 @@ class _PluginCatalogViewState extends ConsumerState<PluginCatalogView> {
               'Host pause status unavailable: ${pauses.error}',
               style: tokens.rowSubtitle,
             ),
-          if ((pauses.valueOrNull ?? 0) > 0) ...[
+          if ((pauses.value ?? 0) > 0) ...[
             Text(
-              '${pauses.valueOrNull} HOST PAUSES PENDING',
+              '${pauses.value} HOST PAUSES PENDING',
               style: tokens.rowSubtitle,
             ),
             PanelTextAction(

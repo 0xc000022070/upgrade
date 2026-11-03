@@ -51,11 +51,10 @@ final sendStatesProvider = Provider<void>((ref) {
 
   ref.listen(
     agentsFeedProvider,
-    (_, next) => record(next.valueOrNull, ref.read(sendsProvider).valueOrNull),
+    (_, next) => record(next.value, ref.read(sendsProvider).value),
   );
   ref.listen(
     sendsProvider,
-    (_, next) =>
-        record(ref.read(agentsFeedProvider).valueOrNull, next.valueOrNull),
+    (_, next) => record(ref.read(agentsFeedProvider).value, next.value),
   );
-});
+}, dependencies: [dispatchRepositoryProvider, sendsProvider]);

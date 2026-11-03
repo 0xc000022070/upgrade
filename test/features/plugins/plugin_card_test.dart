@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
@@ -10,6 +11,7 @@ import 'package:upgrade/features/plugins/plugin_card.dart';
 import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/themed_app.dart';
 
@@ -116,6 +118,7 @@ Future<(ProviderContainer, _CardPlugins)> _setUp({
   );
   final plugins = _CardPlugins([plugin]);
   final container = ProviderContainer(
+    retry: noRetry,
     overrides: [
       pluginBootCatalogProvider.overrideWithValue([plugin]),
       pluginsProvider.overrideWith(() => plugins),

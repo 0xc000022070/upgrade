@@ -241,9 +241,8 @@ final phoneLinuxStatesProvider =
 
 extension PhoneLinuxRef on WidgetRef {
   bool isPhoneLinux(String hostId) =>
-      watch(phoneLinuxHostIdsProvider).valueOrNull?.contains(hostId) ?? false;
+      watch(phoneLinuxHostIdsProvider).value?.contains(hostId) ?? false;
 
   PhoneLinuxState phoneLinuxState(String hostId) =>
-      watch(phoneLinuxStatesProvider).valueOrNull?[hostId] ??
-      PhoneLinuxState.absent;
+      watch(phoneLinuxStatesProvider).value?[hostId] ?? PhoneLinuxState.absent;
 }

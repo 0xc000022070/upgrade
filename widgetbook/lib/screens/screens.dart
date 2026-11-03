@@ -15,6 +15,7 @@ import 'package:upgrade/features/tasks/link_preview_card.dart';
 
 import 'package:upgrade_widgetbook/frame.dart';
 import 'package:upgrade_widgetbook/screens/fixtures.dart';
+import 'package:upgrade/application/providers.dart';
 
 final screenComponents = [
   WidgetbookComponent(
@@ -221,6 +222,7 @@ class _Usage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ProviderScope(
+      retry: noRetry,
       overrides: [usageFeedProvider.overrideWith(FixtureUsageFeed.new)],
       child: Stage(
         children: [UsagePanel(usages: usages, now: fixedNow)],

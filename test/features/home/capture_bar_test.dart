@@ -17,6 +17,7 @@ import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/home/capture_bar.dart';
 import 'package:upgrade/features/home/composer_panel.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -66,6 +67,7 @@ void main() {
 
   Widget host({bool hidable = false, VoidCallback? onNavigate}) =>
       ProviderScope(
+        retry: noRetry,
         overrides: [...featureTestOverrides(db)],
         child: MaterialApp(
           theme: testTheme,

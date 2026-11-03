@@ -130,12 +130,10 @@ class _KeyBarSettingsBlockState extends ConsumerState<KeyBarSettingsBlock> {
   @override
   Widget build(BuildContext context) {
     ref.listen(shellBarLayoutProvider, (_, next) {
-      if (next.valueOrNull == _pending) setState(() => _pending = null);
+      if (next.value == _pending) setState(() => _pending = null);
     });
     final layout =
-        _pending ??
-        ref.watch(shellBarLayoutProvider).valueOrNull ??
-        BarLayout.house;
+        _pending ?? ref.watch(shellBarLayoutProvider).value ?? BarLayout.house;
     final tokens = context.tokens;
     final arranger = _arranging
         ? _Arranger(

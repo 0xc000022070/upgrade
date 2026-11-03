@@ -21,6 +21,7 @@ import 'package:upgrade/features/projects/project_task_filter.dart';
 import 'package:upgrade/features/tasks/selection_bar.dart';
 import 'package:upgrade/features/home/capture_bar.dart';
 import 'package:upgrade/features/home/capture_draft.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -58,6 +59,7 @@ void main() {
   tearDown(() => db.close());
 
   Widget host(Widget screen) => ProviderScope(
+    retry: noRetry,
     overrides: [...featureTestOverrides(db)],
     child: MaterialApp(theme: testTheme, home: screen),
   );

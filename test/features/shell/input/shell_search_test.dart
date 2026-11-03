@@ -7,6 +7,7 @@ import 'package:upgrade/features/shell/host_shell_screen.dart';
 import 'package:upgrade/features/shell/input/shell_search.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:flterm/flterm.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../../support/fake_shell.dart';
 import '../../../support/platform_channels.dart';
@@ -45,6 +46,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 10));
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           child: MaterialApp(
             theme: ThemeData(extensions: const [UpgradeTokens.house]),
             home: Scaffold(
@@ -143,6 +145,7 @@ void main() {
       var closed = false;
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           child: MaterialApp(
             theme: ThemeData(extensions: const [UpgradeTokens.house]),
             home: Scaffold(
@@ -171,6 +174,7 @@ void main() {
 
   group('the search on the route', () {
     Widget app(ShellSessions sessions) => ProviderScope(
+      retry: noRetry,
       overrides: [
         shellSessionsProvider.overrideWithValue(sessions),
         noWorkspaces,

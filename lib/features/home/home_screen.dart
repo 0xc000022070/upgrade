@@ -115,7 +115,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
     final catalog = ref.watch(pluginContributionCatalogProvider);
     final placementState = ref.watch(pluginPlacementsProvider);
-    final placements = placementState.valueOrNull;
+    final placements = placementState.value;
     final selecting = ref
         .watch(dropSelectionProvider)
         .ownedBy(DropSelection.homeScope);

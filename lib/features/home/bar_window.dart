@@ -24,7 +24,7 @@ class _BarWindowState extends ConsumerState<BarWindow> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (ref.read(inputBarHolderProvider).valueOrNull == null) {
+      if (ref.read(inputBarHolderProvider).value == null) {
         return _leave(LauncherWidget.openApp(LauncherOpen.plugins));
       }
       unawaited(LauncherWidget.composeShown());
@@ -62,7 +62,7 @@ class _BarWindowState extends ConsumerState<BarWindow> {
 
   @override
   Widget build(BuildContext context) {
-    final holder = ref.watch(inputBarHolderProvider).valueOrNull;
+    final holder = ref.watch(inputBarHolderProvider).value;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {

@@ -60,6 +60,7 @@ void main() {
       ],
     );
     container = ProviderContainer(
+      retry: noRetry,
       overrides: [
         databaseProvider.overrideWithValue(db),
         pluginStoreProvider.overrideWith((ref) async => PluginStore(directory)),

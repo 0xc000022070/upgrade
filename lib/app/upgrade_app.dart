@@ -136,7 +136,7 @@ class _UpgradeShellState extends ConsumerState<UpgradeShell> {
     final selectedIndex = ref.watch(navIndexProvider);
     final catalog = ref.watch(pluginContributionCatalogProvider);
     final placementState = ref.watch(pluginPlacementsProvider);
-    final placements = placementState.valueOrNull;
+    final placements = placementState.value;
     final pinnedId = placements?.pinnedPages.firstOrNull;
     final contribution = pinnedId == null ? null : catalog.page(pinnedId);
     final pinned = contribution?.enabled == true ? contribution : null;

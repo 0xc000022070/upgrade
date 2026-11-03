@@ -126,7 +126,7 @@ class _DropsPanelState extends ConsumerState<DropsPanel> {
   Widget build(BuildContext context) {
     final selection = ref.watch(dropSelectionProvider);
     final selecting = selection.ownedBy(widget.scope);
-    final allRows = widget.drops.valueOrNull ?? const <Task>[];
+    final allRows = widget.drops.value ?? const <Task>[];
     final rows = widget.stateful
         ? allRows
         : allRows.where((task) => !task.done).toList();

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/alerts/alerts.dart';
@@ -147,7 +148,7 @@ class _AlertsHostState extends ConsumerState<AlertsHost> {
   void _sync() {
     final kinds = ref.read(alertsWantedProvider);
     final (:hosts, :sources) = watcherHostsOf(
-      ref.read(agentChannelsProvider).valueOrNull ?? const [],
+      ref.read(agentChannelsProvider).value ?? const [],
     );
     final next = kinds.isEmpty || hosts.isEmpty
         ? ''

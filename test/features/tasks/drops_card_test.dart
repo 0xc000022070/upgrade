@@ -9,6 +9,7 @@ import 'package:upgrade/data/repositories/task_repository.dart';
 import 'package:upgrade/features/home/home_screen.dart';
 import 'package:upgrade/features/tasks/drops_panel.dart';
 import 'package:upgrade/features/tasks/drops_screen.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/native_plugins.dart';
 import '../../support/platform_channels.dart';
@@ -45,6 +46,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [...featureTestOverrides(db)],
         child: MaterialApp(
           theme: testTheme,
@@ -96,6 +98,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [...featureTestOverrides(db)],
         child: MaterialApp(
           theme: testTheme,

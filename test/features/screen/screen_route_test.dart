@@ -16,6 +16,7 @@ import 'package:upgrade/platform/vnc/rfb_messages.dart';
 import 'package:upgrade/platform/vnc/vnc_failure.dart';
 import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/vnc_channel.dart';
 import '../../support/themed_app.dart';
@@ -43,6 +44,7 @@ Future<void> pumpRoute(
   if (privateKey != null) await store.write(_nyx.keyId, privateKey);
   await tester.pumpWidget(
     ProviderScope(
+      retry: noRetry,
       overrides: [privateKeyStoreProvider.overrideWithValue(store)],
       child: MaterialApp(
         theme: testTheme,
@@ -697,6 +699,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [privateKeyStoreProvider.overrideWithValue(store)],
         child: MaterialApp(
           theme: testTheme,

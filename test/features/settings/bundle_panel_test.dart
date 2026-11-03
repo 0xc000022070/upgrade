@@ -16,6 +16,7 @@ import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/features/settings/settings_screen.dart';
 import 'package:upgrade/platform/bundle_cipher.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -67,6 +68,7 @@ void main() {
   tearDown(() => db.close());
 
   Widget app() => ProviderScope(
+    retry: noRetry,
     overrides: [
       ...featureTestOverrides(db),
       keyRepositoryProvider.overrideWithValue(keys),

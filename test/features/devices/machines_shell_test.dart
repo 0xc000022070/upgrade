@@ -12,6 +12,7 @@ import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/fake_shell.dart';
 import '../../support/platform_channels.dart';
@@ -59,6 +60,7 @@ void main() {
     List<Host> desktops = const [],
     List<Host> devices = const [],
   }) => ProviderScope(
+    retry: noRetry,
     overrides: [
       vncHostsProvider.overrideWith((ref) => Stream.value(desktops)),
       deviceHostsProvider.overrideWith((ref) => Stream.value(devices)),

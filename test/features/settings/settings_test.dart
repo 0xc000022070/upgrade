@@ -11,6 +11,7 @@ import 'package:upgrade/design/components/ascii_background.dart';
 import 'package:upgrade/design/motion.dart';
 import 'package:upgrade/features/home/home_screen.dart';
 import 'package:upgrade/features/settings/settings_screen.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -66,6 +67,7 @@ void main() {
   }
 
   Widget host(Widget child) => ProviderScope(
+    retry: noRetry,
     overrides: [...featureTestOverrides(db)],
     child: MaterialApp(theme: testTheme, home: child),
   );

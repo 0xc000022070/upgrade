@@ -13,6 +13,7 @@ import 'package:upgrade/features/files/transfers.dart';
 import 'package:upgrade/platform/files/phone_files.dart'
     show SharedFile, TransferStatus;
 import 'package:upgrade/platform/ssh/host_files.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/themed_app.dart';
 
@@ -297,6 +298,7 @@ void main() {
     final transfers = Transfers(open: open, status: status, now: () => now);
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [transfersProvider.overrideWith((ref) => transfers)],
         child: MaterialApp(
           theme: testTheme,
@@ -347,6 +349,7 @@ void main() {
     final transfers = Transfers(open: open, status: status, now: () => now);
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [transfersProvider.overrideWith((ref) => transfers)],
         child: MaterialApp(
           theme: testTheme,

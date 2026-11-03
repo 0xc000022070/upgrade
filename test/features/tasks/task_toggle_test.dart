@@ -18,6 +18,7 @@ import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/features/projects/project_detail_screen.dart';
 import 'package:upgrade/features/tasks/item_sheet.dart';
 import 'package:upgrade/features/tasks/task_row.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -89,6 +90,7 @@ void main() {
       for (final title in ['Short drop', 'First line\nSecond line']) {
         await tester.pumpWidget(
           ProviderScope(
+            retry: noRetry,
             overrides: [...featureTestOverrides(db)],
             child: MaterialApp(
               theme: testTheme,
@@ -117,6 +119,7 @@ void main() {
   });
 
   Widget host({bool reduceMotion = false}) => ProviderScope(
+    retry: noRetry,
     overrides: [...featureTestOverrides(db)],
     child: MediaQuery(
       data: MediaQueryData(disableAnimations: reduceMotion),

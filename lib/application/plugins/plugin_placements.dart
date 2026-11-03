@@ -40,7 +40,7 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
       _,
       next,
     ) {
-      if (state.valueOrNull == null) {
+      if (state.value == null) {
         _pendingCatalog = next;
         return;
       }
@@ -144,10 +144,7 @@ class PluginPlacements extends AsyncNotifier<PluginPlacementState> {
       _change((home) => HomeLayout(home.state, catalog).withDefaults())
           .catchError((Object error, StackTrace stackTrace) {
             if (_disposed) return;
-            state = AsyncError<PluginPlacementState>(
-              error,
-              stackTrace,
-            ).copyWithPrevious(state);
+            state = AsyncError<PluginPlacementState>(error, stackTrace);
           }),
     );
   }

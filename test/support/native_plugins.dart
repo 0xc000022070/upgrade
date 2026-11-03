@@ -9,7 +9,7 @@ import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
 import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 
 PluginPackage builtinFixture(String name) => PluginPackage(
   manifest: PluginManifest.parse(
@@ -27,7 +27,11 @@ List<InstalledPlugin> builtinFixtures({bool enabled = true}) => [
       InstalledPlugin(package, package.manifest.permissions, enabled: enabled),
 ];
 
-List<Override> featureTestOverrides(AppDatabase db, {bool enabled = true}) {
+List<Override> featureTestOverrides(
+  AppDatabase db, {
+  bool enabled = true,
+  PluginPlacementRepository? placements,
+}) {
   final catalog = builtinFixtures(enabled: enabled);
   return [
     databaseProvider.overrideWithValue(db),
@@ -35,7 +39,7 @@ List<Override> featureTestOverrides(AppDatabase db, {bool enabled = true}) {
     pluginBootCatalogProvider.overrideWithValue(catalog),
     pluginsProvider.overrideWith(() => _FixturePlugins(catalog)),
     pluginPlacementRepositoryProvider.overrideWith(
-      (ref) async => PluginPlacementRepository.memory(),
+      (ref) async => placements ?? PluginPlacementRepository.memory(),
     ),
   ];
 }

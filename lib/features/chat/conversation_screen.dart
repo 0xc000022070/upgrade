@@ -70,10 +70,7 @@ class _ConversationState extends ConsumerState<ConversationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final contact = ref
-        .watch(chatBookProvider)
-        .valueOrNull
-        ?.contact(widget.record);
+    final contact = ref.watch(chatBookProvider).value?.contact(widget.record);
     final messages = ref.watch(chatMessagesProvider(widget.record));
     if (contact == null) return const ChatPage(title: 'CHAT', children: []);
     return ChatPage(

@@ -17,6 +17,7 @@ import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
 import 'package:upgrade/platform/workspace/workspace_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/host_links.dart';
 import '../../support/ssh_exec.dart';
@@ -67,6 +68,7 @@ Future<ProviderContainer> _scheduler(HostLinks links) async {
   final keys = MemoryPrivateKeyStore();
   await keys.write('k1', 'key');
   return ProviderContainer(
+    retry: noRetry,
     overrides: [
       privateKeyStoreProvider.overrideWithValue(keys),
       hostLinksProvider.overrideWithValue(links),
@@ -451,6 +453,7 @@ void main() {
       final keys = MemoryPrivateKeyStore();
       await keys.write('k1', 'key');
       final container = ProviderContainer(
+        retry: noRetry,
         overrides: [
           hostRepositoryProvider.overrideWithValue(hosts),
           privateKeyStoreProvider.overrideWithValue(keys),
@@ -459,7 +462,7 @@ void main() {
         ],
       );
       final states = <AgentPanelState>[];
-      await container.read(agentChannelsProvider.future);
+      await container.listen(agentChannelsProvider.future, (_, _) {}).read();
       final subscription = container.listen(
         agentsFeedProvider,
         (_, next) => next.whenData(states.add),

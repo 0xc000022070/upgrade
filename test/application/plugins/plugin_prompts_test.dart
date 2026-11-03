@@ -19,6 +19,7 @@ import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/native_plugins.dart';
@@ -126,6 +127,7 @@ void main() {
   }) async {
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: overrides,
         child: MaterialApp(theme: testTheme, home: PluginManagementScreen()),
       ),
@@ -217,12 +219,7 @@ void main() {
     final repository = _RefusingPlacements();
     await pumpManagement(
       tester,
-      overrides: [
-        ...featureTestOverrides(db),
-        pluginPlacementRepositoryProvider.overrideWith(
-          (ref) async => repository,
-        ),
-      ],
+      overrides: [...featureTestOverrides(db, placements: repository)],
     );
 
     await openPluginDetails(tester, 'upgrade.drops', _drain);
@@ -284,6 +281,7 @@ void main() {
       final registry = _ConsentRegistry(host);
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           overrides: [
             databaseProvider.overrideWithValue(db),
             nativeModulesProvider.overrideWithValue(builtinModules),

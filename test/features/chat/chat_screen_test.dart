@@ -72,6 +72,7 @@ void main() {
     final link = _FakeLink();
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           chatLinkProvider.overrideWith((ref) async => link),
           staticEnabledProvider.overrideWith((ref) => Stream.value(false)),

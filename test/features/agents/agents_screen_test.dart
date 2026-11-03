@@ -17,6 +17,7 @@ import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/features/agents/agents_screen.dart';
 import 'package:upgrade/features/home/agent_mark.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/fake_pip.dart';
 import '../../support/platform_channels.dart';
@@ -72,6 +73,7 @@ void main() {
   /// is not optional even here.
   Widget host(AgentPanelState state, {AgentRetry? retry, FakePip? pip}) =>
       ProviderScope(
+        retry: noRetry,
         overrides: [
           ...featureTestOverrides(db),
           agentsFeedProvider.overrideWith((ref) => Stream.value(state)),
@@ -113,6 +115,7 @@ void main() {
     ]);
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           ...featureTestOverrides(db),
           agentsFeedProvider.overrideWith((ref) => Stream.value(state)),

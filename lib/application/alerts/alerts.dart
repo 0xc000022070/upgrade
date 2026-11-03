@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
@@ -401,10 +402,10 @@ final alertsEnabledProvider = StreamProvider.family<bool, AlertKind>(
 final alertsDeniedProvider = StateProvider<Set<AlertKind>>((ref) => const {});
 
 final alertsRowProvider = Provider.family<AlertsRow, AlertKind>((ref, kind) {
-  final channels = ref.watch(agentChannelsProvider).valueOrNull ?? const [];
+  final channels = ref.watch(agentChannelsProvider).value ?? const [];
   if (channels.isEmpty) return AlertsRow.noHost;
   if (ref.watch(alertsDeniedProvider).contains(kind)) return AlertsRow.denied;
-  return (ref.watch(alertsEnabledProvider(kind)).valueOrNull ?? false)
+  return (ref.watch(alertsEnabledProvider(kind)).value ?? false)
       ? AlertsRow.on
       : AlertsRow.off;
 });

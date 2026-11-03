@@ -8,6 +8,7 @@ import 'package:upgrade/application/agents/send_queue.dart';
 import 'package:upgrade/application/alerts/toasts.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/application/providers.dart';
 
 final _target = PathTarget(
   path: AgentPath(
@@ -29,7 +30,7 @@ final _target = PathTarget(
 
 void main() {
   late ProviderContainer container;
-  setUp(() => container = ProviderContainer());
+  setUp(() => container = ProviderContainer(retry: noRetry));
   tearDown(() => container.dispose());
 
   void start(Future<SendState> Function() run) => container

@@ -24,7 +24,7 @@ class DropsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final byPriority = ref.watch(dropsByPriorityProvider).valueOrNull ?? false;
+    final byPriority = ref.watch(dropsByPriorityProvider).value ?? false;
     final selecting = ref.watch(dropSelectionProvider).ownedBy(scope);
 
     return Scaffold(

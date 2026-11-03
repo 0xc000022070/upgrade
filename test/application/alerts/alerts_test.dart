@@ -15,6 +15,7 @@ import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/herdr/herdr_socket.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/herdr_link.dart';
 
@@ -417,6 +418,7 @@ void main() {
       Set<AlertKind> denied = const {},
     }) {
       final container = ProviderContainer(
+        retry: noRetry,
         overrides: [
           alertsEnabledProvider.overrideWith(
             (ref, kind) => Stream.value(alerts.contains(kind)),
@@ -435,8 +437,10 @@ void main() {
     }
 
     Future<AlertsRow> row(ProviderContainer container, AlertKind kind) async {
-      await container.read(alertsEnabledProvider(kind).future);
-      await container.read(agentChannelsProvider.future);
+      await container
+          .listen(alertsEnabledProvider(kind).future, (_, _) {})
+          .read();
+      await container.listen(agentChannelsProvider.future, (_, _) {}).read();
       return container.read(alertsRowProvider(kind));
     }
 

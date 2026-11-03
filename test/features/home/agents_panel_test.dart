@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import 'dart:async';
 
@@ -23,6 +24,7 @@ import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/fake_shell.dart';
 import '../../support/reasons.dart';
@@ -76,6 +78,7 @@ AgentPanelState snapshotOf(
 ]);
 
 Widget host(AgentPanelState state, {DateTime? now}) => ProviderScope(
+  retry: noRetry,
   child: MaterialApp(
     theme: testTheme,
     home: Scaffold(
@@ -88,7 +91,7 @@ void main() {
   testWidgets('a send still going is a row ahead of the agents', (
     tester,
   ) async {
-    final container = ProviderContainer();
+    final container = ProviderContainer(retry: noRetry);
     addTearDown(container.dispose);
     final answer = Completer<SendState>();
     container
@@ -174,6 +177,7 @@ void main() {
     ]);
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         child: MaterialApp(
           theme: testTheme,
           home: Scaffold(
@@ -194,6 +198,7 @@ void main() {
   test('no host keeps the polling provider idle', () async {
     var fetches = 0;
     final container = ProviderContainer(
+      retry: noRetry,
       overrides: [
         homeAgentsVisibleProvider.overrideWith((ref) => true),
         herdrFetchProvider.overrideWithValue(({
@@ -210,8 +215,10 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    await container.read(agentChannelsProvider.future);
-    final state = await container.read(agentsFeedProvider.future);
+    await container.listen(agentChannelsProvider.future, (_, _) {}).read();
+    final state = await container
+        .listen(agentsFeedProvider.future, (_, _) {})
+        .read();
 
     expect(state.noHost, isTrue);
     expect(fetches, 0);
@@ -227,6 +234,7 @@ void main() {
       await privateKeys.write('key-a', 'private-a');
       final verifiers = <HostKeyVerifier?>[];
       final container = ProviderContainer(
+        retry: noRetry,
         overrides: [
           hostRepositoryProvider.overrideWithValue(hosts),
           privateKeyStoreProvider.overrideWithValue(privateKeys),
@@ -244,7 +252,7 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
-      await container.read(agentChannelsProvider.future);
+      await container.listen(agentChannelsProvider.future, (_, _) {}).read();
       final subscription = container.listen(agentsFeedProvider, (_, _) {});
       addTearDown(subscription.close);
 
@@ -272,6 +280,7 @@ void main() {
     String dialled(Host host) => '${host.address}:${host.port}';
     final states = <AgentPanelState>[];
     final container = ProviderContainer(
+      retry: noRetry,
       overrides: [
         hostRepositoryProvider.overrideWithValue(hosts),
         privateKeyStoreProvider.overrideWithValue(privateKeys),
@@ -298,7 +307,7 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    await container.read(agentChannelsProvider.future);
+    await container.listen(agentChannelsProvider.future, (_, _) {}).read();
     final subscription = container.listen(
       agentsFeedProvider,
       (_, next) => next.whenData(states.add),
@@ -342,6 +351,7 @@ void main() {
     await privateKeys.write('key-a', 'private-a');
     var fetches = 0;
     final container = ProviderContainer(
+      retry: noRetry,
       overrides: [
         hostRepositoryProvider.overrideWithValue(hosts),
         privateKeyStoreProvider.overrideWithValue(privateKeys),
@@ -367,11 +377,11 @@ void main() {
     );
     addTearDown(container.dispose);
     container.read(homeAgentsVisibleProvider.notifier).state = true;
-    await container.read(agentChannelsProvider.future);
+    await container.listen(agentChannelsProvider.future, (_, _) {}).read();
     final subscription = container.listen(agentsFeedProvider, (_, _) {});
     addTearDown(subscription.close);
     await tester.pump();
-    expect(container.read(agentsFeedProvider).valueOrNull?.agents, isNotEmpty);
+    expect(container.read(agentsFeedProvider).value?.agents, isNotEmpty);
     expect(container.read(agentsFeedLiveProvider), isTrue);
 
     container.read(homeAgentsVisibleProvider.notifier).state = false;
@@ -379,10 +389,7 @@ void main() {
     await tester.pump(const Duration(seconds: 11));
 
     expect(fetches, dialled);
-    expect(
-      container.read(agentsFeedProvider).valueOrNull?.agents,
-      hasLength(1),
-    );
+    expect(container.read(agentsFeedProvider).value?.agents, hasLength(1));
     expect(container.read(agentsFeedLiveProvider), isFalse);
   });
 
@@ -399,6 +406,7 @@ void main() {
     await privateKeys.write('key-b', 'private-b');
     final states = <AgentPanelState>[];
     final container = ProviderContainer(
+      retry: noRetry,
       overrides: [
         hostRepositoryProvider.overrideWithValue(hosts),
         privateKeyStoreProvider.overrideWithValue(privateKeys),
@@ -426,7 +434,7 @@ void main() {
         }),
       ],
     );
-    await container.read(agentChannelsProvider.future);
+    await container.listen(agentChannelsProvider.future, (_, _) {}).read();
     final subscription = container.listen(
       agentsFeedProvider,
       (_, next) => next.whenData(states.add),
@@ -516,6 +524,7 @@ void main() {
     await privateKeys.write('key-a', 'private-a');
     final states = <AgentPanelState>[];
     final container = ProviderContainer(
+      retry: noRetry,
       overrides: [
         hostRepositoryProvider.overrideWithValue(hosts),
         privateKeyStoreProvider.overrideWithValue(privateKeys),
@@ -532,7 +541,7 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    await container.read(agentChannelsProvider.future);
+    await container.listen(agentChannelsProvider.future, (_, _) {}).read();
     final subscription = container.listen(
       agentsFeedProvider,
       (_, next) => next.whenData(states.add),
@@ -826,6 +835,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         child: MaterialApp(
           theme: testTheme,
           home: Scaffold(
@@ -863,6 +873,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         child: MaterialApp(
           theme: testTheme,
           home: Scaffold(
@@ -894,6 +905,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         child: MaterialApp(
           theme: testTheme,
           home: Scaffold(
@@ -1030,6 +1042,7 @@ void main() {
     final feed = StreamController<AgentPanelState>.broadcast();
     addTearDown(feed.close);
     final container = ProviderContainer(
+      retry: noRetry,
       overrides: [
         agentsFeedProvider.overrideWith((ref) {
           ref.watch(reloads);
@@ -1086,6 +1099,7 @@ _pollFailing(WidgetTester tester, HerdrFailure failure) async {
   await privateKeys.write('key-a', 'private-a');
   var dials = 0;
   final container = ProviderContainer(
+    retry: noRetry,
     overrides: [
       hostRepositoryProvider.overrideWithValue(hosts),
       privateKeyStoreProvider.overrideWithValue(privateKeys),
@@ -1102,7 +1116,7 @@ _pollFailing(WidgetTester tester, HerdrFailure failure) async {
       }),
     ],
   );
-  await container.read(agentChannelsProvider.future);
+  await container.listen(agentChannelsProvider.future, (_, _) {}).read();
   final subscription = container.listen(agentsFeedProvider, (_, _) {});
   await tester.pump();
   expect(dials, 1);

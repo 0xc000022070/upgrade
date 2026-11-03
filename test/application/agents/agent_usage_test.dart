@@ -7,6 +7,7 @@ import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/herdr/engine_agents.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/application/providers.dart';
 
 const _nyx = Host(
   id: 'nyx',
@@ -59,6 +60,7 @@ Future<void> _settle() => Future<void>.delayed(Duration.zero);
 
 ProviderContainer _feed(_Engine engine, {bool watched = true}) {
   final container = ProviderContainer(
+    retry: noRetry,
     overrides: [
       engineHostsProvider.overrideWith((ref) => Stream.value(const [_nyx])),
       engineOpenProvider.overrideWithValue((_) async => engine),

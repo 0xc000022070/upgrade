@@ -42,12 +42,12 @@ class _SendFlowState extends ConsumerState<SendFlow> {
   }
 
   void _send(SendChoice choice) {
-    final task = ref.read(taskProvider(widget.taskId)).valueOrNull;
+    final task = ref.read(taskProvider(widget.taskId)).value;
     if (task == null || !_messageReady || _message.text.trim().isEmpty) return;
     // Read once here: a send is one message, and re-reading it inside the transport would
     // let an edit land halfway through.
     final attachments =
-        ref.read(itemAttachmentsProvider(widget.taskId)).valueOrNull ??
+        ref.read(itemAttachmentsProvider(widget.taskId)).value ??
         const <Attachment>[];
     final sender = ref.read(senderProvider);
     final SendChoice(:target, :kind, :model) = choice;
@@ -93,9 +93,9 @@ class _SendFlowState extends ConsumerState<SendFlow> {
 
   @override
   Widget build(BuildContext context) {
-    final task = ref.watch(taskProvider(widget.taskId)).valueOrNull;
+    final task = ref.watch(taskProvider(widget.taskId)).value;
     final attachmentState = ref.watch(itemAttachmentsProvider(widget.taskId));
-    final attachments = attachmentState.valueOrNull;
+    final attachments = attachmentState.value;
     if (!_messageReady && task != null && attachments != null) {
       _message.text = sendPrompt(
         title: task.title,

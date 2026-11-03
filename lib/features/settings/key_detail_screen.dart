@@ -59,9 +59,7 @@ class KeyDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final hosts = ref.watch(hostsProvider);
     final users =
-        hosts.valueOrNull
-            ?.where((host) => host.keyId == keyRecord.id)
-            .toList() ??
+        hosts.value?.where((host) => host.keyId == keyRecord.id).toList() ??
         const [];
     final canDelete = hosts.hasValue && users.isEmpty;
     return Scaffold(

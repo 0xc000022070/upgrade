@@ -43,7 +43,10 @@ final whisperStoreProvider = FutureProvider.family<ModelStore, WhisperSize>((
   );
 });
 
-class WhisperModel extends FamilyNotifier<WhisperState, WhisperSize> {
+class WhisperModel extends Notifier<WhisperState> {
+  WhisperModel(this.arg);
+
+  final WhisperSize arg;
   ModelStore? _store;
   WhisperTranscriber? _transcriber;
   Future<void>? _run;
@@ -51,7 +54,7 @@ class WhisperModel extends FamilyNotifier<WhisperState, WhisperSize> {
   var _gone = false;
 
   @override
-  WhisperState build(WhisperSize size) {
+  WhisperState build() {
     ref.onDispose(() {
       _gone = true;
       _store?.cancel();

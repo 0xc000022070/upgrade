@@ -41,7 +41,7 @@ class _ItemSearchScreenState extends ConsumerState<ItemSearchScreen> {
   @override
   Widget build(BuildContext context) {
     final hits = ref.watch(searchHitsProvider);
-    final all = hits.valueOrNull ?? const <SearchHit>[];
+    final all = hits.value ?? const <SearchHit>[];
     final worded = [
       for (final hit in all)
         if (matchesWords(hit, _query.text)) hit,

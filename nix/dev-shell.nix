@@ -14,12 +14,12 @@ let
   ghosttySrc = pkgs.callPackage ./ghostty-src.nix { };
   ghosttyVt = pkgs.callPackage ./engine/libghostty-vt.nix { };
 
-  libghosttyRev = "232867518ec991daed7fcc9365d03cb047ef588c";
+  libghosttyRev = "3509e4219b2f47b0915c11214294c7b0d0cef601";
   libghosttySrc = pkgs.fetchFromGitHub {
     owner = "elias8";
     repo = "libghostty";
     rev = libghosttyRev;
-    hash = "sha256-kPvLmDyPl/XJ+WQbbHEAk4GP8Yc09D2DNh1u6mE8phk=";
+    hash = "sha256-f6i8MMosvN2D+NdMfFGipo5CUUqv1Ilqt4mmw8dGXeQ=";
   };
 in
 pkgs.mkShell {
@@ -36,7 +36,8 @@ pkgs.mkShell {
     pkgs.rustc
     pkgs.clippy
     pkgs.rustfmt
-    pkgs.zig
+    # ghostty refuses any zig but the one its build.zig names.
+    pkgs.zig_0_16
     pkgs.zstd
   ];
 

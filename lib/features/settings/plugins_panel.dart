@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:upgrade_luau/upgrade_luau.dart' show PluginDataReport;
 
 import 'package:upgrade/application/plugins/plugins.dart';
@@ -431,10 +432,10 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
             : _scriptDiagnostics(installed, reports),
       if (pending?.hasError == true)
         _fact('HOST PAUSE STATUS', '${pending!.error}'),
-      if ((pending?.valueOrNull ?? 0) > 0) ...[
+      if ((pending?.value ?? 0) > 0) ...[
         _fact(
           'HOST PAUSE PENDING',
-          '${pending!.valueOrNull} hosts have not acknowledged the pause. Future runs may still execute there.',
+          '${pending!.value} hosts have not acknowledged the pause. Future runs may still execute there.',
         ),
         PanelTextAction(
           label: 'RETRY HOST PAUSE',
@@ -552,7 +553,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
       ),
       if (storage.isLoading) _counting('STORAGE'),
       if (storage.hasError) _fact('STORAGE', '${storage.error}'),
-      for (final dataset in storage.valueOrNull ?? [])
+      for (final dataset in storage.value ?? [])
         _fact(
           'STORED ${dataset.name}',
           '${dataset.records} records · ${dataset.fieldBytes} field bytes\n${dataset.fileBytes} attachment bytes · ${dataset.missingFiles} missing files',
@@ -594,7 +595,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
           ),
       if (report.isLoading) _counting('USAGE'),
       if (report.hasError) _fact('USAGE', '${report.error}'),
-      if (report.valueOrNull case final data?) ...[
+      if (report.value case final data?) ...[
         _fact(
           'RUNTIME',
           '${data.residentVms} resident VMs · ${data.vmBytes} VM bytes',
@@ -816,7 +817,7 @@ class PluginBrowseView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final browse = ref.watch(pluginBrowseProvider);
     final installed =
-        ref.watch(pluginsProvider).valueOrNull ?? const <InstalledPlugin>[];
+        ref.watch(pluginsProvider).value ?? const <InstalledPlugin>[];
     return Panel(
       title: '[ BROWSE ]',
       child: browse.when(
@@ -1568,7 +1569,7 @@ class _PluginPreview extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final placements = ref.watch(pluginPlacementsProvider).valueOrNull;
+    final placements = ref.watch(pluginPlacementsProvider).value;
     final owner = installed == null
         ? null
         : ref

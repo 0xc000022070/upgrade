@@ -72,7 +72,7 @@ class _PluginDropActionsState extends ConsumerState<PluginDropActions> {
 
   @override
   Widget build(BuildContext context) {
-    final plugins = ref.watch(pluginsProvider).valueOrNull ?? [];
+    final plugins = ref.watch(pluginsProvider).value ?? [];
     final active = plugins
         .where((p) => p.enabled && p.manifest.actions.isNotEmpty)
         .toList();

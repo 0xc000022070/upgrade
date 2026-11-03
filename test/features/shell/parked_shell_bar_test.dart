@@ -3,6 +3,7 @@ import '../../support/native_plugins.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/app/nav_shell.dart';
 import 'package:upgrade/app/upgrade_app.dart';
@@ -18,6 +19,7 @@ import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/shell/shell_status.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/fake_shell.dart';
 import '../../support/platform_channels.dart';
@@ -65,6 +67,7 @@ void main() {
   tearDown(() => db.close());
 
   Widget app({List<Override> extra = const []}) => ProviderScope(
+    retry: noRetry,
     overrides: [
       ...featureTestOverrides(db),
       shellSessionsProvider.overrideWithValue(sessions),

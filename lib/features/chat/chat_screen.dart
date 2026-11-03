@@ -22,7 +22,7 @@ class ChatScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final book = ref.watch(chatBookProvider);
-    final online = book.valueOrNull?.online ?? false;
+    final online = book.value?.online ?? false;
     return ScreenScaffold(
       title: 'CHAT',
       children: [
@@ -35,7 +35,7 @@ class ChatScreen extends ConsumerWidget {
                 showIcon: false,
                 color: online ? context.tokens.accent : null,
               ),
-              child: book.valueOrNull == null
+              child: book.value == null
                   ? null
                   : _NameField(name: book.requireValue.name),
             ),

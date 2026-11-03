@@ -18,5 +18,4 @@ Everything runs through the flake: `nix develop -c <cmd>` or `just`.
 - The emulator reaches nyx through the NAT. `100.64.0.253` is an unassigned CGNAT address, the unreachable probe.
 - Keys for the app's hosts are installed by the user by hand.
 - Herdr answers on the unix socket `~/.config/herdr/sessions/hub/herdr.sock`; `herdr agent list` is the shape the app parses: `id` `cli:agent:list`, `result.type` `agent_list`, `result.agents[]`.
-- `flutter_secure_storage` is pinned to `10.3.1` exactly: its android module is compileSdk 36. `11.x` wants 37 and the store SDK only carries `android-37.0`.
 - Verify an apk with `aapt2 dump badging` and `apksigner verify --print-certs` from the build-tools 37.0.0 store path before parking it.

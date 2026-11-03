@@ -17,6 +17,7 @@ import 'package:upgrade/features/home/home_screen.dart';
 import 'package:upgrade/features/tasks/item_tags.dart';
 import 'package:upgrade/features/tasks/link_mark.dart';
 import 'package:upgrade/features/tasks/task_row.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -59,6 +60,7 @@ void main() {
   }
 
   Widget host(Task task) => ProviderScope(
+    retry: noRetry,
     overrides: [...featureTestOverrides(db)],
     child: MaterialApp(
       theme: testTheme,
@@ -209,6 +211,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [...featureTestOverrides(db)],
         child: MaterialApp(
           theme: testTheme,

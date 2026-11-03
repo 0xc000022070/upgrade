@@ -7,9 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/themed_app.dart';
 
 void main() {
-  testWidgets('MORE is one framed target that hangs settings', (
-    tester,
-  ) async {
+  testWidgets('MORE is one framed target that hangs settings', (tester) async {
     final semantics = tester.ensureSemantics();
     try {
       await tester.pumpWidget(

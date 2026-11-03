@@ -98,7 +98,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     ref.watch(registeredHostProvider(widget.host.id));
     final feed = _feed;
     final session = feed.session;
-    final link = _link(ref.watch(agentsFeedProvider).valueOrNull);
+    final link = _link(ref.watch(agentsFeedProvider).value);
     final bar = _bar(context, session, link);
     return Scaffold(
       bottomNavigationBar: bar,

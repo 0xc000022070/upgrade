@@ -12,8 +12,10 @@ import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/module.dart';
 import 'package:upgrade/platform/plugins/store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/native_plugins.dart';
 
@@ -36,6 +38,7 @@ void main() {
   tearDown(() => root.delete(recursive: true));
 
   ProviderContainer container() => ProviderContainer(
+    retry: noRetry,
     overrides: [
       nativeModulesProvider.overrideWithValue(builtinModules),
       pluginBootCatalogProvider.overrideWithValue(catalog),
@@ -332,7 +335,8 @@ void main() {
       final controller = scope.read(pluginPlacementsProvider.notifier);
       PluginPlacementState state() =>
           scope.read(pluginPlacementsProvider).requireValue;
-      Iterable<String> on(int space) => state().tileOf(space)?.cards ?? const [];
+      Iterable<String> on(int space) =>
+          state().tileOf(space)?.cards ?? const [];
 
       await controller.showHomeSpace(2);
       await controller.bringHome(first);
@@ -446,7 +450,7 @@ void main() {
       while (DateTime.now().isBefore(pageDeadline)) {
         if (scope
                 .read(pluginPlacementsProvider)
-                .valueOrNull
+                .value
                 ?.knownPages
                 .contains(pageId) ??
             false) {
@@ -484,6 +488,7 @@ void main() {
     );
     final second = InstalledPlugin(package, package.manifest.permissions);
     final scope = ProviderContainer(
+      retry: noRetry,
       overrides: [
         nativeModulesProvider.overrideWithValue([
           ...builtinModules,
@@ -529,6 +534,7 @@ void main() {
         (ref) => PluginContributionCatalog(catalog, builtinModules),
       );
       final scope = ProviderContainer(
+        retry: noRetry,
         overrides: [
           pluginContributionCatalogProvider.overrideWith(
             (ref) => ref.watch(liveCatalog),
@@ -547,7 +553,7 @@ void main() {
       while (DateTime.now().isBefore(widgetDeadline)) {
         if (scope
                 .read(pluginPlacementsProvider)
-                .valueOrNull
+                .value
                 ?.knownWidgets
                 .contains(id) ??
             false) {
@@ -577,6 +583,7 @@ void main() {
       (ref) => PluginContributionCatalog(catalog, builtinModules),
     );
     final scope = ProviderContainer(
+      retry: noRetry,
       overrides: [
         pluginContributionCatalogProvider.overrideWith(
           (ref) => ref.watch(liveCatalog),
@@ -632,7 +639,7 @@ void main() {
     while (DateTime.now().isBefore(recoverDeadline)) {
       final placements = scope.read(pluginPlacementsProvider);
       if (!placements.hasError &&
-          (placements.valueOrNull?.knownWidgets.contains(id) ?? false)) {
+          (placements.value?.knownWidgets.contains(id) ?? false)) {
         break;
       }
       await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -703,7 +710,7 @@ void main() {
           .read(pluginsProvider.notifier)
           .setEnabled('upgrade.prompt', true);
       for (var i = 0; i < 100; i++) {
-        final state = scope.read(pluginPlacementsProvider).valueOrNull;
+        final state = scope.read(pluginPlacementsProvider).value;
         if (state != null && state.knownWidgets.contains(prompt)) return state;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }

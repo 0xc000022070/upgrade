@@ -13,6 +13,7 @@ import 'package:upgrade/data/repositories/project_repository.dart';
 import 'package:upgrade/features/projects/project_form_screen.dart';
 import 'package:upgrade/features/projects/project_icon.dart';
 import 'package:upgrade/features/projects/project_row.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/native_plugins.dart';
 import '../../support/platform_channels.dart';
@@ -74,6 +75,7 @@ void main() {
       final id = await projects.create(name: 'Infra');
 
       Widget host(Widget child) => ProviderScope(
+        retry: noRetry,
         overrides: [...featureTestOverrides(db)],
         child: MaterialApp(theme: testTheme, home: child),
       );

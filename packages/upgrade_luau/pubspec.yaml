@@ -9,6 +9,6 @@ dependencies:
   hooks: ^2.2.0
   code_assets: ^2.1.0
   native_toolchain_c: ^0.19.5
-  crypto: ^3.0.7
-  archive: ^4.2.0
-  sqlite3: ^3.5.2
+  crypto: ^3.0.8
+  archive: ^4.6.0
+  sqlite3: ^3.8.0

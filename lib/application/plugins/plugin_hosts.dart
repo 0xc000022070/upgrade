@@ -9,6 +9,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:upgrade_luau/data_api.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -974,7 +975,7 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
           };
         },
         invoke: (plugin, operation, args, confirm, check, gesture) async {
-          final feed = ref.read(agentsFeedProvider).valueOrNull;
+          final feed = ref.read(agentsFeedProvider).value;
           if (operation == 'list') return pluginAgentList(feed, DateTime.now());
           if (gesture == null || !gesture.take()) {
             throw const PluginException(

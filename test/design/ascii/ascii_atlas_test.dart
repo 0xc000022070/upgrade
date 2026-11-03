@@ -90,10 +90,11 @@ void main() {
         format: ui.ImageByteFormat.rawRgba,
       ))!;
       for (var i = 0; i < data.lengthInBytes; i += 4) {
-        if (data.getUint8(i + 3) < 250) continue;
+        final alpha = data.getUint8(i + 3);
+        if (alpha < 250) continue;
         expect(
           [data.getUint8(i), data.getUint8(i + 1), data.getUint8(i + 2)],
-          [0xFF, 0xFF, 0xFF],
+          [alpha, alpha, alpha],
           reason: 'a glyph carries a colour of its own',
         );
       }

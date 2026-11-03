@@ -31,11 +31,7 @@ class PipPanel extends ConsumerWidget {
     // more here than anywhere else: the watcher can stop while the window is up, and there
     // is no way out of picture-in-picture from this side.
     final live = ref.watch(agentsFeedLiveProvider);
-    final window = _read(
-      context,
-      live,
-      ref.watch(agentsFeedProvider).valueOrNull,
-    );
+    final window = _read(context, live, ref.watch(agentsFeedProvider).value);
 
     return MediaQuery.withClampedTextScaling(
       maxScaleFactor: _maxTextScale,

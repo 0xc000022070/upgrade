@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -236,7 +237,7 @@ final hostsProvider = StreamProvider<List<Host>>(
 final registeredHostProvider = Provider.family<Host?, String>(
   (ref, id) => ref
       .watch(hostsProvider)
-      .valueOrNull
+      .value
       ?.where((host) => host.id == id)
       .firstOrNull,
 );
@@ -274,8 +275,8 @@ class ScreenHost {
 }
 
 final screenHostsProvider = Provider<List<ScreenHost>?>((ref) {
-  final desktops = ref.watch(vncHostsProvider).valueOrNull;
-  final devices = ref.watch(deviceHostsProvider).valueOrNull;
+  final desktops = ref.watch(vncHostsProvider).value;
+  final devices = ref.watch(deviceHostsProvider).value;
   if (desktops == null || devices == null) return null;
   final desktopIds = {for (final host in desktops) host.id};
   final deviceIds = {for (final host in devices) host.id};
@@ -506,7 +507,7 @@ final pluginAgentsHeldProvider = StateProvider<int>((ref) => 0);
 /// The feed keeps its last value after the stream behind it is swapped for an empty
 /// one, so every reader gates on this rather than on the value being non-null.
 final agentsFeedLiveProvider = Provider<bool>((ref) {
-  if (ref.watch(watcherFeedProvider).valueOrNull != null) return true;
+  if (ref.watch(watcherFeedProvider).value != null) return true;
   return (ref.watch(homeAgentsVisibleProvider) ||
           ref.watch(pluginAgentsHeldProvider) > 0) &&
       ref.watch(appVisibleProvider);
@@ -517,7 +518,7 @@ final agentsFeedLiveProvider = Provider<bool>((ref) {
 final agentsWakeProvider = StateProvider<int>((ref) => 0);
 
 final agentsFeedProvider = StreamProvider<AgentPanelState>((ref) {
-  final watched = ref.watch(watcherFeedProvider).valueOrNull;
+  final watched = ref.watch(watcherFeedProvider).value;
   if (watched != null) return Stream.value(watched);
   if (!ref.watch(agentsFeedLiveProvider)) return const Stream.empty();
   ref.watch(agentsWakeProvider);

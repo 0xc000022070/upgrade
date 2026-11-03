@@ -263,7 +263,7 @@ class _ExplorerState extends ConsumerState<Explorer> {
     // width written here is also the width drawn on the next open.
     for (final seam in PaneSeam.values) {
       ref.listen(paneShareProvider(seam), (_, next) {
-        if (_held == seam && next.valueOrNull == _heldShare) {
+        if (_held == seam && next.value == _heldShare) {
           setState(() => _held = null);
         }
       });
@@ -305,7 +305,7 @@ class _ExplorerState extends ConsumerState<Explorer> {
 
   double _share(PaneSeam seam) => seam == _held
       ? _heldShare
-      : ref.watch(paneShareProvider(seam)).valueOrNull ?? seam.fallback;
+      : ref.watch(paneShareProvider(seam)).value ?? seam.fallback;
 
   void _seamGrabbed(PaneSeam seam, double share) {
     setState(() {

@@ -269,6 +269,7 @@ final path = AgentPath(
 );
 
 Widget app(FakeRunner runner) => ProviderScope(
+  retry: noRetry,
   overrides: [
     privateKeyStoreProvider.overrideWithValue(privateKeys),
     databaseProvider.overrideWithValue(db),

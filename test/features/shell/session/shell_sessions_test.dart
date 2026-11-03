@@ -24,6 +24,7 @@ import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/vnc/keysyms.dart';
 import 'package:upgrade/features/shell/shell_terminal.dart';
 import 'package:flterm/flterm.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../../support/fake_shell.dart';
 import '../../../support/reasons.dart';
@@ -1275,6 +1276,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           shellSessionsProvider.overrideWithValue(sessions),
           noWorkspaces,
@@ -3477,6 +3479,7 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           overrides: [
             shellSessionsProvider.overrideWithValue(sessions),
             noWorkspaces,

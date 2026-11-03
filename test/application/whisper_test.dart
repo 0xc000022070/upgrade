@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:upgrade/application/whisper.dart';
 import 'package:upgrade/features/settings/voice_block.dart';
 import 'package:upgrade/platform/voice/whisper.dart';
+import 'package:upgrade/application/providers.dart';
 
 final _encoder = Uint8List.fromList(List.generate(70000, (i) => i % 251));
 final _decoder = Uint8List.fromList(List.generate(9000, (i) => i % 13));
@@ -125,6 +126,7 @@ void main() {
 
     setUp(() {
       container = ProviderContainer(
+        retry: noRetry,
         overrides: [
           whisperStoreProvider.overrideWith(
             (ref, size) async => store(name: size.name),

@@ -12,6 +12,7 @@ import 'package:upgrade/features/screen/screen_preview.dart';
 import 'package:upgrade/features/shell/sheets/attach_sheet.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../../support/fake_shell.dart';
 import '../../../support/platform_channels.dart';
@@ -59,6 +60,7 @@ void main() {
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           shellSessionsProvider.overrideWithValue(sessions),
           clipStoreProvider.overrideWithValue(clips),

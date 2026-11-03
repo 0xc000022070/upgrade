@@ -1,12 +1,12 @@
 # Draw Kitty virtual placements from Unicode placeholder cells
 #
-# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just pub flterm generate`.
+# Against flterm 3509e4219b2f47b0915c11214294c7b0d0cef601. Regenerate with `just pub flterm generate`.
 
 diff --git a/lib/src/rendering/frame_cursor.dart b/lib/src/rendering/frame_cursor.dart
-index c79a01a..7a38f39 100644
+index 85fba7f..746310c 100644
 --- a/lib/src/rendering/frame_cursor.dart
 +++ b/lib/src/rendering/frame_cursor.dart
-@@ -78,6 +78,7 @@ final class _CursorFrameBuilder {
+@@ -87,6 +87,7 @@ final class _CursorFrameBuilder {
      }
      final style = cell.style;
      if (cell.content.isEmpty ||

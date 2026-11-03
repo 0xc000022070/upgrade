@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/navigation.dart';
@@ -105,7 +106,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
       unawaited(
         ref
             .read(linkProbesProvider)
-            .refresh(ref.read(hostsProvider).valueOrNull ?? const <Host>[]),
+            .refresh(ref.read(hostsProvider).value ?? const <Host>[]),
       );
     });
   }
@@ -115,10 +116,9 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     ref.listen<int>(navIndexProvider, (_, _) => _syncVisible());
     final hosts = ref.watch(hostsProvider);
     final keys = ref.watch(managedKeysProvider);
-    final feed = ref.watch(agentsFeedProvider).valueOrNull;
+    final feed = ref.watch(agentsFeedProvider).value;
     final keyNames = {
-      for (final key in keys.valueOrNull ?? const <ManagedKey>[])
-        key.id: key.name,
+      for (final key in keys.value ?? const <ManagedKey>[]) key.id: key.name,
     };
 
     return ScreenScaffold(
@@ -204,7 +204,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
                     ),
                   ),
           ),
-          _AddMachinePanel(empty: hosts.valueOrNull?.isEmpty ?? false),
+          _AddMachinePanel(empty: hosts.value?.isEmpty ?? false),
         ],
       ],
     );
@@ -286,10 +286,9 @@ class _HostDetail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hosts = ref.watch(hostsProvider);
-    final keys =
-        ref.watch(managedKeysProvider).valueOrNull ?? const <ManagedKey>[];
-    final feed = ref.watch(agentsFeedProvider).valueOrNull;
-    final matches = hosts.valueOrNull?.where((host) => host.id == hostId);
+    final keys = ref.watch(managedKeysProvider).value ?? const <ManagedKey>[];
+    final feed = ref.watch(agentsFeedProvider).value;
+    final matches = hosts.value?.where((host) => host.id == hostId);
     final host = matches == null || matches.isEmpty ? null : matches.first;
     final keyNames = {for (final key in keys) key.id: key.name};
     return Scaffold(
@@ -338,7 +337,7 @@ class _HostPanel extends ConsumerWidget {
     final herdr = _outcomeFor(feed, host.id, AgentSource.herdr);
     final engine = _outcomeFor(feed, host.id, AgentSource.engine);
     final integrations =
-        ref.watch(hostIntegrationsProvider(host.id)).valueOrNull ??
+        ref.watch(hostIntegrationsProvider(host.id)).value ??
         const <IntegrationKind>{};
     final on = IntegrationKind.values
         .where(integrations.contains)
@@ -1155,7 +1154,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
             'SYSTEM',
             ref
                     .watch(phoneLinuxCatalogProvider)
-                    .valueOrNull
+                    .value
                     ?.distro(state.distro)
                     ?.label ??
                 state.distro?.toUpperCase() ??
@@ -1177,7 +1176,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
 
   Widget _tools(PhoneLinuxHost linux, PhoneLinuxState state) {
     final warning = context.tokens.warning;
-    final catalog = ref.watch(phoneLinuxCatalogProvider).valueOrNull;
+    final catalog = ref.watch(phoneLinuxCatalogProvider).value;
     final distro = catalog?.distro(state.distro);
     final tool = state.tool;
     final error = _toolsFailure ?? state.toolsError;

@@ -9,6 +9,7 @@ import 'package:upgrade/platform/shell/shell_launch.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../../support/fake_shell.dart';
 import '../../../support/reasons.dart';
@@ -52,6 +53,7 @@ Future<ProviderScope> _app(ShellSessions sessions, Host host) async {
   final store = MemoryPrivateKeyStore();
   await store.write(host.keyId, 'PRIVATE KEY');
   return ProviderScope(
+    retry: noRetry,
     overrides: [
       shellSessionsProvider.overrideWithValue(sessions),
       noWorkspaces,

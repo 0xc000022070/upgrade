@@ -154,11 +154,11 @@ Map<String, String>? parseWorkspaceFrames(Uint8List bytes) {
 }
 
 final pluginDevelopmentProvider =
-    AutoDisposeNotifierProvider<PluginDevelopment, PluginDevState?>(
+    NotifierProvider.autoDispose<PluginDevelopment, PluginDevState?>(
       PluginDevelopment.new,
     );
 
-class PluginDevelopment extends AutoDisposeNotifier<PluginDevState?> {
+class PluginDevelopment extends Notifier<PluginDevState?> {
   HostLease? _lease;
   LuauWorker? _worker;
   Timer? _timer;

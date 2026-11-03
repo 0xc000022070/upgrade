@@ -7,6 +7,7 @@ import 'package:upgrade/design/components/signal_text.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/typography.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -43,6 +44,7 @@ void main() {
     tester,
   ) async {
     Widget host({Widget? trailing}) => ProviderScope(
+      retry: noRetry,
       child: MaterialApp(
         theme: testTheme,
         home: ScreenScaffold(
@@ -88,6 +90,7 @@ void main() {
     // Inside a [Scaffold], so the trailing verb is sized by the app's own text style rather
     // than by WidgetsApp's oversized error style.
     Widget host(List<String> path, {Widget? trailing}) => ProviderScope(
+      retry: noRetry,
       child: MaterialApp(
         theme: testTheme,
         home: Scaffold(
@@ -210,6 +213,7 @@ void main() {
 
   group('header parity', () {
     Widget host({Widget? trailing, VoidCallback? onBack}) => ProviderScope(
+      retry: noRetry,
       child: MaterialApp(
         theme: testTheme,
         home: Scaffold(

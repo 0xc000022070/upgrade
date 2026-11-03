@@ -101,8 +101,8 @@ final promptTargetProvider = StreamProvider<PromptTarget?>(
 
 final promptOfferedProvider = Provider<List<PathTarget>>(
   (ref) => promptOffered(
-    ref.watch(pathTargetsProvider).valueOrNull ?? const [],
-    ref.watch(herdrHostsProvider).valueOrNull ?? const [],
+    ref.watch(pathTargetsProvider).value ?? const [],
+    ref.watch(herdrHostsProvider).value ?? const [],
   ),
   dependencies: [pathTargetsProvider],
 );
@@ -110,9 +110,9 @@ final promptOfferedProvider = Provider<List<PathTarget>>(
 /// The saved target, else the newest send's whose host, directory and agent are still offered.
 final promptChoiceProvider = Provider<SendChoice?>((ref) {
   final offered = ref.watch(promptOfferedProvider);
-  final saved = ref.watch(promptTargetProvider).valueOrNull?.resolve(offered);
+  final saved = ref.watch(promptTargetProvider).value?.resolve(offered);
   if (saved != null) return saved;
-  for (final send in ref.watch(sendsProvider).valueOrNull ?? const []) {
+  for (final send in ref.watch(sendsProvider).value ?? const []) {
     final choice = PromptTarget(
       pathId: send.pathId,
       agent: send.agent,

@@ -21,7 +21,7 @@ class CodeList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final grouped = ref.watch(workspacesByHostProvider);
-    final hosts = ref.watch(hostsProvider).valueOrNull ?? const <Host>[];
+    final hosts = ref.watch(hostsProvider).value ?? const <Host>[];
 
     return PanelStack(
       children: [

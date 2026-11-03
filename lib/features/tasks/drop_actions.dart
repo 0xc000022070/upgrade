@@ -44,8 +44,8 @@ Future<void> moveDrops(
 /// every time.
 Future<int> copyDrops(WidgetRef ref, String scope, Set<String> ids) async {
   final panel = scope == DropSelection.homeScope
-      ? await ref.read(dropsProvider.future)
-      : await ref.read(projectDropsProvider(scope).future);
+      ? await readFirst(ref, dropsProvider.future)
+      : await readFirst(ref, projectDropsProvider(scope).future);
   final drops = [
     for (final task in panel)
       if (ids.contains(task.id)) task,

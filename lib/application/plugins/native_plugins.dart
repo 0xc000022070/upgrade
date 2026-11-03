@@ -49,8 +49,7 @@ final currentPluginProvider = Provider<String?>(
 
 final effectivePluginsProvider = Provider<List<InstalledPlugin>>(
   (ref) =>
-      ref.watch(pluginsProvider).valueOrNull ??
-      ref.watch(pluginBootCatalogProvider),
+      ref.watch(pluginsProvider).value ?? ref.watch(pluginBootCatalogProvider),
 );
 
 class PluginContributionOwner {

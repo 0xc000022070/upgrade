@@ -176,7 +176,7 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
               pluginHostOwner(plugin),
           })
           .catchError((Object error, StackTrace stack) {
-            ref.invalidate(pendingHostPausesProvider);
+            if (ref.mounted) ref.invalidate(pendingHostPausesProvider);
           }),
     );
     return entries;
@@ -215,7 +215,7 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
   }
 
   InstalledPlugin _enabled(String id) {
-    final entries = state.valueOrNull;
+    final entries = state.value;
     if (entries == null) {
       throw const PluginException('Plugin list is unavailable');
     }
@@ -237,7 +237,7 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
     String widget,
     Map<String, Object?> input,
   ) async {
-    if (state.valueOrNull == null) await future;
+    if (state.value == null) await future;
     final plugin = _enabled(id);
     if (!plugin.manifest.widgets.any((entry) => entry.id == widget)) {
       throw const PluginException('Widget is not declared');
@@ -251,7 +251,7 @@ class Plugins extends AsyncNotifier<List<InstalledPlugin>> {
     String permission,
     Map<String, Object?> input,
   ) async {
-    if (state.valueOrNull == null) await future;
+    if (state.value == null) await future;
     final plugin = _enabled(id);
     final generation = activation(id);
     if (plugin.manifest.uiVersion != 1 && plugin.manifest.uiVersion != 2 ||

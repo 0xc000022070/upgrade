@@ -13,6 +13,7 @@ import 'package:upgrade/platform/vnc/rfb_client.dart';
 import 'package:upgrade/platform/vnc/rfb_messages.dart';
 import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/vnc_channel.dart';
 import '../../support/themed_app.dart';
@@ -142,6 +143,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           privateKeyStoreProvider.overrideWithValue(keys),
           screenPreviewsProvider.overrideWith((ref) async => previews),
@@ -213,6 +215,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           privateKeyStoreProvider.overrideWithValue(keys),
           screenPreviewsProvider.overrideWith((ref) async => previews),

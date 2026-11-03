@@ -13,6 +13,7 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/agents/agent_chat_screen.dart';
 import 'package:upgrade/platform/herdr/engine_agents.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -101,6 +102,7 @@ void main() {
   Future<void> open(WidgetTester tester, _Engine engine) async {
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           ...featureTestOverrides(db),
           agentsFeedProvider.overrideWith(

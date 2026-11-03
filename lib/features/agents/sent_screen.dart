@@ -54,7 +54,7 @@ void openRun(BuildContext context, String sendId) {
 }
 
 Future<SendChoice?> _choiceOf(WidgetRef ref, Dispatch send) async {
-  final targets = ref.read(pathTargetsProvider.future);
+  final targets = readFirst(ref, pathTargetsProvider.future);
   final kind = AgentKind.lookup(send.agent);
   final target = (await targets)
       .where((target) => target.path.id == send.pathId)
@@ -132,7 +132,7 @@ class SentScreen extends ConsumerWidget {
     final sends = ref.watch(sendsProvider);
     ref.watch(pathTargetsProvider);
     final feed = ref.watch(agentsFeedLiveProvider)
-        ? ref.watch(agentsFeedProvider).valueOrNull
+        ? ref.watch(agentsFeedProvider).value
         : null;
     return Scaffold(
       body: StaticSurface(
@@ -145,7 +145,7 @@ class SentScreen extends ConsumerWidget {
               title: 'SENDS',
               bodyPadding: panelRowsPadding,
               child: switch (sends) {
-                AsyncValue(valueOrNull: final List<Dispatch> list)
+                AsyncValue(value: final List<Dispatch> list)
                     when list.isNotEmpty =>
                   ListRowGroup(
                     children: [
@@ -285,7 +285,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
   }
 
   Future<Host?> _target() async {
-    final send = await ref.read(sendProvider(widget.sendId).future);
+    final send = await readFirst(ref, sendProvider(widget.sendId).future);
     if (!mounted || send == null || send.paneId == null) return null;
     final integrations = await ref.read(
       hostIntegrationsProvider(send.hostId).future,
@@ -335,7 +335,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final send = ref.watch(sendProvider(widget.sendId)).valueOrNull;
+    final send = ref.watch(sendProvider(widget.sendId)).value;
     if (send == null) {
       return Scaffold(
         body: StaticSurface(
@@ -351,10 +351,10 @@ class _RunScreenState extends ConsumerState<RunScreen> {
     final host = ref.watch(registeredHostProvider(send.hostId));
     final agentsOn = ref
         .watch(hostIntegrationsProvider(send.hostId))
-        .valueOrNull
+        .value
         ?.contains(IntegrationKind.agents);
     final feed = ref.watch(agentsFeedLiveProvider)
-        ? ref.watch(agentsFeedProvider).valueOrNull
+        ? ref.watch(agentsFeedProvider).value
         : null;
     final live = feed == null ? null : paneStateOf(feed, send);
     final state = _rowState(context, send, live);

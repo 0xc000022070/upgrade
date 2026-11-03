@@ -16,7 +16,7 @@ class NextActionCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final task = ref.watch(nextActionProvider).valueOrNull;
+    final task = ref.watch(nextActionProvider).value;
     if (task == null) return const SizedBox.shrink();
     return Panel(
       title: 'NEXT ACTION',

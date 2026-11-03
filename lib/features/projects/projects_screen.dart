@@ -34,8 +34,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         if (!_wide) {
           return ScreenScaffold(title: 'PROJECTS', children: [_board()]);
         }
-        final projects = ref.watch(projectSummariesProvider).valueOrNull;
-        final allProjects = ref.watch(projectsProvider).valueOrNull;
+        final projects = ref.watch(projectSummariesProvider).value;
+        final allProjects = ref.watch(projectsProvider).value;
         final selectionExists =
             _selected != null &&
             (allProjects == null ||
@@ -86,7 +86,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   Widget _board() {
     final projects = ref.watch(projectSummariesProvider);
     final archived =
-        ref.watch(archivedProjectSummariesProvider).valueOrNull ?? const [];
+        ref.watch(archivedProjectSummariesProvider).value ?? const [];
 
     return PanelStack(
       children: [
@@ -96,7 +96,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               PanelAffordance(
-                '${projects.valueOrNull?.length ?? 0}',
+                '${projects.value?.length ?? 0}',
                 showIcon: false,
               ),
               const SizedBox(width: Spacing.lg),

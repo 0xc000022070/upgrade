@@ -150,6 +150,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           staticEnabledProvider.overrideWith((ref) => Stream.value(false)),
           sendsProvider.overrideWith(
@@ -194,6 +195,7 @@ void main() {
       final send = _send('s1', 'fix the gate', engineSession: engineSession);
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           overrides: [
             ...featureTestOverrides(db),
             staticEnabledProvider.overrideWith((ref) => Stream.value(false)),

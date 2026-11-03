@@ -14,40 +14,38 @@ dependencies:
     path: packages/upgrade_highlight
   upgrade_shade:
     path: packages/upgrade_shade
-  crypto: ^3.0.7
+  crypto: ^3.0.8
   pub_semver: ^2.2.1
   toml: ^0.18.0
   dart_mosh: 0.0.4
   flutter:
     sdk: flutter
 
-  drift: ^2.34.3
+  drift: ^2.35.3
   drift_flutter: ^0.3.1
-  dartssh2: 4.0.0
-  dynamic_color: ^1.7.0
+  dartssh2: 4.1.0
+  dynamic_color: ^2.1.0
   ffi: ^2.2.0
-  # Pinned: 11.0.0 raises the android module to compileSdk 37, and the store SDK
-  # only carries an android-37.0 directory that AGP 9.1.0 will not accept.
-  flutter_secure_storage: 10.3.1
-  flutter_riverpod: ^2.6.1
+  flutter_secure_storage: ^11.2.0
+  flutter_riverpod: ^3.4.3
   # Gallery only, no camera.
-  image_picker: ^1.1.2
-  path: ^1.9.0
-  path_provider: ^2.1.4
+  image_picker: ^1.2.4
+  path: ^1.9.1
+  path_provider: ^2.1.6
   pinenacl: ^0.6.0
   pointycastle: ^4.0.0
-  url_launcher: ^6.3.1
-  vector_graphics: ^1.2.3
+  url_launcher: ^6.3.3
+  vector_graphics: ^1.2.6
   flterm:
     path: .dart_tool/flterm
   libghostty:
     path: .dart_tool/libghostty
-  material_ui: ^1.4.0
+  material_ui: ^1.9.0
   uuid: ^4.6.0
-  flutter_local_notifications: ^22.3.0
-  flutter_foreground_task: ^11.0.1
+  flutter_local_notifications: ^22.3.3
+  flutter_foreground_task: ^11.0.3
   gal: ^2.3.3
-  sherpa_onnx: 1.13.8
+  sherpa_onnx: 2.0.1
 
 dependency_overrides:
   libghostty:
@@ -64,12 +62,12 @@ dev_dependencies:
     sdk: flutter
 
   flutter_lints: ^6.0.0
-  analyzer: ^13.3.0
-  drift_dev: ^2.34.5
-  build_runner: ^2.16.0
-  archive: ^4.0.0
-  image: ^4.10.1
-  vector_graphics_compiler: ^1.3.0
+  analyzer: ^14.7.0
+  drift_dev: ^2.35.2
+  build_runner: ^2.17.1
+  archive: ^4.6.0
+  image: ^4.12.0
+  vector_graphics_compiler: ^1.3.4
 
 flutter:
   # The toolbar glyphs are Material Icons, tree-shaken to the ten that are used.

@@ -82,7 +82,7 @@ class ParkedShellBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => _Parked(
     store: ref.watch(shellSessionsProvider),
-    hosts: ref.watch(hostsProvider).valueOrNull ?? const [],
+    hosts: ref.watch(hostsProvider).value ?? const [],
   );
 }
 

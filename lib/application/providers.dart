@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:upgrade/data/database.dart';
@@ -28,6 +29,22 @@ import 'package:upgrade/application/links/link_preview.dart';
 import 'package:upgrade/application/shell/pane_share.dart';
 import 'package:upgrade/application/shell/shell_font.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
+
+Duration? noRetry(int _, Object _) => null;
+
+/// Riverpod 3 pauses a stream provider nobody listens to, so a bare read of its future
+/// can wait forever; this holds a listener until the first value.
+Future<T> readFirst<T>(
+  WidgetRef ref,
+  ProviderListenable<Future<T>> future,
+) async {
+  final subscription = ref.listenManual(future, (_, _) {});
+  try {
+    return await subscription.read();
+  } finally {
+    subscription.close();
+  }
+}
 
 final pluginDataGateProvider = Provider<PluginDataGate?>((ref) {
   final actor = ref.watch(currentPluginProvider);

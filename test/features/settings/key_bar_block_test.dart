@@ -8,6 +8,7 @@ import 'package:upgrade/application/shell/bar_layout.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/features/settings/key_bar_block.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -42,6 +43,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [...featureTestOverrides(db)],
         child: MaterialApp(
           theme: testTheme,

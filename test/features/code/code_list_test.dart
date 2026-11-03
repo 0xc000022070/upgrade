@@ -20,6 +20,7 @@ import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/links/link_probe.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/fake_shell.dart';
 import '../../support/platform_channels.dart';
@@ -87,6 +88,7 @@ void main() {
   }) async {}
 
   Widget app({bool projects = true}) => ProviderScope(
+    retry: noRetry,
     overrides: [
       ...featureTestOverrides(db, enabled: projects),
       navIndexProvider.overrideWith((ref) => HostsScreen.navIndex),

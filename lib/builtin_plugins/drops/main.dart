@@ -30,7 +30,7 @@ class _DropsContribution extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final byPriority = ref.watch(dropsByPriorityProvider).valueOrNull ?? false;
+    final byPriority = ref.watch(dropsByPriorityProvider).value ?? false;
     void leave(void Function(BuildContext) open) {
       ref.read(dropSelectionProvider.notifier).clear();
       ref.read(freshDropsProvider.notifier).clear();

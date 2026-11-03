@@ -11,6 +11,7 @@ import 'package:upgrade/features/plugins/plugin_development_screen.dart';
 import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/plugin_check.dart';
 import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/themed_app.dart';
 
@@ -61,6 +62,7 @@ void main() {
   Future<void> pump(WidgetTester tester, List<PluginPackage> catalog) =>
       tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           overrides: [
             pluginDevelopmentProvider.overrideWith(() => _Session(check)),
             effectivePluginsProvider.overrideWithValue([

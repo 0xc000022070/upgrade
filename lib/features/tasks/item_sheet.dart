@@ -282,8 +282,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   }
 
   Widget _body(BuildContext context) {
-    final task = ref.watch(taskProvider(widget.taskId)).valueOrNull;
-    final location = ref.watch(itemLocationProvider(widget.taskId)).valueOrNull;
+    final task = ref.watch(taskProvider(widget.taskId)).value;
+    final location = ref.watch(itemLocationProvider(widget.taskId)).value;
 
     // The item can be deleted from under the sheet — by this footer, or by a project delete
     // landing while it is open.
@@ -335,9 +335,8 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
           children: [_promptEditor()],
         );
       case _Item():
-        final sent =
-            (ref.watch(sentItemsProvider).valueOrNull ?? const <String>{})
-                .contains(task.id);
+        final sent = (ref.watch(sentItemsProvider).value ?? const <String>{})
+            .contains(task.id);
         return PanelSheetBody(
           title: location?.label ?? 'DROPS',
           affordance:
@@ -382,7 +381,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
 
     final drawn = <({LinkPreview preview, Attachment? attachment})>[];
     for (final entry in asked.entries) {
-      final preview = ref.watch(linkPreviewProvider(entry.key)).valueOrNull;
+      final preview = ref.watch(linkPreviewProvider(entry.key)).value;
       if (preview != null) {
         drawn.add((preview: preview, attachment: entry.value));
       }
@@ -435,7 +434,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   List<Widget> _readout(Task task) {
     final drop = _isDrop(task);
     final attachments =
-        ref.watch(itemAttachmentsProvider(widget.taskId)).valueOrNull ??
+        ref.watch(itemAttachmentsProvider(widget.taskId)).value ??
         const <Attachment>[];
     final links = attachments
         .where((a) => a.kind == AttachmentKind.url)
@@ -450,7 +449,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     // Newest first, and kept past a move: an item that was sent and then filed still went
     // somewhere.
     final dispatches =
-        ref.watch(itemDispatchesProvider(widget.taskId)).valueOrNull ??
+        ref.watch(itemDispatchesProvider(widget.taskId)).value ??
         const <Dispatch>[];
     final sends = [
       for (final send in ref.watch(sendQueueProvider))
@@ -458,8 +457,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
     ];
     final mates = drop
         ? const <Task>[]
-        : ref.watch(taskMatesProvider(widget.taskId)).valueOrNull ??
-              const <Task>[];
+        : ref.watch(taskMatesProvider(widget.taskId)).value ?? const <Task>[];
 
     return [
       _title(task),
@@ -770,7 +768,7 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   /// nothing outside the app can open it.
   Future<void> _copyText(Task task) async {
     final attachments =
-        ref.read(itemAttachmentsProvider(widget.taskId)).valueOrNull ??
+        ref.read(itemAttachmentsProvider(widget.taskId)).value ??
         const <Attachment>[];
     await Clipboard.setData(
       ClipboardData(

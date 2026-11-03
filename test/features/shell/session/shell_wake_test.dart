@@ -9,6 +9,7 @@ import 'package:upgrade/features/shell/session/shell_wake.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../../support/fake_shell.dart';
 import '../../../support/host_links.dart';
@@ -18,6 +19,7 @@ import '../../../support/shell_route.dart';
 import '../../../support/themed_app.dart';
 
 Widget _host(ShellSessions sessions) => ProviderScope(
+  retry: noRetry,
   overrides: [shellSessionsProvider.overrideWithValue(sessions)],
   child: ShellWakeHost(
     child: MaterialApp(
@@ -88,6 +90,7 @@ void main() {
     final links = HostLinks(dial: dial.call);
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           shellSessionsProvider.overrideWithValue(
             fakeShellSessions(FakeShellTransport()),

@@ -30,6 +30,7 @@ import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -713,6 +714,7 @@ void main() {
         );
 
     Widget app(String taskId, {HerdrSend? send}) => ProviderScope(
+      retry: noRetry,
       overrides: [
         ...featureTestOverrides(db),
         hostRepositoryProvider.overrideWithValue(DriftHostRepository(db)),

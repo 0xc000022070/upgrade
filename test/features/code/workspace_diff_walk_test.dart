@@ -127,6 +127,7 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           overrides: [
             privateKeyStoreProvider.overrideWithValue(privateKeys),
             databaseProvider.overrideWithValue(db),

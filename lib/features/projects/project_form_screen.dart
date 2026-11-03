@@ -367,8 +367,7 @@ class _ParentPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final projects =
-        ref.watch(projectsProvider).valueOrNull ?? const <Project>[];
+    final projects = ref.watch(projectsProvider).value ?? const <Project>[];
     final excluded = projectId == null
         ? const <String>{}
         : subtreeOf(projectId!, projects);

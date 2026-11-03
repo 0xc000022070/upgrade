@@ -14,6 +14,7 @@ import 'package:upgrade/features/files/host_transfers.dart'
 import 'package:upgrade/features/files/send_sheet.dart';
 import 'package:upgrade/features/files/transfer_bar.dart';
 import 'package:upgrade/platform/ssh/host_files.dart' show FileRoute;
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -112,6 +113,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           hostFilesOpenerProvider.overrideWithValue((_) async {
             if (unreachable-- > 0) throw const SocketException('unreachable');

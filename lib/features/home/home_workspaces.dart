@@ -45,10 +45,7 @@ class _NameSheetState extends ConsumerState<_NameSheet> {
   late final _field = TextEditingController(
     text: widget.fresh
         ? ''
-        : ref
-                  .read(pluginPlacementsProvider)
-                  .valueOrNull
-                  ?.homeNames[widget.space] ??
+        : ref.read(pluginPlacementsProvider).value?.homeNames[widget.space] ??
               '',
   );
 
@@ -124,7 +121,7 @@ class _Overview extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final catalog = ref.watch(pluginContributionCatalogProvider);
-    final placements = ref.watch(pluginPlacementsProvider).valueOrNull;
+    final placements = ref.watch(pluginPlacementsProvider).value;
     if (placements == null) return const SizedBox.shrink();
     final home = HomeLayout(placements, catalog);
     final numbers = home.numbers;
@@ -314,7 +311,7 @@ class _AddWidgets extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final catalog = ref.watch(pluginContributionCatalogProvider);
-    final placements = ref.watch(pluginPlacementsProvider).valueOrNull;
+    final placements = ref.watch(pluginPlacementsProvider).value;
     if (placements == null) return const SizedBox.shrink();
     final space = placements.homeSpace;
     final home = HomeLayout(placements, catalog);

@@ -12,6 +12,7 @@ import 'package:upgrade/features/agents/pip_panel.dart';
 import 'package:upgrade/features/home/agent_mark.dart';
 import 'package:upgrade/features/home/agents_panel.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../support/fake_pip.dart';
 import '../support/themed_app.dart';
@@ -56,6 +57,7 @@ Widget harness(
   bool live = true,
   double textScale = 1.0,
 }) => ProviderScope(
+  retry: noRetry,
   overrides: [
     pipSurfaceProvider.overrideWithValue(pip),
     agentsFeedProvider.overrideWith((ref) => agents),
@@ -187,6 +189,7 @@ void main() {
 
     testWidgets('the corner window keeps the feed live', (tester) async {
       final container = ProviderContainer(
+        retry: noRetry,
         overrides: [homeAgentsVisibleProvider.overrideWith((ref) => true)],
       );
       addTearDown(container.dispose);

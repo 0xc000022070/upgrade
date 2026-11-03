@@ -14,6 +14,7 @@ import 'package:upgrade/features/home/home_screen.dart';
 import 'package:upgrade/features/home/agents_panel.dart';
 import 'package:upgrade/features/tasks/drops_panel.dart';
 import 'package:upgrade/features/settings/settings_screen.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/native_plugins.dart';
 import '../../support/platform_channels.dart';
@@ -83,6 +84,7 @@ void main() {
   });
 
   Widget host(Widget child, {ThemeData? theme}) => ProviderScope(
+    retry: noRetry,
     overrides: [...featureTestOverrides(db)],
     child: MaterialApp(theme: theme ?? Palette.house.theme, home: child),
   );

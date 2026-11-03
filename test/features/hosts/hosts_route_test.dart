@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/navigation.dart';
@@ -32,6 +33,7 @@ import 'package:upgrade/platform/links/link_probe.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/vnc/framebuffer.dart';
 import 'package:flterm/flterm.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/fake_shell.dart';
 import '../../support/platform_channels.dart';
@@ -137,6 +139,7 @@ void main() {
     List<Override> extra = const [],
     TextScaler? scaler,
   }) => ProviderScope(
+    retry: noRetry,
     overrides: [
       ...extra,
       navIndexProvider.overrideWith((ref) => index),

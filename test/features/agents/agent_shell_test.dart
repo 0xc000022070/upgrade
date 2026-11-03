@@ -11,6 +11,7 @@ import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/fake_shell.dart';
 import '../../support/platform_channels.dart';
@@ -73,6 +74,7 @@ void main() {
   });
 
   Widget app(ShellSessions sessions) => ProviderScope(
+    retry: noRetry,
     overrides: [shellSessionsProvider.overrideWithValue(sessions)],
     child: MaterialApp(theme: testTheme, home: _Launcher()),
   );

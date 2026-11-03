@@ -26,7 +26,7 @@ class TargetPickerBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final projects =
-        ref.watch(captureProjectsProvider).valueOrNull ?? const <Project>[];
+        ref.watch(captureProjectsProvider).value ?? const <Project>[];
     // watchAll already drops archived and orders by creation; status is the only reordering
     // the picker does, so a paused project keeps its place among its peers.
     final active = projects.where((p) => p.status == ProjectStatus.active);
@@ -81,7 +81,7 @@ class _ProjectTarget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final goals =
-        ref.watch(captureGoalsProvider(project.id)).valueOrNull ??
+        ref.watch(captureGoalsProvider(project.id)).value ??
         const <GoalSummary>[];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -134,7 +134,7 @@ class _PairPickerBodyState extends ConsumerState<PairPickerBody> {
   @override
   Widget build(BuildContext context) {
     final candidates =
-        ref.watch(pairCandidatesProvider(widget.taskId)).valueOrNull ??
+        ref.watch(pairCandidatesProvider(widget.taskId)).value ??
         const <Task>[];
     final query = _query.trim().toLowerCase();
     final matches = query.isEmpty

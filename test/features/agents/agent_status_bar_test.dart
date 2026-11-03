@@ -8,6 +8,7 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/features/agents/agent_status_bar.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/themed_app.dart';
 
@@ -69,6 +70,7 @@ Future<void> pumpBar(
   const bar = AgentStatusBar();
   await tester.pumpWidget(
     ProviderScope(
+      retry: noRetry,
       overrides: [
         navIndexProvider.overrideWith((ref) => tab),
         agentsFeedLiveProvider.overrideWithValue(live),
@@ -281,6 +283,7 @@ void main() {
     late ProviderContainer container;
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           navIndexProvider.overrideWith((ref) => 3),
           agentsFeedLiveProvider.overrideWithValue(true),

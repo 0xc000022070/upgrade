@@ -17,7 +17,7 @@ class ScreenPreviewTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final preview = ref.watch(screenPreviewProvider(host.id)).valueOrNull;
+    final preview = ref.watch(screenPreviewProvider(host.id)).value;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => openHostScreen(context, host),

@@ -18,6 +18,7 @@ import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/features/settings/host_form_screen.dart';
 import 'package:upgrade/features/settings/key_detail_screen.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -59,6 +60,7 @@ void main() {
   /// The screens sit under [StaticSurface], which reads the background grain out of the
   /// settings table; without a database the scaffold throws before any of them builds.
   Widget host(Widget child) => ProviderScope(
+    retry: noRetry,
     overrides: [
       ...featureTestOverrides(db),
       keyRepositoryProvider.overrideWithValue(keys),

@@ -125,7 +125,7 @@ class _DeviceFloatState extends ConsumerState<DeviceFloat> {
   @override
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<bool>>(pipModeProvider, (_, next) {
-      _inPip = next.valueOrNull ?? false;
+      _inPip = next.value ?? false;
       if (!_inPip) ref.read(screenPipProvider.notifier).state = null;
       _away();
     });
@@ -177,11 +177,11 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
       if (_menu && _dock.floating) _attach(hosts);
     });
     ref.listenManual<AsyncValue<List<Host>>>(hostsProvider, (_, hosts) {
-      final value = hosts.valueOrNull;
+      final value = hosts.value;
       if (value != null) _dock.rename(value);
     });
     ref.listenManual<AsyncValue<ScreensRest?>>(screensRestProvider, (_, rest) {
-      final value = rest.valueOrNull;
+      final value = rest.value;
       if (value == null || _top != null || _dragAt != null) return;
       setState(() {
         _right = value.right;
@@ -309,7 +309,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   @override
   Widget build(BuildContext context) {
     final hosts = ref.watch(screenHostsProvider);
-    final pip = ref.watch(pipAvailableProvider).valueOrNull ?? false;
+    final pip = ref.watch(pipAvailableProvider).value ?? false;
     return ListenableBuilder(
       listenable: _dock,
       builder: (context, _) {
@@ -491,7 +491,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
               key: _barKey,
               dock: _dock,
               screens: screens,
-              remembered: ref.watch(screensHostProvider).valueOrNull,
+              remembered: ref.watch(screensHostProvider).value,
               onSelect: (group, device) {
                 setState(() => _menu = false);
                 _remember(group.host);

@@ -26,7 +26,7 @@ EOF
 pin() {
   case "$1" in
   dart_mosh) VERSION=0.0.4 ;;
-  dartssh2) VERSION=4.0.0 ;;
+  dartssh2) VERSION=4.1.0 ;;
   pointycastle) VERSION=4.0.0 ;;
   flterm)
     VERSION=${LIBGHOSTTY_REV:?run inside the nix dev shell}

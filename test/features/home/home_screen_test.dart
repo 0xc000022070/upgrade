@@ -27,6 +27,7 @@ import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -116,6 +117,7 @@ void main() {
   tearDown(() => db.close());
 
   Widget host({bool enabled = true}) => ProviderScope(
+    retry: noRetry,
     overrides: [...featureTestOverrides(db, enabled: enabled)],
     child: MaterialApp(
       theme: testTheme,

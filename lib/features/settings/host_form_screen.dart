@@ -9,6 +9,7 @@ import 'package:upgrade/app/static_surface.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/formatting.dart';
 import 'package:upgrade/application/phone_linux.dart';
+import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
@@ -104,10 +105,10 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       // The keys are a stream that has usually not emitted by the time this runs, so the value
       // present now is taken here and every later one through the subscription. The first list
       // holding exactly one key preselects it; two or more preselect nothing.
-      _preselect(ref.read(managedKeysProvider).valueOrNull);
+      _preselect(ref.read(managedKeysProvider).value);
       ref.listenManual(managedKeysProvider, (_, next) {
         final before = _keyId;
-        _preselect(next.valueOrNull);
+        _preselect(next.value);
         if (_keyId != before) setState(() {});
       });
     } else {
@@ -122,7 +123,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   }
 
   Future<void> _loadIntegrations(String hostId) async {
-    final current = await ref.read(hostIntegrationsProvider(hostId).future);
+    final current = await readFirst(ref, hostIntegrationsProvider(hostId).future);
     if (!mounted) return;
     setState(() {
       _integrations = current.toSet();

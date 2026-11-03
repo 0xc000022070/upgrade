@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide ColorScheme;
+import 'package:material_ui/material_ui.dart' show ColorScheme;
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -191,6 +192,7 @@ Future<void> _pump(
   await store.write(_rose.keyId, 'PRIVATE');
   await tester.pumpWidget(
     ProviderScope(
+      retry: noRetry,
       overrides: [
         screensHostProvider.overrideWith((ref) => saved.stream),
         rememberScreensHostProvider.overrideWithValue((hostId) async {
@@ -260,7 +262,11 @@ Future<void> _show(
       await Future<void>.delayed(const Duration(milliseconds: 2));
     }
   });
-  expect(controller.image, isNot(same(before)), reason: 'the frame never landed');
+  expect(
+    controller.image,
+    isNot(same(before)),
+    reason: 'the frame never landed',
+  );
   await _settle(tester);
 }
 
@@ -1919,7 +1925,11 @@ void main() {
           await Future<void>.delayed(const Duration(milliseconds: 2));
         }
       });
-      expect(controller.frameCount, isNot(before), reason: 'the frame never landed');
+      expect(
+        controller.frameCount,
+        isNot(before),
+        reason: 'the frame never landed',
+      );
       await _settle(tester);
     }
 

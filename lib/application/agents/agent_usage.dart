@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -14,7 +15,7 @@ const usagePoll = Duration(minutes: 1);
 
 final homeUsageVisibleProvider = StateProvider<bool>((ref) => false);
 
-class UsageFeed extends AutoDisposeNotifier<List<HostUsage>> {
+class UsageFeed extends Notifier<List<HostUsage>> {
   final _byHost = <String, List<AgentUsage>>{};
   final _unreached = <String, String>{};
   final _reading = <String>{};
@@ -30,7 +31,7 @@ class UsageFeed extends AutoDisposeNotifier<List<HostUsage>> {
   List<HostUsage> build() {
     _live = true;
     ref.onDispose(() => _live = false);
-    _hosts = ref.watch(engineHostsProvider).valueOrNull ?? const [];
+    _hosts = ref.watch(engineHostsProvider).value ?? const [];
     bool gone(String id) => _hosts.every((host) => host.id != id);
     for (final known in [_byHost, _unreached, _misses, _restUntil]) {
       known.removeWhere((id, _) => gone(id));
@@ -127,7 +128,7 @@ class UsageFeed extends AutoDisposeNotifier<List<HostUsage>> {
 const _tickSlack = Duration(seconds: 5);
 
 final usageFeedProvider =
-    AutoDisposeNotifierProvider<UsageFeed, List<HostUsage>>(UsageFeed.new);
+    NotifierProvider.autoDispose<UsageFeed, List<HostUsage>>(UsageFeed.new);
 
 typedef UsageDays = ({DateTime day, double? today, double? yesterday});
 

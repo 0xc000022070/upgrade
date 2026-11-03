@@ -91,6 +91,7 @@ void main() {
       boardPackage(),
     ], adoptEnabled: false);
     container = ProviderContainer(
+      retry: noRetry,
       overrides: [
         databaseProvider.overrideWithValue(db),
         nativeModulesProvider.overrideWithValue(builtinModules),
@@ -202,6 +203,7 @@ void main() {
     await tester.pumpWidget(
       host(
         ProviderScope(
+          retry: noRetry,
           overrides: [
             currentPluginProvider.overrideWithValue('upgrade.agents'),
           ],

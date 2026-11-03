@@ -86,6 +86,7 @@ Future<void> _boot(PlatformSignal launch) async {
     ..add(const BootStep('arm alerts', 'ok'));
 
   final container = ProviderContainer(
+    retry: noRetry,
     overrides: [
       ...databaseOverrides(db),
       nativeModulesProvider.overrideWithValue(builtinModules),

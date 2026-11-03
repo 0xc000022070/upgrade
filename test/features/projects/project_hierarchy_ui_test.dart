@@ -13,6 +13,7 @@ import 'package:upgrade/features/projects/project_detail_screen.dart';
 import 'package:upgrade/features/projects/project_form_screen.dart';
 import 'package:upgrade/features/projects/project_row.dart';
 import 'package:upgrade/features/projects/projects_screen.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -47,6 +48,7 @@ void main() {
   tearDown(() => db.close());
 
   Widget host(Widget screen) => ProviderScope(
+    retry: noRetry,
     overrides: [...featureTestOverrides(db)],
     child: MaterialApp(theme: testTheme, home: screen),
   );

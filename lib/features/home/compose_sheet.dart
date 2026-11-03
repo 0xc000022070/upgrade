@@ -206,7 +206,7 @@ class _ComposeSheetState extends ConsumerState<ComposeSheet> {
   Widget build(BuildContext context) {
     ref.listen<List<PendingSend>>(sendQueueProvider, _moved);
     final hosts = ref.watch(herdrHostsProvider);
-    final noHost = hosts.hasValue && (hosts.valueOrNull ?? const []).isEmpty;
+    final noHost = hosts.hasValue && (hosts.value ?? const []).isEmpty;
     final summary = _choice == null
         ? ref.watch(promptSummaryProvider)
         : promptTargetLabel(_choice!, ref.watch(promptOfferedProvider));

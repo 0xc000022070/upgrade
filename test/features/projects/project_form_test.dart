@@ -76,6 +76,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           ...featureTestOverrides(db),
           projectRepositoryProvider.overrideWithValue(projects),
@@ -203,6 +204,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         overrides: [
           ...featureTestOverrides(db),
           projectRepositoryProvider.overrideWithValue(projects),

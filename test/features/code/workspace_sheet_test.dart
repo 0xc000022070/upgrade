@@ -34,6 +34,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           overrides: [
             privateKeyStoreProvider.overrideWithValue(privateKeys),
             databaseProvider.overrideWithValue(db),
@@ -168,6 +169,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           overrides: [
             privateKeyStoreProvider.overrideWithValue(privateKeys),
             databaseProvider.overrideWithValue(db),
@@ -287,6 +289,7 @@ void main() {
       );
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           overrides: [
             privateKeyStoreProvider.overrideWithValue(privateKeys),
             databaseProvider.overrideWithValue(db),

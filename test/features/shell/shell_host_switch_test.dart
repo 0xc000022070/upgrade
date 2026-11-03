@@ -10,6 +10,7 @@ import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/fake_shell.dart';
 import '../../support/launch_scan.dart';
@@ -50,6 +51,7 @@ void main() {
   tearDown(() => db.close());
 
   Widget app() => ProviderScope(
+    retry: noRetry,
     overrides: [
       ...featureTestOverrides(db),
       hostRepositoryProvider.overrideWithValue(hosts),

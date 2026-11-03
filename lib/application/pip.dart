@@ -41,10 +41,10 @@ final pipModeProvider = StreamProvider<bool>(
 enum PipAction { absent, quiet, live }
 
 final pipActionProvider = Provider<PipAction>((ref) {
-  if (ref.watch(pipAvailableProvider).valueOrNull != true) {
+  if (ref.watch(pipAvailableProvider).value != true) {
     return PipAction.absent;
   }
-  final agents = ref.watch(agentsFeedProvider).valueOrNull;
+  final agents = ref.watch(agentsFeedProvider).value;
   if (agents == null || agents.noHost) return PipAction.absent;
   if (!ref.watch(agentsFeedLiveProvider) || agents.tally.isEmpty) {
     return PipAction.quiet;

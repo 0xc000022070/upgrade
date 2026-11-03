@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/links/link_preview.dart';
 import 'package:upgrade/application/providers.dart';
@@ -76,6 +77,7 @@ void main() {
 
   Widget host(String taskId, {List<Override> extra = const []}) =>
       ProviderScope(
+        retry: noRetry,
         overrides: [...featureTestOverrides(db), ...extra],
         child: MaterialApp(
           theme: testTheme,
@@ -114,6 +116,7 @@ void main() {
     for (final enabled in [false, true]) {
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           key: ValueKey(enabled),
           overrides: featureTestOverrides(db, enabled: enabled),
           child: MaterialApp(

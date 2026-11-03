@@ -20,6 +20,7 @@ import 'package:upgrade/features/shell/host_shell_screen.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/notifications/alert_actions.dart';
 import 'package:upgrade/platform/notifications/alert_notifications.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../support/fake_shell.dart';
 import '../support/platform_channels.dart';
@@ -72,6 +73,7 @@ void main() {
     );
 
     Widget scope(Widget home) => ProviderScope(
+      retry: noRetry,
       overrides: [
         ...featureTestOverrides(db),
         agentsFeedProvider.overrideWith(
@@ -122,6 +124,7 @@ void main() {
       deferPinOpen('h1');
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           overrides: [
             ...featureTestOverrides(db),
             agentsFeedProvider.overrideWith(
@@ -182,6 +185,7 @@ void main() {
       final id = await projects.create(name: 'Drone FPV');
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           overrides: [...featureTestOverrides(db)],
           child: MaterialApp(
             theme: testTheme,
@@ -205,6 +209,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           overrides: [
             ...featureTestOverrides(db),
             agentsFeedProvider.overrideWith(
@@ -236,6 +241,7 @@ void main() {
       );
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           overrides: [
             ...featureTestOverrides(db),
             agentsFeedProvider.overrideWith(
@@ -272,6 +278,7 @@ void main() {
       );
       await tester.pumpWidget(
         ProviderScope(
+          retry: noRetry,
           overrides: [
             ...featureTestOverrides(db),
             agentsFeedProvider.overrideWith(

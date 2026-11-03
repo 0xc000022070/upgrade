@@ -7,6 +7,7 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../plugins/kanban_plugin_test.dart' show kanbanPackage;
 
@@ -58,11 +59,12 @@ void main() {
   late InstalledPlugin plugin;
   setUp(() async {
     container = ProviderContainer(
+      retry: noRetry,
       overrides: [
         agentsFeedProvider.overrideWith((ref) => Stream.value(_panel)),
       ],
     );
-    await container.read(agentsFeedProvider.future);
+    await container.listen(agentsFeedProvider.future, (_, _) {}).read();
     registry = container.read(pluginHostRegistryProvider);
     final package = kanbanPackage();
     plugin = InstalledPlugin(package, package.manifest.permissions);

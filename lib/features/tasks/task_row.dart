@@ -116,7 +116,7 @@ class _TaskRowState extends ConsumerState<TaskRow> {
       // mark the eye is looking for, and the tag is history.
       trailing: trailingWithLinks(
         links:
-            (ref.watch(linkCountsProvider).valueOrNull ??
+            (ref.watch(linkCountsProvider).value ??
                 const <String, int>{})[task.id] ??
             0,
         state: !widget.drop && task.isNext
@@ -128,8 +128,7 @@ class _TaskRowState extends ConsumerState<TaskRow> {
             : SendingTag.of(ref.watch(sendQueueProvider), task.id) ??
                   (task.prompt != null
                       ? const PromptTag()
-                      : (ref.watch(sentItemsProvider).valueOrNull ??
-                                const <String>{})
+                      : (ref.watch(sentItemsProvider).value ?? const <String>{})
                             .contains(task.id)
                       ? const SentTag()
                       : null),

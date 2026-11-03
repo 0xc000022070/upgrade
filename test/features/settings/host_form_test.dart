@@ -22,6 +22,7 @@ import 'package:upgrade/features/screen/screen_preview.dart';
 import 'package:upgrade/platform/ssh/host_key_dial.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/vnc/framebuffer.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -81,6 +82,7 @@ void main() {
   });
 
   Widget app(Widget home) => ProviderScope(
+    retry: noRetry,
     overrides: [
       ...featureTestOverrides(db),
       keyRepositoryProvider.overrideWithValue(keys),

@@ -1,6 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/providers.dart';
@@ -34,6 +35,7 @@ Widget app(
   TransitionBuilder? builder,
   List<Override> overrides = const [],
 }) => ProviderScope(
+  retry: noRetry,
   overrides: [
     shellSessionsProvider.overrideWithValue(sessions),
     if (db != null)

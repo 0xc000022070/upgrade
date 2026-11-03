@@ -15,6 +15,7 @@ import 'package:upgrade/design/effects/glitch.dart';
 import 'package:upgrade/features/home/capture_bar.dart';
 import 'package:upgrade/features/projects/project_detail_screen.dart';
 import 'package:upgrade/features/tasks/drops_panel.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -49,6 +50,7 @@ void main() {
   tearDown(() => db.close());
 
   Widget host(String projectId) => ProviderScope(
+    retry: noRetry,
     overrides: [...featureTestOverrides(db)],
     child: MaterialApp(
       theme: testTheme,

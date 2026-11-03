@@ -26,7 +26,7 @@ class ComposerSummary extends Notifier<String?> {
   }
 
   void withdraw([Object? holder]) {
-    if (holder != null && !identical(holder, _holder)) return;
+    if (!ref.mounted || (holder != null && !identical(holder, _holder))) return;
     _holder = null;
     state = null;
   }

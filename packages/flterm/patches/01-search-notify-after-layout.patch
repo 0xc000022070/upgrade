@@ -1,6 +1,6 @@
 # a search refresh that lands while the view lays out tells its listeners after the frame
 #
-# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just pub flterm generate`.
+# Against flterm 3509e4219b2f47b0915c11214294c7b0d0cef601. Regenerate with `just pub flterm generate`.
 
 diff --git a/lib/src/controller/terminal_search_controller.dart b/lib/src/controller/terminal_search_controller.dart
 index 9324f23..829d98f 100644

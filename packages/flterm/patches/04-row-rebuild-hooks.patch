@@ -1,0 +1,93 @@
+# a row rebuild skips kitty placeholder glyphs and clips the selection to its pane, and the kitty placement sync reads the rebuilt cells
+#
+# Against flterm 3509e4219b2f47b0915c11214294c7b0d0cef601. Regenerate with `just pub flterm generate`.
+
+diff --git a/lib/src/rendering/frame_builder.dart b/lib/src/rendering/frame_builder.dart
+index c091e1e..2bda068 100644
+--- a/lib/src/rendering/frame_builder.dart
++++ b/lib/src/rendering/frame_builder.dart
+@@ -11,6 +11,7 @@ import '../links/link_snapshot.dart';
+ import 'atlas/atlas.dart';
+ import 'atlas/sprite_buffer.dart';
+ import 'cell_content_resolver.dart';
++import 'kitty_virtual_placements.dart';
+ import 'paint_state.dart';
+ 
+ part 'frame_cursor.dart';
+@@ -72,6 +73,9 @@ class FrameBuilder {
+     _cursorBuilder = _CursorFrameBuilder(_state, content);
+   }
+ 
++  /// Render state of the last [sync], valid until the next one.
++  RenderState get renderState => _renderState;
++
+   /// Reconfigures sprite storage for the current grid size.
+   void configure(int rows, int cols) {
+     _sprites.configure(rows, cols);
+@@ -251,6 +255,8 @@ class FrameBuilder {
+         dirty != .clean &&
+         (dirty != .partial || !_dirtyRows.anyDirty);
+     _rows.reset(_renderState);
++    final terminal = _terminal;
++    final frame = terminal == null ? null : selectionFrames[terminal];
+ 
+     while (useDirtyIterator ? _rows.nextDirty() : _rows.next()) {
+       final row = _rows.viewportY;
+@@ -263,7 +269,11 @@ class FrameBuilder {
+           _dirtyRows.isDirty(row)) {
+         final decoded = _decodedRow(id, _rows);
+         _blinkRows[row] =
+-            _rowBuilder.rebuildRow(row, decoded, selection: _rows.selection)
++            _rowBuilder.rebuildRow(
++              row,
++              decoded,
++              selection: clipToFrame(_rows.selection, frame),
++            )
+             ? 1
+             : 0;
+       }
+diff --git a/lib/src/rendering/frame_rows.dart b/lib/src/rendering/frame_rows.dart
+index be58b2d..0bf90b8 100644
+--- a/lib/src/rendering/frame_rows.dart
++++ b/lib/src/rendering/frame_rows.dart
+@@ -313,12 +313,13 @@ final class _RowBuilder {
+   }
+ 
+   void _emitForeground({required int span, required int glyphSpan}) {
+-    if (!_row.hasText(_column)) {
++    final codepoint = _row.codepoints[_column];
++    // A Kitty placeholder's image is its glyph; ghostty shapes it as a blank.
++    if (!_row.hasText(_column) || codepoint == kittyPlaceholder) {
+       _flushForeground();
+       return;
+     }
+ 
+-    final codepoint = _row.codepoints[_column];
+     final graphemeLength = _row.graphemeLength(_column);
+     final style = _style;
+ 
+diff --git a/lib/src/rendering/terminal_surface.dart b/lib/src/rendering/terminal_surface.dart
+index a7b10ca..71adbb3 100644
+--- a/lib/src/rendering/terminal_surface.dart
++++ b/lib/src/rendering/terminal_surface.dart
+@@ -223,6 +223,7 @@ final class TerminalSurface {
+     if (presentation == _PresentationPhase.disposed) return;
+     _presentation = _PresentationPhase.disposed;
+     if (presentation case _HeldPicture(:final picture)) picture.dispose();
++    _kittyPlacementCache.dispose();
+     _kittyImageCache.dispose();
+     _frameBuilder.dispose();
+     _sprites.dispose();
+@@ -582,7 +583,11 @@ final class TerminalSurface {
+     );
+     final graphics = KittyGraphics.of(terminal);
+     _graphicsParticipated |= graphics != null && graphics.generation != 0;
+-    if (!_kittyPlacementCache.sync(graphics, geometryDirty: terminalDirty)) {
++    if (!_kittyPlacementCache.sync(
++      graphics,
++      geometryDirty: terminalDirty,
++      cells: _frameBuilder.renderState,
++    )) {
+       return;
+     }
+     _kittyBelowBackground.clear();

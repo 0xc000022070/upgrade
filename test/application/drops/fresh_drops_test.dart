@@ -18,6 +18,7 @@ import 'package:upgrade/features/projects/projects_screen.dart';
 import 'package:upgrade/features/settings/settings_screen.dart';
 import 'package:upgrade/features/tasks/drops_panel.dart';
 import 'package:upgrade/features/tasks/selection_bar.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -64,6 +65,7 @@ void main() {
   tearDown(() => db.close());
 
   Widget host() => ProviderScope(
+    retry: noRetry,
     overrides: [...featureTestOverrides(db)],
     child: MaterialApp(
       theme: testTheme,
@@ -72,6 +74,7 @@ void main() {
   );
 
   Widget shell() => ProviderScope(
+    retry: noRetry,
     overrides: [...featureTestOverrides(db)],
     child: MaterialApp(theme: testTheme, home: UpgradeShell()),
   );
@@ -215,6 +218,7 @@ void main() {
     late ValueNotifier<AsyncValue<List<Task>>> feed;
 
     Widget panelHost() => ProviderScope(
+      retry: noRetry,
       overrides: [...featureTestOverrides(db)],
       child: MaterialApp(
         theme: testTheme,

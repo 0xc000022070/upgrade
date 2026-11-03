@@ -191,7 +191,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final project = ref.watch(projectProvider(widget.projectId)).valueOrNull;
+    final project = ref.watch(projectProvider(widget.projectId)).value;
     if (project != null) _fireOnEntry();
     final goals = ref.watch(projectGoalsProvider(widget.projectId));
     final drops = ref.watch(projectDropsProvider(widget.projectId));
@@ -199,11 +199,11 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     final children = ref.watch(projectChildrenProvider(widget.projectId));
     final summary = ref.watch(projectSummaryProvider(widget.projectId));
     final ancestors =
-        ref.watch(projectAncestorsProvider(widget.projectId)).valueOrNull ??
+        ref.watch(projectAncestorsProvider(widget.projectId)).value ??
         const <ProjectCrumb>[];
 
-    final rows = goals.valueOrNull ?? const <GoalSummary>[];
-    final kids = children.valueOrNull ?? const <ProjectSummary>[];
+    final rows = goals.value ?? const <GoalSummary>[];
+    final kids = children.value ?? const <ProjectSummary>[];
     final archived = project?.status == ProjectStatus.archived;
     final ancestorArchived = ancestors.any(
       (crumb) => crumb.status == ProjectStatus.archived,
@@ -277,8 +277,8 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     controller: _entry,
                     child: _HeroCard(
                       project: project,
-                      doneCount: summary.valueOrNull?.doneCount ?? 0,
-                      totalCount: summary.valueOrNull?.totalCount ?? 0,
+                      doneCount: summary.value?.doneCount ?? 0,
+                      totalCount: summary.value?.totalCount ?? 0,
                     ),
                   ),
                 ),
@@ -442,7 +442,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                 Panel(
                   title: 'NOTES',
                   affordance: PanelAffordance(
-                    '${notes.valueOrNull?.length ?? 0}',
+                    '${notes.value?.length ?? 0}',
                     showIcon: false,
                   ),
                   bodyPadding: panelRowsPadding,

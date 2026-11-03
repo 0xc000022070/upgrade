@@ -21,6 +21,7 @@ import 'package:upgrade/features/home/home_screen.dart';
 import 'package:upgrade/features/home/agents_panel.dart';
 import 'package:upgrade/features/tasks/drops_panel.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -57,6 +58,7 @@ void main() {
   }
 
   Widget host(Widget child) => ProviderScope(
+    retry: noRetry,
     overrides: [...featureTestOverrides(db)],
     child: MaterialApp(theme: testTheme, home: child),
   );

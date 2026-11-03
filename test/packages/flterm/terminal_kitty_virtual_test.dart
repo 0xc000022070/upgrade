@@ -262,10 +262,10 @@ void main() {
 
     _write(terminal, '\x1b[1;3H');
     builder.sync(terminal, terminalDirty: true);
-    expect(state.cursorAtlasEntry, isNull);
+    expect(state.cursorGlyph, isNull);
 
     _write(terminal, '\x1b[1;1H');
     builder.sync(terminal, terminalDirty: true);
-    expect(state.cursorAtlasEntry, isNotNull);
+    expect(state.cursorGlyph, isNotNull);
   });
 }

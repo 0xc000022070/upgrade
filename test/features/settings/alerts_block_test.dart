@@ -12,6 +12,7 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/features/settings/alerts_block.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
@@ -43,6 +44,7 @@ void main() {
   }
 
   Widget shell({Future<bool> Function()? permission}) => ProviderScope(
+    retry: noRetry,
     overrides: [
       ...featureTestOverrides(db),
       hostRepositoryProvider.overrideWithValue(hosts),

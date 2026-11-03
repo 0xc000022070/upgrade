@@ -9,6 +9,7 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/home/agent_mark.dart';
 import 'package:upgrade/features/home/usage_panel.dart';
 import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../support/themed_app.dart';
 
@@ -26,6 +27,7 @@ final _now = DateTime(2026, 10, 18, 12);
 Future<void> _pump(WidgetTester tester, List<HostUsage> usages) =>
     tester.pumpWidget(
       ProviderScope(
+        retry: noRetry,
         child: MaterialApp(
           theme: testTheme,
           home: Scaffold(

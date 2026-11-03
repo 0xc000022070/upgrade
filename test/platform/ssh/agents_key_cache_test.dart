@@ -5,6 +5,7 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/application/providers.dart';
 
 const host = Host(
   id: 'a',
@@ -35,6 +36,7 @@ void main() {
     await storage.write('key-a', 'private-a');
     dialledWith = [];
     container = ProviderContainer(
+      retry: noRetry,
       overrides: [
         privateKeyStoreProvider.overrideWithValue(
           CachingPrivateKeyStore(storage),

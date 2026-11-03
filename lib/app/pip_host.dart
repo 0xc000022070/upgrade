@@ -15,7 +15,7 @@ class PipHost extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final inPip = ref.watch(pipModeProvider).valueOrNull ?? false;
+    final inPip = ref.watch(pipModeProvider).value ?? false;
     final screen = ref.watch(screenPipProvider) != null;
     return Stack(
       fit: StackFit.expand,

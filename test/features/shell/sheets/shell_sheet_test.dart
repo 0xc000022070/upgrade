@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/application/providers.dart';
 
 import '../../../support/fake_shell.dart';
 import '../../../support/launch_scan.dart';
@@ -41,6 +42,7 @@ void main() {
   setUp(stubDeviceChannels);
 
   Widget app(ShellSessions sessions) => ProviderScope(
+    retry: noRetry,
     overrides: [
       shellSessionsProvider.overrideWithValue(sessions),
       noWorkspaces,

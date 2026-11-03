@@ -2657,7 +2657,7 @@ final shellSessionsProvider = Provider<ShellSessions>((ref) {
   sessions.programsMoved.addListener(publish);
   ref.onDispose(() => sessions.programsMoved.removeListener(publish));
   ref.listen(hostsProvider, fireImmediately: true, (_, next) {
-    final hosts = next.valueOrNull;
+    final hosts = next.value;
     if (hosts != null) sessions.syncHosts(hosts);
   });
   return sessions;

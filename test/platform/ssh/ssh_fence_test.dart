@@ -873,6 +873,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/platform/notifications/alert_notifications.dart';
 import 'package:upgrade/platform/device.dart';

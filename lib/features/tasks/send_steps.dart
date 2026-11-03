@@ -79,13 +79,13 @@ class _SendStepsState extends ConsumerState<SendSteps> {
     final projectId = widget.projectId;
     if (projectId == null) return const [];
     return _offered(
-      ref.watch(projectWorkspacesProvider(projectId)).valueOrNull ?? const [],
+      ref.watch(projectWorkspacesProvider(projectId)).value ?? const [],
     );
   }
 
   Set<String>? _multiplexed() {
     if (!widget.multiplexerOnly) return null;
-    final hosts = ref.watch(herdrHostsProvider).valueOrNull;
+    final hosts = ref.watch(herdrHostsProvider).value;
     return {for (final host in hosts ?? const <Host>[]) host.id};
   }
 
@@ -136,7 +136,7 @@ class _SendStepsState extends ConsumerState<SendSteps> {
 
   Future<void> _registerPath() async {
     final hosts = _offeredHosts(
-      ref.read(hostsProvider).valueOrNull ?? const <Host>[],
+      ref.read(hostsProvider).value ?? const <Host>[],
     );
     if (hosts.isEmpty) return;
     final host = hosts.length == 1
@@ -245,11 +245,9 @@ class _SendStepsState extends ConsumerState<SendSteps> {
     final multiplexerState = widget.multiplexerOnly
         ? ref.watch(herdrHostsProvider)
         : null;
-    final all = _offered(pathState.valueOrNull ?? const <PathTarget>[]);
+    final all = _offered(pathState.value ?? const <PathTarget>[]);
     final linked = _linked();
-    final availableHosts = _offeredHosts(
-      hostState.valueOrNull ?? const <Host>[],
-    );
+    final availableHosts = _offeredHosts(hostState.value ?? const <Host>[]);
     final ids = {for (final target in linked) target.path.id};
     final hosts = {for (final target in linked) target.host.id};
     final targets = ids.isEmpty

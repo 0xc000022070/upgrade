@@ -228,7 +228,7 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(HostShellRoute)),
     );
-    container.read(agentsFeedProvider);
+    container.listen(agentsFeedProvider, (_, _) {});
     await tester.pump();
     final session = sessions.activeFor(rose.id)!..pane = pane;
     final connection = transport.opened.single

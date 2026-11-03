@@ -46,7 +46,7 @@ class AgentsPanel extends ConsumerWidget {
     final value = supplied == null
         ? ref.watch(agentsFeedProvider)
         : AsyncValue<AgentPanelState>.data(supplied);
-    final current = value.valueOrNull;
+    final current = value.value;
     final List<TabProgram> tabs = programs ?? ref.watch(tabProgramsProvider);
     final agents = !(current?.noHost ?? false);
     final header = <Widget>[

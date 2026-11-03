@@ -7,6 +7,7 @@ import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/plugins/plugins.dart';
 import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/application/providers.dart';
 
 void main() {
   test('a card frame asked before the catalog loads waits for it', () async {
@@ -14,6 +15,7 @@ void main() {
     addTearDown(() => root.delete(recursive: true));
     final store = Completer<PluginStore>();
     final container = ProviderContainer(
+      retry: noRetry,
       overrides: [pluginStoreProvider.overrideWith((ref) => store.future)],
     );
     addTearDown(() async {

@@ -1,6 +1,6 @@
 # kitty PNGs decode without package:image
 #
-# Against flterm 232867518ec991daed7fcc9365d03cb047ef588c. Regenerate with `just pub flterm generate`.
+# Against flterm 3509e4219b2f47b0915c11214294c7b0d0cef601. Regenerate with `just pub flterm generate`.
 
 diff --git a/lib/src/controller/kitty_png_decoder.dart b/lib/src/controller/kitty_png_decoder.dart
 index a2fc3f1..ced4f64 100644
@@ -195,7 +195,7 @@ index a2fc3f1..ced4f64 100644
 +  return toUp <= toCorner ? up : corner;
  }
 diff --git a/pubspec.yaml b/pubspec.yaml
-index cf23be8..47896b3 100644
+index 41128f0..c07edef 100644
 --- a/pubspec.yaml
 +++ b/pubspec.yaml
 @@ -27,10 +27,10 @@ environment:
@@ -203,10 +203,10 @@ index cf23be8..47896b3 100644
  
  dependencies:
 +  archive: ^4.0.0
-   cupertino_ui: ^1.1.2
+   cupertino_ui: ^1.0.2
    flutter:
      sdk: flutter
--  image: ^4.10.1
-   libghostty: ^0.0.12
-   material_ui: ^1.6.0
+-  image: ^4.12.0
+   libghostty: ^0.0.13
+   material_ui: ^1.2.0
    meta: ^1.19.0
