@@ -109,6 +109,10 @@ publish:
     tool/publish.sh
 
 [group('agents')]
+proot-bump:
+    tool/proot-bump.sh
+
+[group('agents')]
 widgetbook-build: pub-build
     cd widgetbook && flutter build web --no-wasm-dry-run
 
