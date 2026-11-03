@@ -1,0 +1,28 @@
+[package]
+name = "upgrade_chat"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+description = "End-to-end encrypted chat for Upgrade: Olm sessions carried over the Veilid DHT."
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+base64 = "0.22"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tokio = { version = "1", features = ["rt-multi-thread", "time", "sync", "macros"] }
+veilid-core = { version = "=0.5.8", default-features = false, features = ["enable-crypto-vld0", "rt-tokio"] }
+vodozemac = { version = "=0.11.1", default-features = false, features = ["precomputed-tables"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.22"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

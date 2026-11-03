@@ -2555,6 +2555,34 @@ Drops are not on the board. It shows agent sessions and nothing else.
 
 Repository plugins are an Android feature in this target; a future public iOS distribution needs its own distribution decision. WebAssembly is deferred on both sides, the phone's and the host's, and arbitrary background Lua execution on the phone is deferred with it.
 
+## Chat
+
+### Chat is a conversation between two phones, and nothing else carries it
+
+Chat is a built-in plugin with one page, `CHAT`. It ships off. It runs on the phone and only on the phone: no host is involved, no server the app or anyone else runs sits between the two ends, and a host connection is never opened for it. The two phones meet on Veilid, a public peer-to-peer network, and what one writes for the other waits there, in a record of the writer's own, until the other comes for it. A phone that is off when a message is sent reads it when it is next on.
+
+**Every message is its own key.** A conversation is an Olm session, the double ratchet Matrix uses, and every message moves it one step: a key that leaks opens one message and none before it, and the next exchange in the other direction heals it. What the network carries is ciphertext in records each end alone can write; a record is reachable to anyone who has its address, and readable to nobody but the two of them. The account key, the sessions and the messages live in Veilid's table store on the phone, encrypted at rest under a key the Android keystore holds.
+
+**An invitation is a code, handed over once.** `INVITE` on `CONTACTS` makes a record and shows its code under `CODE`, with `COPY CODE`. The code carries the inviter's name, identity key, a one-time key, the address of the inviter's record, and the key to one slot of a second record, where the joiner leaves its first message. It works once: the inviter's next `INVITE` replaces it, and a second phone that tries the used one is never answered. `JOIN` takes a pasted code; the joiner's first message is its name and the address of its own record, and that message is what opens the session on the inviter's side. Once the inviter acknowledges it, both phones let the second record go, so a code seen after it was used leads nowhere either phone still reads. The code is a secret only in the sense that whoever holds it first becomes the contact; what proves who that is, is the safety number.
+
+**The safety number is compared in person.** Each conversation shows `SAFETY NUMBER`: twelve groups of five digits computed from both identity keys, the same on both phones. If the digits match face to face, nobody sat between the two ends when the code changed hands; `VERIFY` marks the contact, and the row's glyph turns from the lock to the check. Nothing in the app verifies on its own.
+
+**`YOU` names the phone to new contacts.** `[ NAME ]` is what the next invitation and the next join carry; a contact keeps the name it arrived with. The panel's affordance reads `ONLINE` once the node is attached to the network and `CONNECTING` until then. Messages can be written while `CONNECTING`, and go when the node attaches.
+
+**A message reads `SENDING` until the other phone has it.** Messages are listed oldest first under `MESSAGES`, the contact's plain and the phone's own led by `YOU`, each with its time. A message of the phone's own reads `SENDING` until the other phone acknowledges it, and the time, in the accent, after. Each phone's record holds thirty-one of its messages that the other end has not acknowledged; the thirty-second waits on the phone until a slot frees, so a long absence delays nothing that was written and loses nothing either. A write refused while the node is still connecting is kept and made again.
+
+**`REMOVE CONTACT` ends the conversation on this phone.** It asks once, under `REMOVE CONTACT AND MESSAGES`, and then deletes the session, the messages and this phone's copies of both records. The other phone keeps its own.
+
+Struck, for now: scanning the code as a QR. It needs a camera the app does not otherwise ask for.
+
+Struck, for now: a notification when a message arrives while the app is closed. The node runs only while the app does.
+
+Struck, for now: files and voice notes. They are the next step and do not fit a record's slots as they stand.
+
+Struck: talking to Phonechy. Its protocol is not published, and a chat that has to guess at the other end's encryption has none of its own to promise.
+
+Struck: groups. A group is a different protocol, not a longer conversation.
+
 ## Routines
 
 ### A routine is armed on the phone and fires on the machine

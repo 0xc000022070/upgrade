@@ -82,6 +82,12 @@ engine-gate: pub-build
     bin=$(cargo build --manifest-path engine/Cargo.toml --message-format=json-render-diagnostics | grep -o '"executable":"[^"]*/upgraded"' | cut -d'"' -f4) && test -x "$bin" && UPGRADED_BIN=$bin tool/test.sh local test/platform/shell/engine_channel_live_test.dart
 
 [group('dev')]
+chat-gate:
+    cargo fmt --manifest-path chat/Cargo.toml --check
+    cargo clippy --manifest-path chat/Cargo.toml --all-targets -- -D warnings
+    cargo test --manifest-path chat/Cargo.toml
+
+[group('dev')]
 pub-build: (pub "dart_mosh") (pub "dartssh2") (pub "flterm") (pub "pointycastle") _libghostty
 
 [group('agents')]

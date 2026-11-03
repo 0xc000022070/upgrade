@@ -9,6 +9,7 @@ let
   testfmt = pkgs.callPackage ./testfmt.nix { };
   prootAndroid = pkgs.callPackage ./proot-android.nix { };
   engineAndroid = pkgs.callPackage ./engine/android.nix { };
+  chatAndroid = pkgs.callPackage ./chat/android.nix { };
 
   ghosttySrc = pkgs.callPackage ./ghostty-src.nix { };
   ghosttyVt = pkgs.callPackage ./engine/libghostty-vt.nix { };
@@ -75,6 +76,7 @@ pkgs.mkShell {
   JAVA_HOME = "${jdk}";
   PROOT_ANDROID_LIBS = prootAndroid;
   ENGINE_ANDROID_LIBS = engineAndroid;
+  CHAT_ANDROID_LIBS = chatAndroid;
   DEPLOY_ZSTD_ANDROID = "${pkgs.pkgsCross.aarch64-multiplatform-musl.pkgsStatic.zstd.bin}/bin/zstd";
 
   shellHook = ''

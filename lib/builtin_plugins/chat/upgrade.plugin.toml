@@ -1,0 +1,19 @@
+manifest_version = 3
+id = "upgrade.chat"
+name = "Chat"
+emblem = "key"
+purpose = "End-to-end encrypted conversations, phone to phone, with no server."
+version = "1.0.0"
+upgrade_api = "^2.0.0"
+
+[runtime]
+kind = "native"
+entry = "main.dart"
+
+[contributes]
+surfaces = ["navigation.page"]
+
+[[contributes.pages]]
+id = "main"
+title = "Chat"
+surface = "navigation.page"

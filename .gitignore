@@ -73,3 +73,4 @@ result-*
 
 # Design exports, regenerated from the .pen sources
 /docs/design/**/*.png
+/chat/target/

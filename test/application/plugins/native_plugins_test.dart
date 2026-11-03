@@ -254,6 +254,7 @@ void main() {
       };
       expect(arrivals, {
         'upgrade.agents': BuiltinArrival.on,
+        'upgrade.chat': BuiltinArrival.off,
         'upgrade.drops': BuiltinArrival.adopted,
         'upgrade.projects': BuiltinArrival.adopted,
         'upgrade.prompt': BuiltinArrival.off,

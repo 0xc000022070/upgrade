@@ -166,6 +166,7 @@ class MainActivity : FlutterActivity() {
                         result)
                     "openDocument" -> openDocument(result)
                     "ime" -> result.success(imeShown())
+                    "chat" -> result.success(ChatNative.prepare(applicationContext))
                     "awake" -> {
                         if (call.arguments == true) {
                             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
