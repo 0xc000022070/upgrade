@@ -15,10 +15,10 @@ let
 in
 stdenvNoCC.mkDerivation {
   pname = "proot-android";
-  version = "5.1.107.96";
+  version = "5.1.107.102";
 
   srcs = [
-    (deb "p/proot/proot_5.1.107.96_aarch64.deb" "8199dca06dccb693ec09fb1759e3e1ad08b4863f0c11c612f89c20bd9ecdc1a0")
+    (deb "p/proot/proot_5.1.107.102_aarch64.deb" "10a394b585c2fc2b2c8502544f4e5f1be581dc8bfff79e8ba62f16207423e030")
     (deb "libt/libtalloc/libtalloc_2.5.0_aarch64.deb" "556591f43bb773ad8777e1a29522640866a55f95dab71914418b94a8c58ad5a7")
     (deb "liba/libandroid-shmem/libandroid-shmem_0.7_aarch64.deb" "0da3a24d558b93c92bcf8d611e0826a99ff96e396b148e6cdf33b47c47c57ff6")
   ];
