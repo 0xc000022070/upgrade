@@ -169,7 +169,7 @@ fn digest(args: &Value) -> EngineResult<Value> {
     Ok(json!({
         "path": paths::display(&target),
         "algorithm": "sha256",
-        "digest": format!("{:x}", hasher.finalize()),
+        "digest": hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect::<String>(),
         "size": size,
     }))
 }

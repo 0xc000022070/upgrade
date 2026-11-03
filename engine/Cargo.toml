@@ -12,26 +12,26 @@ name = "upgraded"
 path = "src/main.rs"
 
 [dependencies]
-aes = "0.8"
+aes = "0.9"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 chrono-tz = "0.10"
 libc = "0.2"
 memchr = "2"
-miniz_oxide = "0.8"
+miniz_oxide = "0.9"
 nix = { version = "0.31.3", default-features = false, features = ["user", "signal", "process", "fs", "term"] }
-ocb3 = "0.1"
-png = "0.17"
+ocb3 = "0.2"
+png = "0.18"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
-sha2 = "0.10"
+sha2 = "0.11"
 imara-diff = { version = "0.2", default-features = false }
-tree-sitter = { version = "0.25", default-features = false }
+tree-sitter = { version = "0.27", default-features = false }
 tree-sitter-bash = "0.25"
 tree-sitter-c = "0.24"
 tree-sitter-containerfile = "0.9"
 tree-sitter-cpp = { version = "0.23", optional = true }
 tree-sitter-css = "0.25"
-tree-sitter-dart = "0.2"
+tree-sitter-dart = "0.3"
 tree-sitter-go = "0.25"
 tree-sitter-graphql = "0.3"
 tree-sitter-html = "0.23"

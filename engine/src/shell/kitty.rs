@@ -118,7 +118,9 @@ fn widen(image: &Image) -> (u8, std::borrow::Cow<'_, [u8]>) {
             32,
             image
                 .pixels
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .flat_map(|pair| [pair[0], pair[0], pair[0], pair[1]])
                 .collect::<Vec<u8>>()
                 .into(),

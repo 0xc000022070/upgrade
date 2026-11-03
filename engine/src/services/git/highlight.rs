@@ -56,7 +56,7 @@ impl Highlighter {
         let mut cursor = QueryCursor::new();
         let mut matches = cursor.matches(query, tree.root_node(), text.as_bytes());
         while let Some(found) = matches.next() {
-            for capture in found.captures {
+            for capture in found.captures() {
                 if let Some(paint) = self.paints[capture.index as usize] {
                     let node = capture.node;
                     let paint = literal_paint(node).unwrap_or(paint);
