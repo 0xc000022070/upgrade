@@ -91,7 +91,9 @@ final chatBookProvider = FutureProvider<ChatBook>((ref) async {
 final chatMessagesProvider = FutureProvider.autoDispose
     .family<List<ChatMessage>, String>((ref, record) async {
       final link = await ref.watch(chatLinkProvider.future);
-      final events = link.events.listen((_) => ref.invalidateSelf());
+      final events = link.events
+          .where((e) => e['event'] == 'changed')
+          .listen((_) => ref.invalidateSelf());
       ref.onDispose(events.cancel);
       final messages = await link.call({'op': 'messages', 'record': record});
       return [

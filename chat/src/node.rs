@@ -94,15 +94,24 @@ impl Node {
         tokio::spawn(async move {
             while let Some(change) = rx.recv().await {
                 let record = change.key.to_string();
-                let reads = change
-                    .subkeys
-                    .iter()
-                    .map(|subkey| Effect::Read {
-                        record: record.clone(),
-                        subkey,
-                    })
-                    .collect();
-                watcher.run(reads).await;
+                let mut subkeys = change.subkeys.iter();
+                let mut work = Vec::new();
+                // Veilid has checked the value's signature, and it is the first subkey's.
+                if let Some(value) = &change.value {
+                    if let Some(first) = subkeys.next() {
+                        let seen = watcher
+                            .book
+                            .lock()
+                            .await
+                            .observe(&record, first, value.data());
+                        work.extend(seen.unwrap_or_default());
+                    }
+                }
+                work.extend(subkeys.map(|subkey| Effect::Read {
+                    record: record.clone(),
+                    subkey,
+                }));
+                watcher.run(work).await;
             }
         });
         let poller = node.clone();
@@ -154,7 +163,15 @@ impl Node {
     async fn run(&self, mut work: Vec<Effect>) {
         let mut changed = false;
         while !work.is_empty() {
-            match work.remove(0) {
+            // Local effects go first and are shown before any network round trip.
+            let local = work
+                .iter()
+                .position(|e| matches!(e, Effect::Stored { .. } | Effect::Changed));
+            if local.is_none() && changed {
+                self.publish().await;
+                changed = false;
+            }
+            match work.remove(local.unwrap_or(0)) {
                 Effect::Write {
                     record,
                     subkey,
@@ -215,9 +232,13 @@ impl Node {
             }
         }
         if changed {
-            let _ = self.save().await;
-            (self.notify)(json!({"event": "changed"}));
+            self.publish().await;
         }
+    }
+
+    async fn publish(&self) {
+        let _ = self.save().await;
+        (self.notify)(json!({"event": "changed"}));
     }
 
     async fn forget(&self, record: &str) {
