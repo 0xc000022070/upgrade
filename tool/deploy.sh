@@ -63,6 +63,12 @@ say() {
   echo "deploy: $*"
 }
 
+# mako's pile mirror rule in the dotfiles matches the app name.
+notify() {
+  command -v notify-send >/dev/null || return 0
+  notify-send -a upgrade -u "$1" "$2" "${3:-}" || true
+}
+
 head_rev() {
   git -C "$ROOT" rev-parse --verify "${1:-HEAD}^{commit}"
 }
@@ -226,7 +232,10 @@ once() {
 
   local apk
   if [[ $ask != ask ]]; then
-    apk=$(build "$rev") || return 3
+    apk=$(build "$rev") || {
+      notify critical "upgrade · $name+$code ($sha) failed to build"
+      return 3
+    }
   else
     local onto building built="" answer="" log="$OUT/build.log" path="$OUT/apk.path"
     local eta started=$SECONDS waited tick=0 key step="" bubble pose
@@ -288,23 +297,26 @@ once() {
       chef_end fire "$tick" "MON DIEU! $sha is burnt."
       echo
       tail -n 20 "$log" >&2
+      notify critical "upgrade · $name+$code ($sha) failed to build" "$(tail -n 1 "$log")"
       return 3
     fi
     apk=$(<"$path")
     if [[ $answer == n ]]; then
       chef_end shelf "$tick" "On the shelf: $(basename "$apk")"
       say "left on the shelf: $apk"
+      notify normal "upgrade · $name+$code ($sha) on the shelf" "$apk"
       return 0
     fi
   fi
 
-  local line was now failed=0
+  local line was now failed=0 served=() missed=()
   for line in "${pending[@]}"; do
     IFS=$'\t' read -r label serial have <<<"$line"
     was=$(updated_at "$(dumpsys "$serial")")
     if ! serve "$label" "$serial" "$apk"; then
       warn "$label: install failed"
       failed=1
+      missed+=("$label")
       continue
     fi
     pkg=$(dumpsys "$serial")
@@ -312,21 +324,26 @@ once() {
     if [[ $now != "$code" ]]; then
       warn "$label: still on versionCode ${now:-none} after install"
       failed=1
+      missed+=("$label")
       continue
     fi
     if [[ -n $was && $(updated_at "$pkg") == "$was" ]]; then
       warn "$label: lastUpdateTime still $was, nothing was replaced"
       failed=1
+      missed+=("$label")
       continue
     fi
     record "$label" "$code" "$sha"
+    served+=("$label")
     mkdir -p "$OUT/installed" && ln -f "$apk" "$OUT/installed/$label.apk"
     say "$label: $have -> $name+$code ($sha), $(grep -oE 'firstInstallTime=[^ ]+ [^ ]+' <<<"$pkg" | head -1)"
   done
   if ((failed)); then
     chef_end sad 0 "Sent back from the table. Merde."
+    notify critical "upgrade · $name+$code ($sha) install failed" "failed on ${missed[*]}${served[*]:+; served ${served[*]}}"
   else
     chef_end bow 1 "Bon appetit! $name+$code is served."
+    notify normal "upgrade · $name+$code ($sha) served" "onto ${served[*]}"
   fi
   return $failed
 }
