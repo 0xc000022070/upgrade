@@ -4,7 +4,8 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:upgrade/design/ascii/braille.dart';
-import 'package:upgrade/design/ascii/kitten.dart';
+import 'package:upgrade/design/ascii/grid.dart';
+import 'package:upgrade/design/ascii/mark.dart';
 
 const _ground = [0x08, 0x09, 0x0B];
 const _figure = [0xE8, 0xE8, 0xE3];
@@ -17,9 +18,8 @@ const _rows = 9;
 
 const _cellAspect = 2.0;
 
-const _pose = KittenPose(yaw: 0.12, scale: 0.95);
-
-const _samples = 3;
+const _sheetCols = 17;
+const _sheetRows = 10;
 
 const _cellWidth = 6.0;
 const _dotPitch = _cellWidth / brailleCols;
@@ -42,25 +42,6 @@ const _densities = [
   _Density('xxhdpi', 324, 144),
   _Density('xxxhdpi', 432, 192),
 ];
-
-Uint8List _grid() {
-  final width = _cols * brailleCols;
-  final height = _rows * brailleRows;
-  final frame = renderKitten(
-    width: width,
-    height: height,
-    rowPitch: 1.0,
-    pose: _pose,
-    samples: _samples,
-  );
-  final out = Uint8List(_cols * _rows);
-  for (var y = 0; y < _rows; y++) {
-    for (var x = 0; x < _cols; x++) {
-      out[y * _cols + x] = brailleCell(frame.shade, width, x, y);
-    }
-  }
-  return out;
-}
 
 class _Layout {
   const _Layout(this.cell, this.x, this.y);
@@ -185,7 +166,7 @@ _Layout _solve(Uint8List grid, int size, double fraction) {
       );
     }
   }
-  if (cells.empty) throw StateError('the figure marched to nothing');
+  if (cells.empty) throw StateError('the figure sampled to nothing');
 
   var cell =
       target /
@@ -311,7 +292,7 @@ void _write(String path, Uint8List bytes) =>
 
 void main() {
   final clock = Stopwatch()..start();
-  final grid = _grid();
+  final grid = markGrid(_cols, _rows);
 
   for (final density in _densities) {
     final dir = 'android/app/src/main/res/mipmap-${density.dir}';
@@ -360,6 +341,24 @@ void main() {
       'figure ${box.extent}px (${dp.toStringAsFixed(1)}dp)',
     );
   }
+
+  File(mascotAsset(mascotCompact)).writeAsStringSync(
+    AsciiSheet(
+      cols: _sheetCols,
+      rows: _sheetRows,
+      fps: 2,
+      loops: false,
+      frames: [
+        AsciiFrame(
+          glyphs: markGrid(_sheetCols, _sheetRows),
+          sparkX: -1,
+          sparkY: -1,
+        ),
+      ],
+    ).encode(),
+    flush: true,
+  );
+  stdout.writeln('$mascotCompact: 1 frame at ${_sheetCols}x$_sheetRows');
 
   stdout.writeln('baked in ${clock.elapsed.inMilliseconds}ms');
 }

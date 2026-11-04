@@ -199,18 +199,5 @@ void main() {
     stdout.writeln('${state.name}: ${state.frames} frames at ${_cols}x$_rows');
   }
 
-  final idle = _states.firstWhere((s) => s.name == 'idle');
-  final compact = _bake(
-    _State(
-      name: mascotCompact,
-      frames: 1,
-      fps: idle.fps,
-      loops: false,
-      pose: (i, n) => idle.pose(0, idle.frames),
-    ),
-  );
-  File('${dir.path}/$mascotCompact.txt').writeAsStringSync(compact.encode());
-  stdout.writeln('$mascotCompact: 1 frame');
-
   stdout.writeln('baked in ${clock.elapsed.inMilliseconds}ms');
 }
