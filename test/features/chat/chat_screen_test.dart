@@ -112,4 +112,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('SENDING'), findsNothing);
   });
+  testWidgets('a node that did not start reads offline and says what failed', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        retry: noRetry,
+        overrides: [
+          chatLinkProvider.overrideWith(
+            (ref) async => throw const ChatException(
+              'chat could not open its keys on this phone',
+            ),
+          ),
+          staticEnabledProvider.overrideWith((ref) => Stream.value(false)),
+        ],
+        child: MaterialApp(
+          theme: testTheme,
+          home: const Scaffold(body: ChatScreen()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('OFFLINE'), findsOneWidget);
+    expect(
+      find.text('error: chat could not open its keys on this phone'),
+      findsOneWidget,
+    );
+  });
 }

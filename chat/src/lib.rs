@@ -8,12 +8,12 @@ use serde_json::{json, Value};
 use tokio::runtime::Runtime;
 use tokio::sync::OnceCell;
 
-use crate::node::Node;
+use crate::node::{Node, StartError};
 
 type Callback = extern "C" fn(*mut c_char);
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
-static NODE: OnceCell<Result<Arc<Node>, String>> = OnceCell::const_new();
+static NODE: OnceCell<Result<Arc<Node>, StartError>> = OnceCell::const_new();
 static CALLBACK: OnceLock<Callback> = OnceLock::new();
 
 fn emit(value: Value) {
@@ -35,12 +35,10 @@ pub unsafe extern "C" fn upgrade_chat_start(dir: *const c_char, callback: Callba
     let _ = CALLBACK.set(callback);
     let dir = CStr::from_ptr(dir).to_string_lossy().into_owned();
     runtime().spawn(async move {
-        let node = NODE
-            .get_or_init(|| async { Node::start(&dir, Arc::new(emit)).await.map_err(|e| e.0) })
-            .await;
+        let node = NODE.get_or_init(|| Node::start(&dir, Arc::new(emit))).await;
         emit(match node {
             Ok(_) => json!({"event": "started"}),
-            Err(e) => json!({"event": "failed", "error": e}),
+            Err(e) => json!({"event": "failed", "error": e.what, "detail": e.detail}),
         });
     });
 }
@@ -53,7 +51,7 @@ pub unsafe extern "C" fn upgrade_chat_call(id: i64, request: *const c_char) {
     runtime().spawn(async move {
         let answer = match (NODE.get(), serde_json::from_str::<Value>(&request)) {
             (Some(Ok(node)), Ok(request)) => node.call(request).await.map_err(|e| e.0),
-            (Some(Err(e)), _) => Err(e.clone()),
+            (Some(Err(e)), _) => Err(e.what.to_owned()),
             (None, _) => Err("not started".to_owned()),
             (_, Err(e)) => Err(e.to_string()),
         };

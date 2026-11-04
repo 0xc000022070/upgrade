@@ -18,6 +18,23 @@ const POLL: Duration = Duration::from_secs(20);
 
 pub type Notify = Arc<dyn Fn(Value) + Send + Sync>;
 
+const KEYS: &str = "chat could not open its keys on this phone";
+const STORAGE: &str = "chat could not read what it keeps on this phone";
+const NETWORK: &str = "chat could not join the Veilid network";
+
+#[derive(Clone, Debug)]
+pub struct StartError {
+    pub what: &'static str,
+    pub detail: String,
+}
+
+fn at<E: std::fmt::Display>(what: &'static str) -> impl FnOnce(E) -> StartError {
+    move |e| StartError {
+        what,
+        detail: e.to_string(),
+    }
+}
+
 pub struct Node {
     api: VeilidAPI,
     rc: RoutingContext,
@@ -30,7 +47,7 @@ pub struct Node {
 }
 
 impl Node {
-    pub async fn start(dir: &str, notify: Notify) -> Result<Arc<Node>, Error> {
+    pub async fn start(dir: &str, notify: Notify) -> Result<Arc<Node>, StartError> {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let wake = Arc::new(Wake::new());
         let callback = {
@@ -49,11 +66,15 @@ impl Node {
         };
         let mut config = VeilidConfig::new("upgrade-chat", "", "", Some(dir), Some(dir));
         config.protected_store.always_use_insecure_storage = !cfg!(target_os = "android");
-        let api = api_startup(callback, config).await?;
-        let rc = api.routing_context()?;
-        let db = api.open_table_db("chat", 1).await?;
-        let book = match db.load(0, BOOK.to_vec().into()).await? {
-            Some(bytes) => serde_json::from_slice(&bytes)?,
+        let api = api_startup(callback, config).await.map_err(at(KEYS))?;
+        let rc = api.routing_context().map_err(at(NETWORK))?;
+        let db = api.open_table_db("chat", 1).await.map_err(at(STORAGE))?;
+        let book = match db
+            .load(0, BOOK.to_vec().into())
+            .await
+            .map_err(at(STORAGE))?
+        {
+            Some(bytes) => serde_json::from_slice(&bytes).map_err(at(STORAGE))?,
             None => Book::new(""),
         };
         let retry = Mutex::new(book.resend());
@@ -67,7 +88,7 @@ impl Node {
             retry,
             wake,
         });
-        node.api.attach().await?;
+        node.api.attach().await.map_err(at(NETWORK))?;
 
         let watcher = node.clone();
         tokio::spawn(async move {

@@ -31,7 +31,11 @@ class ChatScreen extends ConsumerWidget {
             Panel(
               title: 'YOU',
               affordance: PanelAffordance(
-                online ? 'ONLINE' : 'CONNECTING',
+                online
+                    ? 'ONLINE'
+                    : book.hasError
+                    ? 'OFFLINE'
+                    : 'CONNECTING',
                 showIcon: false,
                 color: online ? context.tokens.accent : null,
               ),

@@ -4,6 +4,7 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 abstract interface class ChatLink {
@@ -86,6 +87,7 @@ class NativeChatLink implements ChatLink {
         case 'started':
           _started.complete();
         case 'failed':
+          debugPrint('chat: ${message['detail']}');
           _started.completeError(ChatException('${message['error']}'));
       }
     }

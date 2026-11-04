@@ -294,7 +294,13 @@ class _NativePluginRoute extends ConsumerWidget {
               ),
             ),
           ),
-          Expanded(child: NativeContributionSurface.page(page)),
+          Expanded(
+            child: MediaQuery.removePadding(
+              context: context,
+              removeTop: true,
+              child: NativeContributionSurface.page(page),
+            ),
+          ),
         ],
       ),
     );
