@@ -19,8 +19,9 @@ case "$*" in
   devices)
     echo 'List of devices attached'
     [ -f "$STATE/up" ] && printf 'emulator-5556\tdevice\n'
-    [ -f "$STATE/phys" ] && printf 'R5CT1234\tdevice\n'
+    [ -f "$STATE/phys" ] && printf '10.0.0.5:5555\tdevice\nR5CT1234\tdevice\n'
     ;;
+  '-s R5CT1234 shell getprop ro.serialno'|'-s 10.0.0.5:5555 shell getprop ro.serialno') echo R5CT1234 ;;
   '-s emulator-5556 emu avd name')
     [ -f "$STATE/noname" ] || { cat "$STATE/up"; echo; echo OK; }
     ;;
@@ -441,7 +442,9 @@ void main() {
       expect(devices[0].avd, 'Pixel_9');
       expect(devices[0].id, 'emulator-5556');
       expect(devices[1].name, 'Pixel 8');
+      expect(devices[1].id, 'R5CT1234');
       expect(devices[1].avd, isNull);
+      expect(devices.where((d) => d.name == 'Pixel 8'), hasLength(1));
       expect(devices.last.name, 'iPhone 17 Pro Max');
     });
 

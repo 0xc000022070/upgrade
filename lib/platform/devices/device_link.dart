@@ -372,13 +372,18 @@ stop() {
 
 const _listBody = r'''
 if command -v adb >/dev/null 2>&1; then
-  adb devices </dev/null | while read -r s state; do
-    [ "$state" = device ] || continue
+  seen=
+  adb devices </dev/null |
+    awk '$2 == "device" { if (index($1, ":")) w = w $1 "\n"; else print $1 } END { printf "%s", w }' |
+    while read -r s; do
     n=$(avd "$s")
     if [ -n "$n" ]; then
       printf 'E %s %s\n' "$s" "$n"
       continue
     fi
+    id=$(adb -s "$s" shell getprop ro.serialno </dev/null 2>/dev/null | tr -d '\r')
+    case " $seen " in *" $id "*) [ -n "$id" ] && continue ;; esac
+    seen="$seen $id"
     n=$(adb -s "$s" shell getprop ro.product.model </dev/null 2>/dev/null | tr -d '\r')
     printf 'A %s %s\n' "$s" "$n"
   done
