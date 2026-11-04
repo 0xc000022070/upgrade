@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/platform/chat/chat_link.dart';
+import 'package:upgrade/platform/device.dart';
 
 class ChatContact {
   const ChatContact({
@@ -118,17 +119,25 @@ class ChatMedia {
   bool get spent => limited && seen >= views;
 }
 
-final chatLinkProvider = FutureProvider<ChatLink>(
-  (ref) => NativeChatLink.open(),
-);
+void Function(ChatLink link)? chatOpened;
+
+final chatLinkProvider = FutureProvider<ChatLink>((ref) async {
+  final link = await NativeChatLink.open();
+  chatOpened?.call(link);
+  return link;
+});
+
+final shownConversations = <String>{};
 
 final chatBookProvider = FutureProvider<ChatBook>((ref) async {
   final link = await ref.watch(chatLinkProvider.future);
   final events = link.events.listen((_) => ref.invalidateSelf());
   ref.onDispose(events.cancel);
-  return ChatBook.parse(
+  final book = ChatBook.parse(
     await link.call({'op': 'state'}) as Map<String, Object?>,
   );
+  Device.keepChat(book.contacts.isNotEmpty);
+  return book;
 });
 
 final chatMessagesProvider = FutureProvider.autoDispose

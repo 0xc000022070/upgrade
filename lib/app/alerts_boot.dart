@@ -13,6 +13,7 @@ import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
 import 'package:upgrade/platform/herdr/agent_watcher.dart';
 import 'package:upgrade/platform/notifications/alert_actions.dart';
 import 'package:upgrade/platform/notifications/alert_notifications.dart';
+import 'package:upgrade/platform/notifications/chat_notifications.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/notifications/pin_notifications.dart';
@@ -43,12 +44,16 @@ Future<void> initAlerts() async {
     onBackgroundResponse: alertActionBackground,
   );
   await PinNotifications.createChannel();
+  await ChatNotifications.createChannel();
   final launch = await AlertNotifications.plugin
       .getNotificationAppLaunchDetails();
   if (launch?.didNotificationLaunchApp ?? false) {
     final response = launch!.notificationResponse;
     final pinHost = pinPayloadHost(response?.payload);
-    if (pinHost != null) {
+    final chat = ChatNotifications.record(response?.payload);
+    if (chat != null) {
+      pendingChat = chat;
+    } else if (pinHost != null) {
       _pendingPinHost = pinHost;
     } else {
       _pendingOpen =

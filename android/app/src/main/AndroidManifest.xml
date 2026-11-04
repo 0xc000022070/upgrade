@@ -68,6 +68,14 @@
             android:name=".TransferStopReceiver"
             android:exported="false" />
         <service
+            android:name=".ChatService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the end-to-end encrypted chat node the user joined connected to its peer-to-peer network, so messages from their contacts arrive and raise a notification while the app is not in front."/>
+        </service>
+        <service
             android:name=".LinuxService"
             android:foregroundServiceType="specialUse"
             android:exported="false">

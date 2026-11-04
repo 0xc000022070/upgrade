@@ -40,6 +40,14 @@ abstract final class Device {
       .invokeMethod<void>('secure', on)
       .then((_) {}, onError: (Object _) {});
 
+  static void keepChat(bool on) => _channel
+      .invokeMethod<void>('keepChat', on)
+      .then((_) {}, onError: (Object _) {});
+
+  static Future<bool> chatKept() => _channel
+      .invokeMethod<bool>('chatKept')
+      .then((kept) => kept ?? false, onError: (Object _) => false);
+
   static Future<String?> model() async {
     try {
       return await _channel.invokeMethod<String>('model');

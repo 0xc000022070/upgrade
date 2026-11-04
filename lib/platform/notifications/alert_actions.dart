@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:upgrade/application/alerts/alerts.dart';
 import 'package:upgrade/application/alerts/pin_alerts.dart';
 import 'package:upgrade/platform/notifications/alert_notifications.dart';
+import 'package:upgrade/platform/notifications/chat_notifications.dart';
 import 'package:upgrade/platform/herdr/engine_agents.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
@@ -31,10 +32,19 @@ void Function(String hostId, UserIntent? intent)? pinOpenHandler;
 
 HostLinks? alertLinks;
 
+String? pendingChat;
+
+void Function(String record) chatOpenHandler = (record) => pendingChat = record;
+
 Future<void> handleAlertAction(
   NotificationResponse response, {
   UserIntent? intent,
 }) async {
+  final chat = ChatNotifications.record(response.payload);
+  if (chat != null) {
+    chatOpenHandler(chat);
+    return;
+  }
   final pinHost = pinPayloadHost(response.payload);
   if (pinHost != null) {
     pinOpenHandler?.call(pinHost, intent);

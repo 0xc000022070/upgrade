@@ -14,6 +14,7 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/dynamic_tokens.dart';
 import 'package:upgrade/design/effects/screen_entry.dart';
 import 'package:upgrade/design/theme.dart';
+import 'package:upgrade/features/chat/chat_alerts.dart';
 import 'package:upgrade/features/agents/agent_status_bar.dart';
 import 'package:upgrade/features/devices/device_float.dart';
 import 'package:upgrade/features/files/shared_inbox_host.dart';
@@ -91,7 +92,9 @@ class UpgradeApp extends ConsumerWidget {
             child: LegibleScale(
               child: houseText(
                 context,
-                PipHost(child: DeviceFloat(child: child!)),
+                PipHost(
+                  child: DeviceFloat(child: ChatAlerts(child: child!)),
+                ),
               ),
             ),
           ),

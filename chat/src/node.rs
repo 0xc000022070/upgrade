@@ -243,7 +243,13 @@ impl Node {
 
     async fn stored(&self, contact: String, message: Message) {
         let _ = self.store(&contact, &message).await;
-        if !message.mine && message.media.as_ref().is_some_and(|m| !m.stored) {
+        if message.mine {
+            return;
+        }
+        if let Ok(public) = public(&message) {
+            (self.notify)(json!({"event": "message", "record": contact, "message": public}));
+        }
+        if message.media.as_ref().is_some_and(|m| !m.stored) {
             let _ = self.fetch.send((contact, message.index));
         }
     }

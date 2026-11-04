@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/chat/chat.dart';
+import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/features/chat/chat_alerts.dart';
 import 'package:upgrade/features/chat/chat_screen.dart';
+import 'package:upgrade/features/chat/conversation_screen.dart';
 import 'package:upgrade/platform/chat/chat_link.dart';
 
 import '../../support/themed_app.dart';
@@ -21,6 +24,11 @@ class _FakeLink implements ChatLink {
       m['delivered'] = true;
     }
     _events.add({'event': 'changed'});
+  }
+
+  void arrive(Map<String, Object?> message) {
+    messages.add(message);
+    _events.add({'event': 'message', 'record': 'rec', 'message': message});
   }
 
   @override
@@ -225,4 +233,56 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'a message to a conversation not on screen drops a banner that opens it',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final link = _FakeLink();
+      await tester.pumpWidget(
+        ProviderScope(
+          retry: noRetry,
+          overrides: [
+            chatLinkProvider.overrideWith((ref) async => link),
+            staticEnabledProvider.overrideWith((ref) => Stream.value(false)),
+          ],
+          child: MaterialApp(
+            theme: testTheme,
+            navigatorKey: rootNavigatorKey,
+            builder: (context, child) =>
+                ChatAlerts(kept: () async => false, child: child!),
+            home: const Scaffold(body: ChatScreen()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      chatOpened!(link);
+      link.arrive({
+        'index': 0,
+        'mine': false,
+        'body': '',
+        'at': 0,
+        'media': {'kind': 'photo', 'views': 1},
+      });
+      await tester.pumpAndSettle();
+      final banner = find.byKey(const ValueKey('chat-banner'));
+      expect(
+        find.descendant(of: banner, matching: find.text('photo')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: banner, matching: find.text('ben')),
+        findsOneWidget,
+      );
+
+      await tester.tap(banner);
+      await tester.pumpAndSettle();
+      expect(find.byType(ConversationScreen), findsOneWidget);
+      link.arrive({'index': 1, 'mine': false, 'body': 'hi', 'at': 1});
+      await tester.pumpAndSettle();
+      expect(banner, findsNothing);
+    },
+  );
 }

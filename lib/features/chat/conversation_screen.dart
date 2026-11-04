@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -24,6 +25,7 @@ import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/platform/device.dart';
+import 'package:upgrade/platform/notifications/chat_notifications.dart';
 
 const mediaMax = 16 * 1024 * 1024 - 16;
 
@@ -60,7 +62,15 @@ class _ConversationState extends ConsumerState<ConversationScreen> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    shownConversations.add(widget.record);
+    unawaited(ChatNotifications.cancel(widget.record));
+  }
+
+  @override
   void dispose() {
+    shownConversations.remove(widget.record);
     _text.dispose();
     super.dispose();
   }
@@ -192,11 +202,7 @@ class _ConversationState extends ConsumerState<ConversationScreen> {
                   ),
                 ],
                 const SizedBox(height: Spacing.md),
-                _Composer(
-                  controller: _text,
-                  onSend: _send,
-                  onAttach: _attach,
-                ),
+                _Composer(controller: _text, onSend: _send, onAttach: _attach),
               ],
             ),
           ],
@@ -615,7 +621,8 @@ class _MediaTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tokens = context.tokens;
-    final thumbnail = info.stored && !info.spent && !info.limited && !info.video;
+    final thumbnail =
+        info.stored && !info.spent && !info.limited && !info.video;
     final label = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -728,9 +735,8 @@ class _MediaViewerState extends ConsumerState<MediaViewer> {
                           );
                   }
                   return GestureDetector(
-                    onTap: () => video.value.isPlaying
-                        ? video.pause()
-                        : video.play(),
+                    onTap: () =>
+                        video.value.isPlaying ? video.pause() : video.play(),
                     child: Center(
                       child: video.value.isInitialized
                           ? AspectRatio(
