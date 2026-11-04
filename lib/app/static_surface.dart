@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/design/components/ascii_background.dart';
+import 'package:upgrade/design/theme.dart';
 import 'package:upgrade/design/tokens.dart';
 
 class StaticSurface extends ConsumerWidget {
@@ -13,9 +14,11 @@ class StaticSurface extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final enabled = ref.watch(staticEnabledProvider).value ?? true;
+    final choice = ref.watch(themeProvider).value ?? ThemeChoice.house;
     return AsciiBackgroundDriver(
       enabled: enabled,
       colour: context.tokens.textMuted,
+      wallpaper: choice.wallpaper,
       child: child,
     );
   }

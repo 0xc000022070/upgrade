@@ -8,6 +8,7 @@ import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/platform/device.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
+import 'package:upgrade/design/theme.dart';
 import 'package:upgrade/features/settings/alerts_block.dart';
 import 'package:upgrade/features/settings/bundle_panel.dart';
 import 'package:upgrade/features/settings/key_bar_block.dart';
@@ -38,16 +39,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         .setFlag(SettingsRepository.staticEnabled, value);
   }
 
-  Future<void> _setThemeSystem(bool value) async {
+  Future<void> _setTheme(ThemeChoice value) async {
     await ref
         .read(settingsRepositoryProvider)
-        .setFlag(SettingsRepository.themeSystem, value);
+        .setText(SettingsRepository.theme, value.name);
   }
 
   @override
   Widget build(BuildContext context) {
     final enabled = ref.watch(staticEnabledProvider).value ?? true;
-    final themeSystem = ref.watch(themeSystemProvider).value ?? false;
+    final theme = ref.watch(themeProvider).value ?? ThemeChoice.house;
 
     return Scaffold(
       body: StaticSurface(
@@ -88,16 +89,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      ChoiceChip(
-                        label: const Text('Upgrade dark'),
-                        selected: !themeSystem,
-                        onSelected: (_) => _setThemeSystem(false),
-                      ),
-                      ChoiceChip(
-                        label: const Text('System'),
-                        selected: themeSystem,
-                        onSelected: (_) => _setThemeSystem(true),
-                      ),
+                      for (final choice in ThemeChoice.values)
+                        ChoiceChip(
+                          label: Text(choice.label),
+                          selected: theme == choice,
+                          onSelected: (_) => _setTheme(choice),
+                        ),
                     ],
                   ),
                 ),

@@ -9,6 +9,7 @@ import 'package:upgrade/design/ascii/atlas.dart';
 import 'package:upgrade/design/ascii/effects.dart';
 import 'package:upgrade/design/ascii/noise.dart';
 import 'package:upgrade/design/ascii/ramp.dart';
+import 'package:upgrade/design/ascii/wallpaper.dart';
 import 'package:upgrade/design/motion.dart';
 import 'package:upgrade/design/typography.dart';
 
@@ -18,6 +19,7 @@ class AsciiBackground extends StatefulWidget {
     required this.child,
     required this.tick,
     required this.colour,
+    this.wallpaper,
   });
 
   final Widget child;
@@ -25,6 +27,8 @@ class AsciiBackground extends StatefulWidget {
   final ValueListenable<int> tick;
 
   final Color colour;
+
+  final Wallpaper? wallpaper;
 
   static const fontSize = 11.0;
 
@@ -71,8 +75,21 @@ class _AsciiBackgroundState extends State<AsciiBackground> {
 
   @override
   Widget build(BuildContext context) {
+    final wallpaper = widget.wallpaper;
     return Stack(
       children: [
+        if (wallpaper != null)
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: wallpaper.ground,
+                ),
+              ),
+            ),
+          ),
         Positioned.fill(
           child: RepaintBoundary(
             child: IgnorePointer(
@@ -83,6 +100,7 @@ class _AsciiBackgroundState extends State<AsciiBackground> {
                   colour: widget.colour.withValues(
                     alpha: AsciiBackground.opacity,
                   ),
+                  wallpaper: wallpaper,
                 ),
               ),
             ),
@@ -95,12 +113,19 @@ class _AsciiBackgroundState extends State<AsciiBackground> {
 }
 
 class _FieldPainter extends CustomPainter {
-  _FieldPainter({required this.tick, required this.atlas, required this.colour})
-    : super(repaint: tick);
+  _FieldPainter({
+    required this.tick,
+    required this.atlas,
+    required this.colour,
+    required this.wallpaper,
+  }) : super(repaint: tick);
 
   final ValueListenable<int> tick;
   final GlyphAtlas? atlas;
   final Color colour;
+  final Wallpaper? wallpaper;
+
+  static final _wallpaperAlpha = (Wallpaper.opacity * 255).round() << 24;
 
   static Float64List? _shade;
   static Float32List? _transforms;
@@ -132,19 +157,29 @@ class _FieldPainter extends CustomPainter {
 
     final now = tick.value;
     shade.fillRange(0, cells, 0.0);
-    asciiEffects[AsciiBackground.effectAt(now, _epoch)].render(
-      now.toDouble(),
-      cols,
-      rows,
-      shade,
-    );
+    final scene = wallpaper;
+    if (scene == null) {
+      asciiEffects[AsciiBackground.effectAt(now, _epoch)].render(
+        now.toDouble(),
+        cols,
+        rows,
+        shade,
+      );
+    } else {
+      scene.render(now.toDouble(), Field(cols, rows, shade, colours));
+    }
 
     final argb = colour.toARGB32();
     final scale = glyphs.scale;
     var drawn = 0;
     for (var y = 0; y < rows; y++) {
       for (var x = 0; x < cols; x++) {
-        final glyph = asciiGlyph(shade[y * cols + x], bayer(x, y));
+        final cell = y * cols + x;
+        // A sprite names its glyph exactly; dither is for shaded fields only.
+        final glyph = asciiGlyph(
+          shade[cell],
+          scene == null ? bayer(x, y) : 0.5,
+        );
         if (glyph == 0) continue;
         final at = drawn * 4;
         transforms[at] = scale;
@@ -152,7 +187,9 @@ class _FieldPainter extends CustomPainter {
         transforms[at + 2] = x * glyphs.cellWidth;
         transforms[at + 3] = y * glyphs.cellHeight;
         glyphs.rectInto(rects, at, GlyphAtlas.slotOfGlyph(glyph));
-        colours[drawn] = argb;
+        colours[drawn] = scene == null
+            ? argb
+            : (colours[cell] & 0x00FFFFFF) | _wallpaperAlpha;
         drawn++;
       }
     }
@@ -173,6 +210,7 @@ class _FieldPainter extends CustomPainter {
   bool shouldRepaint(_FieldPainter oldDelegate) =>
       oldDelegate.atlas != atlas ||
       oldDelegate.colour != colour ||
+      oldDelegate.wallpaper != wallpaper ||
       oldDelegate.tick != tick;
 }
 
@@ -182,11 +220,13 @@ class AsciiBackgroundDriver extends StatefulWidget {
     required this.child,
     required this.colour,
     this.enabled = true,
+    this.wallpaper,
   });
 
   final Widget child;
   final Color colour;
   final bool enabled;
+  final Wallpaper? wallpaper;
 
   @override
   State<AsciiBackgroundDriver> createState() => _AsciiBackgroundDriverState();
@@ -266,6 +306,7 @@ class _AsciiBackgroundDriverState extends State<AsciiBackgroundDriver>
     return AsciiBackground(
       tick: _tick,
       colour: widget.colour,
+      wallpaper: widget.wallpaper,
       child: widget.child,
     );
   }

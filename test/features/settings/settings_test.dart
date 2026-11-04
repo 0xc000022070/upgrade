@@ -164,7 +164,7 @@ void main() {
     expect(
       await (db.select(
         db.settings,
-      )..where((s) => s.key.equals(SettingsRepository.themeSystem))).get(),
+      )..where((s) => s.key.equals(SettingsRepository.theme))).get(),
       isEmpty,
     );
 
@@ -173,19 +173,13 @@ void main() {
 
     expect(_themeSelected(tester, 'System'), isTrue);
     expect(_themeSelected(tester, 'Upgrade dark'), isFalse);
-    expect(
-      await settings.flag(SettingsRepository.themeSystem, orElse: false),
-      isTrue,
-    );
+    expect(await settings.text(SettingsRepository.theme, orElse: ''), 'system');
 
     await tester.tap(find.text('Upgrade dark'));
     await _ready(tester);
 
     expect(_themeSelected(tester, 'Upgrade dark'), isTrue);
-    expect(
-      await settings.flag(SettingsRepository.themeSystem, orElse: false),
-      isFalse,
-    );
+    expect(await settings.text(SettingsRepository.theme, orElse: ''), 'house');
     await unmount(tester);
   });
 
@@ -247,4 +241,34 @@ void main() {
     expect(tester.takeException(), isNull);
     await unmount(tester);
   });
+
+  testWidgets('a wallpaper choice persists by name', (tester) async {
+    _tall(tester);
+    await tester.pumpWidget(host(const SettingsScreen()));
+    await _ready(tester);
+
+    await tester.tap(find.text('Moonlit'));
+    await _ready(tester);
+
+    expect(_themeSelected(tester, 'Moonlit'), isTrue);
+    expect(_themeSelected(tester, 'Upgrade dark'), isFalse);
+    expect(
+      await settings.text(SettingsRepository.theme, orElse: ''),
+      'moonlit',
+    );
+    await unmount(tester);
+  });
+
+  testWidgets(
+    'the system flag written before wallpapers still reads as System',
+    (tester) async {
+      _tall(tester);
+      await settings.setFlag(SettingsRepository.themeSystem, true);
+      await tester.pumpWidget(host(const SettingsScreen()));
+      await _ready(tester);
+
+      expect(_themeSelected(tester, 'System'), isTrue);
+      await unmount(tester);
+    },
+  );
 }

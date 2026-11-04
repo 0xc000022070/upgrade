@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import 'package:upgrade/design/ascii/wallpaper.dart';
 import 'package:upgrade/design/motion.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
@@ -139,4 +140,20 @@ final class _SignalPageTransition extends PageTransitionsBuilder {
       ),
     );
   }
+}
+
+enum ThemeChoice {
+  house('Upgrade dark'),
+  system('System'),
+  fireflies('Fireflies', Fireflies()),
+  moonlit('Moonlit', Moonlit()),
+  koi('Koi pond', KoiPond());
+
+  const ThemeChoice(this.label, [this.wallpaper]);
+
+  final String label;
+  final Wallpaper? wallpaper;
+
+  static ThemeChoice decode(String raw) =>
+      values.firstWhere((c) => c.name == raw, orElse: () => house);
 }

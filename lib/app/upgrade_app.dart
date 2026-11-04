@@ -67,16 +67,17 @@ class UpgradeApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final useSystem = ref.watch(themeSystemProvider).value ?? false;
+    final choice = ref.watch(themeProvider).value ?? ThemeChoice.house;
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
-        final tokens = useSystem
-            ? upgradeTokensForSystem(
-                platformBrightness: MediaQuery.platformBrightnessOf(context),
-                lightDynamic: lightDynamic,
-                darkDynamic: darkDynamic,
-              )
-            : UpgradeTokens.house;
+        final tokens = switch (choice) {
+          ThemeChoice.system => upgradeTokensForSystem(
+            platformBrightness: MediaQuery.platformBrightnessOf(context),
+            lightDynamic: lightDynamic,
+            darkDynamic: darkDynamic,
+          ),
+          _ => choice.wallpaper?.tokens ?? UpgradeTokens.house,
+        };
         return MaterialApp(
           title: 'Upgrade',
           debugShowCheckedModeBanner: false,

@@ -18,6 +18,7 @@ import 'package:upgrade/data/repositories/note_repository.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
 import 'package:upgrade/data/repositories/project_repository.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/design/theme.dart';
 import 'package:upgrade/data/repositories/shell_tab_repository.dart';
 import 'package:upgrade/data/repositories/task_repository.dart';
 import 'package:upgrade/data/views.dart';
@@ -402,8 +403,16 @@ final shellBarLayoutProvider = StreamProvider<BarLayout>(
       .map(BarLayout.decode),
 );
 
-final themeSystemProvider = StreamProvider<bool>(
-  (ref) => ref
-      .watch(settingsRepositoryProvider)
-      .watchFlag(SettingsRepository.themeSystem, orElse: false),
-);
+final themeProvider = StreamProvider<ThemeChoice>((ref) async* {
+  final settings = ref.watch(settingsRepositoryProvider);
+  final legacy = await settings.flag(
+    SettingsRepository.themeSystem,
+    orElse: false,
+  );
+  yield* settings
+      .watchText(
+        SettingsRepository.theme,
+        orElse: (legacy ? ThemeChoice.system : ThemeChoice.house).name,
+      )
+      .map(ThemeChoice.decode);
+});

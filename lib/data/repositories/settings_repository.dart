@@ -21,6 +21,7 @@ class SettingsRepository {
   static const diffWrap = 'diff_wrap';
 
   static const themeSystem = 'theme_system';
+  static const theme = 'theme';
 
   static const whisperLanguage = 'whisper_language';
 
