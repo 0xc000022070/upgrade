@@ -46,6 +46,7 @@ dependencies:
   flutter_foreground_task: ^11.0.3
   gal: ^2.3.3
   sherpa_onnx: 2.0.1
+  video_player: ^2.14.1
 
 dependency_overrides:
   libghostty:

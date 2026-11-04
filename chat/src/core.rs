@@ -11,6 +11,8 @@ use vodozemac::Curve25519PublicKey;
 pub const SUBKEYS: u32 = 32;
 const SLOTS: u64 = SUBKEYS as u64 - 1;
 pub const HELLO: u32 = 1;
+pub const CHUNK: usize = 32_000;
+pub const MEDIA_MAX: u64 = 16 * 1024 * 1024;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Effect {
@@ -41,6 +43,37 @@ pub struct Message {
     pub body: String,
     pub at: u64,
     pub seq: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub media: Option<Media>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Media {
+    pub kind: String,
+    pub records: Vec<String>,
+    pub size: u64,
+    pub key: String,
+    pub nonce: String,
+    pub views: u32,
+    #[serde(default)]
+    pub seen: u32,
+    #[serde(default)]
+    pub stored: bool,
+}
+
+impl Media {
+    pub fn spent(&self) -> bool {
+        self.views > 0 && self.seen >= self.views
+    }
+
+    fn sane(&self) -> bool {
+        let chunks = self.size.div_ceil(CHUNK as u64);
+        matches!(self.kind.as_str(), "photo" | "video")
+            && self.views <= 2
+            && self.size > 0
+            && self.size <= MEDIA_MAX
+            && self.records.len() as u64 == chunks.div_ceil(SUBKEYS as u64)
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -112,6 +145,11 @@ enum Payload {
         at: u64,
         #[serde(default)]
         name: Option<String>,
+    },
+    Media {
+        media: Media,
+        at: u64,
+        name: String,
     },
 }
 
@@ -257,7 +295,48 @@ impl Book {
             at,
             name: Some(self.name.clone()),
         };
-        let mut out = self.enqueue(record, &payload)?;
+        self.post(record, &payload, body, None, at)
+    }
+
+    pub fn send_media(
+        &mut self,
+        record: &str,
+        media: Media,
+        at: u64,
+    ) -> Result<Vec<Effect>, Error> {
+        if !media.sane() {
+            return fail("this media does not add up");
+        }
+        let payload = Payload::Media {
+            media: media.clone(),
+            at,
+            name: self.name.clone(),
+        };
+        let own = if media.views == 0 {
+            Media {
+                stored: true,
+                ..media
+            }
+        } else {
+            Media {
+                key: String::new(),
+                nonce: String::new(),
+                records: Vec::new(),
+                ..media
+            }
+        };
+        self.post(record, &payload, "", Some(own), at)
+    }
+
+    fn post(
+        &mut self,
+        record: &str,
+        payload: &Payload,
+        body: &str,
+        media: Option<Media>,
+        at: u64,
+    ) -> Result<Vec<Effect>, Error> {
+        let mut out = self.enqueue(record, payload)?;
         let contact = self.contact_mut(record).unwrap();
         let message = Message {
             index: contact.count,
@@ -265,6 +344,7 @@ impl Book {
             body: body.to_owned(),
             at,
             seq: contact.sent,
+            media,
         };
         contact.count += 1;
         out.push(Effect::Stored {
@@ -395,8 +475,24 @@ impl Book {
     fn receive(&mut self, record: &str, plain: Vec<u8>) -> Result<Vec<Effect>, Error> {
         let contact = self.contact_mut(record).unwrap();
         contact.read += 1;
+        let next = Effect::Read {
+            record: contact.theirs.clone(),
+            subkey: slot(contact.read + 1),
+        };
         let mut out = vec![ack(contact)];
-        if let Ok(Payload::Text { body, at, name }) = serde_json::from_slice(&plain) {
+        let parsed = match serde_json::from_slice(&plain) {
+            Ok(Payload::Text { body, at, name }) => Some((body, at, name, None)),
+            Ok(Payload::Media { media, at, name }) if media.sane() => {
+                let media = Media {
+                    seen: 0,
+                    stored: false,
+                    ..media
+                };
+                Some((String::new(), at, Some(name), Some(media)))
+            }
+            _ => None,
+        };
+        if let Some((body, at, name, media)) = parsed {
             if let Some(name) = name {
                 contact.name = name;
             }
@@ -406,6 +502,7 @@ impl Book {
                 body,
                 at,
                 seq: 0,
+                media,
             };
             contact.count += 1;
             out.push(Effect::Stored {
@@ -413,10 +510,7 @@ impl Book {
                 message,
             });
         }
-        out.push(Effect::Read {
-            record: contact.theirs.clone(),
-            subkey: slot(contact.read + 1),
-        });
+        out.push(next);
         Ok(out)
     }
 
@@ -655,6 +749,82 @@ mod tests {
         let e = books[1].send(&rec, "hi", 1).unwrap();
         net.run(&mut books, 1, e);
         assert_eq!(books[0].contact(&rec).unwrap().name, "ori");
+    }
+
+    fn photo(views: u32) -> Media {
+        Media {
+            kind: "photo".to_owned(),
+            records: vec!["m1".to_owned()],
+            size: 5,
+            key: "k".to_owned(),
+            nonce: "n".to_owned(),
+            views,
+            seen: 3,
+            stored: true,
+        }
+    }
+
+    #[test]
+    fn media_arrives_unseen_and_not_yet_stored() {
+        let (mut books, mut net, rec) = paired();
+        let e = books[1].send_media(&rec, photo(1), 1).unwrap();
+        let own = e.iter().find_map(|e| match e {
+            Effect::Stored { message, .. } => message.media.clone(),
+            _ => None,
+        });
+        let own = own.unwrap();
+        assert!(own.key.is_empty() && own.nonce.is_empty() && own.records.is_empty());
+        net.run(&mut books, 1, e);
+        let got = net.inbox[0][0].media.clone().unwrap();
+        assert_eq!((got.seen, got.stored, got.views), (0, false, 1));
+        assert_eq!(got.records, ["m1"]);
+    }
+
+    #[test]
+    fn media_that_does_not_add_up_is_dropped_and_the_ring_moves_on() {
+        let (mut books, mut net, rec) = paired();
+        let bad = [
+            Media {
+                views: 3,
+                ..photo(0)
+            },
+            Media {
+                kind: "pdf".to_owned(),
+                ..photo(0)
+            },
+            Media {
+                size: MEDIA_MAX + 1,
+                ..photo(0)
+            },
+            Media {
+                records: vec![],
+                ..photo(0)
+            },
+        ];
+        for media in bad {
+            assert!(books[1].send_media(&rec, media.clone(), 1).is_err());
+            let payload = Payload::Media {
+                media,
+                at: 1,
+                name: String::new(),
+            };
+            let e = books[1].post(&rec, &payload, "", None, 1).unwrap();
+            net.run(&mut books, 1, e);
+        }
+        let e = books[1].send(&rec, "after", 2).unwrap();
+        net.run(&mut books, 1, e);
+        assert_eq!(texts(&net, 0), ["after"]);
+    }
+
+    #[test]
+    fn a_limited_view_count_is_spent_once_seen_that_many_times() {
+        assert!(!photo(0).spent());
+        assert!(photo(2).spent());
+        assert!(!Media {
+            seen: 1,
+            ..photo(2)
+        }
+        .spent());
     }
 
     #[test]

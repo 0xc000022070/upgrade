@@ -36,6 +36,10 @@ abstract final class Device {
         .then((_) {}, onError: (Object _) {});
   }
 
+  static void secure(bool on) => _channel
+      .invokeMethod<void>('secure', on)
+      .then((_) {}, onError: (Object _) {});
+
   static Future<String?> model() async {
     try {
       return await _channel.invokeMethod<String>('model');

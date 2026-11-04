@@ -1,14 +1,21 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
 
 import 'package:upgrade/app/static_surface.dart';
 import 'package:upgrade/application/chat/chat.dart';
 import 'package:upgrade/application/formatting.dart';
+import 'package:upgrade/design/components/action_sheet.dart';
+import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/components/inline_confirm.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/design/components/section.dart';
+import 'package:upgrade/design/components/segment_switch.dart';
 import 'package:upgrade/design/components/solid_action_bar.dart';
 import 'package:upgrade/design/components/toolbar_icon_action.dart';
 import 'package:upgrade/design/components/upgrade_field.dart';
@@ -16,6 +23,9 @@ import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/device.dart';
+
+const mediaMax = 16 * 1024 * 1024 - 16;
 
 class ChatPage extends StatelessWidget {
   const ChatPage({super.key, required this.title, required this.children});
@@ -46,6 +56,8 @@ class ConversationScreen extends ConsumerStatefulWidget {
 
 class _ConversationState extends ConsumerState<ConversationScreen> {
   final _text = TextEditingController();
+  int _uploading = 0;
+  String? _error;
 
   @override
   void dispose() {
@@ -63,6 +75,38 @@ class _ConversationState extends ConsumerState<ConversationScreen> {
       'text': text,
       'at': DateTime.now().millisecondsSinceEpoch,
     });
+  }
+
+  Future<void> _attach() async {
+    setState(() => _error = null);
+    final picked = await _pick(context);
+    if (picked == null || !mounted) return;
+    if (await File(picked.path).length() > mediaMax) {
+      setState(() => _error = '${picked.kind} goes up to 16 MB');
+      return;
+    }
+    if (!mounted) return;
+    final views = await showPanelSheet<int>(
+      context,
+      title: 'SEND ${picked.kind.toUpperCase()}',
+      builder: (_) => _SendSheet(path: picked.path, kind: picked.kind),
+    );
+    if (views == null || !mounted) return;
+    setState(() => _uploading++);
+    try {
+      await chatRequest(ref, {
+        'op': 'media',
+        'record': widget.record,
+        'path': picked.path,
+        'kind': picked.kind,
+        'views': views,
+        'at': DateTime.now().millisecondsSinceEpoch,
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    } finally {
+      if (mounted) setState(() => _uploading--);
+    }
   }
 
   Future<void> _details() async {
@@ -124,11 +168,35 @@ class _ConversationState extends ConsumerState<ConversationScreen> {
                   child: AsyncSection(
                     value: messages,
                     empty: 'no messages',
-                    builder: (items) => _Thread(messages: items),
+                    builder: (items) =>
+                        _Thread(record: widget.record, messages: items),
                   ),
                 ),
+                if (_uploading > 0) ...[
+                  const SizedBox(height: Spacing.md),
+                  Text(
+                    'sending media',
+                    textAlign: TextAlign.right,
+                    style: context.tokens.label.copyWith(
+                      color: context.tokens.textMuted,
+                    ),
+                  ),
+                ],
+                if (_error case final error?) ...[
+                  const SizedBox(height: Spacing.md),
+                  Text(
+                    error,
+                    style: context.tokens.label.copyWith(
+                      color: context.tokens.warning,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: Spacing.md),
-                _Composer(controller: _text, onSend: _send),
+                _Composer(
+                  controller: _text,
+                  onSend: _send,
+                  onAttach: _attach,
+                ),
               ],
             ),
           ],
@@ -139,7 +207,8 @@ class _ConversationState extends ConsumerState<ConversationScreen> {
 }
 
 class _Thread extends StatelessWidget {
-  const _Thread({required this.messages});
+  const _Thread({required this.record, required this.messages});
+  final String record;
   final List<ChatMessage> messages;
 
   @override
@@ -163,6 +232,7 @@ class _Thread extends StatelessWidget {
                     : Spacing.lg,
               ),
               child: _Bubble(
+                record: record,
                 message: message,
                 maxWidth: constraints.maxWidth * 0.8,
               ),
@@ -220,7 +290,12 @@ class _DayMark extends StatelessWidget {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.message, required this.maxWidth});
+  const _Bubble({
+    required this.record,
+    required this.message,
+    required this.maxWidth,
+  });
+  final String record;
   final ChatMessage message;
   final double maxWidth;
 
@@ -255,10 +330,17 @@ class _Bubble extends StatelessWidget {
                   ? CrossAxisAlignment.end
                   : CrossAxisAlignment.start,
               children: [
-                SelectableText(
-                  message.body,
-                  style: tokens.value.copyWith(color: tokens.textPrimary),
-                ),
+                switch (message.media) {
+                  final media? => _MediaTile(
+                    media: (record: record, index: message.index),
+                    mine: mine,
+                    info: media,
+                  ),
+                  null => SelectableText(
+                    message.body,
+                    style: tokens.value.copyWith(color: tokens.textPrimary),
+                  ),
+                },
                 const SizedBox(height: Spacing.xs),
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -291,9 +373,14 @@ class _Bubble extends StatelessWidget {
 }
 
 class _Composer extends StatelessWidget {
-  const _Composer({required this.controller, required this.onSend});
+  const _Composer({
+    required this.controller,
+    required this.onSend,
+    required this.onAttach,
+  });
   final TextEditingController controller;
   final VoidCallback onSend;
+  final VoidCallback onAttach;
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
@@ -306,9 +393,28 @@ class _Composer extends StatelessWidget {
       borderRadius: BorderRadius.circular(Radii.normal),
     ),
     child: Padding(
-      padding: const EdgeInsets.only(left: Spacing.lg),
+      padding: EdgeInsets.zero,
       child: Row(
         children: [
+          Semantics(
+            button: true,
+            label: 'attach',
+            excludeSemantics: true,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onAttach,
+              child: SizedBox.square(
+                dimension: TapTargets.minHeight,
+                child: Center(
+                  child: UpgradeIcon(
+                    UpgradeIcons.attachment,
+                    size: IconSizes.md,
+                    color: context.tokens.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
           Expanded(
             child: UpgradeField(
               controller: controller,
@@ -406,6 +512,272 @@ class _ContactSheet extends ConsumerWidget {
           style: context.tokens.value,
         ),
       ],
+    );
+  }
+}
+
+typedef _Picked = ({String path, String kind});
+
+Future<_Picked?> _pick(BuildContext context) async {
+  String? kind;
+  await showActionSheet(
+    context,
+    title: 'ATTACH',
+    actions: [
+      SheetAction('PHOTO', () => kind = 'photo'),
+      SheetAction('VIDEO', () => kind = 'video'),
+    ],
+  );
+  final picker = ImagePicker();
+  final file = switch (kind) {
+    'photo' => await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 80,
+    ),
+    'video' => await picker.pickVideo(source: ImageSource.gallery),
+    _ => null,
+  };
+  if (file == null || kind == null) return null;
+  return (path: file.path, kind: kind!);
+}
+
+class _SendSheet extends StatefulWidget {
+  const _SendSheet({required this.path, required this.kind});
+  final String path;
+  final String kind;
+
+  @override
+  State<_SendSheet> createState() => _SendSheetState();
+}
+
+class _SendSheetState extends State<_SendSheet> {
+  static const _views = [0, 1, 2];
+  int _choice = 0;
+
+  @override
+  Widget build(BuildContext context) => PanelSheetBody(
+    title: 'SEND ${widget.kind.toUpperCase()}',
+    footer: [
+      SolidActionBar(
+        label: 'SEND',
+        onTap: () => Navigator.of(context).pop(_views[_choice]),
+      ),
+    ],
+    children: [
+      if (widget.kind == 'photo' && _views[_choice] == 0)
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 280),
+          child: Image.file(File(widget.path), fit: BoxFit.contain),
+        ),
+      const SizedBox(height: Spacing.lg),
+      SegmentSwitch(
+        labels: const ['KEEP', 'VIEW ONCE', 'VIEW TWICE'],
+        currentIndex: _choice,
+        onSelected: (i) => setState(() => _choice = i),
+      ),
+      const SizedBox(height: Spacing.md),
+      Text(
+        _choice == 0
+            ? 'They can open it as often as they like.'
+            : 'It disappears from their phone after the last view, and '
+                  'screenshots of it come out black.',
+        style: context.tokens.value,
+      ),
+    ],
+  );
+}
+
+class _MediaTile extends ConsumerWidget {
+  const _MediaTile({
+    required this.media,
+    required this.mine,
+    required this.info,
+  });
+  final MediaRef media;
+  final bool mine;
+  final ChatMedia info;
+
+  String get _state {
+    if (info.spent) return 'opened';
+    if (info.limited) {
+      final left = info.views - info.seen;
+      return mine
+          ? (info.views == 1 ? 'view once' : 'view twice')
+          : (left == 1 ? 'one view left' : '$left views left');
+    }
+    return info.stored ? 'tap to open' : 'receiving';
+  }
+
+  bool get _openable => !info.spent && (info.stored || !mine);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = context.tokens;
+    final thumbnail = info.stored && !info.spent && !info.limited && !info.video;
+    final label = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        UpgradeIcon(
+          UpgradeIcons.attachment,
+          size: IconSizes.glyph,
+          color: _openable ? tokens.accent : tokens.textMuted,
+        ),
+        const SizedBox(width: Spacing.sm),
+        Text(
+          '${info.kind.toUpperCase()} · $_state',
+          style: tokens.label.copyWith(
+            color: _openable ? tokens.textPrimary : tokens.textMuted,
+          ),
+        ),
+      ],
+    );
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _openable
+          ? () => Navigator.of(context, rootNavigator: true).push(
+              MaterialPageRoute<void>(
+                builder: (_) => MediaViewer(media: media, info: info),
+              ),
+            )
+          : null,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (thumbnail)
+            switch (ref.watch(chatMediaProvider(media))) {
+              AsyncValue(value: final path?) => ClipRRect(
+                borderRadius: BorderRadius.circular(Radii.normal),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 240),
+                  child: Image.file(File(path), fit: BoxFit.cover),
+                ),
+              ),
+              _ => const SizedBox(height: 120, child: DelayedSpinner()),
+            },
+          if (thumbnail) const SizedBox(height: Spacing.sm),
+          label,
+        ],
+      ),
+    );
+  }
+}
+
+class MediaViewer extends ConsumerStatefulWidget {
+  const MediaViewer({super.key, required this.media, required this.info});
+  final MediaRef media;
+  final ChatMedia info;
+
+  @override
+  ConsumerState<MediaViewer> createState() => _MediaViewerState();
+}
+
+class _MediaViewerState extends ConsumerState<MediaViewer> {
+  VideoPlayerController? _video;
+  String? _path;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.info.limited) Device.secure(true);
+  }
+
+  @override
+  void dispose() {
+    if (widget.info.limited) Device.secure(false);
+    _video?.dispose();
+    if (_path case final path?) FileImage(File(path)).evict();
+    super.dispose();
+  }
+
+  void _show(String path) {
+    if (_path == path) return;
+    _path = path;
+    if (!widget.info.video) return;
+    final video = VideoPlayerController.file(File(path));
+    _video = video;
+    video.initialize().then((_) {
+      if (!mounted) return;
+      setState(() {});
+      video
+        ..setLooping(true)
+        ..play();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final opened = ref.watch(chatMediaProvider(widget.media));
+    final video = _video;
+    return Scaffold(
+      backgroundColor: context.tokens.mediaBackdrop,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: switch (opened) {
+                AsyncValue(value: final path?) => () {
+                  _show(path);
+                  if (video == null) {
+                    return widget.info.video
+                        ? const Center(child: DelayedSpinner())
+                        : InteractiveViewer(
+                            child: Center(child: Image.file(File(path))),
+                          );
+                  }
+                  return GestureDetector(
+                    onTap: () => video.value.isPlaying
+                        ? video.pause()
+                        : video.play(),
+                    child: Center(
+                      child: video.value.isInitialized
+                          ? AspectRatio(
+                              aspectRatio: video.value.aspectRatio,
+                              child: VideoPlayer(video),
+                            )
+                          : const DelayedSpinner(),
+                    ),
+                  );
+                }(),
+                AsyncValue(:final error?) => Center(
+                  child: Text(
+                    '$error',
+                    style: context.tokens.value.copyWith(
+                      color: context.tokens.warning,
+                    ),
+                  ),
+                ),
+                _ => const Center(child: DelayedSpinner()),
+              },
+            ),
+            Positioned(
+              top: Spacing.md,
+              right: Spacing.md,
+              child: Semantics(
+                button: true,
+                label: 'close',
+                excludeSemantics: true,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).pop(),
+                  child: SizedBox.square(
+                    dimension: TapTargets.minHeight,
+                    child: Center(
+                      child: UpgradeIcon(
+                        UpgradeIcons.close,
+                        size: IconSizes.md,
+                        color: context.tokens.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

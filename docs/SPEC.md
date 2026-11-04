@@ -2591,7 +2591,9 @@ Struck, for now: scanning the code as a QR. It needs a camera the app does not o
 
 Struck, for now: a notification when a message arrives while the app is closed. The node runs only while the app does.
 
-Struck, for now: files and voice notes. They are the next step and do not fit a record's slots as they stand.
+**A photo or a video goes out sealed, and can be limited to one or two views.** The composer's attachment glyph picks one from the phone's gallery; a photo is shrunk to 1600 pixels on its long edge first, and either is refused past 16 MB. The send sheet asks `KEEP`, `VIEW ONCE` or `VIEW TWICE`. The file is encrypted under a fresh key and stored in new records of its own; only the key and where the pieces are travel in the message, inside the session. The other phone fetches the pieces as soon as the message arrives and keeps them sealed: a kept photo shows in its bubble, anything else as a line saying what it is and what is left of it, `receiving`, `one view left` or `opened`. A view opens full screen, is counted the moment it opens, and with a limit keeps the screen out of screenshots and recordings; after the last one the phone deletes the sealed copy and forgets the key. The limit holds only on a phone running Upgrade, and a second camera still sees the screen. The sender keeps a kept photo or video and only the line for a limited one.
+
+Struck, for now: files and voice notes.
 
 Struck: talking to Phonechy. Its protocol is not published, and a chat that has to guess at the other end's encryption has none of its own to promise.
 

@@ -87,8 +87,8 @@ class ChatScreen extends ConsumerWidget {
                         literalTitle: true,
                         subtitle: switch (contact.last) {
                           null => 'no messages',
-                          final last when last.mine => 'you: ${last.body}',
-                          final last => last.body,
+                          final last when last.mine => 'you: ${last.preview}',
+                          final last => last.preview,
                         },
                         value: switch (contact.last) {
                           null => null,

@@ -62,23 +62,60 @@ class ChatBook {
 
 class ChatMessage {
   const ChatMessage({
+    required this.index,
     required this.mine,
     required this.body,
     required this.at,
     required this.delivered,
+    this.media,
   });
 
   factory ChatMessage.parse(Map<String, Object?> json) => ChatMessage(
+    index: json['index']! as int,
     mine: json['mine']! as bool,
     body: json['body']! as String,
     at: DateTime.fromMillisecondsSinceEpoch(json['at']! as int),
     delivered: json['delivered'] as bool? ?? false,
+    media: switch (json['media']) {
+      final Map<String, Object?> media => ChatMedia.parse(media),
+      _ => null,
+    },
   );
 
+  final int index;
   final bool mine;
   final String body;
   final DateTime at;
   final bool delivered;
+  final ChatMedia? media;
+
+  String get preview => media?.kind ?? body;
+}
+
+class ChatMedia {
+  const ChatMedia({
+    required this.kind,
+    required this.views,
+    required this.seen,
+    required this.stored,
+  });
+
+  factory ChatMedia.parse(Map<String, Object?> json) => ChatMedia(
+    kind: json['kind']! as String,
+    views: json['views']! as int,
+    seen: json['seen'] as int? ?? 0,
+    stored: json['stored'] as bool? ?? false,
+  );
+
+  final String kind;
+
+  final int views;
+  final int seen;
+  final bool stored;
+
+  bool get video => kind == 'video';
+  bool get limited => views > 0;
+  bool get spent => limited && seen >= views;
 }
 
 final chatLinkProvider = FutureProvider<ChatLink>(
@@ -115,3 +152,23 @@ Future<Object?> chatRequest(WidgetRef ref, Map<String, Object?> request) async {
   ref.invalidate(chatMessagesProvider);
   return answer;
 }
+
+typedef MediaRef = ({String record, int index});
+
+final chatMediaProvider = FutureProvider.autoDispose.family<String, MediaRef>((
+  ref,
+  media,
+) async {
+  final link = await ref.watch(chatLinkProvider.future);
+  final where = {'record': media.record, 'index': media.index};
+  final opening = link.call({'op': 'open', ...where});
+  // Closed only once the open has landed, or a slow fetch would write the plain copy
+  // after the close that should have removed it.
+  ref.onDispose(
+    () => opening
+        .then((_) {}, onError: (Object _) {})
+        .then((_) => link.call({'op': 'close', ...where})),
+  );
+  final answer = await opening;
+  return (answer! as Map<String, Object?>)['path']! as String;
+});

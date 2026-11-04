@@ -51,6 +51,7 @@ class _FakeLink implements ChatLink {
         ];
       case 'send':
         messages.add({
+          'index': messages.length,
           'mine': true,
           'body': request['text'],
           'at': request['at'],
@@ -58,6 +59,8 @@ class _FakeLink implements ChatLink {
         });
       case 'verify':
         verified = true;
+      case 'open':
+        throw const ChatException('this media is gone');
     }
     return null;
   }
@@ -134,6 +137,66 @@ void main() {
     Navigator.of(tester.element(find.text('hola'))).pop();
     await tester.pumpAndSettle();
     expect(find.text('you: hola'), findsOneWidget);
+  });
+  testWidgets('media shows how many views are left and opens in a viewer', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    Map<String, Object?> photo(int index, int views, int seen, bool stored) => {
+      'index': index,
+      'mine': false,
+      'body': '',
+      'at': 1,
+      'media': {
+        'kind': 'photo',
+        'views': views,
+        'seen': seen,
+        'stored': stored,
+      },
+    };
+    final link = _FakeLink()
+      ..messages.addAll([
+        photo(0, 1, 1, false),
+        photo(1, 0, 0, false),
+        photo(2, 2, 1, true),
+      ]);
+    await tester.pumpWidget(
+      ProviderScope(
+        retry: noRetry,
+        overrides: [
+          chatLinkProvider.overrideWith((ref) async => link),
+          staticEnabledProvider.overrideWith((ref) => Stream.value(false)),
+        ],
+        child: MaterialApp(
+          theme: testTheme,
+          home: const Scaffold(body: ChatScreen()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('photo'), findsOneWidget);
+
+    await tester.tap(find.text('ben'));
+    await tester.pumpAndSettle();
+    expect(find.text('PHOTO · opened'), findsOneWidget);
+    expect(find.text('PHOTO · receiving'), findsOneWidget);
+
+    await tester.tap(find.text('PHOTO · one view left'));
+    await tester.pumpAndSettle();
+    expect(
+      link.requests.where((r) => r['op'] == 'open').single,
+      containsPair('index', 2),
+    );
+    expect(find.text('error: this media is gone'), findsNothing);
+    expect(find.text('this media is gone'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('close'));
+    await tester.pumpAndSettle();
+    expect(
+      link.requests.where((r) => r['op'] == 'close').single,
+      containsPair('index', 2),
+    );
   });
   testWidgets('a node that did not start reads offline and says what failed', (
     tester,

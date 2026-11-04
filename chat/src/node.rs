@@ -1,20 +1,25 @@
 use std::collections::HashSet;
+use std::fs;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::{json, Value};
 use tokio::sync::{mpsc, Mutex, Notify as Wake};
+use tokio::task::JoinSet;
 use veilid_core::{
-    api_startup, AllowOffline, Crypto, DHTSchema, DHTSchemaSMPLMember, KeyPair, RecordKey,
-    RoutingContext, SetDHTValueOptions, TableDB, VeilidAPI, VeilidConfig, VeilidUpdate,
-    CRYPTO_KIND_VLD0,
+    api_startup, AllowOffline, Crypto, DHTSchema, DHTSchemaSMPLMember, KeyPair, Nonce, RecordKey,
+    RoutingContext, SetDHTValueOptions, SharedSecret, TableDB, VeilidAPI, VeilidConfig,
+    VeilidUpdate, CRYPTO_KIND_VLD0,
 };
 
-use crate::core::{Book, Contact, Effect, Error, Message, HELLO, SUBKEYS};
+use crate::core::{Book, Contact, Effect, Error, Media, Message, CHUNK, HELLO, MEDIA_MAX, SUBKEYS};
 
 const BOOK: &[u8] = b"book";
 const POLL: Duration = Duration::from_secs(20);
+const FETCH_TRIES: u32 = 4;
+const AEAD_TAG: u64 = 16;
 
 pub type Notify = Arc<dyn Fn(Value) + Send + Sync>;
 
@@ -44,6 +49,9 @@ pub struct Node {
     opened: Mutex<HashSet<String>>,
     retry: Mutex<Vec<Effect>>,
     wake: Arc<Wake>,
+    dir: PathBuf,
+    fetch: mpsc::UnboundedSender<(String, u64)>,
+    media: Mutex<()>,
 }
 
 impl Node {
@@ -78,6 +86,8 @@ impl Node {
             None => Book::new(""),
         };
         let retry = Mutex::new(book.resend());
+        let (fetch, fetches) = mpsc::unbounded_channel();
+        let _ = fs::remove_dir_all(PathBuf::from(dir).join("media-open"));
         let node = Arc::new(Node {
             api,
             rc,
@@ -87,6 +97,9 @@ impl Node {
             opened: Mutex::default(),
             retry,
             wake,
+            dir: PathBuf::from(dir),
+            fetch,
+            media: Mutex::default(),
         });
         node.api.attach().await.map_err(at(NETWORK))?;
 
@@ -114,6 +127,7 @@ impl Node {
                 watcher.run(work).await;
             }
         });
+        tokio::spawn(node.clone().fetcher(fetches));
         let poller = node.clone();
         tokio::spawn(async move {
             loop {
@@ -176,51 +190,10 @@ impl Node {
                     record,
                     subkey,
                     data,
-                } => {
-                    let options = SetDHTValueOptions {
-                        allow_offline: Some(AllowOffline(true)),
-                        ..Default::default()
-                    };
-                    let Ok(key) = RecordKey::from_str(&record) else {
-                        continue;
-                    };
-                    let r = self
-                        .rc
-                        .set_dht_value(key, subkey, data.clone(), Some(options))
-                        .await;
-                    if r.is_err() {
-                        self.retry.lock().await.push(Effect::Write {
-                            record,
-                            subkey,
-                            data,
-                        });
-                    }
-                }
-                Effect::Read { record, subkey } => {
-                    let Ok(key) = RecordKey::from_str(&record) else {
-                        continue;
-                    };
-                    let Ok(Some(value)) = self.rc.get_dht_value(key, subkey, true).await else {
-                        continue;
-                    };
-                    let more = self
-                        .book
-                        .lock()
-                        .await
-                        .observe(&record, subkey, value.data());
-                    if let Ok(more) = more {
-                        work.extend(more);
-                    }
-                }
+                } => self.write(record, subkey, data).await,
+                Effect::Read { record, subkey } => work.extend(self.read(&record, subkey).await),
                 Effect::Stored { contact, message } => {
-                    let _ = self
-                        .db
-                        .store(
-                            0,
-                            message_key(&contact, message.index).into(),
-                            serde_json::to_vec(&message).unwrap_or_default().into(),
-                        )
-                        .await;
+                    self.stored(contact, message).await;
                     changed = true;
                 }
                 Effect::Changed => changed = true,
@@ -233,6 +206,56 @@ impl Node {
         }
         if changed {
             self.publish().await;
+        }
+    }
+
+    async fn write(&self, record: String, subkey: u32, data: Vec<u8>) {
+        let options = SetDHTValueOptions {
+            allow_offline: Some(AllowOffline(true)),
+            ..Default::default()
+        };
+        let Ok(key) = RecordKey::from_str(&record) else {
+            return;
+        };
+        let r = self
+            .rc
+            .set_dht_value(key, subkey, data.clone(), Some(options))
+            .await;
+        if r.is_err() {
+            self.retry.lock().await.push(Effect::Write {
+                record,
+                subkey,
+                data,
+            });
+        }
+    }
+
+    async fn read(&self, record: &str, subkey: u32) -> Vec<Effect> {
+        let Ok(key) = RecordKey::from_str(record) else {
+            return Vec::new();
+        };
+        let Ok(Some(value)) = self.rc.get_dht_value(key, subkey, true).await else {
+            return Vec::new();
+        };
+        let more = self.book.lock().await.observe(record, subkey, value.data());
+        more.unwrap_or_default()
+    }
+
+    async fn stored(&self, contact: String, message: Message) {
+        let _ = self.store(&contact, &message).await;
+        if !message.mine && message.media.as_ref().is_some_and(|m| !m.stored) {
+            let _ = self.fetch.send((contact, message.index));
+        }
+    }
+
+    async fn fetcher(self: Arc<Self>, mut fetches: mpsc::UnboundedReceiver<(String, u64)>) {
+        while let Some((contact, index)) = fetches.recv().await {
+            for _ in 0..FETCH_TRIES {
+                if self.fetch(&contact, index).await.is_ok() {
+                    break;
+                }
+                tokio::time::sleep(POLL).await;
+            }
         }
     }
 
@@ -278,6 +301,7 @@ impl Node {
     pub async fn call(&self, request: Value) -> Result<Value, Error> {
         let op = request["op"].as_str().unwrap_or_default();
         let text = |field: &str| request[field].as_str().unwrap_or_default().to_owned();
+        let index = || request["index"].as_u64().unwrap_or_default();
         match op {
             "state" => self.state().await,
             "name" => {
@@ -298,6 +322,14 @@ impl Node {
                 Ok(Value::Null)
             }
             "messages" => self.messages(&text("record")).await,
+            "media" => {
+                let views = request["views"].as_u64().unwrap_or_default().min(2) as u32;
+                let at = request["at"].as_u64().unwrap_or_default();
+                self.send_media(&text("record"), &text("path"), &text("kind"), views, at)
+                    .await
+            }
+            "open" => self.view(&text("record"), index()).await,
+            "close" => self.close(&text("record"), index()).await,
             "verify" => self.edit(&text("record"), |c| c.verified = true).await,
             "rename" => self.edit(&text("record"), |c| c.name = text("name")).await,
             "remove" => self.remove(&text("record")).await,
@@ -332,8 +364,8 @@ impl Node {
             let Some(last) = count.checked_sub(1) else {
                 continue;
             };
-            if let Some(bytes) = self.db.load(0, message_key(record, last).into()).await? {
-                contact["last"] = serde_json::from_slice(&bytes)?;
+            if let Some(message) = self.load(record, last).await? {
+                contact["last"] = public(&message)?;
             }
         }
         let attachment = self.api.get_state().await?.attachment.state.to_string();
@@ -393,13 +425,11 @@ impl Node {
         };
         let mut out = Vec::new();
         for index in 0..count {
-            let Some(bytes) = self.db.load(0, message_key(record, index).into()).await? else {
+            let Some(message) = self.load(record, index).await? else {
                 continue;
             };
-            let message: Message = serde_json::from_slice(&bytes)?;
-            let delivered = message.mine && message.seq <= acked;
-            let mut value = serde_json::to_value(&message)?;
-            value["delivered"] = json!(delivered);
+            let mut value = public(&message)?;
+            value["delivered"] = json!(message.mine && message.seq <= acked);
             out.push(value);
         }
         Ok(Value::Array(out))
@@ -426,14 +456,248 @@ impl Node {
             return Err(Error("no such contact".into()));
         };
         self.save().await?;
+        let _media = self.media.lock().await;
         for index in 0..contact.count {
             let _ = self.db.delete(0, message_key(record, index).into()).await;
+            let _ = fs::remove_file(self.sealed(record, index));
         }
         for record in [&contact.record, &contact.mine, &contact.theirs] {
             self.forget(record).await;
         }
         Ok(Value::Null)
     }
+    async fn load(&self, record: &str, index: u64) -> Result<Option<Message>, Error> {
+        let Some(bytes) = self.db.load(0, message_key(record, index).into()).await? else {
+            return Ok(None);
+        };
+        Ok(Some(serde_json::from_slice(&bytes)?))
+    }
+
+    async fn store(&self, record: &str, message: &Message) -> Result<(), Error> {
+        let bytes = serde_json::to_vec(message)?;
+        self.db
+            .store(0, message_key(record, message.index).into(), bytes.into())
+            .await?;
+        Ok(())
+    }
+
+    fn sealed(&self, record: &str, index: u64) -> PathBuf {
+        self.dir.join("media").join(file_name(record, index))
+    }
+
+    fn viewed(&self, record: &str, index: u64) -> PathBuf {
+        self.dir.join("media-open").join(file_name(record, index))
+    }
+
+    async fn send_media(
+        &self,
+        record: &str,
+        path: &str,
+        kind: &str,
+        views: u32,
+        at: u64,
+    ) -> Result<Value, Error> {
+        let plain = fs::read(path)?;
+        if plain.is_empty() || plain.len() as u64 > MEDIA_MAX - AEAD_TAG {
+            return Err(Error(format!(
+                "media goes up to {} MB",
+                MEDIA_MAX / 1024 / 1024
+            )));
+        }
+        let crypto = self.api.crypto()?;
+        let Some(vld) = crypto.get_async(CRYPTO_KIND_VLD0) else {
+            return Err(Error("no VLD0 crypto".into()));
+        };
+        let (key, nonce) = (vld.random_shared_secret().await, vld.random_nonce().await);
+        let sealed = vld
+            .encrypt_aead(plain.into(), &nonce, &key, None)
+            .await?
+            .to_vec();
+        let media = Media {
+            kind: kind.to_owned(),
+            records: self.upload(&sealed).await?,
+            size: sealed.len() as u64,
+            key: key.to_string(),
+            nonce: nonce.to_string(),
+            views,
+            seen: 0,
+            stored: false,
+        };
+        let effects = {
+            let mut book = self.book.lock().await;
+            let index = book.contact(record).map(|c| c.count).unwrap_or_default();
+            let path = self.sealed(record, index);
+            if views == 0 {
+                write(&path, &sealed)?;
+            }
+            book.send_media(record, media, at).inspect_err(|_| {
+                let _ = fs::remove_file(&path);
+            })?
+        };
+        self.run(effects).await;
+        Ok(Value::Null)
+    }
+
+    async fn upload(&self, sealed: &[u8]) -> Result<Vec<String>, Error> {
+        let mut records = Vec::new();
+        for part in sealed.chunks(CHUNK * SUBKEYS as usize) {
+            let chunks: Vec<Vec<u8>> = part.chunks(CHUNK).map(<[u8]>::to_vec).collect();
+            let schema = DHTSchema::dflt(chunks.len() as u16)?;
+            let key = self
+                .rc
+                .create_dht_record(CRYPTO_KIND_VLD0, schema, None)
+                .await?
+                .key();
+            let mut writes = JoinSet::new();
+            for (subkey, chunk) in chunks.into_iter().enumerate() {
+                let (rc, key) = (self.rc.clone(), key.clone());
+                let online = SetDHTValueOptions {
+                    allow_offline: Some(AllowOffline(false)),
+                    ..Default::default()
+                };
+                writes.spawn(async move {
+                    rc.set_dht_value(key, subkey as u32, chunk, Some(online))
+                        .await
+                });
+            }
+            let done = writes.join_all().await;
+            self.forget(&key.to_string()).await;
+            for write in done {
+                write?;
+            }
+            records.push(key.to_string());
+        }
+        Ok(records)
+    }
+
+    async fn download(&self, media: &Media) -> Result<Vec<u8>, Error> {
+        let size = media.size as usize;
+        let mut sealed = Vec::with_capacity(size);
+        let ours: HashSet<String> = {
+            let book = self.book.lock().await;
+            let records = book.records().into_iter().map(|(record, _)| record);
+            records.chain(book.invite_records()).collect()
+        };
+        if media.records.iter().any(|record| ours.contains(record)) {
+            return Err(Error(
+                "the media points at a conversation's own record".into(),
+            ));
+        }
+        for record in &media.records {
+            let key = RecordKey::from_str(record)?;
+            let _ = self.rc.open_dht_record(key.clone(), None, None).await?;
+            let count = (size - sealed.len()).div_ceil(CHUNK).min(SUBKEYS as usize);
+            let mut reads = JoinSet::new();
+            for subkey in 0..count as u32 {
+                let (rc, key) = (self.rc.clone(), key.clone());
+                reads.spawn(async move { (subkey, rc.get_dht_value(key, subkey, true).await) });
+            }
+            let mut done = reads.join_all().await;
+            self.forget(record).await;
+            done.sort_by_key(|(subkey, _)| *subkey);
+            for (_, read) in done {
+                let Some(value) = read? else {
+                    return Err(Error("a piece of the media is missing".into()));
+                };
+                if value.data().len() > CHUNK || sealed.len() + value.data().len() > size {
+                    return Err(Error("a piece of the media does not fit".into()));
+                }
+                sealed.extend_from_slice(value.data());
+            }
+        }
+        if sealed.len() != size {
+            return Err(Error("the media came back short".into()));
+        }
+        Ok(sealed)
+    }
+
+    async fn fetch(&self, record: &str, index: u64) -> Result<(), Error> {
+        let _media = self.media.lock().await;
+        let Some(mut message) = self.load(record, index).await? else {
+            return Err(Error("no such message".into()));
+        };
+        let Some(media) = message.media.as_mut() else {
+            return Err(Error("no media in this message".into()));
+        };
+        if media.stored || media.spent() || message.mine {
+            return Ok(());
+        }
+        write(&self.sealed(record, index), &self.download(media).await?)?;
+        media.stored = true;
+        self.store(record, &message).await?;
+        self.publish().await;
+        Ok(())
+    }
+
+    /// The view is counted, and the last one deletes the sealed copy and the key, before the
+    /// picture is handed out: a phone that dies while showing it has still spent it.
+    async fn view(&self, record: &str, index: u64) -> Result<Value, Error> {
+        self.fetch(record, index).await?;
+        let _media = self.media.lock().await;
+        let Some(mut message) = self.load(record, index).await? else {
+            return Err(Error("no such message".into()));
+        };
+        let Some(media) = message.media.as_mut() else {
+            return Err(Error("no media in this message".into()));
+        };
+        if media.spent() || !media.stored {
+            return Err(Error("this media is gone".into()));
+        }
+        let crypto = self.api.crypto()?;
+        let Some(vld) = crypto.get_async(CRYPTO_KIND_VLD0) else {
+            return Err(Error("no VLD0 crypto".into()));
+        };
+        let plain = vld
+            .decrypt_aead(
+                fs::read(self.sealed(record, index))?.into(),
+                &Nonce::from_str(&media.nonce)?,
+                &SharedSecret::from_str(&media.key)?,
+                None,
+            )
+            .await?;
+        if media.views > 0 {
+            media.seen += 1;
+            if media.spent() {
+                fs::remove_file(self.sealed(record, index))?;
+                media.stored = false;
+                media.key.clear();
+                media.nonce.clear();
+            }
+            self.store(record, &message).await?;
+        }
+        let path = self.viewed(record, index);
+        write(&path, &plain)?;
+        self.publish().await;
+        Ok(json!({"path": path.to_string_lossy()}))
+    }
+
+    async fn close(&self, record: &str, index: u64) -> Result<Value, Error> {
+        let _media = self.media.lock().await;
+        let _ = fs::remove_file(self.viewed(record, index));
+        Ok(Value::Null)
+    }
+}
+
+fn file_name(record: &str, index: u64) -> String {
+    format!("{}-{index}", record.replace(':', "_"))
+}
+
+fn write(path: &std::path::Path, bytes: &[u8]) -> Result<(), Error> {
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir)?;
+    }
+    fs::write(path, bytes)?;
+    Ok(())
+}
+
+fn public(message: &Message) -> Result<Value, Error> {
+    let mut value = serde_json::to_value(message)?;
+    if let Some(media) = value.get_mut("media").and_then(Value::as_object_mut) {
+        for secret in ["key", "nonce", "records"] {
+            media.remove(secret);
+        }
+    }
+    Ok(value)
 }
 
 fn message_key(record: &str, index: u64) -> Vec<u8> {
