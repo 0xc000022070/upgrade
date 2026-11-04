@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/design/ascii/ramp.dart';
@@ -86,15 +87,44 @@ void main() {
         },
       );
 
-      test('${choice.name} tints the house palette and keeps its ink', () {
+      test('${choice.name} paints its ground under the chrome once', () {
         final tokens = wallpaper.tokens;
         expect(tokens.backgroundPrimary, wallpaper.ground.last);
-        expect(tokens.textPrimary, UpgradeTokens.house.textPrimary);
-        expect(tokens.accent, UpgradeTokens.house.accent);
-        expect(tokens.terminal, UpgradeTokens.house.terminal);
         expect(identical(wallpaper.tokens, tokens), isTrue);
+        if (wallpaper.light) {
+          expect(tokens.brightness, Brightness.light);
+          expect(
+            tokens.textPrimary.computeLuminance(),
+            lessThan(tokens.backgroundPrimary.computeLuminance()),
+          );
+          expect(
+            tokens.borderSubtle.computeLuminance(),
+            lessThan(tokens.backgroundPrimary.computeLuminance() * 0.8),
+          );
+        } else {
+          expect(tokens.brightness, Brightness.dark);
+          expect(tokens.textPrimary, UpgradeTokens.house.textPrimary);
+          expect(tokens.accent, UpgradeTokens.house.accent);
+          expect(tokens.terminal, UpgradeTokens.house.terminal);
+        }
       });
     }
+
+    test('only cloud drift is the light scene', () {
+      expect(ThemeChoice.values.where((c) => c.wallpaper?.light ?? false), [
+        ThemeChoice.cloudDrift,
+      ]);
+    });
+
+    test('a trail fades four bare glyphs away from its head', () {
+      final field = _field(12, 1);
+      trail(field, 9, 0, 0x00112233);
+      trail(field, 2, 0, 0x00112233, flip: true);
+      expect(_lit(field), 8);
+      expect(field.colours[7] >>> 24, greaterThan(field.colours[1] >>> 24));
+      expect(field.colours[4] >>> 24, greaterThan(field.colours[10] >>> 24));
+      expect(Field.isTile(field.colours[7]), isFalse);
+    });
 
     test('fireflies light a halo under each firefly that is on', () {
       final field = _field(51, 114);

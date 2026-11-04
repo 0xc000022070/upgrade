@@ -145,9 +145,14 @@ final class _SignalPageTransition extends PageTransitionsBuilder {
 enum ThemeChoice {
   house('Upgrade dark'),
   system('System'),
+  sunburst('Sunburst', Sunburst()),
+  cloudDrift('Cloud drift', CloudDrift()),
+  honuLagoon('Honu lagoon', HonuLagoon()),
+  koi('Koi pond', KoiPond()),
+  jellyfish('Jellyfish', Jellyfish()),
+  paperBoats('Paper boats', PaperBoats()),
   fireflies('Fireflies', Fireflies()),
-  moonlit('Moonlit', Moonlit()),
-  koi('Koi pond', KoiPond());
+  moonlit('Moonlit', Moonlit());
 
   const ThemeChoice(this.label, [this.wallpaper]);
 

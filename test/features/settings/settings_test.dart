@@ -247,6 +247,8 @@ void main() {
     await tester.pumpWidget(host(const SettingsScreen()));
     await _ready(tester);
 
+    await tester.ensureVisible(find.text('Moonlit'));
+    await _ready(tester);
     await tester.tap(find.text('Moonlit'));
     await _ready(tester);
 
