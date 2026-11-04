@@ -160,7 +160,8 @@ resolve() {
 }
 
 dumpsys() {
-  adb -s "$1" shell dumpsys package "$PKG" 2>/dev/null || true
+  # </dev/null: adb shell reads stdin, which in once() is the list of handsets still to check.
+  adb -s "$1" shell dumpsys package "$PKG" </dev/null 2>/dev/null || true
 }
 
 version_code() {
