@@ -100,8 +100,7 @@ class LauncherWidget : AppWidgetProvider() {
 
         private const val KEPT_SENDS = 10
         private const val SEND_LIST_HEIGHT = 160f
-        private const val USAGE_CARD_HEIGHT = 110f
-        private const val USAGE_CARD_ROW = 76f
+        private const val USAGE_CARD_ROW = 80f
         private const val USAGE_FRAME = 32f
         private const val USAGE_PAIR_WIDTH = 400f
         private const val USAGE_COMPACT_PAIR_WIDTH = 300f
@@ -438,8 +437,8 @@ class LauncherWidget : AppWidgetProvider() {
                 return usageViews(context, widgetSize(context, widgetId), accounts, now, bars)
             }
             val widths = listOf(0f, USAGE_COMPACT_PAIR_WIDTH, USAGE_PAIR_WIDTH)
-            val heights = listOf(0f, USAGE_CARD_HEIGHT) +
-                (2..USAGE_CARD_ROWS).map { USAGE_FRAME + it * USAGE_CARD_ROW }
+            val row = usageCardRow(context)
+            val heights = listOf(0f) + (1..USAGE_CARD_ROWS).map { USAGE_FRAME + it * row }
             val sizes = widths.flatMap { width -> heights.map { SizeF(width, it) } }
             return RemoteViews(sizes.associateWith { usageViews(context, it, accounts, now, bars) })
         }
@@ -451,7 +450,8 @@ class LauncherWidget : AppWidgetProvider() {
             now: Long,
             bars: MutableMap<JSONObject, Bitmap>,
         ): RemoteViews {
-            val cards = size.height >= USAGE_CARD_HEIGHT
+            val row = usageCardRow(context)
+            val cards = size.height >= USAGE_FRAME + row
             val columns = if (size.width >= if (cards) USAGE_PAIR_WIDTH else USAGE_COMPACT_PAIR_WIDTH) 2 else 1
             return RemoteViews(
                 context.packageName,
@@ -460,13 +460,17 @@ class LauncherWidget : AppWidgetProvider() {
                 removeAllViews(R.id.usage_rows)
                 setViewVisibility(R.id.usage_empty, if (accounts.isEmpty()) View.VISIBLE else View.GONE)
                 setViewVisibility(R.id.usage_rows, if (accounts.isEmpty()) View.GONE else View.VISIBLE)
-                val rows = if (cards) ((size.height - USAGE_FRAME) / USAGE_CARD_ROW).toInt().coerceAtLeast(1) else 1
+                val rows = if (cards) ((size.height - USAGE_FRAME) / row).toInt().coerceAtLeast(1) else 1
                 for (pair in accounts.take(rows * columns).chunked(columns)) {
                     addView(R.id.usage_rows, usagePair(context, pair, now, cards, bars))
                 }
                 setOnClickPendingIntent(R.id.usage_field, open(context, HOME))
             }
         }
+
+        // A card is mostly text, so its height follows the font scale; under it the WEEK line clips.
+        private fun usageCardRow(context: Context): Float =
+            USAGE_CARD_ROW * context.resources.configuration.fontScale.coerceAtLeast(1f)
 
         private fun usage(context: Context): List<JSONObject> {
             val array = try {
