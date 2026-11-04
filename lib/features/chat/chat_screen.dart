@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/chat/chat.dart';
+import 'package:upgrade/application/files/phone_inbox.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/components/field_panel.dart';
 import 'package:upgrade/design/components/list_row.dart';
@@ -148,6 +151,13 @@ class _InviteScreenState extends ConsumerState<_InviteScreen> {
     'op': 'invite',
   }).then((answer) => (answer! as Map<String, Object?>)['code']! as String);
 
+  Future<void> _share(String code) async {
+    final phone = ref.read(phoneFilesProvider);
+    final file = File('${(await phone.outgoing()).path}/upgrade-invite.txt');
+    await file.writeAsString(code);
+    await phone.share([file.path]);
+  }
+
   @override
   Widget build(BuildContext context) => ChatPage(
     title: 'INVITE',
@@ -166,6 +176,11 @@ class _InviteScreenState extends ConsumerState<_InviteScreen> {
             children: [
               Panel(
                 title: 'CODE',
+                affordance: PanelAffordance(
+                  'SHARE',
+                  showIcon: false,
+                  onTap: () => _share(data),
+                ),
                 child: SelectableText(data, style: context.tokens.value),
               ),
               const SizedBox(height: Spacing.xl),
