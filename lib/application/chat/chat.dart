@@ -9,6 +9,7 @@ class ChatContact {
     required this.verified,
     required this.safety,
     required this.count,
+    this.last,
   });
 
   factory ChatContact.parse(Map<String, Object?> json) => ChatContact(
@@ -17,6 +18,10 @@ class ChatContact {
     verified: json['verified']! as bool,
     safety: json['safety'] as String? ?? '',
     count: json['count']! as int,
+    last: switch (json['last']) {
+      final Map<String, Object?> last => ChatMessage.parse(last),
+      _ => null,
+    },
   );
 
   final String record;
@@ -24,6 +29,7 @@ class ChatContact {
   final bool verified;
   final String safety;
   final int count;
+  final ChatMessage? last;
 }
 
 class ChatBook {
@@ -66,7 +72,7 @@ class ChatMessage {
     mine: json['mine']! as bool,
     body: json['body']! as String,
     at: DateTime.fromMillisecondsSinceEpoch(json['at']! as int),
-    delivered: json['delivered']! as bool,
+    delivered: json['delivered'] as bool? ?? false,
   );
 
   final bool mine;

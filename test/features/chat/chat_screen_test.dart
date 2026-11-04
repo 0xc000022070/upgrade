@@ -41,6 +41,7 @@ class _FakeLink implements ChatLink {
               'verified': verified,
               'safety': '12345 67890',
               'count': messages.length,
+              if (messages.isNotEmpty) 'last': messages.last,
             },
           ],
         };
@@ -85,7 +86,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('ONLINE'), findsOneWidget);
-    expect(find.text('not verified'), findsOneWidget);
+    expect(find.text('no messages'), findsOneWidget);
 
     expect(find.byType(TextField), findsNothing);
     await tester.tap(find.text('ana'));
@@ -103,28 +104,36 @@ void main() {
 
     await tester.tap(find.text('ben'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('not verified · compare safety numbers'));
+    await tester.pumpAndSettle();
     expect(find.text('12345 67890'), findsOneWidget);
     await tester.tap(find.text('VERIFY'));
     await tester.pumpAndSettle();
     expect(find.text('VERIFIED'), findsOneWidget);
+    Navigator.of(tester.element(find.text('VERIFIED'))).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('not verified · compare safety numbers'), findsNothing);
 
-    await tester.enterText(
-      find.widgetWithText(TextField, 'end to end encrypted'),
-      'hola',
-    );
+    final semantics = tester.ensureSemantics();
+    await tester.enterText(find.widgetWithText(TextField, 'message'), 'hola');
     await tester.pump();
-    await tester.tap(find.text('SEND'));
+    await tester.tap(find.bySemanticsLabel('send'));
     await tester.pumpAndSettle();
     expect(
       link.requests.where((r) => r['op'] == 'send').single,
       containsPair('text', 'hola'),
     );
     expect(find.text('hola'), findsOneWidget);
-    expect(find.text('SENDING'), findsOneWidget);
+    expect(find.bySemanticsLabel('sending'), findsOneWidget);
 
     link.ack();
     await tester.pumpAndSettle();
-    expect(find.text('SENDING'), findsNothing);
+    expect(find.bySemanticsLabel('delivered'), findsOneWidget);
+    semantics.dispose();
+
+    Navigator.of(tester.element(find.text('hola'))).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('you: hola'), findsOneWidget);
   });
   testWidgets('a node that did not start reads offline and says what failed', (
     tester,

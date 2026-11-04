@@ -306,22 +306,38 @@ impl Node {
     }
 
     async fn state(&self) -> Result<Value, Error> {
-        let book = self.book.lock().await;
-        let contacts: Vec<Value> = book
-            .contacts
-            .iter()
-            .map(|c| {
-                json!({
-                    "record": c.record,
-                    "name": c.name,
-                    "verified": c.verified,
-                    "safety": book.safety(&c.record),
-                    "count": c.count,
+        let (name, mut contacts) = {
+            let book = self.book.lock().await;
+            let contacts: Vec<Value> = book
+                .contacts
+                .iter()
+                .map(|c| {
+                    json!({
+                        "record": c.record,
+                        "name": c.name,
+                        "verified": c.verified,
+                        "safety": book.safety(&c.record),
+                        "count": c.count,
+                    })
                 })
-            })
-            .collect();
+                .collect();
+            (book.name.clone(), contacts)
+        };
+        for contact in &mut contacts {
+            let (Some(record), Some(count)) =
+                (contact["record"].as_str(), contact["count"].as_u64())
+            else {
+                continue;
+            };
+            let Some(last) = count.checked_sub(1) else {
+                continue;
+            };
+            if let Some(bytes) = self.db.load(0, message_key(record, last).into()).await? {
+                contact["last"] = serde_json::from_slice(&bytes)?;
+            }
+        }
         let attachment = self.api.get_state().await?.attachment.state.to_string();
-        Ok(json!({"name": book.name, "attachment": attachment, "contacts": contacts}))
+        Ok(json!({"name": name, "attachment": attachment, "contacts": contacts}))
     }
 
     async fn invite(&self) -> Result<Value, Error> {

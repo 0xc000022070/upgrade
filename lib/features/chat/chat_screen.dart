@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/chat/chat.dart';
 import 'package:upgrade/application/files/phone_inbox.dart';
+import 'package:upgrade/application/formatting.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/components/field_panel.dart';
 import 'package:upgrade/design/components/list_row.dart';
@@ -70,7 +71,7 @@ class ChatScreen extends ConsumerWidget {
                 empty: 'no contacts',
                 builder: (contacts) => ListRowGroup(
                   children: [
-                    for (final contact in contacts)
+                    for (final contact in _byLatest(contacts))
                       ListRow(
                         key: ValueKey('chat-${contact.record}'),
                         leading: UpgradeIcon(
@@ -84,10 +85,15 @@ class ChatScreen extends ConsumerWidget {
                         ),
                         title: contact.name.isEmpty ? 'unnamed' : contact.name,
                         literalTitle: true,
-                        subtitle: contact.verified
-                            ? 'verified'
-                            : 'not verified',
-                        value: '${contact.count}',
+                        subtitle: switch (contact.last) {
+                          null => 'no messages',
+                          final last when last.mine => 'you: ${last.body}',
+                          final last => last.body,
+                        },
+                        value: switch (contact.last) {
+                          null => null,
+                          final last => _when(last.at),
+                        },
                         onTap: () => _push(
                           context,
                           ConversationScreen(record: contact.record),
@@ -103,6 +109,15 @@ class ChatScreen extends ConsumerWidget {
     );
   }
 }
+
+List<ChatContact> _byLatest(List<ChatContact> contacts) {
+  final epoch = DateTime.fromMillisecondsSinceEpoch(0);
+  return [...contacts]
+    ..sort((a, b) => (b.last?.at ?? epoch).compareTo(a.last?.at ?? epoch));
+}
+
+String _when(DateTime at) =>
+    dayWord(at) == 'TODAY' ? timeOfDay(at) : dayWord(at).toLowerCase();
 
 void _push(BuildContext context, Widget screen) {
   Navigator.of(
