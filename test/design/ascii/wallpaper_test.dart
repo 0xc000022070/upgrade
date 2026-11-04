@@ -49,6 +49,22 @@ void main() {
       expect(field.shade[8], 1.0);
       expect(_lit(field), 2);
     });
+
+    test('a paint map recolours the cells it names, flipped with the art', () {
+      final painted = Sprite(['WWW'], paint: ['p']);
+      final field = _field(3, 2);
+      painted.stamp(field, 0, 0, 1, inks: {'p': 2});
+      painted.stamp(field, 0, 1, 1, flip: true, inks: {'p': 2});
+      expect(field.colours.sublist(0, 3), [2, 1, 1]);
+      expect(field.colours.sublist(3, 6), [1, 1, 2]);
+    });
+  });
+
+  test('an opaque colour is a tile and any other alpha a bare glyph', () {
+    expect(Field.isTile(0xFF112233), isTrue);
+    expect(Field.isTile(Int32List.fromList([0xFF112233])[0]), isTrue);
+    expect(Field.isTile(0x7F112233), isFalse);
+    expect(Field.isTile(0x00112233), isFalse);
   });
 
   group('wallpapers', () {
@@ -79,6 +95,16 @@ void main() {
         expect(identical(wallpaper.tokens, tokens), isTrue);
       });
     }
+
+    test('fireflies light a halo under each firefly that is on', () {
+      final field = _field(51, 114);
+      const Fireflies().render(5, field);
+      expect(field.glows, isNotEmpty);
+      for (final glow in field.glows) {
+        expect(glow.radius, greaterThan(0));
+        expect(Field.isTile(glow.argb), isFalse);
+      }
+    });
 
     test('a wallpaper renders inside a one-cell field without throwing', () {
       for (final choice in ThemeChoice.values) {

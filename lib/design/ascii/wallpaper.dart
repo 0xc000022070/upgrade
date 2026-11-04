@@ -9,7 +9,10 @@ import 'package:upgrade/design/tokens.dart';
 abstract class Wallpaper {
   const Wallpaper();
 
-  static const opacity = 0.32;
+  static const cell = 8.0;
+  static const fontSize = 10.0;
+  static const opacity = 0.85;
+  static const bloom = 6.0;
 
   List<Color> get ground;
 
@@ -33,6 +36,9 @@ UpgradeTokens _tokensOn(Color ground) => UpgradeTokens.house.copyWith(
   borderNormal: _lift(ground, 0.19),
 );
 
+typedef Glow = ({double x, double y, double radius, int argb});
+
+/// A cell whose colour is fully opaque is a tile; any other alpha is a bare glyph.
 class Field {
   Field(this.width, this.height, this.shade, this.colours);
 
@@ -40,6 +46,9 @@ class Field {
   final int height;
   final Float64List shade;
   final Int32List colours;
+  final glows = <Glow>[];
+
+  static bool isTile(int argb) => (argb >> 24) & 0xFF == 0xFF;
 
   void put(int x, int y, double level, int argb) {
     if (x < 0 || y < 0 || x >= width || y >= height || level <= 0) return;
@@ -47,6 +56,9 @@ class Field {
     shade[at] = level;
     colours[at] = argb;
   }
+
+  void glow(double x, double y, double radius, int argb) =>
+      glows.add((x: x, y: y, radius: radius, argb: argb));
 }
 
 /// One lap carries a sprite [width] wide from fully off one edge of a field [columns]
@@ -60,7 +72,7 @@ int driftRight(int columns, int width, double along) =>
     (along % driftLap(columns, width) - width).floor();
 
 class Sprite {
-  Sprite(List<String> rows)
+  Sprite(List<String> rows, {this.paint = const []})
     : width = rows.fold(0, (w, row) => max(w, row.length)),
       height = rows.length,
       _shade = Float64List(
@@ -78,6 +90,7 @@ class Sprite {
   final int width;
   final int height;
   final Float64List _shade;
+  final List<String> paint;
 
   void stamp(
     Field field,
@@ -86,11 +99,20 @@ class Sprite {
     int argb, {
     bool flip = false,
     double gain = 1.0,
+    Map<String, int> inks = const {},
   }) {
     for (var y = 0; y < height; y++) {
       for (var x = 0; x < width; x++) {
         final sx = flip ? width - 1 - x : x;
-        field.put(left + x, top + y, _shade[y * width + sx] * gain, argb);
+        final key = y < paint.length && sx < paint[y].length
+            ? paint[y][sx]
+            : ' ';
+        field.put(
+          left + x,
+          top + y,
+          _shade[y * width + sx] * gain,
+          inks[key] ?? argb,
+        );
       }
     }
   }
@@ -99,9 +121,11 @@ class Sprite {
 class Fireflies extends Wallpaper {
   const Fireflies();
 
-  static const _count = 28;
-  static const _glow = 0xFFD9FF66;
-  static const _grass = 0xFF4E8A4A;
+  static const _count = 24;
+  static const _glow = 0xFFE8FF6A;
+  static const _halo = 0x00D9FF66;
+  static const _grass = 0x8C4E8A4A;
+  static const _grassTip = 0x5C4E8A4A;
 
   @override
   List<Color> get ground => const [Color(0xFF0C2016), Color(0xFF060F0A)];
@@ -109,28 +133,34 @@ class Fireflies extends Wallpaper {
   @override
   void render(double tick, Field field) {
     for (var i = 0; i < _count; i++) {
-      final wander = tick * 0.012;
+      final wander = tick * 0.008;
       final x =
           hash01(i, 1) * field.width +
-          10 * (valueNoise(i * 5.3 + 0.5, wander) - 0.5);
+          12 * (valueNoise(i * 5.3 + 0.5, wander) - 0.5);
       final y =
-          hash01(i, 2) * field.height * 0.85 +
-          5 * (valueNoise(i * 9.1 + 0.5, wander + 50) - 0.5);
-      final rate = 0.05 + 0.05 * hash01(i, 3);
+          hash01(i, 2) * field.height * 0.9 +
+          8 * (valueNoise(i * 9.1 + 0.5, wander + 50) - 0.5);
+      final rate = 0.04 + 0.05 * hash01(i, 3);
       final pulse = 0.5 + 0.5 * sin(tick * rate + hash01(i, 4) * 2 * pi);
       final glow = pulse * pulse * pulse;
       if (glow < 0.08) continue;
       final cx = x.round();
       final cy = y.round();
-      field.put(cx, cy, glow, _glow);
-      if (glow > 0.7) {
-        field.put(cx - 1, cy, glow * 0.2, _glow);
-        field.put(cx + 1, cy, glow * 0.2, _glow);
-      }
+      field.put(cx, cy, 0.5 + 0.5 * glow, _glow);
+      if (hash01(i, 5) > 0.6) field.put(cx + 1, cy, 0.4 + 0.5 * glow, _glow);
+      field.glow(
+        cx + 0.5,
+        cy + 0.5,
+        2.5 + 4 * glow,
+        ((0x60 * glow).round() << 24) | _halo,
+      );
     }
     for (var x = 0; x < field.width; x++) {
-      if (hash01(x, 77) > 0.55) field.put(x, field.height - 1, 0.22, _grass);
-      if (hash01(x, 78) > 0.8) field.put(x, field.height - 2, 0.15, _grass);
+      final blades = 1 + (hash01(x, 77) * 4).floor();
+      for (var k = 0; k < blades; k++) {
+        field.put(x, field.height - 1 - k, 3 / (asciiLevels - 1), _grass);
+      }
+      field.put(x, field.height - 1 - blades, 1 / (asciiLevels - 1), _grassTip);
     }
   }
 }
@@ -139,45 +169,57 @@ class Moonlit extends Wallpaper {
   const Moonlit();
 
   static const _moonInk = 0xFFE9E4C8;
-  static const _cloudInk = 0xFF9AA4D6;
-  static const _starInk = 0xFFE8E6D8;
+  static const _cloudInk = 0xFF8E9AD0;
+  static const _star = 0x00E8E6D8;
 
   static final _moon = Sprite([
-    r'  .cXWW',
-    r' oW$$',
-    r' W$$',
-    r' oW$$',
-    r'  .cXWW',
+    r'     $WXo.',
+    r'   $$WXo.',
+    r'  $$WXo.',
+    r' $$WXo',
+    r' $WXo',
+    r' $WXo',
+    r' $WXo',
+    r' $$WXo',
+    r'  $$WXo.',
+    r'   $$WXo.',
+    r'     $WXo.',
   ]);
 
   static final _cloud = Sprite([
-    '   .oXXo.',
-    ' .oXWWWWXo.',
-    'oXWWWWWWWWXo',
-    ' :ooXXXXoo:',
+    '      .oXWWWXo.',
+    '   .oXWWWWWWWWXo.',
+    '  oXWWWWWWWWWWWWXo',
+    '  :ooXXXXXXXXXXoo:',
   ]);
 
-  static final _puff = Sprite(['  .oXo.', 'oXWWWWXo', ' :oooo:']);
+  static final _puff = Sprite(['   .oXWXo.', ' .oXWWWWWXo.', '  :oXXXXXo:']);
 
   @override
   List<Color> get ground => const [Color(0xFF0C1434), Color(0xFF070B1E)];
 
   @override
   void render(double tick, Field field) {
-    final skyline = (field.height * 0.6).floor();
+    final skyline = (field.height * 0.65).floor();
     for (var y = 0; y < skyline; y++) {
       for (var x = 0; x < field.width; x++) {
-        if (hash01(x, y) < 0.988) continue;
+        final seed = hash01(x, y);
+        if (seed < 0.985) continue;
         final twinkle =
-            0.35 + 0.35 * sin(tick * 0.25 + hash01(x, y + 1000) * 2 * pi);
-        field.put(x, y, twinkle, _starInk);
+            0.5 + 0.35 * sin(tick * 0.2 + hash01(x, y + 1000) * 2 * pi);
+        field.put(
+          x,
+          y,
+          (seed > 0.995 ? 2 : 1) / (asciiLevels - 1),
+          ((twinkle * 255).round() << 24) | _star,
+        );
       }
     }
-    _moon.stamp(field, field.width - _moon.width - 5, 2, _moonInk);
+    _moon.stamp(field, field.width - _moon.width - 4, 7, _moonInk);
 
-    _drift(field, tick, _cloud, 0.18, 0.05, 0.0);
+    _drift(field, tick, _cloud, 0.2, 0.05, 0.0);
     _drift(field, tick, _puff, 0.36, 0.08, 0.4);
-    _drift(field, tick, _cloud, 0.52, 0.035, 0.75);
+    _drift(field, tick, _cloud, 0.55, 0.035, 0.75);
   }
 
   static void _drift(
@@ -198,23 +240,40 @@ class KoiPond extends Wallpaper {
   const KoiPond();
 
   static const _padInk = 0xFF5FA86A;
+  static const _patch = 0xFFE86AA0;
+  static const _ripple = 0x00DDEEEE;
 
-  static final _koi = Sprite(['  .cXWMo.', r':oWW$$WMXc.', '  .cXWMo.']);
+  static final _koi = Sprite(
+    [
+      r'X.     .oXWWXo.',
+      r'XXo. oXW$$$$WWXo',
+      r' XXXXW$$$$$$$$WXo',
+      r'XXo. oXW$$$$WWXo',
+      r'X.     .oXWWXo.',
+    ],
+    paint: ['', '          pp  ', '         ppp   ', '          pp  '],
+  );
 
-  static final _pad = Sprite([' oXXo ', 'XWWWWX', ' oXXo ']);
+  static final _pad = Sprite([
+    '  .oXXo.',
+    ' oXWWWWXo',
+    ' XWWW WWX',
+    ' oXWWWWXo',
+    '  .oXXo.',
+  ]);
 
   static const _fish = [
-    (ink: 0xFFF08A3C, y: 0.14, speed: 0.11, phase: 0.1, flip: false),
-    (ink: 0xFFF2EEE4, y: 0.32, speed: 0.08, phase: 0.6, flip: true),
+    (ink: 0xFFF08A3C, y: 0.12, speed: 0.11, phase: 0.1, flip: false),
+    (ink: 0xFFF2EEE4, y: 0.3, speed: 0.08, phase: 0.6, flip: true),
     (ink: 0xFFD9513A, y: 0.5, speed: 0.13, phase: 0.35, flip: false),
     (ink: 0xFFE8B84A, y: 0.68, speed: 0.07, phase: 0.85, flip: true),
     (ink: 0xFFF08A3C, y: 0.86, speed: 0.1, phase: 0.5, flip: false),
   ];
 
   static const _pads = [
-    (x: 0.12, y: 0.22),
-    (x: 0.7, y: 0.58),
-    (x: 0.3, y: 0.78),
+    (x: 0.08, y: 0.2),
+    (x: 0.72, y: 0.58),
+    (x: 0.28, y: 0.8),
   ];
 
   @override
@@ -237,8 +296,25 @@ class KoiPond extends Wallpaper {
           ? driftLeft(field.width, _koi.width, along)
           : driftRight(field.width, _koi.width, along);
       final y =
-          fish.y * field.height + 1.5 * sin(tick * 0.06 + fish.phase * 2 * pi);
-      _koi.stamp(field, x, y.round(), fish.ink, flip: fish.flip);
+          (fish.y * field.height + 2 * sin(tick * 0.05 + fish.phase * 2 * pi))
+              .round();
+      _koi.stamp(
+        field,
+        x,
+        y,
+        fish.ink,
+        flip: fish.flip,
+        inks: const {'p': _patch},
+      );
+      final tail = fish.flip ? x + _koi.width : x - 1;
+      for (var k = 1; k <= 4; k++) {
+        field.put(
+          fish.flip ? tail + k * 2 : tail - k * 2,
+          y + 2,
+          1 / (asciiLevels - 1),
+          ((0x70 - k * 0x14) << 24) | _ripple,
+        );
+      }
     }
   }
 }

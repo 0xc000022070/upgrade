@@ -50,7 +50,7 @@ final _epoch = DateTime.now().millisecondsSinceEpoch;
 
 class _AsciiBackgroundState extends State<AsciiBackground> {
   GlyphAtlas? _atlas;
-  double? _builtFor;
+  (double, bool)? _builtFor;
 
   @override
   void didChangeDependencies() {
@@ -58,18 +58,28 @@ class _AsciiBackgroundState extends State<AsciiBackground> {
     unawaited(_load(MediaQuery.devicePixelRatioOf(context)));
   }
 
+  @override
+  void didUpdateWidget(AsciiBackground oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((oldWidget.wallpaper == null) != (widget.wallpaper == null)) {
+      _atlas = null;
+      unawaited(_load(MediaQuery.devicePixelRatioOf(context)));
+    }
+  }
+
   Future<void> _load(double pixelRatio) async {
-    if (_builtFor == pixelRatio) return;
-    _builtFor = pixelRatio;
+    final square = widget.wallpaper != null;
+    if (_builtFor == (pixelRatio, square)) return;
+    _builtFor = (pixelRatio, square);
     final advance = monoAdvance(FontFamilies.mono, AsciiBackground.fontSize);
     final atlas = await GlyphAtlas.of(
-      cellWidth: advance,
-      cellHeight: advance * 2,
-      fontSize: AsciiBackground.fontSize,
+      cellWidth: square ? Wallpaper.cell : advance,
+      cellHeight: square ? Wallpaper.cell : advance * 2,
+      fontSize: square ? Wallpaper.fontSize : AsciiBackground.fontSize,
       fontFamily: FontFamilies.mono,
       pixelRatio: pixelRatio,
     );
-    if (!mounted) return;
+    if (!mounted || _builtFor != (pixelRatio, square)) return;
     setState(() => _atlas = atlas);
   }
 
@@ -125,8 +135,6 @@ class _FieldPainter extends CustomPainter {
   final Color colour;
   final Wallpaper? wallpaper;
 
-  static final _wallpaperAlpha = (Wallpaper.opacity * 255).round() << 24;
-
   static Float64List? _shade;
   static Float32List? _transforms;
   static Float32List? _rects;
@@ -158,6 +166,7 @@ class _FieldPainter extends CustomPainter {
     final now = tick.value;
     shade.fillRange(0, cells, 0.0);
     final scene = wallpaper;
+    var tileGlyph = 0;
     if (scene == null) {
       asciiEffects[AsciiBackground.effectAt(now, _epoch)].render(
         now.toDouble(),
@@ -166,7 +175,10 @@ class _FieldPainter extends CustomPainter {
         shade,
       );
     } else {
-      scene.render(now.toDouble(), Field(cols, rows, shade, colours));
+      final field = Field(cols, rows, shade, colours);
+      scene.render(now.toDouble(), field);
+      _paintScene(canvas, size, glyphs, field);
+      tileGlyph = scene.ground.last.withValues(alpha: _punch).toARGB32();
     }
 
     final argb = colour.toARGB32();
@@ -189,7 +201,9 @@ class _FieldPainter extends CustomPainter {
         glyphs.rectInto(rects, at, GlyphAtlas.slotOfGlyph(glyph));
         colours[drawn] = scene == null
             ? argb
-            : (colours[cell] & 0x00FFFFFF) | _wallpaperAlpha;
+            : Field.isTile(colours[cell])
+            ? tileGlyph
+            : colours[cell];
         drawn++;
       }
     }
@@ -204,6 +218,55 @@ class _FieldPainter extends CustomPainter {
       Offset.zero & size,
       Paint()..filterQuality = ui.FilterQuality.none,
     );
+  }
+
+  static const _punch = 0.7;
+
+  void _paintScene(Canvas canvas, Size size, GlyphAtlas glyphs, Field field) {
+    final cw = glyphs.cellWidth;
+    final ch = glyphs.cellHeight;
+    for (final glow in field.glows) {
+      final centre = Offset(glow.x * cw, glow.y * ch);
+      final radius = glow.radius * cw;
+      canvas.drawCircle(
+        centre,
+        radius,
+        Paint()
+          ..shader = ui.Gradient.radial(centre, radius, [
+            Color(glow.argb),
+            Color(glow.argb & 0x00FFFFFF),
+          ]),
+      );
+    }
+    canvas.saveLayer(
+      Offset.zero & size,
+      Paint()
+        ..imageFilter = ui.ImageFilter.blur(
+          sigmaX: Wallpaper.bloom,
+          sigmaY: Wallpaper.bloom,
+        ),
+    );
+    _tiles(canvas, field, cw, ch, 0.7);
+    canvas.restore();
+    _tiles(canvas, field, cw, ch, Wallpaper.opacity);
+  }
+
+  void _tiles(Canvas canvas, Field field, double cw, double ch, double alpha) {
+    final paint = Paint();
+    for (var y = 0; y < field.height; y++) {
+      for (var x = 0; x < field.width; x++) {
+        final cell = y * field.width + x;
+        final level = field.shade[cell];
+        final argb = field.colours[cell];
+        if (level <= 0 || !Field.isTile(argb)) continue;
+        paint.color = Color(argb & 0xFFFFFFFF)
+            .withValues(alpha: alpha * (0.55 + 0.45 * level));
+        canvas.drawRect(
+          Rect.fromLTWH(x * cw + 0.5, y * ch + 0.5, cw - 1, ch - 1),
+          paint,
+        );
+      }
+    }
   }
 
   @override
