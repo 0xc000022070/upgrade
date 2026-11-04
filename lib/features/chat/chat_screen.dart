@@ -121,6 +121,8 @@ class _NameField extends ConsumerStatefulWidget {
 
 class _NameFieldState extends ConsumerState<_NameField> {
   late final _name = TextEditingController(text: widget.name);
+  Future<void> _saved = Future.value();
+  bool _editing = false;
 
   @override
   void dispose() {
@@ -129,14 +131,30 @@ class _NameFieldState extends ConsumerState<_NameField> {
   }
 
   @override
-  Widget build(BuildContext context) => FieldPanel(
-    label: '[ NAME ]',
-    controller: _name,
-    hint: 'what new contacts see',
-    textInputAction: TextInputAction.done,
-    onSubmitted: (name) =>
-        chatRequest(ref, {'op': 'name', 'name': name.trim()}),
-  );
+  Widget build(BuildContext context) => _editing
+      ? FieldPanel(
+          label: '[ NAME ]',
+          controller: _name,
+          hint: 'what your contacts see',
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onChanged: (name) {
+            final link = ref.read(chatLinkProvider.future);
+            // ignored: the next save sends the whole name again.
+            _saved = _saved.catchError((_) {}).then((_) async {
+              await (await link).call({'op': 'name', 'name': name.trim()});
+              if (mounted) ref.invalidate(chatBookProvider);
+            });
+          },
+          onSubmitted: (_) => setState(() => _editing = false),
+        )
+      : ListRow(
+          title: _name.text.trim().isEmpty ? 'unnamed' : _name.text.trim(),
+          literalTitle: true,
+          subtitle: 'what your contacts see',
+          value: 'RENAME',
+          onTap: () => setState(() => _editing = true),
+        );
 }
 
 class _InviteScreen extends ConsumerStatefulWidget {
@@ -249,7 +267,7 @@ class _JoinScreenState extends ConsumerState<_JoinScreen> {
         label: '[ CODE ]',
         controller: _code,
         hint: 'invitation code',
-        maxLines: 4,
+        keyboardType: TextInputType.visiblePassword,
         enabled: !_joining,
         textInputAction: TextInputAction.done,
         onSubmitted: (_) => _join(),

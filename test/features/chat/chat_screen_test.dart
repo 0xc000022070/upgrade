@@ -87,6 +87,20 @@ void main() {
     expect(find.text('ONLINE'), findsOneWidget);
     expect(find.text('not verified'), findsOneWidget);
 
+    expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.text('ana'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'ana'), 'ori');
+    await tester.pumpAndSettle();
+    expect(
+      link.requests.where((r) => r['op'] == 'name').single,
+      containsPair('name', 'ori'),
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(find.text('ori'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+
     await tester.tap(find.text('ben'));
     await tester.pumpAndSettle();
     expect(find.text('12345 67890'), findsOneWidget);

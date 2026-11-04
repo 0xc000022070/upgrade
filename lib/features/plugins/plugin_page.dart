@@ -6,6 +6,8 @@ import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/plugins/plugins.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
+import 'package:upgrade/design/icons/upgrade_icons.dart';
+import 'package:upgrade/design/layout.dart';
 import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_text_action.dart';
@@ -283,12 +285,19 @@ class _NativePluginRoute extends ConsumerWidget {
         children: [
           SafeArea(
             bottom: false,
-            child: SizedBox(
-              height: 48,
-              child: Align(
-                alignment: Alignment.centerLeft,
+            child: LayoutBuilder(
+              builder: (context, constraints) => Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal:
+                      Spacing.screenEdge +
+                      Layout.gutterFor(
+                        constraints.maxWidth,
+                        maxWidth: Layout.columnMax,
+                      ),
+                ),
                 child: PanelTextAction(
                   label: 'BACK · TOOLS',
+                  icon: UpgradeIcons.back,
                   onTap: () => Navigator.of(context).pop(),
                 ),
               ),

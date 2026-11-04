@@ -121,7 +121,6 @@ class _ConversationState extends ConsumerState<ConversationScreen> {
                       ListRow(
                         kicker: message.mine ? 'YOU' : null,
                         title: message.body,
-                        literalTitle: true,
                         titleMaxLines: 20,
                         titleColor: message.mine
                             ? context.tokens.textSecondary

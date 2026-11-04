@@ -103,8 +103,16 @@ struct Envelope {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "lowercase")]
 enum Payload {
-    Hello { name: String, record: String },
-    Text { body: String, at: u64 },
+    Hello {
+        name: String,
+        record: String,
+    },
+    Text {
+        body: String,
+        at: u64,
+        #[serde(default)]
+        name: Option<String>,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -192,7 +200,13 @@ impl Book {
     }
 
     pub fn join(&mut self, code: &str, mine: &str, writer: &str) -> Result<Vec<Effect>, Error> {
-        let code: Code = serde_json::from_slice(&B64.decode(code.trim())?)?;
+        let Some(code) = B64
+            .decode(code.trim())
+            .ok()
+            .and_then(|json| serde_json::from_slice::<Code>(&json).ok())
+        else {
+            return fail("this is not an invitation code");
+        };
         if code.v != 1 {
             return fail("unknown invitation version");
         }
@@ -241,6 +255,7 @@ impl Book {
         let payload = Payload::Text {
             body: body.to_owned(),
             at,
+            name: Some(self.name.clone()),
         };
         let mut out = self.enqueue(record, &payload)?;
         let contact = self.contact_mut(record).unwrap();
@@ -381,7 +396,10 @@ impl Book {
         let contact = self.contact_mut(record).unwrap();
         contact.read += 1;
         let mut out = vec![ack(contact)];
-        if let Ok(Payload::Text { body, at }) = serde_json::from_slice(&plain) {
+        if let Ok(Payload::Text { body, at, name }) = serde_json::from_slice(&plain) {
+            if let Some(name) = name {
+                contact.name = name;
+            }
             let message = Message {
                 index: contact.count,
                 mine: false,
@@ -621,6 +639,22 @@ mod tests {
         assert!(books[0].invite_records().is_empty());
         assert_eq!(books[0].safety(&rec), books[1].safety(&rec));
         assert_eq!(books[0].safety(&rec).unwrap().len(), 12 * 6 - 1);
+    }
+
+    #[test]
+    fn a_mangled_code_is_named_as_not_a_code() {
+        let mut ben = Book::new("ben");
+        let err = ben.join("EyJ2Ijox", "rb", "rb-owner").err().unwrap();
+        assert_eq!(err.0, "this is not an invitation code");
+    }
+
+    #[test]
+    fn a_message_carries_the_name_the_sender_has_now() {
+        let (mut books, mut net, rec) = paired();
+        books[1].name = "ori".to_owned();
+        let e = books[1].send(&rec, "hi", 1).unwrap();
+        net.run(&mut books, 1, e);
+        assert_eq!(books[0].contact(&rec).unwrap().name, "ori");
     }
 
     #[test]
