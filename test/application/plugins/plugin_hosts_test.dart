@@ -2,12 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/plugins/plugin_hosts.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../plugins/agent_schedules_plugin_test.dart' show schedulePackage;
@@ -15,8 +13,8 @@ import '../../plugins/agent_schedules_plugin_test.dart' show schedulePackage;
 void main() {
   late Directory root;
   late SchedulerBindings bindings;
-  late ProviderContainer container;
   late InstalledPlugin plugin;
+  late PluginScheduler scheduler;
   late PluginHostRegistry registry;
   final calls = <String>[];
   var offline = false;
@@ -46,28 +44,21 @@ void main() {
         keyId: 'test',
       ),
     );
-    container = ProviderContainer(
-      overrides: [
-        hostRepositoryProvider.overrideWithValue(hosts),
-        schedulerBindingsProvider.overrideWithValue(bindings),
-        schedulerTransportProvider.overrideWithValue((
-          host,
-          owner,
-          operation,
-          args,
-        ) async {
-          calls.add(operation);
-          if (offline) throw const SocketException('Offline');
-          if (operation == 'save') await blocked?.future;
-          if (operation == 'setup') configured = true;
-          return {'installed': configured, 'owner': owner};
-        }),
-      ],
+    scheduler = PluginScheduler(
+      hosts,
+      (host, owner, operation, args) async {
+        calls.add(operation);
+        if (offline) throw const SocketException('Offline');
+        if (operation == 'save') await blocked?.future;
+        if (operation == 'setup') configured = true;
+        return {'installed': configured, 'owner': owner};
+      },
+      bindings,
+      () {},
     );
-    registry = container.read(pluginHostRegistryProvider);
+    registry = PluginHostRegistry({'scheduler': scheduler.service});
   });
   tearDown(() async {
-    container.dispose();
     await root.delete(recursive: true);
   });
   void check() {
@@ -145,6 +136,18 @@ void main() {
     await rejected;
     await pausing;
     expect(calls, ['setup', 'save', 'pause_scope']);
+  });
+
+  test('retry acknowledges only pending pauses', () async {
+    await invoke('setup');
+    offline = true;
+    await registry.deactivate(plugin);
+    offline = false;
+    await scheduler.retryPending();
+    await scheduler.retryPending();
+    final owner = pluginHostOwner(plugin);
+    expect((await bindings.read())[owner]!['host1']!.pending, isFalse);
+    expect(calls, ['setup', 'pause_scope', 'pause_scope']);
   });
 
   test('pending pause is acknowledged before another operation', () async {

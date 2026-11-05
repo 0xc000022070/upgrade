@@ -804,13 +804,26 @@ PluginHostService pluginRunService(
   );
 }
 
-final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
-  final hosts = ref.watch(hostRepositoryProvider);
-  final transport = ref.watch(schedulerTransportProvider);
-  final bindings = ref.watch(schedulerBindingsProvider);
-  final queues = <String, Serial>{};
-  Future<T> serialized<T>(String owner, Future<T> Function() work) =>
-      queues.putIfAbsent(owner, Serial.new).run(work);
+class PluginScheduler {
+  PluginScheduler(this.hosts, this.transport, this.bindings, this.changed);
+  final HostRepository hosts;
+  final PluginHostTransport transport;
+  final SchedulerBindings bindings;
+  final void Function() changed;
+  final _queues = <String, Serial>{};
+
+  Future<T> _serialized<T>(String owner, Future<T> Function() work) =>
+      _queues.putIfAbsent(owner, Serial.new).run(work);
+
+  Future<void> _acknowledge(String owner, Host host) async {
+    await transport(host, owner, 'pause_scope', {});
+    await bindings.set(
+      owner,
+      host.id,
+      const SchedulerBinding(configured: true),
+    );
+    changed();
+  }
 
   Future<void> pause(String owner, {bool pendingOnly = false}) async {
     final registered = (await bindings.read())[owner] ?? {};
@@ -829,201 +842,206 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
         const SchedulerBinding(configured: true, pending: true),
       );
     }
-    ref.invalidate(pluginHostPendingProvider);
-    ref.invalidate(pendingHostPausesProvider);
-    await serialized(owner, () async {
+    changed();
+    await _serialized(owner, () async {
       final available = {for (final host in await hosts.all()) host.id: host};
       for (final id in configured) {
         final host = available[id];
         if (host == null) continue;
         try {
-          await transport(host, owner, 'pause_scope', {});
-          await bindings.set(
-            owner,
-            id,
-            const SchedulerBinding(configured: true),
-          );
+          await _acknowledge(owner, host);
         } on Object {
-          // A lost connection cannot acknowledge remote cancellation.
+          // ignored: the binding stays pending and retryPending acknowledges it later.
         }
       }
     });
-    ref.invalidate(pluginHostPendingProvider);
-    ref.invalidate(pendingHostPausesProvider);
+    changed();
   }
 
-  return PluginHostRegistry(
-    {
-      'hosts': PluginHostService(
-        operations: const {'list', 'workspaces'},
-        invoke: (plugin, operation, args, confirm, check, _) async {
-          if (operation == 'workspaces') {
-            final host = await _pick(hosts, args['host']);
-            if (!await confirm(host, 'hosts', {'workspaces'})) {
-              throw const PluginException('Workspace access was not granted');
-            }
-            check();
-            final scan = await ref.read(pathScannerProvider)(host);
-            check();
-            return switch (scan) {
-              PathScanFound(:final directories) => {
-                'items': directories.take(200).toList(),
-              },
-              PathScanFailed(:final reason) => throw PluginException(reason),
-              _ => throw const PluginException('Workspace scan did not finish'),
-            };
-          }
-          return {
-            'items': [
-              for (final host in await hosts.all())
-                {'id': host.id, 'name': host.name},
-            ],
-          };
-        },
-      ),
-      'scheduler': PluginHostService(
-        operations: const {
-          'inspect',
-          'setup',
-          'list',
-          'get',
-          'save',
-          'pause',
-          'resume',
-          'run',
-          'history',
-          'output',
-          'cancel',
-          'usage',
-          'pause_scope',
-          'resume_scope',
-        },
-        deactivate: (plugin) => pause(pluginHostOwner(plugin)),
-        reconcile: (activeOwners) async {
-          for (final owner in (await bindings.read()).keys) {
-            if (!activeOwners.contains(owner)) await pause(owner);
-          }
-        },
-        invoke: (plugin, operation, args, confirm, check, _) async {
-          final host = await _pick(hosts, args['host']);
-          final owner = pluginHostOwner(plugin);
-          final bound = (await bindings.read())[owner] ?? {};
-          if (!bound.containsKey(host.id) || operation == 'setup') {
-            final operations = plugin.manifest.hostCapabilities.values
-                .where((capability) => capability.service == 'scheduler')
-                .expand((capability) => capability.operations)
-                .toSet();
-            if (!await confirm(host, 'scheduler', operations)) {
-              throw const PluginException('Host access was not granted');
-            }
-            check();
-            if (!bound.containsKey(host.id)) {
-              await bindings.set(owner, host.id, const SchedulerBinding());
-            }
-          }
-          return serialized(owner, () async {
-            check();
-            final binding = (await bindings.read())[owner]?[host.id];
-            if (binding?.pending == true && operation != 'pause_scope') {
-              await transport(host, owner, 'pause_scope', {});
-              await bindings.set(
-                owner,
-                host.id,
-                const SchedulerBinding(configured: true),
-              );
-              ref.invalidate(pluginHostPendingProvider);
-              ref.invalidate(pendingHostPausesProvider);
-              check();
-            }
-            if (operation == 'setup') {
-              await bindings.set(
-                owner,
-                host.id,
-                const SchedulerBinding(configured: true),
-              );
-            }
-            check();
-            final parameters = Map<String, Object?>.of(args)..remove('host');
-            final result = await transport(host, owner, operation, parameters);
-            check();
-            if (operation == 'inspect' &&
-                result['installed'] == true &&
-                binding?.configured != true) {
-              await bindings.set(
-                owner,
-                host.id,
-                const SchedulerBinding(configured: true),
-              );
-            }
-            return result;
-          });
-        },
-      ),
-      'run': pluginRunService(
-        hosts,
-        ref.watch(pluginEngineProvider),
-        ref.watch(pluginRunHostsProvider),
-      ),
-      'agents': PluginHostService(
-        operations: const {'list', 'answer', 'open'},
-        changes: agentsFeedProvider,
-        hold: () {
-          final held = ref.read(pluginAgentsHeldProvider.notifier);
-          held.state++;
-          return () {
-            if (held.mounted) held.state--;
-          };
-        },
-        invoke: (plugin, operation, args, confirm, check, gesture) async {
-          final feed = ref.read(agentsFeedProvider).value;
-          if (operation == 'list') return pluginAgentList(feed, DateTime.now());
-          if (gesture == null || !gesture.take()) {
-            throw const PluginException(
-              'Agents are answered and opened only from a tap',
-            );
-          }
-          final found = [
-            for (final outcome in feed?.outcomes ?? const <HostOutcome>[])
-              for (final agent in outcome.agents)
-                if (operation == 'answer'
-                    ? agent.approval?.id == args['approval']
-                    : pluginAgentId(outcome.host, agent) == args['id'])
-                  (host: outcome.host, agent: agent),
-          ].firstOrNull;
-          if (found == null) {
-            throw PluginException(
-              operation == 'answer'
-                  ? 'This approval is no longer pending'
-                  : 'This session is gone',
-            );
-          }
-          if (operation == 'open') {
-            gesture.open(found.host, found.agent);
-            return {'opened': true};
-          }
-          final allow = args['allow'];
-          if (allow is! bool) {
-            throw const PluginException('Answer with allow true or false');
-          }
-          final engine = await ref.read(engineOpenProvider)(found.host);
-          try {
-            check();
-            await engine.answer(found.agent.approval!.id, allow: allow);
-          } on EngineRefused catch (error) {
-            throw PluginException(
-              error.notFound ? 'Already answered' : 'The engine refused',
-            );
-          } finally {
-            engine.session.close();
-          }
-          return {'answer': allow ? 'allowed' : 'denied'};
-        },
-      ),
+  Future<void> retryPending() async {
+    for (final owner in (await bindings.read()).keys) {
+      await pause(owner, pendingOnly: true);
+    }
+  }
+
+  late final service = PluginHostService(
+    operations: const {
+      'inspect',
+      'setup',
+      'list',
+      'get',
+      'save',
+      'pause',
+      'resume',
+      'run',
+      'history',
+      'output',
+      'cancel',
+      'usage',
+      'pause_scope',
+      'resume_scope',
     },
-    retryPending: () async {
+    deactivate: (plugin) => pause(pluginHostOwner(plugin)),
+    reconcile: (activeOwners) async {
       for (final owner in (await bindings.read()).keys) {
-        await pause(owner, pendingOnly: true);
+        if (!activeOwners.contains(owner)) await pause(owner);
       }
     },
+    invoke: (plugin, operation, args, confirm, check, _) async {
+      Future<T> checked<T>(Future<T> work) async {
+        final value = await work;
+        check();
+        return value;
+      }
+
+      final host = await checked(_pick(hosts, args['host']));
+      final owner = pluginHostOwner(plugin);
+      final bound = (await checked(bindings.read()))[owner] ?? {};
+      if (!bound.containsKey(host.id) || operation == 'setup') {
+        final operations = plugin.manifest.hostCapabilities.values
+            .where((capability) => capability.service == 'scheduler')
+            .expand((capability) => capability.operations)
+            .toSet();
+        if (!await checked(confirm(host, 'scheduler', operations))) {
+          throw const PluginException('Host access was not granted');
+        }
+        if (!bound.containsKey(host.id)) {
+          await checked(bindings.set(owner, host.id, const SchedulerBinding()));
+        }
+      }
+      return _serialized(owner, () async {
+        check();
+        final binding = (await checked(bindings.read()))[owner]?[host.id];
+        if (binding?.pending == true && operation != 'pause_scope') {
+          await checked(_acknowledge(owner, host));
+        }
+        if (operation == 'setup') {
+          await checked(
+            bindings.set(
+              owner,
+              host.id,
+              const SchedulerBinding(configured: true),
+            ),
+          );
+        }
+        final parameters = Map<String, Object?>.of(args)..remove('host');
+        final result = await checked(
+          transport(host, owner, operation, parameters),
+        );
+        if (operation == 'inspect' &&
+            result['installed'] == true &&
+            binding?.configured != true) {
+          await bindings.set(
+            owner,
+            host.id,
+            const SchedulerBinding(configured: true),
+          );
+        }
+        return result;
+      });
+    },
   );
+}
+
+final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
+  final hosts = ref.watch(hostRepositoryProvider);
+  final scheduler = PluginScheduler(
+    hosts,
+    ref.watch(schedulerTransportProvider),
+    ref.watch(schedulerBindingsProvider),
+    () {
+      ref.invalidate(pluginHostPendingProvider);
+      ref.invalidate(pendingHostPausesProvider);
+    },
+  );
+  return PluginHostRegistry({
+    'hosts': PluginHostService(
+      operations: const {'list', 'workspaces'},
+      invoke: (plugin, operation, args, confirm, check, _) async {
+        if (operation == 'workspaces') {
+          final host = await _pick(hosts, args['host']);
+          if (!await confirm(host, 'hosts', {'workspaces'})) {
+            throw const PluginException('Workspace access was not granted');
+          }
+          check();
+          final scan = await ref.read(pathScannerProvider)(host);
+          check();
+          return switch (scan) {
+            PathScanFound(:final directories) => {
+              'items': directories.take(200).toList(),
+            },
+            PathScanFailed(:final reason) => throw PluginException(reason),
+            _ => throw const PluginException('Workspace scan did not finish'),
+          };
+        }
+        return {
+          'items': [
+            for (final host in await hosts.all())
+              {'id': host.id, 'name': host.name},
+          ],
+        };
+      },
+    ),
+    'scheduler': scheduler.service,
+    'run': pluginRunService(
+      hosts,
+      ref.watch(pluginEngineProvider),
+      ref.watch(pluginRunHostsProvider),
+    ),
+    'agents': PluginHostService(
+      operations: const {'list', 'answer', 'open'},
+      changes: agentsFeedProvider,
+      hold: () {
+        final held = ref.read(pluginAgentsHeldProvider.notifier);
+        held.state++;
+        return () {
+          if (held.mounted) held.state--;
+        };
+      },
+      invoke: (plugin, operation, args, confirm, check, gesture) async {
+        final feed = ref.read(agentsFeedProvider).value;
+        if (operation == 'list') return pluginAgentList(feed, DateTime.now());
+        if (gesture == null || !gesture.take()) {
+          throw const PluginException(
+            'Agents are answered and opened only from a tap',
+          );
+        }
+        final found = [
+          for (final outcome in feed?.outcomes ?? const <HostOutcome>[])
+            for (final agent in outcome.agents)
+              if (operation == 'answer'
+                  ? agent.approval?.id == args['approval']
+                  : pluginAgentId(outcome.host, agent) == args['id'])
+                (host: outcome.host, agent: agent),
+        ].firstOrNull;
+        if (found == null) {
+          throw PluginException(
+            operation == 'answer'
+                ? 'This approval is no longer pending'
+                : 'This session is gone',
+          );
+        }
+        if (operation == 'open') {
+          gesture.open(found.host, found.agent);
+          return {'opened': true};
+        }
+        final allow = args['allow'];
+        if (allow is! bool) {
+          throw const PluginException('Answer with allow true or false');
+        }
+        final engine = await ref.read(engineOpenProvider)(found.host);
+        try {
+          check();
+          await engine.answer(found.agent.approval!.id, allow: allow);
+        } on EngineRefused catch (error) {
+          throw PluginException(
+            error.notFound ? 'Already answered' : 'The engine refused',
+          );
+        } finally {
+          engine.session.close();
+        }
+        return {'answer': allow ? 'allowed' : 'denied'};
+      },
+    ),
+  }, retryPending: scheduler.retryPending);
 });
