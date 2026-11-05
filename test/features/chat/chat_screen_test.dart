@@ -201,10 +201,7 @@ void main() {
     expect(find.text('this media is gone'), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('close'));
     await tester.pumpAndSettle();
-    expect(
-      link.requests.where((r) => r['op'] == 'close').single,
-      containsPair('index', 2),
-    );
+    expect(link.requests.where((r) => r['op'] == 'close'), isEmpty);
   });
   testWidgets('a node that did not start reads offline and says what failed', (
     tester,
@@ -283,6 +280,18 @@ void main() {
       link.arrive({'index': 1, 'mine': false, 'body': 'hi', 'at': 1});
       await tester.pumpAndSettle();
       expect(banner, findsNothing);
+
+      unawaited(
+        rootNavigatorKey.currentState!.push(
+          MaterialPageRoute<void>(builder: (_) => const Scaffold()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      link.arrive({'index': 2, 'mine': false, 'body': 'buried', 'at': 2});
+      await tester.pumpAndSettle();
+      await tester.tap(banner);
+      await tester.pumpAndSettle();
+      expect(find.byType(ConversationScreen), findsOneWidget);
     },
   );
 }

@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -52,6 +53,8 @@ pub struct Node {
     dir: PathBuf,
     fetch: mpsc::UnboundedSender<(String, u64)>,
     media: Mutex<()>,
+    fetching: Mutex<()>,
+    opens: AtomicU64,
 }
 
 impl Node {
@@ -100,6 +103,8 @@ impl Node {
             dir: PathBuf::from(dir),
             fetch,
             media: Mutex::default(),
+            fetching: Mutex::default(),
+            opens: AtomicU64::default(),
         });
         node.api.attach().await.map_err(at(NETWORK))?;
 
@@ -335,7 +340,7 @@ impl Node {
                     .await
             }
             "open" => self.view(&text("record"), index()).await,
-            "close" => self.close(&text("record"), index()).await,
+            "close" => self.close(&text("path")),
             "verify" => self.edit(&text("record"), |c| c.verified = true).await,
             "rename" => self.edit(&text("record"), |c| c.name = text("name")).await,
             "remove" => self.remove(&text("record")).await,
@@ -492,7 +497,10 @@ impl Node {
     }
 
     fn viewed(&self, record: &str, index: u64) -> PathBuf {
-        self.dir.join("media-open").join(file_name(record, index))
+        let open = self.opens.fetch_add(1, Ordering::Relaxed);
+        self.dir
+            .join("media-open")
+            .join(format!("{}-{open}", file_name(record, index)))
     }
 
     async fn send_media(
@@ -618,17 +626,22 @@ impl Node {
     }
 
     async fn fetch(&self, record: &str, index: u64) -> Result<(), Error> {
+        if self.unfetched(record, index).await?.is_none() {
+            return Ok(());
+        }
+        let _fetching = self.fetching.lock().await;
+        let Some(wanted) = self.unfetched(record, index).await? else {
+            return Ok(());
+        };
+        let sealed = self.download(&wanted).await?;
         let _media = self.media.lock().await;
         let Some(mut message) = self.load(record, index).await? else {
             return Err(Error("no such message".into()));
         };
-        let Some(media) = message.media.as_mut() else {
-            return Err(Error("no media in this message".into()));
-        };
-        if media.stored || media.spent() || message.mine {
+        let Some(media) = message.media.as_mut().filter(|m| !m.stored && !m.spent()) else {
             return Ok(());
-        }
-        write(&self.sealed(record, index), &self.download(media).await?)?;
+        };
+        write(&self.sealed(record, index), &sealed)?;
         media.stored = true;
         self.store(record, &message).await?;
         self.publish().await;
@@ -677,9 +690,25 @@ impl Node {
         Ok(json!({"path": path.to_string_lossy()}))
     }
 
-    async fn close(&self, record: &str, index: u64) -> Result<Value, Error> {
+    async fn unfetched(&self, record: &str, index: u64) -> Result<Option<Media>, Error> {
         let _media = self.media.lock().await;
-        let _ = fs::remove_file(self.viewed(record, index));
+        let Some(message) = self.load(record, index).await? else {
+            return Err(Error("no such message".into()));
+        };
+        if message.mine {
+            return Ok(None);
+        }
+        match message.media {
+            Some(media) if !media.stored && !media.spent() => Ok(Some(media)),
+            Some(_) => Ok(None),
+            None => Err(Error("no media in this message".into())),
+        }
+    }
+
+    fn close(&self, path: &str) -> Result<Value, Error> {
+        if let Some(name) = std::path::Path::new(path).file_name() {
+            let _ = fs::remove_file(self.dir.join("media-open").join(name));
+        }
         Ok(Value::Null)
     }
 }

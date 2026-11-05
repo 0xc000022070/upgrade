@@ -72,7 +72,7 @@ class _ChatAlertsState extends ConsumerState<ChatAlerts> {
   /// A start refused from the background is tried again, and a conversation still on
   /// screen takes back what was posted for it meanwhile.
   void _resumed() {
-    for (final record in shownConversations) {
+    for (final record in shownConversations.keys.where(conversationOnTop)) {
       unawaited(ChatNotifications.cancel(record));
     }
     if (!ref.exists(chatBookProvider)) return;
@@ -108,7 +108,7 @@ class _ChatAlertsState extends ConsumerState<ChatAlerts> {
     final visible =
         ref.read(appVisibleProvider) &&
         !(ref.read(pipModeProvider).value ?? false);
-    if (visible && shownConversations.contains(record)) return;
+    if (visible && conversationOnTop(record)) return;
     final contact = (await ref.read(chatBookProvider.future)).contact(record);
     final name = contact == null || contact.name.isEmpty
         ? 'unnamed'
@@ -135,7 +135,7 @@ class _ChatAlertsState extends ConsumerState<ChatAlerts> {
   void _open(String record) {
     _hide?.cancel();
     if (mounted) setState(() => _banner = null);
-    if (shownConversations.contains(record)) return;
+    if (conversationOnTop(record)) return;
     unawaited(
       rootNavigatorKey.currentState?.push(
         MaterialPageRoute<void>(

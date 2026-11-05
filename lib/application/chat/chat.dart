@@ -127,8 +127,6 @@ final chatLinkProvider = FutureProvider<ChatLink>((ref) async {
   return link;
 });
 
-final shownConversations = <String>{};
-
 final chatBookProvider = FutureProvider<ChatBook>((ref) async {
   final link = await ref.watch(chatLinkProvider.future);
   final events = link.events.listen((_) => ref.invalidateSelf());
@@ -169,15 +167,17 @@ final chatMediaProvider = FutureProvider.autoDispose.family<String, MediaRef>((
   media,
 ) async {
   final link = await ref.watch(chatLinkProvider.future);
-  final where = {'record': media.record, 'index': media.index};
-  final opening = link.call({'op': 'open', ...where});
-  // Closed only once the open has landed, or a slow fetch would write the plain copy
-  // after the close that should have removed it.
+  final opening = link
+      .call({'op': 'open', 'record': media.record, 'index': media.index})
+      .then((answer) => (answer! as Map<String, Object?>)['path']! as String);
+  // Every open writes its own file, and only that one is closed, once it exists.
   ref.onDispose(
-    () => opening
-        .then((_) {}, onError: (Object _) {})
-        .then((_) => link.call({'op': 'close', ...where})),
+    () => opening.then(
+      (path) => link
+          .call({'op': 'close', 'path': path})
+          .then((_) {}, onError: (Object _) {}),
+      onError: (Object _) {},
+    ),
   );
-  final answer = await opening;
-  return (answer! as Map<String, Object?>)['path']! as String;
+  return opening;
 });

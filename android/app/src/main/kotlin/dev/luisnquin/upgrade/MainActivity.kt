@@ -53,6 +53,7 @@ class MainActivity : FlutterActivity() {
     // covers, and measurement put ~130ms of the boot log under that fade.
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (secured) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             splashScreen.setOnExitAnimationListener { view -> view.remove() }
         }
@@ -181,7 +182,8 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
                     "secure" -> {
-                        if (call.arguments == true) {
+                        secured = call.arguments == true
+                        if (secured) {
                             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                         } else {
                             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
@@ -454,6 +456,8 @@ private const val FRAME_RATE = 60f
 private const val SAVE_DOCUMENT = 3901
 private const val OPEN_DOCUMENT = 3902
 private const val REPLAY_TAP = "upgrade.replayTap"
+
+private var secured = false
 
 // Battery saver and thermal pressure are merged here rather than in Dart, so the
 // UI subscribes to the decision and not to the two inputs.

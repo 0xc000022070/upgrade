@@ -29,6 +29,11 @@ import 'package:upgrade/platform/notifications/chat_notifications.dart';
 
 const mediaMax = 16 * 1024 * 1024 - 16;
 
+final shownConversations = <String, Route<Object?>>{};
+
+bool conversationOnTop(String record) =>
+    shownConversations[record]?.isCurrent ?? false;
+
 class ChatPage extends StatelessWidget {
   const ChatPage({super.key, required this.title, required this.children});
   final String title;
@@ -60,17 +65,28 @@ class _ConversationState extends ConsumerState<ConversationScreen> {
   final _text = TextEditingController();
   int _uploading = 0;
   String? _error;
+  Route<Object?>? _route;
 
   @override
   void initState() {
     super.initState();
-    shownConversations.add(widget.record);
     unawaited(ChatNotifications.cancel(widget.record));
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+    if (_route case final route? when route.isCurrent) {
+      shownConversations[widget.record] = route;
+    }
+  }
+
+  @override
   void dispose() {
-    shownConversations.remove(widget.record);
+    if (shownConversations[widget.record] == _route) {
+      shownConversations.remove(widget.record);
+    }
     _text.dispose();
     super.dispose();
   }
@@ -90,7 +106,18 @@ class _ConversationState extends ConsumerState<ConversationScreen> {
   Future<void> _attach() async {
     setState(() => _error = null);
     final picked = await _pick(context);
-    if (picked == null || !mounted) return;
+    if (picked == null) return;
+    try {
+      await _offer(picked);
+    } finally {
+      if (Platform.isAndroid) {
+        await File(picked.path).delete().then((_) {}, onError: (Object _) {});
+      }
+    }
+  }
+
+  Future<void> _offer(_Picked picked) async {
+    if (!mounted) return;
     if (await File(picked.path).length() > mediaMax) {
       setState(() => _error = '${picked.kind} goes up to 16 MB');
       return;
@@ -688,12 +715,12 @@ class _MediaViewerState extends ConsumerState<MediaViewer> {
   @override
   void initState() {
     super.initState();
-    if (widget.info.limited) Device.secure(true);
+    if (widget.info.limited) Device.secure(this, true);
   }
 
   @override
   void dispose() {
-    if (widget.info.limited) Device.secure(false);
+    if (widget.info.limited) Device.secure(this, false);
     _video?.dispose();
     if (_path case final path?) FileImage(File(path)).evict();
     super.dispose();

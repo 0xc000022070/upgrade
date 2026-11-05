@@ -26,19 +26,22 @@ abstract final class Device {
       .handleError((Object _) {});
 
   static final _awake = <Object>{};
+  static final _secured = <Object>{};
 
-  static void keepAwake(Object owner, bool on) {
-    final before = _awake.isNotEmpty;
-    on ? _awake.add(owner) : _awake.remove(owner);
-    if (before == _awake.isNotEmpty) return;
+  static void keepAwake(Object owner, bool on) =>
+      _hold('awake', _awake, owner, on);
+
+  static void secure(Object owner, bool on) =>
+      _hold('secure', _secured, owner, on);
+
+  static void _hold(String method, Set<Object> owners, Object owner, bool on) {
+    final before = owners.isNotEmpty;
+    on ? owners.add(owner) : owners.remove(owner);
+    if (before == owners.isNotEmpty) return;
     _channel
-        .invokeMethod<void>('awake', _awake.isNotEmpty)
+        .invokeMethod<void>(method, owners.isNotEmpty)
         .then((_) {}, onError: (Object _) {});
   }
-
-  static void secure(bool on) => _channel
-      .invokeMethod<void>('secure', on)
-      .then((_) {}, onError: (Object _) {});
 
   static void keepChat(bool on) => _channel
       .invokeMethod<void>('keepChat', on)
