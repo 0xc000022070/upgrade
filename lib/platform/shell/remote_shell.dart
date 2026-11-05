@@ -72,6 +72,42 @@ String moshServerCleanupCommand(String session) {
   );
 }
 
+/// Looks for the tab's server the way the cleanup does, by its environment where `/proc`
+/// has one and by its arguments everywhere, and answers no only when a listing ran.
+String moshServerFindCommand(String session) {
+  assert(durableShellSession.hasMatch(session));
+  return underSh(
+    'exec 2>/dev/null; e=; [ -d /proc/self ] && e=1; '
+    'for p in /proc/[0-9]*; do '
+    'tr "\\000" "\\n" < "\$p/environ" | grep -qx "'
+    '$moshTabVariable=$session" || continue; '
+    'a=\$(tr "\\000" " " < "\$p/cmdline"); '
+    'case "\${a%% *}" in mosh-server|*/mosh-server) '
+    'echo "${_moshFound}1"; exit 0;; esac; '
+    'done; '
+    'l=\$(ps -A -ww -o command=) || [ -n "\$e" ] || exit 1; '
+    'printf "%s\\n" "\$l" | while read -r a; do '
+    'case "\${a%% *}" in mosh-server|*/mosh-server) '
+    'case " \$a " in *" ${moshServerMark(session)} "*) '
+    'echo;; esac;; esac; '
+    'done | grep -q "" && echo "${_moshFound}1" || echo "${_moshFound}0"',
+  );
+}
+
+const _moshFound = 'UPGRADE_MOSH_FOUND=';
+
+bool? moshServerFound(String out) {
+  for (final line in out.split('\n')) {
+    switch (line.trim()) {
+      case '${_moshFound}1':
+        return true;
+      case '${_moshFound}0':
+        return false;
+    }
+  }
+  return null;
+}
+
 String moshServerMark(String session) => '-l $moshTabVariable=$session';
 
 const _moshSwept = 'UPGRADE_MOSH_SWEPT=';

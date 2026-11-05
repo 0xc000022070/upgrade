@@ -207,6 +207,7 @@ class ShellTunnel {
         address: address,
         owner: user,
         tab: tabSession,
+        port: udpPort,
         columns: columns,
         rows: rows,
         continuity: resumed ? ShellContinuity.resumed : ShellContinuity.plain,
@@ -309,6 +310,7 @@ class ShellTunnel {
         supervisor,
         channel,
         address: address,
+        tab: tabSession,
         columns: columns,
         rows: rows,
         healthInterval: moshHealthInterval,
@@ -483,6 +485,7 @@ abstract class _ChannelConnection<E> implements ShellConnection {
   var _suspended = false;
   Future<void>? _suspending;
   ShellEnded? _ended;
+  var _heard = false;
 
   String get _name;
 
@@ -495,6 +498,8 @@ abstract class _ChannelConnection<E> implements ShellConnection {
   Future<void> _closeWire();
 
   void _probeAgain();
+
+  Future<bool?> _serverGone();
 
   late final StreamController<E> _out = StreamController<E>.broadcast(
     onListen: () {
@@ -534,10 +539,11 @@ abstract class _ChannelConnection<E> implements ShellConnection {
     _liveness.report(ShellConnectionHealth.reconnecting);
     await _rehomeWire();
     _liveness.forget();
+    _heard = false;
     _probeAgain();
     if (network == null) return;
     await _supervisor.drop(network);
-    unawaited(_reopen(_supervisor, network));
+    unawaited(_reopenAndAsk(network));
   }
 
   @override
@@ -560,8 +566,20 @@ abstract class _ChannelConnection<E> implements ShellConnection {
     if (_closed) return;
     await rehome();
     if (_ready.isCompleted && !_closed && !_suspended) _liveness.start();
-    await _reopen(_supervisor, reason);
+    await _reopenAndAsk(reason);
   }
+
+  /// UDP says nothing about a port nobody listens on, so a channel still silent once the
+  /// host is reached asks it whether its server survived, e.g. a reboot while away.
+  Future<void> _reopenAndAsk(ReopenReason reason) async {
+    await _reopen(_supervisor, reason);
+    if (!_unheard) return;
+    final gone = await _serverGone();
+    if (gone != true || !_unheard) return;
+    _end('$_name: the server is gone from the host, dropping the channel');
+  }
+
+  bool get _unheard => !_closed && !_suspended && !_heard && _ended == null;
 
   @override
   bool accepts(DropReason reason) => _supervisor.accepts(reason);
@@ -618,13 +636,14 @@ abstract class _ChannelConnection<E> implements ShellConnection {
     if (!_exit.isCompleted) _exit.complete(code);
   }
 
-  void _abandonSilentChannel() {
+  void _abandonSilentChannel() => _end(
+    '$_name: no answer in ${giveUp.inSeconds}s, dropping the channel',
+  );
+
+  void _end(String why) {
     _ended ??= _supervisor.terminalEnded();
     _liveness.report(ShellConnectionHealth.disconnected);
-    _log(
-      _supervisor.endpoint,
-      '$_name: no answer in ${giveUp.inSeconds}s, dropping the channel',
-    );
+    _log(_supervisor.endpoint, why);
     if (!_out.isClosed) {
       _out.addError(
         ShellFailure(
@@ -641,6 +660,7 @@ class MoshShellConnection extends _ChannelConnection<Uint8List> {
     super._supervisor,
     this._mosh, {
     required super.address,
+    required this.tab,
     required super.columns,
     required super.rows,
     super.healthInterval = const Duration(seconds: 3),
@@ -664,6 +684,7 @@ class MoshShellConnection extends _ChannelConnection<Uint8List> {
   }
 
   final MoshChannel _mosh;
+  final String tab;
 
   @override
   ShellContinuity get continuity => ShellContinuity.plain;
@@ -721,6 +742,16 @@ class MoshShellConnection extends _ChannelConnection<Uint8List> {
   }
 
   @override
+  Future<bool?> _serverGone() async {
+    final found = await _supervisor.exec(
+      moshServerFindCommand(tab),
+      timeout: remoteCommandDeadline,
+    );
+    final up = found == null ? null : moshServerFound(found.out);
+    return up == null ? null : !up;
+  }
+
+  @override
   Future<void> _suspendWire() => _mosh.suspend();
 
   @override
@@ -750,6 +781,7 @@ class MoshShellConnection extends _ChannelConnection<Uint8List> {
   }
 
   void _contact() {
+    _heard = true;
     _probeState = null;
     _liveness.heard();
   }
@@ -794,6 +826,7 @@ class EngineShellConnection extends _ChannelConnection<EngineEvent> {
     required super.address,
     required this.owner,
     required this.tab,
+    required this.port,
     required super.columns,
     required super.rows,
     required this.continuity,
@@ -819,6 +852,7 @@ class EngineShellConnection extends _ChannelConnection<EngineEvent> {
 
   final String owner;
   final String tab;
+  final int port;
   final EngineChannel _engine;
 
   final bool seamless;
@@ -915,6 +949,26 @@ class EngineShellConnection extends _ChannelConnection<EngineEvent> {
   }
 
   @override
+  Future<bool?> _serverGone() async {
+    final listed = await _engineCall(
+      (command, stdin) => _supervisor.exec(
+        command,
+        stdin: stdin,
+        timeout: remoteCommandDeadline,
+      ),
+      owner: owner,
+      tab: tab,
+      op: 'list',
+      args: const {},
+    );
+    final shells = listed?['shells'];
+    if (shells is! List) return null;
+    return !shells.any(
+      (shell) => shell is Map && shell['tab'] == tab && shell['port'] == port,
+    );
+  }
+
+  @override
   Future<void> _suspendWire() => _engine.suspend();
 
   @override
@@ -954,6 +1008,7 @@ class EngineShellConnection extends _ChannelConnection<EngineEvent> {
   }
 
   void _contact() {
+    _heard = true;
     _probing = false;
     _liveness.heard();
   }

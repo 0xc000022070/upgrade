@@ -43,6 +43,38 @@ void main() {
     expect(otherExited, isFalse);
   });
 
+  test('a tab finds its own Mosh server and no other', () async {
+    final temp = Directory.systemTemp.createTempSync('mosh-find');
+    addTearDown(() => temp.deleteSync(recursive: true));
+    final shell = (await Process.run('sh', [
+      '-c',
+      'command -v sh',
+    ])).stdout.toString().trim();
+    final server = Link('${temp.path}/mosh-server')..createSync(shell);
+    final process = await Process.start(server.path, [
+      '-c',
+      'while :; do sleep 1; done',
+      'new',
+      '-l',
+      '$moshTabVariable=s1a2b3c',
+    ]);
+    addTearDown(process.kill);
+
+    Future<bool?> find(String tab) async => moshServerFound(
+      (await Process.run('sh', [
+        '-c',
+        moshServerFindCommand(tab),
+      ])).stdout.toString(),
+    );
+
+    expect(await find('s1a2b3c'), isTrue);
+    expect(await find('s9z8y7x'), isFalse);
+    process.kill();
+    await process.exitCode;
+    expect(await find('s1a2b3c'), isFalse);
+    expect(moshServerFound(''), isNull);
+  });
+
   test('Mosh cleanup is confirmed only by its marker', () {
     expect(moshSwept(''), isNull);
     expect(

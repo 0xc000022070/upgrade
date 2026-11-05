@@ -2458,12 +2458,14 @@ const _engineKey = 'AAECAwQFBgcICQoLDA0ODw';
 String Function(String, String) engineHostAnswer({
   String start =
       '{"ok":true,"result":{"port":60990,"key":"$_engineKey","pid":42}}',
+  String list = '',
 }) => (command, stdin) {
   if (!command.endsWith('upgraded')) return moshHostAnswer(command);
   final request = jsonDecode(stdin) as Map<String, Object?>;
   return switch (request['op']) {
     'start' => start,
     'stop' => '{"ok":true,"result":{"stopped":true}}',
+    'list' => list,
     _ => '',
   };
 };
@@ -3076,6 +3078,57 @@ void engineTests() {
     expect(host.closed, isTrue);
     await connection.resume(AppResumed(testSignal()));
     expect(engine.rehomes, 1);
+  });
+
+  group('a resume onto a host that rebooted', () {
+    Future<(ShellConnection, Completer<Object>)> resumedAgainst(
+      String list,
+    ) async {
+      FakeHost answering() =>
+          FakeHost()..execInputAnswer = engineHostAnswer(list: list);
+      final engine = FakeEngineChannel();
+      final connection = await openOn(
+        engineTunnelTo(
+          answering(),
+          engine,
+          FakeMoshChannel(),
+          nextHost: answering,
+        ),
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+      );
+      addTearDown(() => connection.close(UserClosed(testIntent())));
+      final failure = Completer<Object>();
+      connection.output.listen((_) {}, onError: failure.complete);
+      await connection.suspend(AppSuspended(testSignal()));
+      await connection.resume(AppResumed(testSignal()));
+      return (connection, failure);
+    }
+
+    test('ends a silent engine tab the host no longer runs', () async {
+      final (connection, failure) = await resumedAgainst(
+        '{"ok":true,"result":{"shells":[]}}',
+      );
+      final error = await failure.future.timeout(const Duration(seconds: 2));
+      expect(error, isA<ShellFailure>());
+      expect(connection.ended, isNotNull);
+    });
+
+    test('keeps an engine tab the host still runs on its port', () async {
+      final (connection, failure) = await resumedAgainst(
+        '{"ok":true,"result":{"shells":[{"tab":"$session","port":60990}]}}',
+      );
+      await pumpEventQueue();
+      expect(failure.isCompleted, isFalse);
+      expect(connection.ended, isNull);
+    });
+
+    test('keeps the tab when the host gives no listing', () async {
+      final (connection, failure) = await resumedAgainst('');
+      await pumpEventQueue();
+      expect(failure.isCompleted, isFalse);
+      expect(connection.ended, isNull);
+    });
   });
 
   group('a silent UDP path', () {
