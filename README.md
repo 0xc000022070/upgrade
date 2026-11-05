@@ -124,7 +124,7 @@ software on the host ([Host setup](#host-setup)).
 | HERDR | agents in herdr panes: AGENTS panel, SEND, agent tabs | implemented |
 | AGENTS | agents heard from their own hooks | implemented |
 | VNC | DESKTOP on the host row, tunnelled through SSH | verified on an emulator: a live desktop, and `FAILED` once the host goes down |
-| DEVICES | the host's emulators and simulators | implemented; not verified |
+| DEVICES | the host's emulators and simulators | verified on an emulator: a macOS host's Android emulators listed and one streamed live; deleting the host ends the stream on both ends; iOS simulators not verified |
 
 ### Engine-backed
 
