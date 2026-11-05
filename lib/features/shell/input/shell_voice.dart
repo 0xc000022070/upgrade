@@ -40,7 +40,7 @@ const _recordingFailed = 'RECORDING FAILED';
 
 const _whisperFailed = 'WHISPER FAILED';
 
-const _getWhisper = 'DOWNLOAD A WHISPER MODEL IN SYS\u00a0·\u00a0VOICE';
+const _getWhisper = 'GET WHISPER IN SYS\u00a0·\u00a0VOICE';
 
 const _advice = {
   _micDenied: 'ALLOW THE MICROPHONE IN ANDROID SETTINGS',
