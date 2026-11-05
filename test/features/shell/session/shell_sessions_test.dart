@@ -2560,7 +2560,9 @@ void main() {
       expect(first.pin?.id, id);
       expect(second.pin?.id, id);
 
-      await sessions.answerPin(first, 'hunter2', testIntent());
+      await sessions
+          .pinsFor(first.host.id)
+          .answer(first, 'hunter2', testIntent());
       expect(first.pin, isNull);
       expect(second.pin, isNull);
       expect(
@@ -2581,7 +2583,9 @@ void main() {
 
       connection.emit(osc({'mode': 'pin'}));
       await _settle();
-      await sessions.answerPin(session, 'hunter2', testIntent());
+      await sessions
+          .pinsFor(session.host.id)
+          .answer(session, 'hunter2', testIntent());
 
       expect(session.pin, isNull);
       final answer = connection.execs.last;
@@ -2601,11 +2605,34 @@ void main() {
 
       connection.emit(osc({'mode': 'pin'}));
       await _settle();
-      await sessions.answerPin(session, null, testIntent());
+      await sessions
+          .pinsFor(session.host.id)
+          .answer(session, null, testIntent());
 
       expect(session.pin, isNull);
       expect(connection.execs.last.command, pinentryAnswerCommand(id));
       expect(connection.execs.last.stdin, [0x0a]);
+
+      await sessions.close(intent: testIntent(), _rose.id, session);
+    });
+
+    test('a swiped request stays aside for the host until reopened', () async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      final session = sessions.open(intent: testIntent(), _rose)!;
+      await _settle();
+      transport.opened.single.emit(osc({'mode': 'pin'}));
+      await _settle();
+      final pins = sessions.pinsFor(_rose.id);
+      expect(pins.current?.request.id, id);
+
+      pins.dismiss(session.pin!);
+      expect(sessions.pinsFor(_rose.id).current, isNull);
+      expect(sessions.pinsFor(_rose.id).dismissed?.id, id);
+
+      pins.reopen();
+      expect(pins.current?.session, same(session));
+      expect(pins.dismissed, isNull);
 
       await sessions.close(intent: testIntent(), _rose.id, session);
     });
@@ -2626,7 +2653,9 @@ void main() {
         await _settle();
         expect(session.pin, isNull);
 
-        await sessions.answerPin(session, 'hunter2', testIntent());
+        await sessions
+            .pinsFor(session.host.id)
+            .answer(session, 'hunter2', testIntent());
         expect(connection.execs.map((exec) => exec.command), [
           pinentryMarkCommand(session.tab),
           pinentryOpenCommand(),
@@ -2727,7 +2756,9 @@ void main() {
       );
 
       expect(
-        await sessions.answerPin(session, 'hunter2', testIntent()),
+        await sessions
+            .pinsFor(session.host.id)
+            .answer(session, 'hunter2', testIntent()),
         PinAnswer.expired,
       );
       expect(session.pin, isNull);
@@ -2755,7 +2786,9 @@ void main() {
       );
 
       expect(
-        await sessions.answerPin(session, 'hunter2', testIntent()),
+        await sessions
+            .pinsFor(session.host.id)
+            .answer(session, 'hunter2', testIntent()),
         PinAnswer.sent,
       );
 
@@ -2773,7 +2806,9 @@ void main() {
       await _settle();
 
       expect(
-        await sessions.answerPin(session, 'hunter2', testIntent()),
+        await sessions
+            .pinsFor(session.host.id)
+            .answer(session, 'hunter2', testIntent()),
         PinAnswer.expired,
       );
       expect(session.pin, isNull);
@@ -2798,7 +2833,9 @@ void main() {
       connection.wedged = true;
 
       expect(
-        await sessions.answerPin(session, 'hunter2', testIntent()),
+        await sessions
+            .pinsFor(session.host.id)
+            .answer(session, 'hunter2', testIntent()),
         PinAnswer.expired,
       );
       expect(session.pin, isNull);
@@ -2827,7 +2864,9 @@ void main() {
       };
 
       expect(
-        await sessions.answerPin(session, 'hunter2', testIntent()),
+        await sessions
+            .pinsFor(session.host.id)
+            .answer(session, 'hunter2', testIntent()),
         PinAnswer.lost,
       );
 
@@ -2846,7 +2885,9 @@ void main() {
       connection.openRefused = const SocketException('Connection refused');
 
       expect(
-        await sessions.answerPin(session, 'hunter2', testIntent()),
+        await sessions
+            .pinsFor(session.host.id)
+            .answer(session, 'hunter2', testIntent()),
         PinAnswer.lost,
       );
       expect(session.pin, isNotNull);
@@ -2877,7 +2918,9 @@ void main() {
       };
 
       expect(
-        await sessions.answerPin(session, 'hunter2', testIntent()),
+        await sessions
+            .pinsFor(session.host.id)
+            .answer(session, 'hunter2', testIntent()),
         PinAnswer.lost,
       );
       expect(session.pin, isNotNull);
@@ -3745,7 +3788,9 @@ void main() {
       transport.opened[1].emit(request());
       await _settle();
 
-      await sessions.answerPin(second, 'hunter2', testIntent());
+      await sessions
+          .pinsFor(second.host.id)
+          .answer(second, 'hunter2', testIntent());
       expect(shade.events, ['up h1 ROSE · the key', 'down h1']);
 
       await sessions.close(intent: testIntent(), _rose.id, first);

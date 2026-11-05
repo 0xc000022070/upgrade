@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -397,6 +399,26 @@ void main() {
 
       expect(await sessions.cwdFromHost(session), isNull);
       expect(session.cwd, '/srv/opened-at');
+
+      await unmount(tester);
+    });
+
+    testWidgets('a host that drops the question keeps the known repository', (
+      tester,
+    ) async {
+      final transport = FakeShellTransport();
+      final sessions = fakeShellSessions(transport);
+      await tester.pumpWidget(app(sessions));
+      await ready(tester);
+
+      final session = sessions.forHost(rose.id).single
+        ..cwd = '/srv/app'
+        ..repository = '/srv/app';
+      transport.opened.single.answer = (_, _) =>
+          throw SSHSocketError(const SocketException('gone'));
+
+      expect(await sessions.repositoryFromHost(session), '/srv/app');
+      expect(session.repository, '/srv/app');
 
       await unmount(tester);
     });

@@ -237,23 +237,12 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   ({ShellSession session, String id})? _pinShown;
   BuildContext? _pinSheet;
 
-  /// A request the user swiped off the phone. It stays open on the computer and is not put
-  /// back in front of them unless they ask through the header; the next id is a new request.
-  String? _pinDismissed;
+  HostPins get _pins => _store.pinsFor(widget.host.id);
 
-  PinRequest? _swipedPin() {
-    if (_pinShown != null || _pinDismissed == null) return null;
-    for (final session in _store.forHost(widget.host.id)) {
-      final request = session.pin;
-      if (request?.id == _pinDismissed && session.state is ShellLive) {
-        return request;
-      }
-    }
-    return null;
-  }
+  PinRequest? _swipedPin() => _pinShown == null ? _pins.dismissed : null;
 
   void _onPinReopen() {
-    setState(() => _pinDismissed = null);
+    setState(_pins.reopen);
     unawaited(_askPins());
   }
 
@@ -485,9 +474,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   /// `done`, a swipe — sends nothing; only a tap on one of its blocks reaches the host.
   Future<void> _askPins() async {
     while (mounted) {
-      final session = _nextPin(_store.forHost(widget.host.id));
-      final request = session?.pin;
-      if (session == null || request == null) break;
+      final next = _pins.current;
+      if (next == null) break;
+      final (:session, :request) = next;
       _pinShown = (session: session, id: request.id);
       // Nothing reconnects under the sheet: the request belongs to this session's
       // shell, and a redial would take that shell away from the answer the user is
@@ -498,9 +487,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
         final answer = await _pinSheetFor(session, request);
         if (!mounted) return;
         if (answer == null) {
-          _pinDismissed = request.id;
+          _pins.dismiss(request);
         } else if (session.pin?.id == request.id) {
-          outcome = await _store.answerPin(
+          outcome = await _pins.answer(
             session,
             answer.passphrase,
             answer.intent,
@@ -518,19 +507,6 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
         if (!mounted) return;
       }
     }
-  }
-
-  /// The tab on screen first: under Mosh every tab of the host hears the same bell, and the
-  /// sheet names the shell the user is looking at. Then any other live tab, in order.
-  ShellSession? _nextPin(List<ShellSession> sessions) {
-    final onScreen = _store.activeFor(widget.host.id);
-    for (final session in [?onScreen, ...sessions]) {
-      final request = session.pin;
-      if (request == null || session.state is! ShellLive) continue;
-      if (request.id == _pinDismissed) continue;
-      return session;
-    }
-    return null;
   }
 
   Future<_PinDecision?> _pinSheetFor(ShellSession session, PinRequest request) {
@@ -551,33 +527,14 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
               store: _store,
               watch: (store) => store.forHost(widget.host.id),
               builder: (_) => _PinSheet(
-                number: _pinTab(session, request),
-                request: _pinHeld(session, request),
+                number: _pins.tabFor(session, request),
+                request: _pins.held(session, request),
               ),
             ),
           ],
         );
       },
     );
-  }
-
-  int _pinTab(ShellSession session, PinRequest request) {
-    final onScreen = _store.activeFor(widget.host.id);
-    if (onScreen != null && onScreen.pin?.id == request.id) {
-      return onScreen.number;
-    }
-    return session.number;
-  }
-
-  /// The ask as a tab holds it now, rather than as it was when the sheet went up: the same
-  /// id grows old where it stands. Falls back to the one the sheet was raised with once no
-  /// tab holds it, which is the moment the sheet is on its way down.
-  PinRequest _pinHeld(ShellSession session, PinRequest request) {
-    for (final other in [session, ..._store.forHost(widget.host.id)]) {
-      final held = other.pin;
-      if (held != null && held.id == request.id) return held;
-    }
-    return request;
   }
 
   /// The host had taken the ask down before the passphrase left, so nothing was written and
@@ -788,21 +745,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     if (_asked.containsKey(mark) && _asked[mark] == session.cwd) return;
     _asked[mark] = session.cwd;
     unawaited(
-      _store
-          .repositoryFromHost(session)
-          .then(
-            (_) {
-              if (mounted) _asked[mark] = session.cwd;
-            },
-            onError: (Object error, StackTrace stack) {
-              if (!isHostFailure(error) && !isKeyFailure(error)) {
-                Error.throwWithStackTrace(error, stack);
-              }
-              debugPrint(
-                'upgrade.shell ${widget.host.name}: repository: $error',
-              );
-            },
-          ),
+      _store.repositoryFromHost(session).then((_) {
+        if (mounted) _asked[mark] = session.cwd;
+      }),
     );
   }
 
@@ -845,12 +790,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     ShellSession active,
     List<({String directory, String label})> targets,
   ) async {
-    try {
-      await _store.repositoryFromHost(active);
-    } catch (error) {
-      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-      debugPrint('upgrade.shell ${widget.host.name}: diff repository: $error');
-    }
+    await _store.repositoryFromHost(active);
     return active.repository ??
         (targets.length == 1 ? targets.first.directory : null);
   }

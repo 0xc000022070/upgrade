@@ -24,6 +24,7 @@ import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/notifications/pin_notifications.dart';
 import 'package:upgrade/platform/shell/host_clipboard.dart';
+import 'package:upgrade/platform/shell/host_queries.dart';
 import 'package:upgrade/platform/shell/host_system.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
@@ -31,12 +32,16 @@ import 'package:upgrade/platform/shell/shell_launch.dart';
 import 'package:upgrade/platform/shell/shell_tunnel.dart';
 import 'package:upgrade/platform/shell/strip_bytes.dart';
 import 'package:upgrade/platform/shell/udp_path.dart';
-import 'package:upgrade/platform/workspace/workspace_commands.dart';
 import 'package:upgrade/platform/vnc/keysyms.dart';
 import 'package:upgrade/features/shell/session/host_copy.dart';
 import 'package:upgrade/features/shell/session/private_osc.dart';
 import 'package:upgrade/features/shell/session/program_status.dart';
 import 'package:upgrade/features/shell/session/shell_engine.dart';
+
+export 'package:upgrade/platform/shell/host_queries.dart'
+    show PinAnswer, agentProbeDeadline;
+
+part 'host_pins.dart';
 
 /// A build log on the remote is the case this is sized for.
 const shellScrollback = 10000;
@@ -155,8 +160,6 @@ const shellLookedAtWait = Duration(seconds: 5);
 
 const shellLookedAtWatch = Duration(seconds: 3);
 
-const agentProbeDeadline = Duration(seconds: 3);
-
 /// Written into the terminal above each new shell. A prompt appearing under a dead
 /// shell's output with no mark between them is a lie about what happened, and the dim SGR
 /// is what every other tool marks its own lines with.
@@ -215,12 +218,6 @@ String? cwdFromOsc(String payload) {
   if (segments.isEmpty) return null;
   return '/${segments.join('/')}';
 }
-
-/// The fifo an answer is written into is guarded by the fifo being there, so a command
-/// that comes back failed is proof the ask was down before the passphrase left the phone:
-/// nothing was written and nothing is waiting on it. A channel that never came back is
-/// the link going.
-enum PinAnswer { sent, expired, lost }
 
 /// A mark no other tab of this run carries, in the alphabet [shellMark] holds a mark to.
 /// The clock gives it its uniqueness and the counter covers two tabs opened inside the
@@ -729,7 +726,10 @@ class ShellSessions extends ChangeNotifier {
   final Future<Host> Function(Host host)? beforeDial;
 
   final _systemAsked = <String>{};
-  final _answering = <String>{};
+  final _pins = <String, HostPins>{};
+
+  HostPins pinsFor(String hostId) =>
+      _pins.putIfAbsent(hostId, () => HostPins._(this, hostId));
 
   /// Injectable only so the store can be driven without a host to answer it; null
   /// everywhere but a test.
@@ -913,41 +913,25 @@ class ShellSessions extends ChangeNotifier {
   Future<String?> cwdFromHost(ShellSession session) async {
     final connection = session.connection;
     if (connection == null) return null;
-    try {
-      final pane = session.pane;
-      var herdrSession = pane?.session;
-      String? answer;
-      if (herdrSession == null) {
-        final probe = await connection.channels.exec(
-          shellCwdProbe(session.mark),
-          timeout: remoteCommandDeadline,
-        );
-        if (probe == null || probe.exitCode != 0) return null;
-        final place = parseShellPlace(probe.out);
-        herdrSession = place.herdrSession;
-        answer = place.cwd;
-      }
-      if (herdrSession != null && HerdrCommands.isSessionName(herdrSession)) {
-        final panes = await connection.channels.exec(
-          HerdrCommands.panes(herdrSession),
-          timeout: remoteCommandDeadline,
-        );
-        if (panes != null && panes.exitCode == 0) {
-          answer = HerdrClient.parsePaneCwd(panes.out, pane?.pane) ?? answer;
-        }
-      }
-      if (answer == null || !answer.startsWith('/')) return null;
-      if (answer != session.cwd) {
-        session.cwd = answer;
-        session.changed();
-      }
-      return answer;
-    } on HerdrFailure catch (error) {
-      debugPrint(
-        'upgrade.shell ${session.host.name}: ${error.detail ?? error}',
-      );
-      return null;
+    final queries = _queries(session, connection);
+    final pane = session.pane;
+    var herdrSession = pane?.session;
+    String? answer;
+    if (herdrSession == null) {
+      final place = await queries.place(session.mark);
+      if (place == null) return null;
+      herdrSession = place.herdrSession;
+      answer = place.cwd;
     }
+    if (herdrSession != null) {
+      answer = await queries.paneCwd(herdrSession, pane?.pane) ?? answer;
+    }
+    if (answer == null || !answer.startsWith('/')) return null;
+    if (answer != session.cwd) {
+      session.cwd = answer;
+      session.changed();
+    }
+    return answer;
   }
 
   Future<AgentKind?> agentFromHost(ShellSession session) async {
@@ -957,26 +941,8 @@ class ShellSessions extends ChangeNotifier {
         session.engineForegroundKnown) {
       return session.engineAgent;
     }
-    try {
-      final result = await connection.channels.exec(
-        shellForegroundProcessProbe(session.mark),
-        timeout: agentProbeDeadline,
-      );
-      if (result == null ||
-          result.exitCode != 0 ||
-          session.retired ||
-          session.state is! ShellLive ||
-          !identical(session.connection, connection)) {
-        return null;
-      }
-      return foregroundAgent(result.out);
-    } catch (error) {
-      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-      debugPrint(
-        'upgrade.shell ${session.host.name}: foreground probe: $error',
-      );
-      return null;
-    }
+    final agent = await _queries(session, connection).foreground(session.mark);
+    return _stillOn(session, connection) ? agent : null;
   }
 
   Future<AgentKind?> agentFromPane(ShellSession session) async {
@@ -985,33 +951,17 @@ class ShellSessions extends ChangeNotifier {
     if (connection == null || pane == null || session.state is! ShellLive) {
       return null;
     }
-    try {
-      final result = await connection.channels.exec(
-        HerdrCommands.agents(pane.session),
-        timeout: agentProbeDeadline,
-      );
-      if (result == null ||
-          result.exitCode != 0 ||
-          session.retired ||
-          session.state is! ShellLive ||
-          !identical(session.connection, connection) ||
-          session.pane != pane) {
-        return null;
-      }
-      final agents = HerdrClient.parseCliAgentList(
-        result.out,
-        session: pane.session,
-      );
-      for (final agent in agents) {
-        if (agent.paneId == pane.pane) return AgentKind.lookup(agent.agent);
-      }
-    } catch (error) {
-      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-      debugPrint('upgrade.shell ${session.host.name}: pane agents: $error');
-      return null;
-    }
-    return null;
+    final agent = await _queries(session, connection).paneAgent(pane);
+    return _stillOn(session, connection) && session.pane == pane ? agent : null;
   }
+
+  bool _stillOn(ShellSession session, ShellConnection connection) =>
+      !session.retired &&
+      session.state is ShellLive &&
+      identical(session.connection, connection);
+
+  HostQueries _queries(ShellSession session, ShellConnection connection) =>
+      HostQueries(connection.channels, host: session.host.name);
 
   /// Where the shell is, then what repository that is part of. Null leaves the mark dimmed.
   Future<String?> repositoryFromHost(ShellSession session) async {
@@ -1019,13 +969,13 @@ class ShellSessions extends ChangeNotifier {
     if (connection == null) return null;
     final directory = await cwdFromHost(session) ?? session.cwd;
     if (directory == null) return _repository(session, null);
-    final result = await connection.channels.exec(
-      WorkspaceCommands.repository(directory),
-      timeout: remoteCommandDeadline,
-    );
-    final top = result?.out.trim() ?? '';
-    if (result == null || result.exitCode != 0 || !top.startsWith('/')) {
-      return _repository(session, null);
+    final String? top;
+    try {
+      top = await _queries(session, connection).repository(directory);
+    } catch (error) {
+      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
+      debugPrint('upgrade.shell ${session.host.name}: repository: $error');
+      return session.repository;
     }
     return _repository(session, top);
   }
@@ -1295,7 +1245,7 @@ class ShellSessions extends ChangeNotifier {
           .catchError((Object error) {
             debugPrint('upgrade.shell ${session.host.name}: resume: $error');
           })
-          .then((_) => _askHost(session)),
+          .then((_) => pinsFor(session.host.id)._ask(session)),
     );
   }
 
@@ -1481,7 +1431,7 @@ class ShellSessions extends ChangeNotifier {
     unawaited(
       session._saved.then((_) => snapshots?.drop(hostId, session.number)),
     );
-    _tellShade(session.host);
+    pinsFor(session.host.id)._tellShade(session.host);
     if (_active[hostId] == session.number) {
       final rest = _byHost[hostId];
       if (rest != null && rest.isNotEmpty) {
@@ -1558,7 +1508,7 @@ class ShellSessions extends ChangeNotifier {
         ),
       );
     };
-    terminal.onBell = () => unawaited(_askHost(session));
+    terminal.onBell = () => unawaited(pinsFor(session.host.id)._ask(session));
     terminal.onProgramStatus = (status) =>
         _programs(session.programs.report(status));
     terminal.onProgressReport = (report) =>
@@ -1595,10 +1545,10 @@ class ShellSessions extends ChangeNotifier {
       case 'pin' when args.length >= 3:
         final request = PinRequest.decode(args[1], args[2]);
         if (request == null) return;
-        _setPin(session, request);
+        pinsFor(session.host.id)._set(session, request);
       case 'done':
         if (session.pin?.id != args[1]) return;
-        _setPin(session, null);
+        pinsFor(session.host.id)._set(session, null);
     }
   }
 
@@ -1712,175 +1662,6 @@ class ShellSessions extends ChangeNotifier {
     session.stickyRepeat = sticky.isEmpty ? 1 : repeat;
     session.stickyLocked = sticky.isNotEmpty && locked;
     session.changed();
-  }
-
-  /// Tells the host's pinentry that this tab's pty is a place to ask. On the tab's own
-  /// connection, so the channel's parent is the sshd session an ssh shell hangs off, and
-  /// with the tab's mark, which is how a Mosh shell's server is found. A host without the
-  /// pinentry gets a directory nobody reads, and a host whose process table disagrees gets
-  /// nothing.
-  Future<void> _mark(ShellSession session, ShellConnection connection) async {
-    try {
-      await connection.channels.exec(
-        pinentryMarkCommand(session.tab),
-        timeout: remoteCommandDeadline,
-      );
-    } catch (error) {
-      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-      debugPrint('upgrade.shell ${session.host.name}: pinentry mark: $error');
-    }
-  }
-
-  void _setPin(ShellSession session, PinRequest? request) {
-    session.pin = request;
-    if (request == null) session._stopAsking();
-    session.changed();
-    _tellShade(session.host);
-  }
-
-  /// One notification per host: up while any of its tabs holds a request, replaced when the
-  /// request is another, down when none does.
-  void _tellShade(Host host) {
-    PinRequest? held;
-    for (final session in forHost(host.id)) {
-      held = session.pin;
-      if (held != null) break;
-    }
-    unawaited(_shade.tell(hostId: host.id, hostName: host.name, held: held));
-  }
-
-  /// What a bell means to a tab: the host's pinentry may have rung it, so the tab asks the
-  /// host what it holds open and takes the answer as its request or as the request's
-  /// withdrawal. The OSC says the same thing sooner over ssh; under Mosh only the bell gets
-  /// through. Bells that land while the host is being asked fold into one more ask: a
-  /// program that beeps ten times costs one exec, not ten. The answer is dropped when the
-  /// connection it was asked on is no longer the tab's.
-  ///
-  /// A tab holding a request asks again after [pinRecheck], for as long as it holds one.
-  /// Mosh rings once per frame it ships, so a request and its `done` inside one frame ring
-  /// once, and a tab whose only ask landed while the request stood would keep it after the
-  /// computer answered.
-  Future<void> _askHost(ShellSession session) async {
-    if (session._asleep != null) return;
-    if (session._asking) {
-      session._askAgain = true;
-      return;
-    }
-    session._asking = true;
-    session._stopAsking();
-    try {
-      do {
-        session._askAgain = false;
-        final connection = session.connection;
-        if (connection == null) return;
-        final ExecResult? result;
-        try {
-          result = await connection.channels.exec(
-            pinentryOpenCommand(),
-            timeout: remoteCommandDeadline,
-          );
-        } catch (error) {
-          if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-          debugPrint(
-            'upgrade.shell ${session.host.name}: pinentry ask: $error',
-          );
-          return;
-        }
-        if (result == null ||
-            !result.ok ||
-            !identical(session.connection, connection)) {
-          return;
-        }
-        final open = PinRequest.decodeOpen(result.out);
-        final next = open.isEmpty ? null : open.first;
-        if (next?.id != session.pin?.id) {
-          _setPin(session, next);
-        } else {
-          _agePin(session);
-        }
-      } while (session._askAgain);
-    } finally {
-      session._asking = false;
-      session._askAgain = false;
-      if (session.pin != null &&
-          session.connection != null &&
-          session._asleep == null) {
-        session._reask = Timer(pinRecheck, () => unawaited(_askHost(session)));
-      }
-    }
-  }
-
-  /// An ask gets old on the same asking that keeps it alive. The id does not change, so the
-  /// sheet stays up and the shade is not rung a second time.
-  void _agePin(ShellSession session) {
-    final request = session.pin;
-    if (request == null || request.stale) return;
-    if (DateTime.now().difference(request.since) < pinStale) return;
-    _setPin(session, request.aged());
-  }
-
-  /// Null is the cancel, which is a decision and reaches every surface; a sheet merely
-  /// swiped away calls nothing. The request is dropped before the channel is opened, and
-  /// one already being answered is not answered again, so a second tap sends nothing
-  /// twice. The fifo is written only while it is there, so what the command comes back
-  /// with says whether the answer landed.
-  Future<PinAnswer> answerPin(
-    ShellSession session,
-    String? passphrase,
-    UserIntent intent,
-  ) async {
-    final request = session.pin;
-    final connection = session.connection;
-    if (request == null) return PinAnswer.lost;
-    _setPin(session, null);
-    // One request, one fifo: the answer settles it on every tab of the host that
-    // heard the same bell, before any of them can ask for it again.
-    for (final other in forHost(session.host.id)) {
-      if (identical(other, session) || other.pin?.id != request.id) continue;
-      _setPin(other, null);
-    }
-    if (connection == null || !_answering.add(request.id)) {
-      return PinAnswer.lost;
-    }
-    // The passphrase never reached stdin, so the request stays on the tab.
-    PinAnswer unsent() {
-      if (session.pin == null && !session._closed) _setPin(session, request);
-      return PinAnswer.lost;
-    }
-
-    try {
-      final HostChannels? channels;
-      try {
-        channels = await connection.channelsFor(UserAction(intent));
-      } catch (error) {
-        if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-        debugPrint('upgrade.shell ${session.host.name}: pinentry dial: $error');
-        return unsent();
-      }
-      if (channels == null) return unsent();
-      final result = await channels.exec(
-        pinentryAnswerCommand(request.id),
-        stdin: Uint8List.fromList(utf8.encode('${passphrase ?? ''}\n')),
-        timeout: pinAnswerWait,
-      );
-      if (result == null) return unsent();
-      final landed =
-          result.ok &&
-          const LineSplitter().convert(result.out).contains(pinentryAnswered);
-      return landed ? PinAnswer.sent : PinAnswer.expired;
-    } on ChannelOpenTimeout {
-      return unsent();
-    } on TimeoutException {
-      // The channel opened and the write blocked, so the guard found the fifo and
-      // nobody is reading it: the request behind it is gone.
-      return PinAnswer.expired;
-    } catch (error) {
-      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-      debugPrint('upgrade.shell ${session.host.name}: pinentry answer: $error');
-      return PinAnswer.lost;
-    } finally {
-      _answering.remove(request.id);
-    }
   }
 
   Future<void> _connect(
@@ -2102,16 +1883,18 @@ class ShellSessions extends ChangeNotifier {
     }
     unawaited(_awaitExit(session, connection, attempt));
     final settled =
-        Future.wait([_mark(session, connection), _reap(host.id, connection)])
-            .then(
-              (_) {},
-              onError: (Object error, StackTrace stack) {
-                if (!isHostFailure(error) && !isKeyFailure(error)) {
-                  Error.throwWithStackTrace(error, stack);
-                }
-                debugPrint('upgrade.shell ${host.name}: settle: $error');
-              },
-            );
+        Future.wait([
+          pinsFor(session.host.id)._mark(session, connection),
+          _reap(host.id, connection),
+        ]).then(
+          (_) {},
+          onError: (Object error, StackTrace stack) {
+            if (!isHostFailure(error) && !isKeyFailure(error)) {
+              Error.throwWithStackTrace(error, stack);
+            }
+            debugPrint('upgrade.shell ${host.name}: settle: $error');
+          },
+        );
     if (_sleeping) {
       unawaited(
         settled.whenComplete(() {
@@ -2123,7 +1906,7 @@ class ShellSessions extends ChangeNotifier {
     } else {
       // A request made while this tab had no link, before it opened or across a
       // redial, rang no bell it could hear: the tab asks once as it comes up.
-      unawaited(_askHost(session));
+      unawaited(pinsFor(session.host.id)._ask(session));
     }
     session.changed();
   }
@@ -2176,7 +1959,7 @@ class ShellSessions extends ChangeNotifier {
       session.voiceSendSuggested = false;
       session.clearAgentInput();
       session.clearEngineForeground();
-      _setPin(session, null);
+      pinsFor(session.host.id)._set(session, null);
       // Every other code is the shell saying something went wrong, so that tab stays
       // for its output to be read.
       final ended = connection.ended;
@@ -2234,7 +2017,7 @@ class ShellSessions extends ChangeNotifier {
     session._unwatch();
     session.pin = null;
     session._stopAsking();
-    _tellShade(session.host);
+    pinsFor(session.host.id)._tellShade(session.host);
     session.disarm();
     final kind = error is ShellFailure
         ? error.kind
@@ -2591,7 +2374,7 @@ class ShellSessions extends ChangeNotifier {
     session.title = null;
     session.pin = null;
     session._stopAsking();
-    _tellShade(session.host);
+    pinsFor(session.host.id)._tellShade(session.host);
     session.disarm();
     session.changed();
     if (ended != null) await previous?.close(ended);
