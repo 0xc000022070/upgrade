@@ -39,10 +39,9 @@ every step are in [docs/TOOL-TUTORIAL.md](docs/TOOL-TUTORIAL.md).
 
 ## Install
 
-> **Release download: not published yet.** This line will link the release once
-> distribution is chosen.
-
-Until then, build an APK from source: `just apk` (debug) or `just apk-release`
+Release APKs go to
+[GitHub releases](https://github.com/0xc000022070/upgrade/releases). Or build
+one from source: `just apk` (debug) or `just apk-release`
 inside the flake's dev shell, as described in
 [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md). Android only.
 
