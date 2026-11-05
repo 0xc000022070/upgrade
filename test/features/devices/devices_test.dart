@@ -364,6 +364,43 @@ void main() {
     expect(told, 1);
   });
 
+  test('a deleted host ends its stream and closes its link', () async {
+    final links = {_rose.id: _hostLink(), _nyx.id: _hostLink()};
+    final dock = DeviceDock(
+      group: (host, dock) => DevicesController(
+        host: host,
+        dock: dock,
+        readPrivateKey: (_) async => 'PRIVATE',
+        open: ({
+          required address,
+          required port,
+          required user,
+          required privateKey,
+          required verifier,
+        }) async => links[host.id]!,
+      ),
+      desktopOf: (_) => throw UnimplementedError(),
+    );
+    addTearDown(dock.dispose);
+    dock.attach(const [_rose, _nyx]);
+    await Future<void>.delayed(Duration.zero);
+    dock
+      ..summon()
+      ..select(dock.groups.first, _pixel);
+    await Future<void>.delayed(Duration.zero);
+    final rose = links[_rose.id]!;
+    expect(rose.frameStreams.single.hasListener, isTrue);
+
+    dock.rename(const [_nyx]);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(dock.session, isNull);
+    expect([for (final group in dock.groups) group.host.id], [_nyx.id]);
+    expect(rose.frameStreams.single.hasListener, isFalse);
+    expect(rose.closed, isTrue);
+    expect(links[_nyx.id]!.closed, isFalse);
+  });
+
   test('frames survive being cut anywhere and keepalives vanish', () async {
     final body = List<int>.generate(10, (index) => index);
     final wire = [

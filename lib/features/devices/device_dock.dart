@@ -146,6 +146,21 @@ class DeviceDock extends ChangeNotifier {
   void rename(Iterable<Host> hosts) {
     final byId = {for (final host in hosts) host.id: host};
     var moved = false;
+    if (_session case final session? when !byId.containsKey(session.host.id)) {
+      _end();
+      _collapse(false);
+      moved = true;
+    }
+    if (_desktop case final desktop? when !byId.containsKey(desktop.host.id)) {
+      _endDesktop();
+      moved = true;
+    }
+    for (final group in [..._groups]) {
+      if (byId.containsKey(group.host.id)) continue;
+      _groups.remove(group);
+      group.dispose();
+      moved = true;
+    }
     for (final group in _groups) {
       final host = byId[group.host.id];
       if (host == null || identical(host, group.host)) continue;
