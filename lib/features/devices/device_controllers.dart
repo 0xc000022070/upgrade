@@ -349,7 +349,8 @@ class DevicesController extends ChangeNotifier {
       failure?.reason(host.name) ?? ReasonLine.streamClosed.words,
     );
     notifyListeners();
-    _discardHold();
+    _hold?.release();
+    _hold = null;
   }
 
   @override

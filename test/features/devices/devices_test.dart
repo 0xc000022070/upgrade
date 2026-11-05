@@ -69,11 +69,15 @@ class FakeDeviceLink implements DeviceLink {
   FakeDeviceLink(this.devices);
 
   List<HostDevice> devices;
+  Object? listError;
   final commands = <String>[];
   final frameStreams = <StreamController<DeviceFrame>>[];
 
   @override
-  Future<List<HostDevice>> list() async => devices;
+  Future<List<HostDevice>> list() async {
+    if (listError case final error?) throw error;
+    return devices;
+  }
 
   @override
   Stream<DeviceFrame> frames(HostDevice device) {
@@ -313,10 +317,25 @@ Future<void> _expand(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 1));
 }
 
-void _lifecycle(WidgetTester tester, List<AppLifecycleState> states) {
+/// Resuming bumps the wake signal as `ShellWakeHost` does once the pool is awake;
+/// [wake] false stops short of it.
+void _lifecycle(
+  WidgetTester tester,
+  List<AppLifecycleState> states, {
+  bool wake = true,
+}) {
   for (final state in states) {
     tester.binding.handleAppLifecycleStateChanged(state);
   }
+  final float = find.byType(DeviceFloat);
+  if (!wake ||
+      states.last != AppLifecycleState.resumed ||
+      float.evaluate().isEmpty) {
+    return;
+  }
+  ProviderScope.containerOf(tester.element(float))
+      .read(agentsWakeProvider.notifier)
+      .state++;
 }
 
 DeviceFrame _frame({int width = 1080, int height = 2400}) {
@@ -416,6 +435,50 @@ void main() {
     expect(links[_nyx.id]!.closed, isFalse);
   });
 
+  test('a failed list keeps the link a stream rides', () async {
+    final link = _hostLink();
+    final links = [link];
+    final dock = DeviceDock(
+      group: (host, dock) => DevicesController(
+        host: host,
+        dock: dock,
+        readPrivateKey: (_) async => 'PRIVATE',
+        open: ({
+          required address,
+          required port,
+          required user,
+          required privateKey,
+          required verifier,
+        }) async => links.last,
+      ),
+      desktopOf: (_) => throw UnimplementedError(),
+    );
+    addTearDown(dock.dispose);
+    dock.attach(const [_rose]);
+    await Future<void>.delayed(Duration.zero);
+    dock
+      ..summon()
+      ..select(dock.groups.single, _pixel);
+    await Future<void>.delayed(Duration.zero);
+
+    link.listError = const HerdrUnreachable('adb: not found');
+    await dock.groups.single.refresh();
+
+    expect(dock.groups.single.phase, isA<DevicesFailed>());
+    expect(link.closed, isFalse);
+    expect(link.frameStreams.single.hasListener, isTrue);
+
+    final fresh = _hostLink();
+    links.add(fresh);
+    await dock.groups.single.refresh();
+    expect(dock.groups.single.phase, isA<DevicesListed>());
+    expect(link.closed, isFalse);
+
+    dock.endDevice();
+    expect(link.closed, isTrue);
+    expect(fresh.closed, isFalse);
+  });
+
   test('a link that closes as it opens fails the list', () async {
     final link = _hostLink();
     final group = DevicesController(
@@ -425,16 +488,17 @@ void main() {
         desktopOf: (_) => throw UnimplementedError(),
       ),
       readPrivateKey: (_) async => 'key',
-      open: ({
-        required address,
-        required port,
-        required user,
-        required privateKey,
-        required verifier,
-      }) async {
-        await link.close();
-        return link;
-      },
+      open:
+          ({
+            required address,
+            required port,
+            required user,
+            required privateKey,
+            required verifier,
+          }) async {
+            await link.close();
+            return link;
+          },
     );
     addTearDown(group.dispose);
 
@@ -1268,6 +1332,35 @@ void main() {
     expect(link.frameStreams.single.hasListener, isFalse);
 
     _lifecycle(tester, const [AppLifecycleState.resumed]);
+    await tester.pump();
+    expect(link.frameStreams, hasLength(2));
+    expect(link.frameStreams.last.hasListener, isTrue);
+  });
+
+  testWidgets('a returning app streams only once the pool is awake', (
+    tester,
+  ) async {
+    addTearDown(() => _lifecycle(tester, const [AppLifecycleState.resumed]));
+    final link = FakeDeviceLink(const [_pixel]);
+    await _pump(tester, _opener(link));
+    await _pick(tester, _pixel);
+    await _live(tester, link);
+
+    _lifecycle(tester, const [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+    ]);
+    await tester.pump();
+    _lifecycle(tester, const [
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ], wake: false);
+    await tester.pump();
+    expect(link.frameStreams, hasLength(1));
+
+    ProviderScope.containerOf(tester.element(find.byType(DeviceFloat)))
+        .read(agentsWakeProvider.notifier)
+        .state++;
     await tester.pump();
     expect(link.frameStreams, hasLength(2));
     expect(link.frameStreams.last.hasListener, isTrue);
