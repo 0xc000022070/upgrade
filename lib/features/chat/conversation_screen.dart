@@ -4,12 +4,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
 import 'package:video_player/video_player.dart';
 
 import 'package:upgrade/app/static_surface.dart';
 import 'package:upgrade/application/chat/chat.dart';
 import 'package:upgrade/application/formatting.dart';
-import 'package:upgrade/design/components/action_sheet.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/components/inline_confirm.dart';
 import 'package:upgrade/design/components/panel.dart';
@@ -105,7 +105,7 @@ class _ConversationState extends ConsumerState<ConversationScreen> {
 
   Future<void> _attach() async {
     setState(() => _error = null);
-    final picked = await _pick(context);
+    final picked = await _pick();
     if (picked == null) return;
     try {
       await _offer(picked);
@@ -440,7 +440,7 @@ class _Composer extends StatelessWidget {
                 dimension: TapTargets.minHeight,
                 child: Center(
                   child: UpgradeIcon(
-                    UpgradeIcons.attachment,
+                    UpgradeIcons.image,
                     size: IconSizes.md,
                     color: context.tokens.textSecondary,
                   ),
@@ -551,29 +551,22 @@ class _ContactSheet extends ConsumerWidget {
 
 typedef _Picked = ({String path, String kind});
 
-Future<_Picked?> _pick(BuildContext context) async {
-  String? kind;
-  await showActionSheet(
-    context,
-    title: 'ATTACH',
-    actions: [
-      SheetAction('PHOTO', () => kind = 'photo'),
-      SheetAction('VIDEO', () => kind = 'video'),
-    ],
+Future<_Picked?> _pick() async {
+  final file = await ImagePicker().pickMedia(
+    maxWidth: 1600,
+    maxHeight: 1600,
+    imageQuality: 80,
   );
-  final picker = ImagePicker();
-  final file = switch (kind) {
-    'photo' => await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 80,
-    ),
-    'video' => await picker.pickVideo(source: ImageSource.gallery),
-    _ => null,
-  };
-  if (file == null || kind == null) return null;
-  return (path: file.path, kind: kind!);
+  if (file == null) return null;
+  final video = const {
+    '.mp4',
+    '.3gp',
+    '.webm',
+    '.mkv',
+    '.mov',
+    '.m4v',
+  }.contains(p.extension(file.path).toLowerCase());
+  return (path: file.path, kind: video ? 'video' : 'photo');
 }
 
 class _SendSheet extends StatefulWidget {
@@ -654,7 +647,7 @@ class _MediaTile extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         UpgradeIcon(
-          UpgradeIcons.attachment,
+          UpgradeIcons.image,
           size: IconSizes.glyph,
           color: _openable ? tokens.accent : tokens.textMuted,
         ),
