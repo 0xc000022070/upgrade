@@ -18,6 +18,7 @@ class _FakeLink implements ChatLink {
   final messages = <Map<String, Object?>>[];
   final _events = StreamController<Map<String, Object?>>.broadcast();
   var verified = false;
+  Completer<void>? held;
 
   void ack() {
     for (final m in messages) {
@@ -39,6 +40,7 @@ class _FakeLink implements ChatLink {
     requests.add(request);
     switch (request['op']) {
       case 'state':
+        await held?.future;
         return {
           'name': 'ana',
           'attachment': 'attached_good',
@@ -294,4 +296,36 @@ void main() {
       expect(find.byType(ConversationScreen), findsOneWidget);
     },
   );
+
+  testWidgets('a banner drops when the link changes again before it answers', (
+    tester,
+  ) async {
+    final link = _FakeLink();
+    await tester.pumpWidget(
+      ProviderScope(
+        retry: noRetry,
+        overrides: [chatLinkProvider.overrideWith((ref) async => link)],
+        child: MaterialApp(
+          theme: testTheme,
+          navigatorKey: rootNavigatorKey,
+          builder: (context, child) =>
+              ChatAlerts(kept: () async => true, child: child!),
+          home: const Scaffold(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    chatOpened!(link);
+    await tester.pumpAndSettle();
+
+    link.held = Completer();
+    link.arrive({'index': 0, 'mine': false, 'body': 'hi', 'at': 0});
+    await tester.pump();
+    link.ack();
+    await tester.pump();
+    link.held!.complete();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('chat-banner')), findsOneWidget);
+    await tester.pump(chatBannerTime);
+  });
 }

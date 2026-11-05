@@ -53,7 +53,7 @@ class _ChatAlertsState extends ConsumerState<ChatAlerts> {
     });
     unawaited(
       widget.kept().then((kept) {
-        if (kept && mounted) ref.read(chatBookProvider);
+        if (kept && mounted) ref.read(chatLinkProvider);
       }),
     );
   }
@@ -75,19 +75,30 @@ class _ChatAlertsState extends ConsumerState<ChatAlerts> {
     for (final record in shownConversations.keys.where(conversationOnTop)) {
       unawaited(ChatNotifications.cancel(record));
     }
-    if (!ref.exists(chatBookProvider)) return;
-    if (ref.read(chatBookProvider).value case final book?) {
-      Device.keepChat(book.contacts.isNotEmpty);
+    if (!ref.exists(chatLinkProvider)) return;
+    if (ref.read(chatLinkProvider).value case final link?) {
+      unawaited(
+        _book(link).then(
+          (book) => Device.keepChat(book.contacts.isNotEmpty),
+          onError: (Object _) {},
+        ),
+      );
     }
   }
+
+  /// Not [chatBookProvider]: unlistened, an event during its rebuild leaves its
+  /// future pending forever.
+  static Future<ChatBook> _book(ChatLink link) async =>
+      ChatBook.parse(await link.call({'op': 'state'}) as Map<String, Object?>);
 
   void _watch(ChatLink link) {
     unawaited(_events?.cancel());
     _events = link.events
         .where((e) => e['event'] == 'message')
-        .listen((e) => unawaited(_arrived(e)));
+        .listen((e) => unawaited(_arrived(link, e)));
     unawaited(
-      ref.read(chatBookProvider.future).then((book) {
+      _book(link).then((book) {
+        Device.keepChat(book.contacts.isNotEmpty);
         if (book.contacts.isNotEmpty) _ask();
       }, onError: (Object _) {}),
     );
@@ -100,7 +111,7 @@ class _ChatAlertsState extends ConsumerState<ChatAlerts> {
     unawaited(ChatNotifications.ask());
   }
 
-  Future<void> _arrived(Map<String, Object?> event) async {
+  Future<void> _arrived(ChatLink link, Map<String, Object?> event) async {
     final record = event['record']! as String;
     final message = ChatMessage.parse(
       event['message']! as Map<String, Object?>,
@@ -109,7 +120,7 @@ class _ChatAlertsState extends ConsumerState<ChatAlerts> {
         ref.read(appVisibleProvider) &&
         !(ref.read(pipModeProvider).value ?? false);
     if (visible && conversationOnTop(record)) return;
-    final contact = (await ref.read(chatBookProvider.future)).contact(record);
+    final contact = (await _book(link)).contact(record);
     final name = contact == null || contact.name.isEmpty
         ? 'unnamed'
         : contact.name;
@@ -173,6 +184,7 @@ class _Banner extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     return Semantics(
+      container: true,
       button: true,
       label: 'message from ${arrival.name}',
       child: GestureDetector(
