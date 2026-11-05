@@ -159,6 +159,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       onWords: _onWords,
       whisper: ref.read(whisperProvider),
     )..addListener(_onDictation);
+    ref.listenManual(
+      whisperLeadingProvider,
+      (_, model) => _dictation.model = model,
+      fireImmediately: true,
+    );
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     // Opening a session tells the store, and the screen the user came from is
     // listening to it while it draws this route in. So the shell waits for the frame

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents/agent_kind.dart';
 import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/whisper.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
@@ -271,10 +272,7 @@ void main() {
       unawaited(dictation().press(_session()));
       await tester.pump();
       expect(dictation().failure, 'NO RECOGNIZER');
-      expect(
-        dictation().advice,
-        'GET WHISPER IN SYS\u00a0·\u00a0VOICE',
-      );
+      expect(dictation().advice, 'GET WHISPER IN SYS\u00a0·\u00a0VOICE');
       await tester.pump(const Duration(seconds: 4));
       expect(dictation().showing, isTrue);
       await tester.pump(const Duration(seconds: 1));
@@ -758,10 +756,29 @@ void main() {
       events.add(const SpeechEnded());
       await tester.pump();
       expect(find.text('PHONE RECOGNIZER FAILED'), findsOneWidget);
-      expect(
-        find.text('GET WHISPER IN SYS\u00a0·\u00a0VOICE'),
-        findsOneWidget,
-      );
+      expect(find.text('GET WHISPER IN SYS\u00a0·\u00a0VOICE'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+      expect(find.byKey(const ValueKey('shell-voice-float')), findsNothing);
+    });
+
+    testWidgets('a failed recognizer follows a whisper model downloading', (
+      tester,
+    ) async {
+      dictation().model = const WhisperFetching(0.42);
+      await pumpFloat(tester);
+      unawaited(dictation().press(_session()));
+      await tester.pump(voiceHold);
+      dictation().lift();
+      events.add(const SpeechFailed(denied: false));
+      events.add(const SpeechEnded());
+      await tester.pump();
+      expect(find.text('WHISPER DOWNLOADING\u00a0·\u00a042%'), findsOneWidget);
+      dictation().model = const WhisperFetching(0.57);
+      await tester.pump();
+      expect(find.text('WHISPER DOWNLOADING\u00a0·\u00a057%'), findsOneWidget);
+      dictation().model = const WhisperReady();
+      await tester.pump();
+      expect(find.text('TRY AGAIN'), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));
       expect(find.byKey(const ValueKey('shell-voice-float')), findsNothing);
     });

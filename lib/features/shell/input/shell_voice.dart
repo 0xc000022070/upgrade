@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/application/whisper.dart';
 import 'package:upgrade/design/components/cell_divider.dart';
 import 'package:upgrade/design/components/close_target.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
@@ -44,8 +45,6 @@ const _getWhisper = 'GET WHISPER IN SYS\u00a0·\u00a0VOICE';
 
 const _advice = {
   _micDenied: 'ALLOW THE MICROPHONE IN ANDROID SETTINGS',
-  _noRecognizer: _getWhisper,
-  _phoneFailed: _getWhisper,
   _recordingFailed: 'TRY AGAIN',
   _whisperFailed: 'TRY AGAIN',
 };
@@ -155,7 +154,24 @@ class ShellDictation extends ChangeNotifier {
 
   String? get failure => _failure;
 
-  String? get advice => _advice[_failure];
+  WhisperState _model = const WhisperOff();
+
+  set model(WhisperState model) {
+    _model = model;
+    if (_phase == _Phase.failed && _whisperAdvice) notifyListeners();
+  }
+
+  bool get _whisperAdvice =>
+      _failure == _noRecognizer || _failure == _phoneFailed;
+
+  String? get advice => _whisperAdvice
+      ? switch (_model) {
+          WhisperReady() => 'TRY AGAIN',
+          WhisperFetching(:final progress) =>
+            'WHISPER DOWNLOADING\u00a0·\u00a0${(progress * 100).floor()}%',
+          WhisperOff() => _getWhisper,
+        }
+      : _advice[_failure];
 
   ShellSession? get session => _session;
 

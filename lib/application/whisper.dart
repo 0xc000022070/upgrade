@@ -153,6 +153,23 @@ WhisperSize? whisperHearing(WhisperState Function(WhisperSize size) state) {
   return null;
 }
 
+final whisperLeadingProvider = Provider<WhisperState>((ref) {
+  WhisperState leading = const WhisperOff();
+  for (final size in WhisperSize.values) {
+    switch (ref.watch(whisperModelProvider(size))) {
+      case WhisperReady():
+        return const WhisperReady();
+      case final WhisperFetching fetching
+          when leading is! WhisperFetching ||
+              fetching.progress > leading.progress:
+        leading = fetching;
+      case _:
+        break;
+    }
+  }
+  return leading;
+});
+
 final whisperProvider = Provider<Transcriber? Function()>((ref) {
   for (final size in WhisperSize.values) {
     ref.read(whisperModelProvider(size));
