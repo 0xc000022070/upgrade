@@ -1,219 +1,288 @@
 # Upgrade
 
-Local-first personal control plane. Single user, no backend, no sync.
-Design and art direction live in `docs/SPEC.md`.
+An Android app for people who run their own machines. From the phone you open
+shells on your hosts over SSH or Mosh, watch and answer the coding agents
+running there, reach a host's desktop, and build your own tool interfaces in
+Luau that run commands you declared on hosts you chose.
 
-## Toolchain
+There is no backend, account or sync. Hosts, keys, projects and plugins live on
+the phone; hosts are reached directly over SSH. The phone reaches a host with
+exactly the authority of the SSH account you give it, and plugins get less: only
+the operations they declare, after a native review and a per-host consent.
 
-Everything comes from the flake — nothing is expected on the host PATH.
+Building the app and working on it: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
+Product rulings: [docs/SPEC.md](docs/SPEC.md).
 
-```sh
-direnv allow      # or: nix develop
-```
+## One job, end to end
 
-The shell provides Flutter, Dart, SQLite, a JDK and an Android SDK, and rewrites
-`android/local.properties` to match the current store paths. `adb` is left to the
-host so it keeps ownership of the adb server.
+Read a host's network interfaces from a page you wrote.
 
-## Common tasks
+You need: a host you reach over SSH with `upgraded` declared on it (see
+[Engine](#engine)), the phone with that host registered, and an Upgrade checkout
+on a development computer.
 
-```sh
-just gen          # build_runner: drift output (*.g.dart, *.drift.dart) — not committed
-just pub-build    # flterm, dart_mosh, dartssh2 and pointycastle, patched, into .dart_tool
-just analyze
-just apk          # debug APK, arm64
-```
+1. On the development computer, write a two-file package: a manifest that
+   declares `ip -brief address` with a ten-second limit, and a Luau page with a
+   host picker and four buttons. Check it with `just plugin check <dir>`.
+2. Copy the folder to `~/Projects/plugins/network-probe` on the host.
+3. On the phone, TOOLS > DEVELOP PLUGIN, pick the host, enter the path, START
+   PREVIEW. The card renders from fixtures. Tap INSTALL; the native review shows
+   the exact command and its limit.
+4. OPEN the page, choose the host under Target host, tap READ INTERFACES, and
+   allow the consent sheet that names the host account and the command.
+5. Tap READ OUTPUT. The page shows `exited` and the host's interface rows.
 
-Run `just gen` after touching a drift schema; generated Dart is gitignored.
+This path was verified on a physical phone (release build) against the
+development VM on 2026-11-04, including a non-zero exit, a cancellation and
+cancelling a running command by disabling the plugin. The copyable files and
+every step are in [docs/TOOL-TUTORIAL.md](docs/TOOL-TUTORIAL.md).
 
-Nothing in pub applies the patches under `packages/<name>/patches`, so
-`dependency_overrides` points at the trees `just pub-build` writes into
-`.dart_tool`: run it before the first `flutter pub get` in a fresh checkout.
-`tool/pub-patches.sh --help` covers editing a series.
+## Install
 
-## Device loop
+> **Release download: not published yet.** This line will link the release once
+> distribution is chosen.
 
-`phone.toml` declares both development and review devices. For a single-device
-review, build with `just apk`, then explicitly target the install and launch:
+Until then, build an APK from source: `just apk` (debug) or `just apk-release`
+inside the flake's dev shell, as described in
+[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md). Android only.
 
-```sh
-phone -t <device-id> app install build/app/outputs/flutter-apk/app-debug.apk
-phone -t <device-id> app launch dev.luisnquin.upgrade
-phone -t <device-id> shot --settle
-```
+## First SSH connection
 
-`phone up` converges the project's declared devices, not just the handset being
-reviewed. Use explicit installs when another device must remain undisturbed.
+1. MACHINES > HOSTS, then ADD HOST in the ADD A MACHINE panel. Fill NAME,
+   ADDRESS (IP or hostname), PORT and USER.
+2. Under `[ KEY ]`, pick a key or CREATE SSH KEY (NEW KEY, a name, CREATE KEY).
+   CREATE HOST. It dials the host at once (the key need not be installed yet)
+   and raises `NEW HOST KEY` with its KEY TYPE and FINGERPRINT. Compare it with
+   the host's own (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the
+   host) and TRUST. The key is pinned; a later different key raises
+   `HOST KEY CHANGED` with the STORED KEY and the OFFERED KEY, and KEEP OLD or
+   REPLACE. If that dial failed or you declined, the host is saved unpinned and
+   its row keeps VERIFY: tap it once the host answers.
+3. Put the public key on the host. MACHINES toolbar > MANAGE SSH KEYS > the key
+   > `[ INSTALL ]` > COPY copies one shell line that appends the key to
+   `~/.ssh/authorized_keys` (creating `~/.ssh` with mode 700, the file with
+   600, and skipping a key already there). Run it on the host as that user,
+   from any session you already have. See [Host setup](#host-setup) for what
+   the key must not carry.
+4. Tap SHELL. The picker offers LOGIN SHELL, plus herdr and tmux sessions when
+   the host has them. A tab opens.
 
-## Mobile plugins
+The host row's LINK line probes the SSH port: `<SOFTWARE> · <n> MS` when it
+answers, otherwise NO ROUTE, UNRESOLVED, REFUSED or NO BANNER. A failed VERIFY
+names why: NO KEY, KEY CHANGED, NO ANSWER, NO ROUTE or FAILED.
 
-The Plugins button beside Settings opens plugin management. Drops and Projects
-are bundled native plugins; Agent schedules is a bundled Luau page. Home, Hosts,
-SSH and Tools remain available without plugins. Tools lists enabled plugin pages,
-including pages not pinned to navigation.
+## Returning to a session
 
-Native widgets declare compatible Home card or input-bar locations and size
-constraints. Users can hide and reorder cards, choose a supported width, select
-the input bar and pin a page. A fixed-size widget keeps its dimensions; an
-incompatible placement reports why it cannot fit. Layout preferences survive
-restart and disabling a plugin. This is a bounded layout prototype, not a
-freeform canvas or support for embedding arbitrary Luau pages as widgets.
+- The host row reads `SHELL · N OPEN` while tabs exist. SHELL resumes the last
+  running tab. When every tab has exited, it asks how to start a new one; exited
+  tabs stay on the strip.
+- With `mosh-server` on the host, a live tab keeps roaming across network
+  changes. Without it, or when UDP is blocked, the same tab uses SSH.
+- After an app restart, tabs come back as fresh login shells, not the old
+  processes. A tab attached to a herdr pane reattaches that pane. Hosts without
+  a pinned key are not dialed unattended, and tabs of deleted hosts are dropped.
 
-A bundled native module registers its builder under the declared `surface`:
+Shell tabs were not part of the 2026-11-04 device review.
 
-```toml
-[[contributes.widgets]]
-id = "status"
-title = "Host status"
-surface = "example.status"
-locations = ["home.card"]
-default_location = "home.card"
-default_size = "adaptive"
-sizes = [
-  { id = "compact", title = "Compact", width = 280, height = 160 },
-  { id = "adaptive", title = "Adaptive", min_width = 280, max_width = 720 },
-]
-```
+## What it does
 
-Dimensions use Flutter logical pixels. Exact `width` and a `min_width` / `max_width`
-range are alternatives; omitted `height` lets content determine its height.
-The input bar uses the exclusive `home.composer` location. Widget and page IDs
-remain stable across renames because saved layouts refer to plugin ID plus
-contribution ID, not the displayed title.
+Status words: **verified** means exercised on a physical phone in the
+2026-11-04 review; **implemented** means in the code and its tests but not
+covered by that review; **planned** means written down as a proposal only.
 
-The source examples under `test/fixtures/plugins/record-text` and
-`test/fixtures/plugins/record-restore` demonstrate selected-record actions and
-shared read-only datasets. Record text proposes TRIM WHITESPACE or stores SAVE
-SNAPSHOT. Record restore reads the exported snapshot and proposes RESTORE
-SNAPSHOT. Only APPLY changes the selected built-in record; it rejects stale
-proposals. Existing tables and attachments are not migrated.
+### Phone only
 
-Installed plugins expose ENABLE, DISABLE and REFRESH USAGE controls. Downloaded
-plugins can also be removed; bundled native plugins stay installed.
-Disable frees its cached VMs and invalidates queued work and old proposals.
-Disable and removal retain datasets, usage and immutable source revisions.
-Already committed private writes are not rolled back when a script fails or is
-disabled. Disable dependents first before disabling their required provider.
+| capability | status |
+|---|---|
+| Projects, goals, tasks, notes and drops | implemented |
+| Board (bundled Luau plugin) | verified: navigation and saving a note |
+| Luau Home cards that never contact a host | verified: authoring, preview, failure and recovery on fixtures |
+| Chat: end-to-end encrypted, phone to phone, no server | implemented; two-phone chat not verified |
+| LINUX ON THIS PHONE (MACHINES > ADD A MACHINE), without root | implemented; not verified |
+| Encrypted bundle to move the phone's data ([Backup](#backup-and-a-second-phone)) | implemented; same-phone round trip verified, two phones not |
 
-ADD accepts a public GitHub repository and a ref: a branch, a tag or a full
-commit SHA. Put `upgrade.plugin.toml` at the repository root; `plugins/example`
-in this repository is a complete template a third party can copy, covering a
-multi-file package and the listing fields. Review shows the resolved source
-revision, declared capabilities and dependencies before granting installation.
-Updates require another review, with added or retargeted capabilities marked
-NEW. Unsupported retained revisions stay disabled with their original source
-and grants, instead of resetting the catalog.
+### Ordinary SSH
 
-A plugin can span several files: `files` in the manifest lists paths beside
-`upgrade.plugin.toml`, and Luau code loads them with
-`require("path/without/extension")`. `require` only resolves files declared
-in `files`; nothing else on the source repository is fetched. `author`,
-`homepage`, `license` and `summary` are optional listing fields shown before
-install and in the plugin detail sheet; they carry no capability or trust
-meaning.
+Everything here uses only the SSH account and its normal login path.
 
-An index is a `upgrade.index.toml` at the repository root of a GitHub
-repository at a ref, listing plugins with `[[plugins]]` entries:
+| capability | status |
+|---|---|
+| Host key pinning, VERIFY, the host key sheets | implemented; used throughout the review |
+| Shell tabs, restored after restart | implemented |
+| MACHINES > CODE: Git checkouts under `~/Projects`, `~/.dotfiles`, `~/src`; files, diffs, history | verified: navigation of Code, diff and history |
+| Clipboard attachments | implemented |
+| Key passphrase prompts from `pinentry-gate`, answered in the app | implemented |
 
-```toml
-index_version = 1
+### Optional integrations
 
-[[plugins]]
-id = "upgrade.example"
-repository = "https://github.com/x/example"
-ref = "v2.0.0"
-summary = "Minimal template a third-party author can copy"
-author = "Upgrade"
-```
+Turned on per host under `[ INTEGRATIONS ]` in the host form, and each needs
+software on the host ([Host setup](#host-setup)).
 
-Settings PLUGINS has SOURCES, where an index is added or removed by repository
-and ref; no default source ships. BROWSE lists entries across added sources;
-tapping one opens the same review flow with the entry's repository and ref
-pre-filled. An entry already installed says so and offers UPDATE instead of
-ADD. Index fetches are bounded and validated the same way plugin manifests
-are; an index with unknown fields is rejected.
+| integration | gives | status |
+|---|---|---|
+| Mosh (no switch; used when `mosh-server` exists) | roaming tabs | implemented |
+| HERDR | agents in herdr panes: AGENTS panel, SEND, agent tabs | implemented |
+| AGENTS | agents heard from their own hooks | implemented |
+| VNC | DESKTOP on the host row, tunnelled through SSH | implemented; a working desktop stream not verified |
+| DEVICES | the host's emulators and simulators | implemented; not verified |
 
-A dev-only override lets an author serve a plugin or index from a local
-directory over HTTP while developing it, instead of GitHub:
+### Engine-backed
 
-```sh
-flutter run --dart-define=UPGRADE_PLUGIN_ORIGIN=http://host:port
-```
+These need `upgraded` declared on the host by its owner.
 
-The override replaces the fetch base for both plugin and index requests and
-only takes effect in debug builds; a release build ignores it. Serve the
-override origin with the same layout GitHub raw content uses,
-`<origin>/<owner>/<repo>/<ref>/<path>`, so ADD and BROWSE resolve `ref`
-literally against whatever the local server has at that path, with no GitHub
-ref lookup.
+| capability | status |
+|---|---|
+| Luau `run`: declared commands from a tap, with status, bounded output and cancel | verified: submit, status, output, cancel, non-zero exit, update re-review, online disable; offline cancel and `run.list` not verified |
+| Agent tasks (TOOLS > AGENT TASKS, bundled Luau, scheduler service) | verified against a mock agent backend, not a production agent |
+| Luau `agents.answer` (Kanban) | implemented |
 
-Version fields have different jobs: `manifest_version` versions the TOML schema,
-`version` versions the plugin, and `upgrade_api` constrains the host API.
-`[dependencies]` maps plugin IDs to semantic-version constraints. Dependencies
-must be installed, enabled and compatible; cycles and changes that break enabled
-dependents are rejected. A dependency grants no extra permissions and does not
-share a VM. Dataset schema versions, capability API versions and exported
-contracts are separate fields. Bundled native features use host-owned services
-and surface builders; downloaded plugins use the Luau runtime.
+### Planned
 
-Manifest format 2 uses named data bindings: `selection`, `self:name`, or
-`plugin.id:name`. Data access uses `upgrade.data.get/query/put/delete/propose`.
-Foreign reads require a declared dependency, matching export contract and an
-explicit grant; foreign writes are unavailable. Dependencies alone grant no
-data access. Every dataset has a separate host-owned SQLite database, scoped
-to plugin ID, source identity and dataset name. Plugins get no SQL or file paths.
-Writes require the expected record revision, and quota failures leave existing
-records intact. Schema mismatches stop access without resetting storage.
+[docs/STRATEGY.md](docs/STRATEGY.md) is a strategy and
+[docs/PLUGIN-SPEC.md](docs/PLUGIN-SPEC.md) a proposed target. Broader network
+and tool control, configured instances, general execution, filesystem access
+and richer previews described there are not shipped.
+[docs/ROADMAP.md](docs/ROADMAP.md) tracks what is next.
 
-The plugin detail sheet reports logical bytes, records, physical database and
-journal bytes, API calls and rejections, transferred bytes, writes, deletes,
-proposals, host API time and current VM allocation. Last-run timings are
-in-memory; dataset counters persist. Shared runtime/registry overhead is not
-charged to an individual dataset. Script time is wall time excluding host
-callbacks, not a CPU-time or battery measurement.
+### Luau
 
-The embedded interpreter is Luau 0.738, pinned by revision and archive digest in
-`packages/upgrade_luau/hook/build.dart`. First native build downloads its source;
-the phone downloads only plugin source, never native code or bytecode. Luau's
-license is included in the package and Flutter's license bundle. No JIT is built.
+Plugins are written in [Luau](https://luau.org) 0.738, embedded in the app.
+They get the Upgrade SDK and nothing else: no filesystem, sockets, shell, native
+modules or arbitrary Lua libraries. A plugin reaches a host only through the
+capabilities it declares (`hosts`, `scheduler`, `run`, `agents`), each shown in a
+native review before install and asked again per host before first use.
+`just plugin docs --out upgrade-sdk.json` writes the pinned SDK inventory:
+services, operations, UI schema and diagnostic codes. The reference is
+[packages/upgrade_luau/README.md](packages/upgrade_luau/README.md).
 
-Actions run on a lazy worker isolate, with at most two resident VMs and eight
-pending calls. Each VM has an 8 MiB allocator budget; execution checks a 50 ms
-deadline and a 100,000-safe-point ceiling. These are cooperative VM limits, not
-an OS security boundary or hard real-time guarantees. Compilation runs off the
-UI isolate with a 64 KiB source limit; compiler allocations are outside the VM
-heap budget. The worker releases VMs on backgrounding or after 30 seconds idle.
-Data calls are capped at 64 per invocation, with 16 KiB values, 64 KiB pages,
-256 KiB transferred payload and a 500 ms host-session budget starting at the
-first API call and checked between operations. Each plugin reserves at most
-32 MiB across eight datasets; each dataset permits at most 8 MiB and 10,000
-records. Logical quotas do not include
-SQLite journal/index overhead. Plugins have no arbitrary filesystem, socket,
-shell or WASM API. Declared host capabilities can list hosts and invoke the
-host-owned scheduler over SSH, with plugin/host permission checks. Agent
-schedules uses this API; remote jobs are distinct from an on-phone background
-Luau runtime. Disabling a scheduler plugin requests that its remote schedules
-pause; re-enabling does not automatically resume them.
+## Build your own tool interface
 
-Run `dart run tool/plugin_benchmark.dart` for selected-record roundtrips, or
-`dart run tool/plugin_dataset_benchmark.dart` for durable read/write/query
-roundtrips and VM memory measurements on the host. Host numbers are not handset
-performance evidence.
-The same entry point runs under Android AOT with
-`flutter build apk --profile --target-platform android-arm64 --target tool/plugin_benchmark.dart`.
-That APK runs the benchmark instead of the app UI and prints its JSON to logcat.
+- [docs/TOOL-TUTORIAL.md](docs/TOOL-TUTORIAL.md): a page that runs a declared
+  command on a chosen host, reads status and output, handles failure and
+  cancellation; and a phone-only card.
+- [plugins/templates/phone-card](plugins/templates/phone-card/README.md): the
+  template `just plugin init <dir> --id <id> --name <name>` copies, and TOOLS >
+  DEVELOP PLUGIN > NEW WORKSPACE writes onto a host.
+- [packages/upgrade_luau/README.md](packages/upgrade_luau/README.md): the SDK.
 
-## Second phone
+The loop: edit on the development computer, `just plugin check <dir>`, copy the
+folder to the host, and keep TOOLS > DEVELOP PLUGIN open on it; the phone
+re-renders each new revision and writes its result to
+`.upgrade/preview/latest.json`, which `just plugin preview <dir>` reads.
 
-The BUNDLE panel on SYS moves the hosts and keys to another phone without a
-backend. EXPORT asks for a passphrase twice, seals every key with its private
-half, every host with its pinned host key and VNC password, and every path into
-one file, and hands the file to the system document picker as
-`upgrade-<date>.bundle`. IMPORT picks a file, asks for the passphrase, shows
-the count, and merges by id: nothing on the phone is deleted, and a bundle
-naming a key neither side has is refused whole. The file is Argon2id plus an
-XSalsa20-Poly1305 box, so it is safe to park in a drive or a chat with yourself;
-the passphrase is not.
+Installed plugins are managed under TOOLS > MANAGE PLUGINS: enable, disable,
+usage, removal. ADD installs from a public GitHub repository at a branch, tag or
+commit. BROWSE has `[ SOURCES ]`, where you add plugin indexes; none ships by
+default. Bundled: Agents, Chat, Drops, Projects and Prompt (native), and Agent
+tasks, Board and Kanban (Luau). Details for authors publishing a plugin are in
+[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md#sources-packages-and-indexes).
+
+## Backup and a second phone
+
+`[ BUNDLE ]` on SYS (HOME toolbar > MORE > SETTINGS) moves the phone's data to
+another phone, or to the same phone after a reset or reinstall, as one
+encrypted file. There is no server in between.
+
+Export: EXPORT, a passphrase under `[ PASSPHRASE ]` and `[ AGAIN ]`, SEAL. The
+system picker saves `upgrade-<date>.bundle`. Errors: `PASSPHRASE MISSING`,
+`PASSPHRASES DIFFER`.
+
+Import: IMPORT, pick the file, the passphrase on `IMPORT BUNDLE`. Before
+anything is written a confirm counts the contents, for example
+`2 HOSTS · 1 KEY · 5 PATHS · 312 ROWS · 4 IMAGES`; IMPORT lands it.
+
+What moves:
+
+- every SSH key with its private half;
+- every host with its pinned host key, VNC user and password, and its integrations;
+- every registered path;
+- projects, goals, tasks, links, attachments, notes, activity, settings,
+  dispatches and shell tabs;
+- image attachment files.
+
+What does not: LINUX ON THIS PHONE and its host entry, installed plugins and
+their datasets, and chat conversations. Those are stored outside the app's main
+database.
+
+How it merges: a row with the same id is replaced by the bundle's; a new row is
+added; a row only on the phone is left alone. A host's integrations become the
+bundle's. If a host's key is in neither the bundle nor the phone, the whole
+import is refused. Importing the same file twice gives the same result as once.
+Bundles from the app's older name open.
+
+Confirm the result: `[ BUNDLE ]`'s LAST row reads `IMPORTED …` with the same
+counts the export showed, MACHINES lists the hosts, and connecting raises no
+`NEW HOST KEY`, because the pinned key travelled. Failures show on
+that row: `WRONG PASSPHRASE` (or a modified file), `NOT A BUNDLE`,
+`NEWER BUNDLE`, `BUNDLE INCOMPLETE`, `NO PICKER`.
+
+The file is Argon2id (64 MiB, 3 passes) plus an XSalsa20-Poly1305 box in a JSON
+envelope, so it can sit in a drive or a chat with yourself; the passphrase
+cannot. Export, clearing the app's data, and import on one emulator
+(build 829) restored the host, its key and its pinned host key: the shell opened
+with no `NEW HOST KEY`. A round trip between two phones has not been verified.
+
+## Troubleshooting
+
+Messages are quoted as the app shows them. Tabs, desktop floats and agent rows
+show a lowercase reason line; compact places show the same words in capitals.
+
+### Connecting
+
+| message | check |
+|---|---|
+| VERIFY reads NO KEY | the host's key has no private half on this phone; pick or create one in the host form |
+| `NEW HOST KEY` | first contact. Compare the fingerprint on the host, then TRUST |
+| `HOST KEY CHANGED`, VERIFY reads KEY CHANGED | the host offers a different key than the pinned one. Verify the offered fingerprint outside Upgrade before REPLACE |
+| `host key unverified` | unattended dials refuse unpinned hosts; VERIFY the host once |
+| `<host> unresolved`, LINK UNRESOLVED | the name does not resolve from the phone's network (Tailscale or VPN down?) |
+| `<host> unreachable`, NO ROUTE, NO ANSWER, REFUSED | `ssh -p <port> <user>@<address> true` from another machine on the same network |
+| `key rejected` | the public key is not in that user's `~/.ssh/authorized_keys`, or sshd rejects it; re-run the INSTALL line |
+| `shell refused` | sshd refused the session or its pty request: look for `restrict`, `no-pty` or `command=` on the key line, or `PermitTTY no` |
+
+### Shells
+
+A tab that reconnects over SSH instead of Mosh: run `command -v mosh-server`
+in a non-interactive session (`ssh host command -v mosh-server`) and open UDP
+60000:61000. `no herdr`: herdr is not on the non-interactive `PATH`; check with
+`ssh host command -v herdr`.
+
+### Desktop (VNC)
+
+| message | check |
+|---|---|
+| `tunnel refused` | nothing listens on the host's `127.0.0.1:5900` (`ss -ltn` on the host), or sshd forbids forwarding (`AllowTcpForwarding`, `permitopen`) |
+| `VNC password missing` | the server offers no `None`; fill VNC PASSWORD |
+| `VNC username missing` | the server offers only Apple's authentication; fill VNC USER with the macOS account |
+| `VNC credentials rejected` | the password, or the user, is wrong |
+| `auth unsupported` | the server offers no security type Upgrade speaks |
+
+### Devices
+
+`no emulator or xcrun`, `no avdmanager`, `no system image`,
+`no simulator runtime`: the host lacks that tool on the non-interactive `PATH`.
+`not booted in 3 min`: the device did not finish booting.
+
+### Plugins and the engine
+
+| message | check |
+|---|---|
+| `This host has no upgraded installed` | `ssh host command -v upgraded`; the owner declares it ([Engine](#engine)) |
+| `This host's engine does not carry …` | the host's engine predates that service; update the flake input |
+| `this host denies …` | the host owner's `services.upgraded` deny lists |
+| `Verify the host key in MACHINES before connecting` | VERIFY the host and TRUST its key |
+| `Host access was not granted` | the consent sheet was cancelled; tap the action again |
+| `Commands run only from a tap` | the plugin submitted outside a tap's chain |
+| `just plugin check` exits 1 | fix the listed diagnostics; each has a `next:` line |
+| CHECK FAILED on DEVELOP PLUGIN | the same diagnostics as `just plugin check`; the last good revision stays shown |
+| `just plugin preview` exits 3, `PREVIEW_PENDING` | the phone has not rendered that revision: DEVELOP PLUGIN closed, a different host or path, or the copy did not land |
+
+The full `run` and engine error list is in
+[packages/upgrade_luau/README.md](packages/upgrade_luau/README.md#engine-calls).
+
+### Backup
+
+See the failure words under [Backup](#backup-and-a-second-phone).
 
 ## Host setup
 
@@ -273,9 +342,22 @@ if [ -z "${WAYLAND_DISPLAY:-}" ]; then
 fi
 ```
 
-SCREEN forwards SSH to `127.0.0.1:5900`. A VNC server that offers RFB security
-type `None`, such as `wayvnc`, needs nothing more; authentication stays at SSH.
-A server that offers only VNC Authentication takes the password from the host's
-`VNC PASSWORD` field. Apple Screen Sharing is one: turn on "VNC viewers may
-control screen with password" under Screen Sharing's settings and put that
-password in the field. Apple's own authentication types are not supported.
+DESKTOP forwards SSH to `127.0.0.1:5900`. A VNC server that offers RFB security
+type `None`, such as `wayvnc`, needs nothing more; authentication stays at SSH,
+and `None` is used whenever offered. A server that offers only VNC
+Authentication takes the password from the host's `VNC PASSWORD` field. Apple
+Screen Sharing offers Apple's own authentication: put the macOS account in
+`VNC USER` and its password in `VNC PASSWORD`. With `VNC USER` blank, turn on
+"VNC viewers may control screen with password" under Screen Sharing's settings
+and put that password in the field.
+
+### Engine
+
+`upgraded` is the host-side engine behind plugin `run`, Agent tasks' scheduler
+and `agents.answer`. It is not a daemon: each call reaches it over SSH. The app
+never installs it; the host's owner declares it with this flake's module:
+`nixosModules.upgraded`, `darwinModules.upgraded` or `homeModules.upgraded`, as
+`services.upgraded`. Options include `denyCapabilities` and `denyExec`.
+Schedules on Linux need login linger for the account. A host without it answers
+plugins with `This host has no upgraded installed`; everything under
+[Ordinary SSH](#ordinary-ssh) and the integrations works without it.
