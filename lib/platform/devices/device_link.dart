@@ -373,19 +373,19 @@ stop() {
 const _listBody = r'''
 if command -v adb >/dev/null 2>&1; then
   seen=
-  adb devices </dev/null |
-    awk '$2 == "device" { if (index($1, ":")) w = w $1 "\n"; else print $1 } END { printf "%s", w }' |
+  adb devices -l </dev/null |
+    awk '$2 == "device" { if (/ usb:/ || $1 ~ /^emulator-/) print $1; else w = w $1 "\n" } END { printf "%s", w }' |
     while read -r s; do
     n=$(avd "$s")
     if [ -n "$n" ]; then
       printf 'E %s %s\n' "$s" "$n"
       continue
     fi
-    id=$(adb -s "$s" shell getprop ro.serialno </dev/null 2>/dev/null | tr -d '\r')
+    p=$(adb -s "$s" shell 'echo "$(getprop ro.serialno) $(getprop ro.product.model)"' </dev/null 2>/dev/null | tr -d '\r')
+    id=${p%% *}
     case " $seen " in *" $id "*) [ -n "$id" ] && continue ;; esac
     seen="$seen $id"
-    n=$(adb -s "$s" shell getprop ro.product.model </dev/null 2>/dev/null | tr -d '\r')
-    printf 'A %s %s\n' "$s" "$n"
+    printf 'A %s %s\n' "$s" "${p#* }"
   done
 fi
 if command -v xcrun >/dev/null 2>&1; then

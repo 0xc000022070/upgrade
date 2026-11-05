@@ -16,12 +16,12 @@ const _ios265 = 'com.apple.CoreSimulator.SimRuntime.iOS-26-5';
 const _adb = r'''#!/bin/sh
 echo "adb $*" >>"$STATE/calls"
 case "$*" in
-  devices)
+  devices|'devices -l')
     echo 'List of devices attached'
     [ -f "$STATE/up" ] && printf 'emulator-5556\tdevice\n'
-    [ -f "$STATE/phys" ] && printf '10.0.0.5:5555\tdevice\nR5CT1234\tdevice\n'
+    [ -f "$STATE/phys" ] && printf 'adb-R5CT1234-AbCd._adb-tls-connect._tcp\tdevice product:x\nR5CT1234\tdevice usb:3-4 product:x\n'
     ;;
-  '-s R5CT1234 shell getprop ro.serialno'|'-s 10.0.0.5:5555 shell getprop ro.serialno') echo R5CT1234 ;;
+  '-s R5CT1234 shell '*ro.serialno*|'-s adb-R5CT1234-AbCd._adb-tls-connect._tcp shell '*ro.serialno*) echo 'R5CT1234 Pixel 8' ;;
   '-s emulator-5556 emu avd name')
     [ -f "$STATE/noname" ] || { cat "$STATE/up"; echo; echo OK; }
     ;;
@@ -29,7 +29,6 @@ case "$*" in
   '-s emulator-5556 shell getprop sys.boot_completed') echo 1 ;;
   '-s emulator-5556 emu kill') rm -f "$STATE/up" ;;
   '-s R5CT1234 emu avd name') exit 1 ;;
-  '-s R5CT1234 shell getprop ro.product.model') echo 'Pixel 8' ;;
 esac
 exit 0
 ''';
