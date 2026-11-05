@@ -187,7 +187,14 @@ class DeviceDock extends ChangeNotifier {
     if (changed) notifyListeners();
   }
 
-  List<DockSession> get _sessions => [?_session, ?_desktop];
+  DockSession? sessionOn(DockSurface surface) => switch (surface) {
+    DockSurface.device => _session,
+    DockSurface.desktop => _desktop,
+  };
+
+  List<DockSession> get _sessions => [
+    for (final surface in DockSurface.values) ?sessionOn(surface),
+  ];
 
   void _endSession(DockSession session) => switch (session) {
     DeviceSession() => _end(),
@@ -519,6 +526,10 @@ final deviceDockProvider = Provider<DeviceDock>((ref) {
       open: openVnc,
     ),
   );
-  ref.onDispose(dock.dispose);
+  ref
+    ..listen<AsyncValue<List<Host>>>(hostsProvider, (_, hosts) {
+      if (hosts.value case final value?) dock.syncHosts(value);
+    })
+    ..onDispose(dock.dispose);
   return dock;
 });

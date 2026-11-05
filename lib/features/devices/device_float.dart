@@ -104,10 +104,14 @@ class _DeviceFloatState extends ConsumerState<DeviceFloat> {
   void initState() {
     super.initState();
     _dock = ref.read(deviceDockProvider);
-    ref.listenManual<bool>(
-      appVisibleProvider,
-      (_, visible) => _setHidden(!visible),
-    );
+    // Back only on the wake signal: it comes after the pool wakes, and a stream asked for
+    // earlier is refused by sleeping links and lands on RETRY.
+    ref.listenManual<bool>(appVisibleProvider, (_, visible) {
+      if (!visible) _setHidden(true);
+    });
+    ref.listenManual<int>(agentsWakeProvider, (_, _) {
+      if (_hidden && ref.read(appVisibleProvider)) _setHidden(false);
+    });
     ref.listenManual<DockSurface?>(
       screenPipProvider,
       (_, surface) => _dock.pipFor(surface),
@@ -176,10 +180,6 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     _dock.addListener(_onAsk);
     ref.listenManual<List<ScreenHost>?>(screenHostsProvider, (_, hosts) {
       if (_menu && _dock.floating) _attach(hosts);
-    });
-    ref.listenManual<AsyncValue<List<Host>>>(hostsProvider, (_, hosts) {
-      final value = hosts.value;
-      if (value != null) _dock.syncHosts(value);
     });
     ref.listenManual<AsyncValue<ScreensRest?>>(screensRestProvider, (_, rest) {
       final value = rest.value;
@@ -1928,25 +1928,21 @@ class ScreenPip extends ConsumerWidget {
       color: context.tokens.backgroundPrimary,
       child: ListenableBuilder(
         listenable: dock,
-        builder: (context, _) {
-          final session = dock.session;
-          final desktop = dock.desktop;
-          return switch (surface) {
-            DockSurface.device when session != null => ListenableBuilder(
-              listenable: session.controller,
-              builder: (context, _) => _Live(controller: session.controller),
-            ),
-            DockSurface.desktop when desktop != null => ListenableBuilder(
-              listenable: desktop.controller,
-              builder: (context, _) => _Desktop(
-                controller: desktop.controller,
-                paused: dock.desktopPaused,
-              ),
-            ),
-            _ => Center(
-              child: Text('ENDED', style: context.tokens.panelHeader),
-            ),
-          };
+        builder: (context, _) => switch (surface == null
+            ? null
+            : dock.sessionOn(surface)) {
+          DeviceSession(:final controller) => ListenableBuilder(
+            listenable: controller,
+            builder: (context, _) => _Live(controller: controller),
+          ),
+          DesktopSession(:final controller) => ListenableBuilder(
+            listenable: controller,
+            builder: (context, _) =>
+                _Desktop(controller: controller, paused: dock.desktopPaused),
+          ),
+          null => Center(
+            child: Text('ENDED', style: context.tokens.panelHeader),
+          ),
         },
       ),
     );
