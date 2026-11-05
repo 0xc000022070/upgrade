@@ -85,7 +85,7 @@ class _PluginCatalogViewState extends ConsumerState<PluginCatalogView> {
             ),
           if ((pauses.value ?? 0) > 0) ...[
             Text(
-              '${pauses.value} HOST PAUSES PENDING',
+              '${pauses.value} HOST PAUSE${pauses.value == 1 ? '' : 'S'} PENDING',
               style: tokens.rowSubtitle,
             ),
             PanelTextAction(

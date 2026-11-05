@@ -435,7 +435,7 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
       if ((pending?.value ?? 0) > 0) ...[
         _fact(
           'HOST PAUSE PENDING',
-          '${pending!.value} hosts have not acknowledged the pause. Future runs may still execute there.',
+          '${pending!.value} ${pending.value == 1 ? 'host has' : 'hosts have'} not acknowledged the pause. Future runs may still execute there.',
         ),
         PanelTextAction(
           label: 'RETRY HOST PAUSE',
