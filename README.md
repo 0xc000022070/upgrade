@@ -85,9 +85,10 @@ Shell tabs were not part of the 2026-11-04 device review.
 
 ## What it does
 
-Status words: **verified** means exercised on a physical phone in the
-2026-11-04 review; **implemented** means in the code and its tests but not
-covered by that review; **planned** means written down as a proposal only.
+Status words: **verified** means exercised on a release build: on a physical
+phone in the 2026-11-04 review, or in the 2026-11-05 follow-up on the devices
+the row names; **implemented** means in the code and its tests but not
+covered by either; **planned** means written down as a proposal only.
 
 ### Phone only
 
@@ -96,9 +97,9 @@ covered by that review; **planned** means written down as a proposal only.
 | Projects, goals, tasks, notes and drops | implemented |
 | Board (bundled Luau plugin) | verified: navigation and saving a note |
 | Luau Home cards that never contact a host | verified: authoring, preview, failure and recovery on fixtures |
-| Chat: end-to-end encrypted, phone to phone, no server | implemented; two-phone chat not verified |
-| LINUX ON THIS PHONE (MACHINES > ADD A MACHINE), without root | implemented; not verified |
-| Encrypted bundle to move the phone's data ([Backup](#backup-and-a-second-phone)) | implemented; same-phone round trip verified, two phones not |
+| Chat: end-to-end encrypted, phone to phone, no server | verified: an emulator and a physical phone joined by an invitation code, messages delivered both ways |
+| LINUX ON THIS PHONE (MACHINES > ADD A MACHINE), without root | verified on an emulator: install and a shell |
+| Encrypted bundle to move the phone's data ([Backup](#backup-and-a-second-phone)) | verified: an emulator to a physical phone, and to a fresh emulator install |
 
 ### Ordinary SSH
 
@@ -106,7 +107,7 @@ Everything here uses only the SSH account and its normal login path.
 
 | capability | status |
 |---|---|
-| Host key pinning, VERIFY, the host key sheets | implemented; used throughout the review |
+| Host key pinning, VERIFY, the host key sheets | implemented; used throughout the 2026-11-04 review |
 | Shell tabs, restored after restart | implemented |
 | MACHINES > CODE: Git checkouts under `~/Projects`, `~/.dotfiles`, `~/src`; files, diffs, history | verified: navigation of Code, diff and history |
 | Clipboard attachments | implemented |
@@ -122,7 +123,7 @@ software on the host ([Host setup](#host-setup)).
 | Mosh (no switch; used when `mosh-server` exists) | roaming tabs | implemented |
 | HERDR | agents in herdr panes: AGENTS panel, SEND, agent tabs | implemented |
 | AGENTS | agents heard from their own hooks | implemented |
-| VNC | DESKTOP on the host row, tunnelled through SSH | implemented; a working desktop stream not verified |
+| VNC | DESKTOP on the host row, tunnelled through SSH | verified on an emulator: a live desktop, and `FAILED` once the host goes down |
 | DEVICES | the host's emulators and simulators | implemented; not verified |
 
 ### Engine-backed
@@ -132,7 +133,7 @@ These need `upgraded` declared on the host by its owner.
 | capability | status |
 |---|---|
 | Luau `run`: declared commands from a tap, with status, bounded output and cancel | verified: submit, status, output, cancel, non-zero exit, update re-review, online disable; offline cancel and `run.list` not verified |
-| Agent tasks (TOOLS > AGENT TASKS, bundled Luau, scheduler service) | verified against a mock agent backend, not a production agent |
+| Agent tasks (TOOLS > AGENT TASKS, bundled Luau, scheduler service) | verified against a mock agent backend, not a production agent; on an emulator, disabling it while the host is down leaves a pending host pause until RETRY HOST PAUSES reaches the host |
 | Luau `agents.answer` (Kanban) | implemented |
 
 ### Planned
@@ -217,9 +218,9 @@ that row: `WRONG PASSPHRASE` (or a modified file), `NOT A BUNDLE`,
 
 The file is Argon2id (64 MiB, 3 passes) plus an XSalsa20-Poly1305 box in a JSON
 envelope, so it can sit in a drive or a chat with yourself; the passphrase
-cannot. Export, clearing the app's data, and import on one emulator
-(build 829) restored the host, its key and its pinned host key: the shell opened
-with no `NEW HOST KEY`. A round trip between two phones has not been verified.
+cannot. A bundle exported on an emulator (build 836) and imported on a physical
+phone and on a fresh emulator install restored the host, its key and its pinned
+host key: the shell opened with no `NEW HOST KEY`.
 
 ## Troubleshooting
 
