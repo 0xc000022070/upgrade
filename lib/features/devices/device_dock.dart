@@ -17,30 +17,79 @@ import 'package:upgrade/features/devices/device_controllers.dart';
 
 const floatDecodeWidth = 360;
 
-class DeviceSession {
-  DeviceSession({required this.host, required this.controller});
+sealed class DockSession {
+  DockSession(this.host);
 
   Host host;
-  DeviceScreenController controller;
+}
 
-  DeviceLink get link => controller.link;
+final class DeviceSession extends DockSession {
+  DeviceSession(super.host, {required this.hold, required this.controller});
+
+  LinkHold hold;
+  final DeviceScreenController controller;
+
+  DeviceLink get link => hold.link;
   HostDevice get device => controller.device;
 }
 
-class DesktopSession {
-  DesktopSession({required this.host, required this.controller});
+final class DesktopSession extends DockSession {
+  DesktopSession(super.host, {required this.controller});
 
-  Host host;
   final HostScreenController controller;
 }
 
 enum DockSurface { device, desktop }
 
+/// One share of a host's device link: it closes on the last release, or at
+/// once on any discard. Repeating either call does nothing.
+class LinkHold {
+  LinkHold._(this._lease);
+
+  factory LinkHold.open(DeviceLink link) => _Lease(link).hold()!;
+
+  final _Lease _lease;
+  bool _done = false;
+
+  DeviceLink get link => _lease.link;
+
+  LinkHold? share() => _done ? null : _lease.hold();
+
+  void release() {
+    if (_done) return;
+    _done = true;
+    _lease.drop();
+  }
+
+  void discard() {
+    if (_done) return;
+    _done = true;
+    _lease.end();
+  }
+}
+
 class _Lease {
   _Lease(this.link);
 
   final DeviceLink link;
-  int count = 1;
+  int _holders = 0;
+  bool _over = false;
+
+  LinkHold? hold() {
+    if (_over || link.closed) return null;
+    _holders++;
+    return LinkHold._(this);
+  }
+
+  void drop() {
+    if (--_holders <= 0) end();
+  }
+
+  void end() {
+    if (_over) return;
+    _over = true;
+    unawaited(link.close());
+  }
 }
 
 typedef DeviceGroupFactory = DevicesController Function(
@@ -55,7 +104,6 @@ class DeviceDock extends ChangeNotifier {
 
   final DeviceGroupFactory _group;
   final DesktopFactory _desktopOf;
-  final _leases = <String, _Lease>{};
   final _groups = <DevicesController>[];
   DeviceSession? _session;
   DesktopSession? _desktop;
@@ -87,41 +135,6 @@ class DeviceDock extends ChangeNotifier {
     notifyListeners();
   }
 
-  DeviceLink? borrow(String hostId) {
-    final lease = _leases[hostId];
-    if (lease == null) return null;
-    if (lease.link.closed) {
-      discard(hostId, lease.link);
-      return null;
-    }
-    lease.count++;
-    return lease.link;
-  }
-
-  DeviceLink adopt(String hostId, DeviceLink link) {
-    final held = borrow(hostId);
-    if (held != null) {
-      unawaited(link.close());
-      return held;
-    }
-    _leases[hostId] = _Lease(link);
-    return link;
-  }
-
-  void release(String hostId, DeviceLink link) {
-    final lease = _leases[hostId];
-    if (lease == null || lease.link != link) return;
-    if (--lease.count > 0) return;
-    _leases.remove(hostId);
-    unawaited(link.close());
-  }
-
-  void discard(String hostId, DeviceLink link) {
-    final lease = _leases[hostId];
-    if (lease?.link == link) _leases.remove(hostId);
-    unawaited(link.close());
-  }
-
   void show(Host host) {
     final group = _attach(host);
     _floating = true;
@@ -143,44 +156,43 @@ class DeviceDock extends ChangeNotifier {
     }
   }
 
-  void rename(Iterable<Host> hosts) {
+  /// Follows the saved hosts: whatever the dock holds for a host takes its
+  /// latest record, and everything held for a deleted host ends.
+  void syncHosts(Iterable<Host> hosts) {
     final byId = {for (final host in hosts) host.id: host};
-    var moved = false;
-    if (_session case final session? when !byId.containsKey(session.host.id)) {
-      _end();
-      _collapse(false);
-      moved = true;
-    }
-    if (_desktop case final desktop? when !byId.containsKey(desktop.host.id)) {
-      _endDesktop();
-      moved = true;
+    var changed = false;
+    for (final session in _sessions) {
+      final host = byId[session.host.id];
+      if (host == null) {
+        _endSession(session);
+      } else if (!identical(host, session.host)) {
+        session.host = host;
+      } else {
+        continue;
+      }
+      changed = true;
     }
     for (final group in [..._groups]) {
-      if (byId.containsKey(group.host.id)) continue;
-      _groups.remove(group);
-      group.dispose();
-      moved = true;
-    }
-    for (final group in _groups) {
       final host = byId[group.host.id];
-      if (host == null || identical(host, group.host)) continue;
-      group.host = host;
-      moved = true;
+      if (host == null) {
+        _groups.remove(group);
+        group.dispose();
+      } else if (!identical(host, group.host)) {
+        group.host = host;
+      } else {
+        continue;
+      }
+      changed = true;
     }
-    final session = _session;
-    final sessionHost = byId[session?.host.id];
-    if (session != null && sessionHost != null) {
-      moved |= !identical(session.host, sessionHost);
-      session.host = sessionHost;
-    }
-    final desktop = _desktop;
-    final desktopHost = byId[desktop?.host.id];
-    if (desktop != null && desktopHost != null) {
-      moved |= !identical(desktop.host, desktopHost);
-      desktop.host = desktopHost;
-    }
-    if (moved) notifyListeners();
+    if (changed) notifyListeners();
   }
+
+  List<DockSession> get _sessions => [?_session, ?_desktop];
+
+  void _endSession(DockSession session) => switch (session) {
+    DeviceSession() => _end(),
+    DesktopSession() => _endDesktop(),
+  };
 
   DevicesController _attach(Host host) {
     final held = _groupOf(host.id);
@@ -214,8 +226,6 @@ class DeviceDock extends ChangeNotifier {
   }
 
   void select(DevicesController group, HostDevice device) {
-    final link = group.link;
-    if (link == null) return;
     final current = _session;
     if (current != null &&
         current.host.id == group.host.id &&
@@ -223,18 +233,23 @@ class DeviceDock extends ChangeNotifier {
       collapse(false);
       return;
     }
+    final LinkHold hold;
     if (current != null &&
         current.host.id == group.host.id &&
-        current.link == link) {
+        current.link == group.link) {
       current.controller.dispose();
+      hold = current.hold;
     } else {
+      final shared = group.share();
+      if (shared == null) return;
       _end();
-      borrow(group.host.id);
+      hold = shared;
     }
     _collapsed = false;
     _session = DeviceSession(
-      host: group.host,
-      controller: _start(group.host, link, device),
+      group.host,
+      hold: hold,
+      controller: _start(group.host, hold.link, device),
     );
     notifyListeners();
   }
@@ -252,7 +267,6 @@ class DeviceDock extends ChangeNotifier {
   void endDevice() {
     if (_session == null) return;
     _end();
-    _collapse(false);
     notifyListeners();
   }
 
@@ -264,7 +278,7 @@ class DeviceDock extends ChangeNotifier {
     if (current == null || current.host.id != host.id) {
       _endDesktop();
       final controller = _desktopOf(host);
-      _desktop = DesktopSession(host: host, controller: controller);
+      _desktop = DesktopSession(host, controller: controller);
       unawaited(controller.connect());
     }
     _sync();
@@ -338,8 +352,7 @@ class DeviceDock extends ChangeNotifier {
   }
 
   void close() {
-    _end();
-    _endDesktop();
+    _sessions.forEach(_endSession);
     for (final group in _groups) {
       group.dispose();
     }
@@ -405,19 +418,29 @@ class DeviceDock extends ChangeNotifier {
     DeviceScreenController controller,
     DeviceLink dead,
   ) async {
+    final session = _session;
+    if (session?.controller != controller) return null;
+    if (session!.link == dead) session.hold.discard();
     final group = _groupOf(host.id);
-    if (group == null) return null;
-    final fresh = await group.reconnect(dead);
-    if (fresh == null || _session?.controller != controller) return null;
-    return borrow(host.id);
+    final fresh = (await group?.reconnect(dead))?.share();
+    if (fresh == null) return null;
+    if (_session != session) {
+      fresh.release();
+      return null;
+    }
+    final old = session.hold;
+    session.hold = fresh;
+    old.release();
+    return fresh.link;
   }
 
   void _end() {
     final session = _session;
     if (session == null) return;
     _session = null;
+    _collapse(false);
     session.controller.dispose();
-    release(session.host.id, session.link);
+    session.hold.release();
   }
 
   void _endDesktop() {
@@ -432,10 +455,6 @@ class DeviceDock extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     close();
-    for (final lease in _leases.values) {
-      unawaited(lease.link.close());
-    }
-    _leases.clear();
     super.dispose();
   }
 }

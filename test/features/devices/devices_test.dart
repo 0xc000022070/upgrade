@@ -22,6 +22,7 @@ import 'package:upgrade/features/devices/device_controllers.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/features/devices/device_float.dart';
 import 'package:upgrade/features/devices/screens_action.dart';
+import 'package:upgrade/features/screen/screen_controller.dart';
 import 'package:upgrade/features/screen/screen_preview.dart';
 import 'package:upgrade/platform/devices/device_link.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
@@ -348,7 +349,7 @@ void main() {
     var told = 0;
     dock.addListener(() => told++);
 
-    dock.rename(const [
+    dock.syncHosts(const [
       Host(
         id: 'h1',
         name: 'mark',
@@ -364,7 +365,7 @@ void main() {
     expect(told, 1);
   });
 
-  test('a deleted host ends its stream and closes its link', () async {
+  test('a deleted host ends its stream, desktop and link', () async {
     final links = {_rose.id: _hostLink(), _nyx.id: _hostLink()};
     final dock = DeviceDock(
       group: (host, dock) => DevicesController(
@@ -379,26 +380,90 @@ void main() {
           required verifier,
         }) async => links[host.id]!,
       ),
-      desktopOf: (_) => throw UnimplementedError(),
+      desktopOf: (host) => HostScreenController(
+        host: host,
+        readPrivateKey: (_) async => null,
+        open: ({
+          required address,
+          required port,
+          required user,
+          required privateKey,
+          vncUsername,
+          password,
+          required verifier,
+        }) => Completer<VncConnection>().future,
+      ),
     );
     addTearDown(dock.dispose);
     dock.attach(const [_rose, _nyx]);
     await Future<void>.delayed(Duration.zero);
     dock
       ..summon()
-      ..select(dock.groups.first, _pixel);
+      ..select(dock.groups.first, _pixel)
+      ..watchDesktop(_rose);
     await Future<void>.delayed(Duration.zero);
     final rose = links[_rose.id]!;
     expect(rose.frameStreams.single.hasListener, isTrue);
 
-    dock.rename(const [_nyx]);
+    dock.syncHosts(const [_nyx]);
     await Future<void>.delayed(Duration.zero);
 
     expect(dock.session, isNull);
+    expect(dock.desktop, isNull);
     expect([for (final group in dock.groups) group.host.id], [_nyx.id]);
     expect(rose.frameStreams.single.hasListener, isFalse);
     expect(rose.closed, isTrue);
     expect(links[_nyx.id]!.closed, isFalse);
+  });
+
+  test('a link that closes as it opens fails the list', () async {
+    final link = _hostLink();
+    final group = DevicesController(
+      host: _rose,
+      dock: DeviceDock(
+        group: (_, _) => throw UnimplementedError(),
+        desktopOf: (_) => throw UnimplementedError(),
+      ),
+      readPrivateKey: (_) async => 'key',
+      open: ({
+        required address,
+        required port,
+        required user,
+        required privateKey,
+        required verifier,
+      }) async {
+        await link.close();
+        return link;
+      },
+    );
+    addTearDown(group.dispose);
+
+    await group.refresh();
+
+    expect(group.phase, isA<DevicesFailed>());
+  });
+
+  test('a link closes on its last release, and at once when discarded', () {
+    final link = _hostLink();
+    final first = LinkHold.open(link);
+    final second = first.share()!;
+
+    first
+      ..release()
+      ..release();
+    expect(link.closed, isFalse);
+    expect(first.share(), isNull);
+    second.release();
+    expect(link.closed, isTrue);
+    expect(second.share(), isNull);
+
+    final next = _hostLink();
+    final held = LinkHold.open(next);
+    final other = held.share()!;
+    held.discard();
+    expect(next.closed, isTrue);
+    expect(other.share(), isNull);
+    other.release();
   });
 
   test('frames survive being cut anywhere and keepalives vanish', () async {
@@ -1293,6 +1358,8 @@ void main() {
 
       expect(dials, 2);
       expect(links.last.frameStreams.single.hasListener, isTrue);
+      expect(links.first.closed, isTrue);
+      expect(links.last.closed, isFalse);
     });
 
     testWidgets('before the first frame of a new window is not redialled', (

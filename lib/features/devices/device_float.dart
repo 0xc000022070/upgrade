@@ -179,7 +179,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     });
     ref.listenManual<AsyncValue<List<Host>>>(hostsProvider, (_, hosts) {
       final value = hosts.value;
-      if (value != null) _dock.rename(value);
+      if (value != null) _dock.syncHosts(value);
     });
     ref.listenManual<AsyncValue<ScreensRest?>>(screensRestProvider, (_, rest) {
       final value = rest.value;

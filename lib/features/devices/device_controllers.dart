@@ -84,7 +84,7 @@ class DevicesController extends ChangeNotifier {
   final DeviceLinkOpener _open;
 
   PinnedHostKey? _pinned;
-  DeviceLink? _link;
+  LinkHold? _hold;
   DevicesPhase _phase = const DevicesLoading();
   bool _disposed = false;
   int _attempt = 0;
@@ -94,7 +94,9 @@ class DevicesController extends ChangeNotifier {
   Future<DeviceLink?>? _dialling;
 
   DevicesPhase get phase => _phase;
-  DeviceLink? get link => _link?.closed ?? true ? null : _link;
+  DeviceLink? get link => _hold?.link.closed ?? true ? null : _hold?.link;
+
+  LinkHold? share() => _hold?.share();
   List<DeviceBoot> get boots => List.unmodifiable(_boots);
   DeviceWork? workOn(HostDevice device) => _work[workKey(device)];
 
@@ -113,11 +115,11 @@ class DevicesController extends ChangeNotifier {
           (device.kind == DeviceKind.android ? device.avd : device.id);
 
   void revive() {
-    if (_link?.closed ?? false) unawaited(refresh());
+    if (_hold?.link.closed ?? false) unawaited(refresh());
   }
 
   Future<DeviceLink> _ready() async {
-    final link = _live() ?? await _connect();
+    final link = _live()?.link ?? await _connect();
     if (link == null) throw const HerdrUnreachable('no device link');
     return link;
   }
@@ -275,7 +277,7 @@ class DevicesController extends ChangeNotifier {
     _work.removeWhere((_, work) => work is WorkFailed);
     notifyListeners();
     try {
-      final link = _live() ?? await _connect();
+      final link = _live()?.link ?? await _connect();
       if (link == null || _disposed || attempt != _attempt) return;
       final devices = await link.list();
       if (_disposed || attempt != _attempt) return;
@@ -287,30 +289,28 @@ class DevicesController extends ChangeNotifier {
     }
   }
 
-  Future<DeviceLink?> reconnect(DeviceLink dead) async {
-    if (_link == dead) _link = null;
-    dock.discard(host.id, dead);
-    final link = _live() ?? await _connect();
-    return _disposed ? null : link;
+  Future<LinkHold?> reconnect(DeviceLink dead) async {
+    if (_hold?.link == dead) _discardHold();
+    if (_live() == null) await _connect();
+    return _disposed ? null : _live();
   }
 
-  DeviceLink? _live() {
-    final link = _link;
-    if (link == null || !link.closed) return link;
-    _link = null;
-    dock.discard(host.id, link);
+  LinkHold? _live() {
+    final hold = _hold;
+    if (hold == null || !hold.link.closed) return hold;
+    _discardHold();
     return null;
+  }
+
+  void _discardHold() {
+    _hold?.discard();
+    _hold = null;
   }
 
   Future<DeviceLink?> _connect() =>
       _dialling ??= _dial().whenComplete(() => _dialling = null);
 
   Future<DeviceLink?> _dial() async {
-    final held = dock.borrow(host.id);
-    if (held != null) {
-      _link = held;
-      return held;
-    }
     final privateKey = await _readPrivateKey(host.keyId);
     if (_disposed) return null;
     if (privateKey == null) {
@@ -335,7 +335,11 @@ class DevicesController extends ChangeNotifier {
       await link.close();
       return null;
     }
-    return _link = dock.adopt(host.id, link);
+    if (link.closed) {
+      _fail(const HerdrUnreachable('device link closed'));
+      return null;
+    }
+    return (_hold = LinkHold.open(link)).link;
   }
 
   void _fail(Object error) {
@@ -345,9 +349,7 @@ class DevicesController extends ChangeNotifier {
       failure?.reason(host.name) ?? ReasonLine.streamClosed.words,
     );
     notifyListeners();
-    final link = _link;
-    _link = null;
-    if (link != null) dock.discard(host.id, link);
+    _discardHold();
   }
 
   @override
@@ -355,9 +357,8 @@ class DevicesController extends ChangeNotifier {
     _disposed = true;
     _boots.clear();
     _work.clear();
-    final link = _link;
-    _link = null;
-    if (link != null) dock.release(host.id, link);
+    _hold?.release();
+    _hold = null;
     super.dispose();
   }
 }
