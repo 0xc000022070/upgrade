@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1064,9 +1065,9 @@ class _DeviceListState extends State<_DeviceList> {
                 key: ValueKey('device-tab-$key'),
                 icon: UpgradeIcons.phone,
                 tag: held
-                    ? _heldTag(
-                        away: widget.dock.collapsed,
-                        paused: session!.controller.phase is DevicePaused,
+                    ? _deviceTag(
+                        widget.dock.collapsed,
+                        session!.controller.phase,
                       )
                     : _kindTag(device),
                 label: work is WorkRunning ? '${device.name}  …' : device.name,
@@ -1117,8 +1118,47 @@ class _DeviceListState extends State<_DeviceList> {
     };
   }
 
+  List<ChangeNotifier> _watched = const [];
+  Object? _phases;
+
+  // A device controller notifies on every frame; the list only cares when a phase changes.
+  Object _phasesNow() => (
+    widget.dock.session?.controller.phase.runtimeType,
+    widget.dock.desktop?.controller.phase.runtimeType,
+  );
+
+  void _phaseChanged() {
+    final now = _phasesNow();
+    if (now != _phases) setState(() => _phases = now);
+  }
+
+  void _watch() {
+    final controllers = <ChangeNotifier>[
+      ?widget.dock.session?.controller,
+      ?widget.dock.desktop?.controller,
+    ];
+    _phases = _phasesNow();
+    if (listEquals(controllers, _watched)) return;
+    for (final controller in _watched) {
+      controller.removeListener(_phaseChanged);
+    }
+    for (final controller in controllers) {
+      controller.addListener(_phaseChanged);
+    }
+    _watched = controllers;
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _watched) {
+      controller.removeListener(_phaseChanged);
+    }
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    _watch();
     final dock = widget.dock;
     final grip = widget.grip;
     final onFold = widget.onFold;
@@ -1186,14 +1226,15 @@ class _DeviceListState extends State<_DeviceList> {
                       final heldDesktop = desktop?.host.id == host.id;
                       final session = dock.session;
                       final held = heldDesktop
-                          ? _heldTag(
-                              away: dock.desktopCollapsed,
-                              paused: dock.desktopPaused,
+                          ? _desktopTag(
+                              dock.desktopCollapsed,
+                              dock.desktopPaused,
+                              desktop!.controller.phase,
                             )
                           : session?.host.id == host.id
-                          ? _heldTag(
-                              away: dock.collapsed,
-                              paused: session!.controller.phase is DevicePaused,
+                          ? _deviceTag(
+                              dock.collapsed,
+                              session!.controller.phase,
                             )
                           : null;
                       return [
@@ -1254,8 +1295,23 @@ class _DeviceListState extends State<_DeviceList> {
   }
 }
 
-String _heldTag({required bool away, required bool paused}) =>
-    away ? 'HELD' : (paused ? 'PAUSED' : 'LIVE');
+const _failedTag = 'FAILED';
+
+String _desktopTag(bool away, bool paused, ScreenPhase phase) =>
+    switch (phase) {
+      ScreenFailed() => _failedTag,
+      _ when away => 'HELD',
+      ScreenConnecting() => 'CONNECTING',
+      ScreenLive() => paused ? 'PAUSED' : 'LIVE',
+    };
+
+String _deviceTag(bool away, DevicePhase phase) => switch (phase) {
+  DeviceFailed() => _failedTag,
+  _ when away => 'HELD',
+  DeviceWaiting() => 'CONNECTING',
+  DevicePaused() => 'PAUSED',
+  DeviceLive() => 'LIVE',
+};
 
 String _kindTag(HostDevice device) => switch (device.kind) {
   DeviceKind.simulator => 'SIMULATOR',
@@ -1336,7 +1392,11 @@ class _HostRow extends StatelessWidget {
               child: held != null
                   ? Text(
                       held,
-                      style: tokens.rowKicker.copyWith(color: tokens.accent),
+                      style: tokens.rowKicker.copyWith(
+                        color: held == _failedTag
+                            ? tokens.warning
+                            : tokens.accent,
+                      ),
                       maxLines: 1,
                     )
                   : Text(
@@ -1466,7 +1526,11 @@ class _ListRow extends StatelessWidget {
                         child: Text(
                           tag,
                           style: tokens.rowKicker.copyWith(
-                            color: active ? tokens.accent : tokens.textMuted,
+                            color: tag == _failedTag
+                                ? tokens.warning
+                                : active
+                                ? tokens.accent
+                                : tokens.textMuted,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

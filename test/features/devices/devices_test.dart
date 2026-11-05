@@ -1006,6 +1006,27 @@ void main() {
     expect(tag(_pixel, 'HELD'), findsOneWidget);
   });
 
+  testWidgets('a held device whose stream dies is not called live', (
+    tester,
+  ) async {
+    final link = FakeDeviceLink(const [_pixel]);
+    await _pump(tester, _opener(link));
+    await _pick(tester, _pixel);
+    await _live(tester, link);
+    await _open(tester);
+
+    Finder tag(String word) => find.descendant(
+      of: find.byKey(ValueKey('device-tab-h1-${_pixel.id}')),
+      matching: find.text(word),
+    );
+    expect(tag('LIVE'), findsOneWidget);
+
+    link.frameStreams.last.addError(StateError('capture died'));
+    await _settle(tester);
+    expect(tag('FAILED'), findsOneWidget);
+    expect(tag('LIVE'), findsNothing);
+  });
+
   testWidgets('a window parks its own stream in picture-in-picture', (
     tester,
   ) async {
@@ -1937,6 +1958,41 @@ void main() {
       of: find.byKey(const ValueKey('desktop-float-overlay')),
       matching: find.text(text),
     );
+
+    testWidgets('a desktop that never connects is not called live', (
+      tester,
+    ) async {
+      final dial = Completer<VncConnection>();
+      await _pump(
+        tester,
+        _opener(FakeDeviceLink(const [])),
+        desktops: const [_rose],
+        vnc: ({
+          required String address,
+          required int port,
+          required String user,
+          required String privateKey,
+          String? vncUsername,
+          String? password,
+          HostKeyVerifier? verifier,
+        }) => dial.future,
+      );
+      await _open(tester);
+      await _tapKey(tester, desktopTab);
+      await _settle(tester);
+      await _open(tester);
+
+      Finder tag(String word) => find.descendant(
+        of: find.byKey(desktopTab),
+        matching: find.text(word),
+      );
+      expect(tag('CONNECTING'), findsOneWidget);
+
+      dial.completeError(StateError('tunnel refused'));
+      await _settle(tester);
+      expect(tag('FAILED'), findsOneWidget);
+      expect(tag('LIVE'), findsNothing);
+    });
 
     testWidgets('parks in picture-in-picture, even from a pause', (
       tester,
