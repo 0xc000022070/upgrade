@@ -89,7 +89,10 @@ void main() {
   late BoardHarness app;
   setUp(() async {
     root = await Directory.systemTemp.createTemp('upgrade-board-');
-    worker = LuauWorker(dataDirectory: root.path);
+    worker = LuauWorker(
+      dataDirectory: root.path,
+      dataTimeBudget: const Duration(days: 1),
+    );
     app = BoardHarness(worker, boardPackage());
   });
   tearDown(() async {

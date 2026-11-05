@@ -166,7 +166,10 @@ void main() {
   late KanbanHarness app;
   setUp(() async {
     root = await Directory.systemTemp.createTemp('upgrade-kanban-');
-    worker = LuauWorker(dataDirectory: root.path);
+    worker = LuauWorker(
+      dataDirectory: root.path,
+      dataTimeBudget: const Duration(days: 1),
+    );
     app = KanbanHarness(worker, kanbanPackage());
   });
   tearDown(() async {

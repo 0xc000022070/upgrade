@@ -80,7 +80,10 @@ void main() {
   };
   setUp(() async {
     root = await Directory.systemTemp.createTemp('upgrade-schedule-ui-');
-    worker = LuauWorker(dataDirectory: root.path);
+    worker = LuauWorker(
+      dataDirectory: root.path,
+      dataTimeBudget: const Duration(days: 1),
+    );
     app = ScheduleHarness(worker, schedulePackage());
   });
   tearDown(() async {
