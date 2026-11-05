@@ -18,5 +18,6 @@
     herdr = lib.mkEnableOption "herdr";
     codex = lib.mkEnableOption "codex against a local mock of the OpenAI backend";
     declaredHooks = lib.mkEnableOption "agent configs linked into the store";
+    vnc = lib.mkEnableOption "a desktop served by VNC on the guest's localhost:5900";
   };
 }

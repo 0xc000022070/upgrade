@@ -223,6 +223,29 @@ in
     };
   };
 
+  # Loopback only and without a password: the app reaches it through its SSH tunnel, and
+  # the ticking clock gives the stream a frame every second.
+  systemd.services.upgrade-host-vnc = lib.mkIf cfg.vnc {
+    description = "Desktop the app's VNC tunnel connects to";
+    wantedBy = [ "multi-user.target" ];
+    environment.DISPLAY = ":1";
+    serviceConfig = {
+      User = "dev";
+      Restart = "on-failure";
+    };
+    script = ''
+      ${pkgs.xvfb}/bin/Xvfb :1 -screen 0 1280x800x24 -nolisten tcp &
+      xvfb=$!
+      until ${pkgs.xdpyinfo}/bin/xdpyinfo >/dev/null 2>&1; do
+        kill -0 "$xvfb" || exit 1
+        sleep 0.2
+      done
+      ${pkgs.xclock}/bin/xclock -update 1 -geometry 300x300+40+40 &
+      ${pkgs.xterm}/bin/xterm -geometry 80x24+400+40 &
+      exec ${pkgs.x11vnc}/bin/x11vnc -localhost -rfbport 5900 -forever -shared -nopw -quiet
+    '';
+  };
+
   systemd.services.upgrade-host-fixture = {
     description = "Seed the Upgrade remote host fixture";
     wantedBy = [ "multi-user.target" ];

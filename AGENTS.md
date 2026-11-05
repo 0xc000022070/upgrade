@@ -26,7 +26,9 @@ the declared host key, `SHA256:hDVbIZXceJXxmv9IiBarvzZx3utci+tvV5gyo8ya0Wc`
 the phone's private key in `$XDG_STATE_HOME/upgrade`, out of the repo.
 
 SSH uses TCP 2222. Mosh uses UDP 60920-60935: every guest's `mosh-server` is
-pinned to its own sixteen ports, whatever range the app asks for. If the
+pinned to its own sixteen ports, whatever range the app asks for. The default
+guest also serves a desktop, a ticking clock and an xterm, by VNC on its
+loopback port 5900; the app's `DESKTOP` reaches it through the SSH tunnel. If the
 development host's Tailscale address changes, update the phone entry before
 connecting.
 

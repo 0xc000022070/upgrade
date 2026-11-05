@@ -7,6 +7,7 @@
     engine = true;
     herdr = true;
     codex = true;
+    vnc = true;
   };
 
   bare = {
