@@ -636,9 +636,8 @@ abstract class _ChannelConnection<E> implements ShellConnection {
     if (!_exit.isCompleted) _exit.complete(code);
   }
 
-  void _abandonSilentChannel() => _end(
-    '$_name: no answer in ${giveUp.inSeconds}s, dropping the channel',
-  );
+  void _abandonSilentChannel() =>
+      _end('$_name: no answer in ${giveUp.inSeconds}s, dropping the channel');
 
   void _end(String why) {
     _ended ??= _supervisor.terminalEnded();
@@ -653,6 +652,14 @@ abstract class _ChannelConnection<E> implements ShellConnection {
       );
     }
   }
+}
+
+Future<bool> _sweep(HostChannels channels, String session) async {
+  final swept = await channels.exec(
+    moshServerCleanupCommand(session),
+    timeout: remoteCommandDeadline,
+  );
+  return swept != null && moshSwept(swept.out) != null;
 }
 
 class MoshShellConnection extends _ChannelConnection<Uint8List> {
@@ -733,12 +740,7 @@ class MoshShellConnection extends _ChannelConnection<Uint8List> {
   Future<bool> terminateRemote(String session, {UserAction? action}) async {
     if (!durableShellSession.hasMatch(session)) return false;
     final channels = action == null ? _supervisor : await channelsFor(action);
-    if (channels == null) return false;
-    final mosh = await channels.exec(
-      moshServerCleanupCommand(session),
-      timeout: remoteCommandDeadline,
-    );
-    return mosh != null && moshSwept(mosh.out) != null;
+    return channels != null && await _sweep(channels, session);
   }
 
   @override
@@ -1107,7 +1109,8 @@ class SshShellConnection implements ShellConnection {
 
   @override
   Future<bool> terminateRemote(String session, {UserAction? action}) async =>
-      true;
+      durableShellSession.hasMatch(session) &&
+      await _sweep(_supervisor, session);
 
   /// Nothing to carry: a link the old network took fails its check and ends, which ends
   /// the pty as a lost stream, and the tab's schedule dials again.

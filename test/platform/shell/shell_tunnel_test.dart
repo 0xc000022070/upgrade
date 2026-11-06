@@ -1879,6 +1879,24 @@ void main() {
     });
   });
 
+  test('an SSH tab reaps a retired tab by its marker, and keeps it when the '
+      'sweep fails', () async {
+    final host = FakeHost();
+    final connection = await openOn(tunnelTo(host));
+    addTearDown(() => connection.close(UserClosed(testIntent())));
+    expect(connection, isA<SshShellConnection>());
+    host.execAnswer = (request) => 'UPGRADE_MOSH_SWEPT=env\n';
+
+    expect(await connection.terminateRemote('upgrade456'), isTrue);
+    expect(
+      host.requests.last,
+      'exec ${moshServerCleanupCommand('upgrade456')}',
+    );
+
+    host.execAnswer = (request) => '';
+    expect(await connection.terminateRemote('upgrade456'), isFalse);
+  });
+
   group('the live session', () {
     test('stdout and stderr arrive merged, in the order they came', () async {
       final host = FakeHost();
