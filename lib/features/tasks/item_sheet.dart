@@ -118,13 +118,17 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
 
   final _pending = <NewAttachment>[];
 
+  bool _picking = false;
+
   @override
   void initState() {
     super.initState();
     _focus.addListener(() {
       // The line over the strip holds the caret while it is up and the editor is open behind
       // it: only a caret that left both ends the edit.
-      if (!_focus.hasFocus && _editing && _line == null) _commit();
+      if (!_focus.hasFocus && _editing && _line == null && !_picking) {
+        _commit();
+      }
     });
   }
 
@@ -211,10 +215,16 @@ class _ItemSheetState extends ConsumerState<ItemSheet> {
   }
 
   Future<void> _image() async {
-    final paths = await ref
-        .read(attachmentFilesProvider)
-        .pick((paths) => reviewPhotos(context, paths, verb: 'ATTACH'));
-    if (!mounted || paths.isEmpty) return;
+    final List<String> paths;
+    _picking = true;
+    try {
+      paths = await ref
+          .read(attachmentFilesProvider)
+          .pick((paths) => reviewPhotos(context, paths, verb: 'ATTACH'));
+    } finally {
+      _picking = false;
+    }
+    if (!mounted) return;
     setState(() => _pending.addAll(paths.map(NewAttachment.image)));
     // The picker took the focus to another activity; without this the strip and the keyboard
     // do not come back and the chip lands on a dismissed editor.

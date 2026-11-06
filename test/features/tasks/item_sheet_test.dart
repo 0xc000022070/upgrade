@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/application/drops/attachment_files.dart';
 import 'package:upgrade/application/links/link_preview.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/application/links/urls.dart';
@@ -20,6 +21,7 @@ import 'package:upgrade/data/repositories/task_repository.dart';
 import 'package:upgrade/data/views.dart';
 import 'package:upgrade/design/components/keyboard_toolbar.dart';
 import 'package:upgrade/design/components/upgrade_field.dart';
+import 'package:upgrade/features/photos/photo_cut.dart';
 import 'package:upgrade/features/tasks/item_sheet.dart';
 import 'package:upgrade/features/tasks/item_pickers.dart';
 import 'package:upgrade/features/tasks/link_text.dart';
@@ -55,6 +57,21 @@ final _line = find.descendant(
   of: find.byType(KeyboardToolbar),
   matching: find.byType(TextField),
 );
+
+final class _Picker implements AttachmentFiles {
+  @override
+  Future<List<String>> pick(PhotoReview review) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future<void>.delayed(Duration.zero);
+    return const ['attachments/a.png'];
+  }
+
+  @override
+  String? absolute(String relative) => null;
+
+  @override
+  Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 void main() {
   late AppDatabase db;
@@ -410,6 +427,27 @@ void main() {
     expect(_glyph(ToolbarGlyph.move), findsOneWidget);
     expect(_glyph(ToolbarGlyph.done), findsOneWidget);
 
+    await unmount(tester);
+  });
+
+  testWidgets('an image picked while editing the title is kept', (
+    tester,
+  ) async {
+    final task = await tasks.capture('Postgres');
+    await tester.pumpWidget(
+      host(task, extra: [attachmentFilesProvider.overrideWithValue(_Picker())]),
+    );
+    await _ready(tester);
+    await tester.tap(find.text('Postgres'));
+    await _ready(tester);
+
+    await tester.tap(_glyph(ToolbarGlyph.image));
+    await _ready(tester);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await _ready(tester);
+
+    final kept = await tester.runAsync(() => attachments.forItem(task));
+    expect([for (final row in kept!) row.value], ['attachments/a.png']);
     await unmount(tester);
   });
 
