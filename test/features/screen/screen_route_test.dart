@@ -255,6 +255,9 @@ void main() {
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    ProviderScope.containerOf(tester.element(find.byType(HostScreenRoute)))
+        .read(agentsWakeProvider.notifier)
+        .state++;
     await settleAsync(tester);
     final after = connection.channel.sent.sublist(before);
     expect(after, hasLength(10));
@@ -282,6 +285,9 @@ void main() {
     expect(connection.channel.sent.length, before);
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    ProviderScope.containerOf(tester.element(find.byType(HostScreenRoute)))
+        .read(agentsWakeProvider.notifier)
+        .state++;
     await settleAsync(tester);
     final after = connection.channel.sent.sublist(before);
     expect(after, hasLength(10));

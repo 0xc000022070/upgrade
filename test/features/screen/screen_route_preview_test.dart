@@ -262,6 +262,9 @@ void main() {
     tester.binding
       ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
       ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    ProviderScope.containerOf(tester.element(find.byType(HostScreenRoute)))
+        .read(agentsWakeProvider.notifier)
+        .state++;
     await tester.pump(previewInterval);
     await settleWrites(until: 2);
     expect(written, <String>[_nyx.id, _nyx.id]);

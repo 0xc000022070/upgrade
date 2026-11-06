@@ -109,16 +109,24 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
           prompt: _askHostKey,
           open: widget.open ?? VncTunnel(ref.read(hostLinksProvider)).open,
         );
+    // Back only on the wake signal, after the pool wakes; sleeping links refuse the tunnel.
     ref.listenManual<bool>(appVisibleProvider, (_, visible) {
-      _away = !visible;
-      _previewTimer?.cancel();
-      _previewTimer = null;
-      if (visible) _previewEvery();
-      if (widget.controller == null) _controller.setAway(_away);
+      if (!visible) _setAway(true);
+    });
+    ref.listenManual<int>(agentsWakeProvider, (_, _) {
+      if (_away && ref.read(appVisibleProvider)) _setAway(false);
     });
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     if (shared == null) _controller.connect();
     unawaited(_openPreviews());
+  }
+
+  void _setAway(bool away) {
+    _away = away;
+    _previewTimer?.cancel();
+    _previewTimer = null;
+    if (!away) _previewEvery();
+    if (widget.controller == null) _controller.setAway(away);
   }
 
   Host get _host =>
