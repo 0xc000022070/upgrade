@@ -38,8 +38,15 @@ class _Platform implements PhoneLinux {
   @override
   Future<Map<String, PhoneLinuxState>> states() async => const {};
 
+  Object? adoptFails;
+
   @override
-  Future<void> adopt(String id) async => adopted.add(id);
+  Future<void> adopt(String id) async {
+    final failure = adoptFails;
+    adoptFails = null;
+    if (failure != null) throw failure;
+    adopted.add(id);
+  }
 
   @override
   Future<PhoneLinuxState> install(
@@ -257,6 +264,29 @@ void main() {
 
     expect(platform.adopted, ['old']);
     expect((await linux.hostIds()).first, 'old');
+  });
+
+  test('two removes at once both leave the list', () async {
+    final one = await linux.install(const PhoneLinuxSetup('ubuntu'));
+    final two = await linux.install(const PhoneLinuxSetup('alpine'));
+    final three = await linux.install(const PhoneLinuxSetup('arch'));
+
+    await Future.wait([linux.remove(one), linux.remove(two)]);
+
+    expect(await linux.hostIds(), [three.id]);
+  });
+
+  test('an adoption that failed is tried again on the next call', () async {
+    await settings.setText(SettingsRepository.phoneLinuxHosts, 'old');
+    platform.adoptFails = const FileSystemException('busy');
+
+    await expectLater(
+      linux.watchStates().first,
+      throwsA(isA<FileSystemException>()),
+    );
+    await linux.watchStates().first;
+
+    expect(platform.adopted, ['old']);
   });
 
   test('the system names its distro, and the host takes its mark', () {

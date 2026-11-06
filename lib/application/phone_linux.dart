@@ -13,6 +13,7 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/platform/phone_linux.dart';
+import 'package:upgrade/platform/plugins/serial.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 
@@ -39,7 +40,17 @@ class PhoneLinuxHost {
   final Random _random;
   final DateTime Function() _now;
 
-  late final Future<void> _adopted = _adopt();
+  final _ids = Serial();
+  Future<void>? _adoption;
+
+  Future<void> get _adopted => _adoption ??= () async {
+    try {
+      await _adopt();
+    } catch (_) {
+      _adoption = null;
+      rethrow;
+    }
+  }();
 
   Stream<Set<String>> watchHostIds() => settings
       .watchRaw(SettingsRepository.phoneLinuxHosts)
@@ -98,10 +109,12 @@ class PhoneLinuxHost {
   Future<void> remove(Host host) async {
     await _adopted;
     await platform.remove(host.id);
-    await _write([
-      for (final id in await hostIds())
-        if (id != host.id) id,
-    ]);
+    await _edit(
+      (ids) => [
+        for (final id in ids)
+          if (id != host.id) id,
+      ],
+    );
     await hosts.delete(host.id);
     if ((await hosts.all()).any((other) => other.keyId == host.keyId)) return;
     await keys.delete(host.keyId);
@@ -147,9 +160,12 @@ class PhoneLinuxHost {
       keyId: keyId,
     );
     await hosts.save(host);
-    await _write([...await hostIds(), host.id]);
+    await _edit((ids) => [...ids, host.id]);
     return host;
   }
+
+  Future<void> _edit(List<String> Function(List<String> ids) change) =>
+      _ids.run(() async => _write(change(await hostIds())));
 
   Future<void> _write(List<String> ids) => ids.isEmpty
       ? settings.clear(SettingsRepository.phoneLinuxHosts)
