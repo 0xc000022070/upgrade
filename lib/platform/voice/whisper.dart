@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
@@ -329,35 +329,42 @@ class WhisperTranscriber implements Transcriber {
     final heard = <String>[];
     for (final chunk in whisperChunks(samples)) {
       if (!heardAnything(chunk)) continue;
-      heard.add(await _hear(worker, chunk, language));
+      final isolate = _isolate;
+      if (isolate == null) throw const TranscriptionFailed('closed');
+      heard.add(await hear(isolate, worker, chunk, language));
     }
     return heard.join(' ');
-  }
-
-  Future<String> _hear(
-    SendPort worker,
-    Float32List samples,
-    String language,
-  ) async {
-    final reply = ReceivePort();
-    try {
-      worker.send((
-        reply.sendPort,
-        language,
-        TransferableTypedData.fromList([samples]),
-      ));
-      final (text, error) = await reply.first as (String?, String?);
-      if (text == null) throw TranscriptionFailed(error ?? 'no answer');
-      return text;
-    } finally {
-      reply.close();
-    }
   }
 
   void close() {
     _isolate?.kill(priority: Isolate.immediate);
     _isolate = null;
     _worker = null;
+  }
+}
+
+@visibleForTesting
+Future<String> hear(
+  Isolate isolate,
+  SendPort worker,
+  Float32List samples,
+  String language,
+) async {
+  final reply = ReceivePort();
+  try {
+    isolate.addOnExitListener(reply.sendPort, response: 'closed');
+    worker.send((
+      reply.sendPort,
+      language,
+      TransferableTypedData.fromList([samples]),
+    ));
+    final answer = await reply.first;
+    if (answer is String) throw TranscriptionFailed(answer);
+    final (text, error) = answer as (String?, String?);
+    if (text == null) throw TranscriptionFailed(error ?? 'no answer');
+    return text;
+  } finally {
+    reply.close();
   }
 }
 
