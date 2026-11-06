@@ -521,7 +521,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('VERIFY on a host that is already trusted says so and stops', (
+  testWidgets('VERIFY on a trusted host stops, and is back once the key goes', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(400, 2400);
@@ -578,6 +578,10 @@ void main() {
     expect(asked, 1);
     expect(find.text('VERIFYING'), findsNothing);
     expect(find.text('VERIFY'), findsNothing);
+
+    await hosts.forgetHostKey(_rose.id);
+    await ready(tester);
+    expect(find.text('VERIFY'), findsOneWidget);
 
     await unmount(tester);
   });

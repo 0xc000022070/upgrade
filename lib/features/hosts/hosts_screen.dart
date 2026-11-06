@@ -759,6 +759,14 @@ class _LinkRowState extends ConsumerState<_LinkRow> {
 
   String? _failure;
 
+  @override
+  void didUpdateWidget(_LinkRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.host.hostKey == null && oldWidget.host.hostKey != null) {
+      _verified = false;
+    }
+  }
+
   bool get _unverified =>
       widget.host.hostKey == null ||
       widget.outcome?.kind == AgentOutcomeKind.hostKeyUnverified ||
