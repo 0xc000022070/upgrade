@@ -85,10 +85,7 @@ class DiffSession extends ChangeNotifier {
       _commitFiles.clear();
       _viewed = {};
       unawaited(_loadViewed());
-      if (source != null) {
-        unawaited(select(null));
-        return;
-      }
+      _clear();
     }
     final overview = controller.overview;
     if (source == null) {
@@ -204,21 +201,9 @@ class DiffSession extends ChangeNotifier {
 
   Future<void> select(Commit? commit) async {
     if (commit?.sha == source?.sha) return;
-    final walk = ++_walk;
+    _clear();
+    final walk = _walk;
     source = commit;
-    files = null;
-    filesFailed = false;
-    file = null;
-    lines = null;
-    bundle = null;
-    _bundling = null;
-    _reading.clear();
-    _fetched.clear();
-    texts = null;
-    _textsOf = null;
-    reads.clear();
-    _outlines.clear();
-    _overviewOf = null;
     if (commit == null) {
       _onWorkspace();
       return;
@@ -236,6 +221,24 @@ class DiffSession extends ChangeNotifier {
         _loadTexts(walk, listed, controller.texts(listed, sha: commit.sha)),
       );
     }
+  }
+
+  void _clear() {
+    ++_walk;
+    source = null;
+    files = null;
+    filesFailed = false;
+    file = null;
+    lines = null;
+    bundle = null;
+    _bundling = null;
+    _reading.clear();
+    _fetched.clear();
+    texts = null;
+    _textsOf = null;
+    reads.clear();
+    _outlines.clear();
+    _overviewOf = null;
   }
 
   Future<List<WorkspaceFile>?> commitFiles(Commit commit) async {

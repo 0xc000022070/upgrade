@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/features/code/diff_session.dart';
 import 'package:upgrade/features/code/workspace_controller.dart';
-import 'package:upgrade/platform/herdr/herdr_client.dart';
 
 import 'workspace_sheet_harness.dart';
 
@@ -34,6 +33,22 @@ class _Dropping extends FakeRunner {
       command.contains('git --no-pager log')
       ? dropped.future
       : super.run(command);
+}
+
+class _HeldSwitch extends FakeRunner {
+  final diff = Completer<WorkspaceReply>();
+  final switched = Completer<WorkspaceReply>();
+
+  @override
+  Future<WorkspaceReply> run(String command) {
+    if (command == WorkspaceCommands.sourceDiff('/home/luis/src/upgrade')) {
+      return diff.future;
+    }
+    if (command == WorkspaceCommands.overview('/home/luis/src/upgrade-fix')) {
+      return switched.future;
+    }
+    return super.run(command);
+  }
 }
 
 WorkspaceController _onEach(List<WorkspaceRunner> runners) =>
@@ -83,6 +98,29 @@ void main() {
       );
       expect(logs, hasLength(2));
       expect(logs.last, contains('upgrade-fix'));
+    },
+  );
+
+  test(
+    'a diff swapped to another worktree drops the diff still loading',
+    () async {
+      final runner = _HeldSwitch();
+      final controller = _on(runner);
+      final session = DiffSession(controller)..start();
+      await controller.connect();
+      await pumpEventQueue();
+      session.pick(session.files!.first);
+
+      unawaited(controller.openWorktree('/home/luis/src/upgrade-fix'));
+      await pumpEventQueue();
+      runner.diff.complete(
+        const WorkspaceReply(exitCode: 0, stdout: gitDiff, stderr: ''),
+      );
+      await pumpEventQueue();
+
+      expect(session.file, isNull);
+      expect(session.bundle, isNull);
+      expect(session.lines, isNull);
     },
   );
 
