@@ -78,10 +78,8 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
   // The state line goes up before the connection is dialled: an unreachable host takes
   // ten seconds to say so.
   final approval = target.approvalId;
-  await redraw(
-    line: alertSentLine(yes: yes, approval: approval != null),
-    withActions: false,
-  );
+  final sent = alertSentLine(yes: yes, approval: approval != null);
+  await redraw(line: sent, withActions: false);
 
   try {
     final privateKey = await const Ed25519Keys(SecurePrivateKeyStore())
@@ -135,19 +133,38 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
   }
 
   // The watcher clearing the notification first is the other ending, so a restore that
-  // would resurrect a dismissed alert is dropped.
+  // would resurrect a dismissed alert is dropped. The id is the pane's, so a newer question
+  // on that pane sits under the same id: only the SENT drawing itself is restored.
   await Future<void>.delayed(alertActionRestore);
-  if (!await _stillPosted(target.notificationId)) return;
+  if (!await _stillSent(target, '${target.text}\n$sent')) return;
   await redraw(withActions: true);
 }
 
-Future<bool> _stillPosted(int id) async {
+Future<bool> _stillSent(AlertTarget target, String body) async {
   try {
-    final active = await AlertNotifications.plugin.getActiveNotifications();
-    return active.any((notification) => notification.id == id);
+    return showsSent(
+      await AlertNotifications.plugin.getActiveNotifications(),
+      target: target,
+      body: body,
+    );
   } catch (_) {
     // Older Android cannot answer; leaving the actions off would be worse than a redraw of
     // something that is gone.
     return true;
   }
+}
+
+@visibleForTesting
+bool showsSent(
+  List<ActiveNotification> active, {
+  required AlertTarget target,
+  required String body,
+}) {
+  final payload = target.encode();
+  return active.any(
+    (notification) =>
+        notification.id == target.notificationId &&
+        (notification.payload == null || notification.payload == payload) &&
+        (notification.body == null || notification.body == body),
+  );
 }
