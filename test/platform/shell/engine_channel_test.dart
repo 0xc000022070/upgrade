@@ -798,6 +798,19 @@ void main() {
         addTearDown(refused.close);
       }
 
+      test('a bind that lands after a suspend is closed, not kept', () async {
+        open(refusing: 0);
+        final hello = server.next((_) => true);
+        await refused.start();
+        await hello;
+
+        final rehoming = refused.rehome();
+        await refused.suspend();
+        await rehoming;
+        expect(sockets, hasLength(2));
+        expect(sockets.last.closed, isTrue);
+      });
+
       test('it says so once, binds again on the next tick, and never writes '
           'into the closed socket', () async {
         open(refusing: 3);

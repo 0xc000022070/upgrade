@@ -667,7 +667,7 @@ class UdpEngineChannel implements EngineChannel {
           : InternetAddress.anyIPv4,
       0,
     );
-    if (_closed || _socket != null) {
+    if (_closed || _suspended || _socket != null) {
       socket.close();
       return;
     }
