@@ -60,9 +60,10 @@
 /// - A gesture, or a waking use on a link not heard within [HostLinks.quiet], asks for one
 ///   round first ([ConnectionSupervisor.answers]). On silence it dials beside the link,
 ///   which stays for its holders until their own keepalive ends it.
-/// - [HealthCheckFailed] comes only from [HostLease.ended] and drops the supervisor whose
-///   link died. If its transport asked through [ConnectionSupervisor.reopenWhenHostDies],
-///   that supervisor alone reopens itself on the fixed [_reviveDelays] schedule.
+/// - [HealthCheckFailed] comes from [HostLease.ended], and drops the supervisor whose link
+///   died. If its transport asked through [ConnectionSupervisor.reopenWhenHostDies], that
+///   supervisor alone reopens itself on the fixed [_reviveDelays] schedule. Asked while it
+///   is idle (not asleep, not retired, no link held or dialing), it starts it at once.
 /// - A dial refused with [DialSettling] (an earlier failed dial still authenticating) waits
 ///   for it, which is not a failure or a revive step. A [UserAction] waits at most
 ///   [SshConnector.timeout], other reasons as long as it takes.
