@@ -46,6 +46,29 @@ class RecordingHerdrClient extends HerdrClient {
   }
 }
 
+class _HeldHerdrClient extends RecordingHerdrClient {
+  final held = Completer<void>();
+
+  @override
+  Future<HerdrSession> connect({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    HostKeyVerifier? verifier,
+    void Function(Future<void> settled)? onSettling,
+  }) async {
+    if (address == host.address) await held.future;
+    return super.connect(
+      address: address,
+      port: port,
+      user: user,
+      privateKey: privateKey,
+      verifier: verifier,
+    );
+  }
+}
+
 class _PinRecorder implements PinNotifier {
   final raised = <String>[];
 
@@ -1040,6 +1063,42 @@ void main() {
     await handler.onDestroy(DateTime.now(), false);
 
     expect(client.dials, hasLength(2));
+  });
+
+  test('two reloads moving a host mid-dial leave one loop on it', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final store = MemoryPrivateKeyStore();
+    await store.write('k1', 'PRIVATE KEY');
+    final client = _HeldHerdrClient();
+    final handler = AgentWatcherHandler(
+      keys: Ed25519Keys(store),
+      client: client,
+    );
+    await handler.setHosts(const [host]);
+    final dialled = DateTime.now().add(const Duration(seconds: 2));
+    while (client.dials.isEmpty && DateTime.now().isBefore(dialled)) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+
+    const moved = Host(
+      id: 'h1',
+      name: 'nyx',
+      address: '100.64.0.2',
+      port: 22,
+      user: 'luisnquin',
+      keyId: 'k1',
+    );
+    final first = handler.setHosts(const [moved]);
+    final second = handler.setHosts(const [moved]);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    client.held.complete();
+    await Future.wait([first, second]);
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await handler.onDestroy(DateTime.now(), false);
+
+    expect(client.dials.where((address) => address == moved.address), [
+      moved.address,
+    ]);
   });
 
   test('the wanted kinds survive the trip into the service', () {

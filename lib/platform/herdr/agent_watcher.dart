@@ -20,6 +20,7 @@ import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/notifications/pin_notifications.dart';
+import 'package:upgrade/platform/plugins/serial.dart';
 
 /// The service runs its own isolate. Nothing in this file may reach for a provider, the
 /// database or a widget: what it needs travels through
@@ -536,6 +537,8 @@ class AgentWatcherHandler extends TaskHandler {
   int _shells = 0;
   bool _asked = false;
 
+  final _turns = Serial();
+
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     await PinNotifications.createChannel();
@@ -583,13 +586,14 @@ class AgentWatcherHandler extends TaskHandler {
   }
 
   @override
-  Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
-    for (final loop in _loops.values.toList()) {
-      await loop.stop();
-    }
-    _loops.clear();
-    _client.links.close();
-  }
+  Future<void> onDestroy(DateTime timestamp, bool isTimeout) =>
+      _turns.run(() async {
+        for (final loop in _loops.values.toList()) {
+          await loop.stop();
+        }
+        _loops.clear();
+        _client.links.close();
+      });
 
   Future<void> _reloadFromStore() async {
     final hosts = await FlutterForegroundTask.getData<String>(key: _hostsKey);
@@ -612,7 +616,10 @@ class AgentWatcherHandler extends TaskHandler {
   }
 
   @visibleForTesting
-  Future<void> setKinds(Set<AlertKind> kinds) async {
+  Future<void> setKinds(Set<AlertKind> kinds) =>
+      _turns.run(() => _setKinds(kinds));
+
+  Future<void> _setKinds(Set<AlertKind> kinds) async {
     for (final kind in AlertKind.values) {
       if (kinds.contains(kind) || !_book.kinds.contains(kind)) continue;
       final edges = _book.edges[kind]!;
@@ -632,7 +639,12 @@ class AgentWatcherHandler extends TaskHandler {
   Future<void> setHosts(
     List<Host> hosts, {
     Map<String, Set<AgentSource>> sources = const {},
-  }) async {
+  }) => _turns.run(() => _setHosts(hosts, sources));
+
+  Future<void> _setHosts(
+    List<Host> hosts,
+    Map<String, Set<AgentSource>> sources,
+  ) async {
     _channels = [
       for (final host in hosts)
         for (final source in AgentSource.values)
