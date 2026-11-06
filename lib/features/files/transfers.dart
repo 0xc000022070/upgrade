@@ -140,6 +140,8 @@ class Transfers extends ChangeNotifier {
   final _jobs = <TransferJob>[];
   final _sheets = <Object>{};
   final _retrying = <TransferJob>{};
+
+  final _sending = <String, Set<String>>{};
   final _samples = <(DateTime, int)>[];
   int _moved = 0;
   bool _dirty = false;
@@ -152,6 +154,26 @@ class Transfers extends ChangeNotifier {
   List<TransferJob> get jobs => List.unmodifiable(_jobs);
 
   bool get active => _jobs.any((job) => !job.ended);
+
+  String _claim(String hostId, String folder, String name, Set<String> taken) {
+    final sending = _sending.putIfAbsent(hostId, () => {});
+    final free = freeName(name, {
+      ...taken,
+      for (final path in sending)
+        if (joinPath(folder, path.split('/').last) == path)
+          path.split('/').last,
+    });
+    taken.add(free);
+    sending.add(joinPath(folder, free));
+    return joinPath(folder, free);
+  }
+
+  void _unclaim(String hostId, Iterable<String> paths) {
+    final sending = _sending[hostId];
+    if (sending == null) return;
+    sending.removeAll(paths);
+    if (sending.isEmpty) _sending.remove(hostId);
+  }
 
   void stop(TransferJob job) {
     job.stop.stop();
@@ -221,6 +243,7 @@ class Transfers extends ChangeNotifier {
       HostFiles? link;
       String? failure;
       var missed = const <SharedFile>[];
+      final paths = <String>[];
       try {
         try {
           link = await _open(host);
@@ -236,16 +259,13 @@ class Transfers extends ChangeNotifier {
             taken = {for (final entry in listed) entry.name};
           }
         }
-        final paths = <String>[];
         if (failure == null) {
           for (final file in files) {
             if (taken == null) {
               paths.add(remotePathFor('${const Uuid().v4()}/${file.name}'));
               continue;
             }
-            final name = freeName(file.name, taken);
-            taken.add(name);
-            paths.add(joinPath(into!, name));
+            paths.add(_claim(host.id, into!, file.name, taken));
           }
         }
         final List<String?> failures;
@@ -296,6 +316,7 @@ class Transfers extends ChangeNotifier {
           }
         }
       } finally {
+        if (into != null) _unclaim(host.id, paths);
         link?.close();
         job?.end();
       }
@@ -366,13 +387,12 @@ class Transfers extends ChangeNotifier {
             final listed = await target.list(to.folder);
             if (listed == null) return unreadFolder;
             final taken = {for (final e in listed) e.name};
-            return pushFile(
-              target,
-              joinPath(to.folder, freeName(entry.name, taken)),
-              file,
-              report,
-              stop: stop,
-            );
+            final put = _claim(to.host.id, to.folder, entry.name, taken);
+            try {
+              return await pushFile(target, put, file, report, stop: stop);
+            } finally {
+              _unclaim(to.host.id, [put]);
+            }
           },
           stop: job.stop,
           onItem: job.report,

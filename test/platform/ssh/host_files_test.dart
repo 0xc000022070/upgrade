@@ -206,6 +206,36 @@ void main() {
     await sftp.done;
   });
 
+  Future<FileWrite> upload(_Disk disk) => putFile(
+    sftp: () async => HostSftp(disk),
+    exec: (_, _) => fail('exec ran'),
+    path: '/srv/a.txt',
+    body: FileBody.bytes(Uint8List.fromList(utf8.encode('new'))),
+    timeout: const Duration(seconds: 1),
+  );
+
+  test('a failed upload leaves the file it was named after', () async {
+    final disk = _Disk(failWrite: true);
+
+    final write = await upload(disk);
+
+    expect(write.ok, isFalse);
+    expect(disk.files.keys, ['/srv/a.txt']);
+    expect(utf8.decode(disk.files['/srv/a.txt']!), 'old');
+  });
+
+  test('a landed upload replaces the file, posix-rename or not', () async {
+    for (final posixRename in [true, false]) {
+      final disk = _Disk(posixRename: posixRename);
+
+      final write = await upload(disk);
+
+      expect(write.ok, isTrue);
+      expect(disk.files.keys, ['/srv/a.txt']);
+      expect(utf8.decode(disk.files['/srv/a.txt']!), 'new');
+    }
+  });
+
   test(
     'a handshake that breaks some other way still closes the channel',
     () async {
@@ -226,6 +256,91 @@ void main() {
       await sftp.done;
     },
   );
+}
+
+final class _Disk implements SftpClient {
+  _Disk({this.failWrite = false, this.posixRename = true});
+
+  final bool failWrite;
+  final bool posixRename;
+  final files = <String, List<int>>{'/srv/a.txt': utf8.encode('old')};
+
+  @override
+  Future<SftpHandsake> get handshake async => SftpHandsake(3, const {});
+
+  @override
+  Future<SftpFileAttrs> stat(String path, {bool followLink = true}) async {
+    if (path == '/srv') {
+      return SftpFileAttrs(mode: const SftpFileMode.value(0x41ed));
+    }
+    if (files.containsKey(path)) {
+      return SftpFileAttrs(size: files[path]!.length);
+    }
+    throw SftpStatusError(2, 'no such file');
+  }
+
+  @override
+  Future<SftpFile> open(
+    String path, {
+    SftpFileOpenMode mode = SftpFileOpenMode.read,
+  }) async {
+    files[path] = [];
+    return _DiskFile(this, path);
+  }
+
+  @override
+  Future<void> rename(String oldPath, String newPath) async {
+    if (!posixRename && files.containsKey(newPath)) {
+      throw SftpStatusError(4, 'failure');
+    }
+    files[newPath] = files.remove(oldPath)!;
+  }
+
+  @override
+  Future<void> remove(String filename) async => files.remove(filename);
+
+  @override
+  Future<void> close() async {}
+
+  @override
+  Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _DiskFile implements SftpFile {
+  _DiskFile(this.disk, this.path);
+
+  final _Disk disk;
+  final String path;
+
+  @override
+  SftpFileWriter write(
+    Stream<Uint8List> stream, {
+    int offset = 0,
+    void Function(int total)? onProgress,
+    int chunkSize = 0,
+    int maxPendingRequests = 0,
+  }) => _Writer(() async {
+    await for (final chunk in stream) {
+      disk.files[path]!.addAll(chunk);
+      if (disk.failWrite) throw SftpStatusError(4, 'disk full');
+    }
+  }());
+
+  @override
+  Future<void> close() async {}
+
+  @override
+  Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _Writer implements SftpFileWriter {
+  _Writer(this.done);
+
+  @override
+  final Future<void> done;
+
+  @override
+  Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 final class _Silent implements SftpClient {

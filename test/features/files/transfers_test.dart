@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -41,6 +42,7 @@ const _nyx = Host(
 final class _Files implements HostFiles {
   final failOnce = <String>{};
   final puts = <String>[];
+  Future<void>? hold;
 
   @override
   Host get host => _nyx;
@@ -65,6 +67,7 @@ final class _Files implements HostFiles {
       return const FileWrite.failed(FileRoute.sftp, 'denied');
     }
     puts.add(path);
+    await hold;
     return const FileWrite.landed(FileRoute.sftp);
   }
 
@@ -247,6 +250,22 @@ void main() {
       expect(File(a.path).existsSync() || File(b.path).existsSync(), isFalse);
     },
   );
+
+  test('two uploads of one name into one folder land side by side', () async {
+    final landing = Completer<void>();
+    files.hold = landing.future;
+    final first = transfers.upload(_nyx, [copyOf('a.txt')], into: '/home');
+    final second = transfers.upload(_nyx, [copyOf('a.txt')], into: '/home');
+    await Future<void>.delayed(Duration.zero);
+    landing.complete();
+    await Future.wait([first, second]);
+
+    expect(files.puts, unorderedEquals(['/home/a.txt', '/home/a (2).txt']));
+
+    files.puts.clear();
+    await transfers.upload(_nyx, [copyOf('a.txt')], into: '/home');
+    expect(files.puts, ['/home/a.txt']);
+  });
 
   test('a retried batch takes the place of the one it retries', () async {
     final sheet = Object();

@@ -56,15 +56,18 @@ const putLanded = 'UPGRADE_PUT_LANDED';
 String putCommand(String path, int length) {
   final slash = path.lastIndexOf('/');
   final directory = slash <= 0 ? null : path.substring(0, slash);
-  final part = shellQuote(
-    '${path.substring(0, slash + 1)}.${path.substring(slash + 1)}.part',
-  );
+  final part = shellQuote(partPath(path));
   return underSh(
     '${directory == null ? '' : 'mkdir -p ${shellQuote(directory)} && '}'
     '{ cat > $part && [ \$(wc -c < $part) -eq $length ] && '
     'mv -f $part ${shellQuote(path)} && echo $putLanded; } '
     '|| { rm -f $part; exit 1; }',
   );
+}
+
+String partPath(String path) {
+  final slash = path.lastIndexOf('/');
+  return '${path.substring(0, slash + 1)}.${path.substring(slash + 1)}.part';
 }
 
 typedef PutProgress = void Function(int sent);
@@ -172,7 +175,7 @@ Future<FileWrite> putFile({
     rethrow;
   }
   try {
-    await channel.client.remove(path).timeout(sftpHandshakeDeadline);
+    await channel.client.remove(partPath(path)).timeout(sftpHandshakeDeadline);
   } catch (_) {
     // ignored: a part left behind is named as the file that did not land
   } finally {
@@ -228,8 +231,9 @@ Future<void> _write(
   PutProgress? onProgress,
 ) async {
   await _directories(client, path);
+  final part = partPath(path);
   final file = await client.open(
-    path,
+    part,
     mode:
         SftpFileOpenMode.create |
         SftpFileOpenMode.truncate |
@@ -239,6 +243,25 @@ Future<void> _write(
     await file.write(body.open(), onProgress: onProgress).done;
   } finally {
     await file.close();
+  }
+  try {
+    await client.rename(part, path);
+  } on SftpStatusError {
+    // A server without posix-rename refuses to rename over a file; the whole part is there
+    // by now, so the old file goes first.
+    if (!await _exists(client, path)) rethrow;
+    await client.remove(path);
+    await client.rename(part, path);
+  }
+}
+
+Future<bool> _exists(SftpClient client, String path) async {
+  try {
+    await client.stat(path);
+    return true;
+  } on SftpStatusError {
+    // ignored: a path stat cannot see is absent as far as a rename is concerned.
+    return false;
   }
 }
 
