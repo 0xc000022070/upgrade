@@ -199,6 +199,24 @@ void main() {
     links.close();
   });
 
+  testWidgets('a host that died before revival was asked for is revived', (
+    tester,
+  ) async {
+    final dial = FakeDial();
+    final links = HostLinks(dial: dial.call);
+    final tab = await _tab(_connector(links));
+    await dial.clients.single.close();
+    await tester.pump();
+    tab.reopenWhenHostDies();
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    expect(dial.dials, 2);
+    expect(links.open, 1);
+    await tab.drop(UserClosed(testIntent()));
+    links.close();
+  });
+
   group('a revival that stops says so', () {
     Future<(ConnectionSupervisor, FakeLinkClient, List<ControlLink>)> revived(
       Object refusal,

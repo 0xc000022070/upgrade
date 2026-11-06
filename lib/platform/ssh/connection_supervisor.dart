@@ -294,7 +294,12 @@ final class ConnectionSupervisor implements HostChannels {
   }
 
   /// Revives a dead host on a schedule, for a transport whose terminal outlives its host.
-  void reopenWhenHostDies() => _revives = true;
+  void reopenWhenHostDies() {
+    _revives = true;
+    if (_state is _Idle && _revival == null) {
+      _revive(const _HostDied(HealthCheckFailed._()), 0);
+    }
+  }
 
   void _revive(_HostDied reason, int step) {
     _revival?.cancel();
