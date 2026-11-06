@@ -157,8 +157,8 @@ Future<FileWrite> putFile({
     }
   }
   final String failure;
+  final write = _write(channel.client, path, body, onProgress);
   try {
-    final write = _write(channel.client, path, body, onProgress);
     await (stop?.race(write) ?? write).timeout(timeout);
     await channel.close();
     return const FileWrite.landed(FileRoute.sftp);
@@ -174,8 +174,16 @@ Future<FileWrite> putFile({
     await channel.close();
     rethrow;
   }
+  final landed = await write
+      .then<bool?>((_) => true, onError: (Object _) => false)
+      .timeout(sftpHandshakeDeadline, onTimeout: () => null);
   try {
-    await channel.client.remove(partPath(path)).timeout(sftpHandshakeDeadline);
+    if (landed == true) return const FileWrite.landed(FileRoute.sftp);
+    if (landed == false) {
+      await channel.client
+          .remove(partPath(path))
+          .timeout(sftpHandshakeDeadline);
+    }
   } catch (_) {
     // ignored: a part left behind is named as the file that did not land
   } finally {

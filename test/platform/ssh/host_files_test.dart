@@ -206,11 +206,11 @@ void main() {
     await sftp.done;
   });
 
-  Future<FileWrite> upload(_Disk disk) => putFile(
+  Future<FileWrite> upload(_Disk disk, {TransferStop? stop}) => putFile(
     sftp: () async => HostSftp(disk),
     exec: (_, _) => fail('exec ran'),
     path: '/srv/a.txt',
-    body: FileBody.bytes(Uint8List.fromList(utf8.encode('new'))),
+    body: FileBody.bytes(Uint8List.fromList(utf8.encode('new')), stop: stop),
     timeout: const Duration(seconds: 1),
   );
 
@@ -236,6 +236,20 @@ void main() {
     }
   });
 
+  test('a stop during the rename reports the file that landed', () async {
+    final disk = _Disk(renaming: Completer());
+    final stop = TransferStop();
+
+    final write = upload(disk, stop: stop);
+    await pumpEventQueue();
+    stop.stop();
+    disk.renaming!.complete();
+
+    expect((await write).ok, isTrue);
+    expect(disk.files.keys, ['/srv/a.txt']);
+    expect(utf8.decode(disk.files['/srv/a.txt']!), 'new');
+  });
+
   test(
     'a handshake that breaks some other way still closes the channel',
     () async {
@@ -259,10 +273,11 @@ void main() {
 }
 
 final class _Disk implements SftpClient {
-  _Disk({this.failWrite = false, this.posixRename = true});
+  _Disk({this.failWrite = false, this.posixRename = true, this.renaming});
 
   final bool failWrite;
   final bool posixRename;
+  final Completer<void>? renaming;
   final files = <String, List<int>>{'/srv/a.txt': utf8.encode('old')};
 
   @override
@@ -290,6 +305,7 @@ final class _Disk implements SftpClient {
 
   @override
   Future<void> rename(String oldPath, String newPath) async {
+    await renaming?.future;
     if (!posixRename && files.containsKey(newPath)) {
       throw SftpStatusError(4, 'failure');
     }
