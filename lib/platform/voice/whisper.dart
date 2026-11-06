@@ -299,20 +299,23 @@ class WhisperTranscriber implements Transcriber {
 
   final Future<String> Function()? language;
   final _WhisperPaths _paths;
-  Future<SendPort>? _worker;
+  Future<(Isolate, SendPort)>? _worker;
   Isolate? _isolate;
 
   @override
   void warm() => unawaited(_spawn().then<void>((_) {}, onError: (_) {}));
 
-  Future<SendPort> _spawn() => _worker ??= _start();
+  Future<(Isolate, SendPort)> _spawn() => _worker ??= _start();
 
-  Future<SendPort> _start() async {
+  Future<(Isolate, SendPort)> _start() async {
     final ready = ReceivePort();
     try {
-      _isolate = await Isolate.spawn(_serve, (ready.sendPort, _paths));
+      final isolate = _isolate = await Isolate.spawn(_serve, (
+        ready.sendPort,
+        _paths,
+      ));
       final answer = await ready.first;
-      if (answer is SendPort) return answer;
+      if (answer is SendPort) return (isolate, answer);
       throw TranscriptionFailed('$answer');
     } on Object {
       close();
@@ -324,13 +327,14 @@ class WhisperTranscriber implements Transcriber {
 
   @override
   Future<String> transcribe(Float32List samples) async {
-    final worker = await _spawn();
+    final (isolate, worker) = await _spawn();
     final language = await this.language?.call() ?? '';
     final heard = <String>[];
     for (final chunk in whisperChunks(samples)) {
       if (!heardAnything(chunk)) continue;
-      final isolate = _isolate;
-      if (isolate == null) throw const TranscriptionFailed('closed');
+      if (!identical(_isolate, isolate)) {
+        throw const TranscriptionFailed('closed');
+      }
       heard.add(await hear(isolate, worker, chunk, language));
     }
     return heard.join(' ');
@@ -364,6 +368,7 @@ Future<String> hear(
     if (text == null) throw TranscriptionFailed(error ?? 'no answer');
     return text;
   } finally {
+    isolate.removeOnExitListener(reply.sendPort);
     reply.close();
   }
 }
