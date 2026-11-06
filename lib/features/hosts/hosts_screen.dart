@@ -16,6 +16,7 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/meta.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/features/screen/screen_preview.dart';
 import 'package:upgrade/design/components/segment_switch.dart';
 import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/section.dart';
@@ -1285,21 +1286,32 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
   }
 
   Future<void> _remove(PhoneLinuxHost linux) async {
-    final go = await confirmSheet(
+    const title = 'REMOVE LINUX';
+    final host = widget.host;
+    final shells = ref.read(shellSessionsProvider);
+    final go = await showPanelSheet<bool>(
       context,
-      title: 'REMOVE LINUX',
-      confirmLabel: 'REMOVE',
-      message:
-          'Deletes the system with every file in it, and the '
-          '${widget.host.name} host.',
+      title: title,
+      builder: (_) => ConfirmSheetBody(
+        title: title,
+        confirmLabel: 'REMOVE',
+        message:
+            'Deletes the system with every file in it, and the '
+            '${host.name} host.',
+        onConfirm: UserIntent.onGesture(
+          (intent) => unawaited(shells.closeHost(host.id, intent)),
+        ),
+      ),
     );
-    if (!go || !mounted) return;
+    if (go != true || !mounted) return;
+    final previews = ref.read(screenPreviewsProvider.future);
     setState(() {
       _failure = null;
       _busy = 'REMOVING';
     });
     try {
-      await linux.remove(widget.host);
+      await linux.remove(host);
+      await deletePreview(previews, host.id);
     } catch (error) {
       debugPrint('upgrade.linux remove: $error');
       if (mounted) setState(() => _failure = 'remove failed');

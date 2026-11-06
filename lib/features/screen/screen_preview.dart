@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -275,6 +276,19 @@ final screenPreviewsProvider = FutureProvider<ScreenPreviews>((ref) async {
   ref.onDispose(previews.dispose);
   return previews;
 });
+
+/// A store that will not open costs a stray file and nothing else, which is not a reason
+/// to keep the user on a host that is already gone.
+Future<void> deletePreview(
+  Future<ScreenPreviews> previews,
+  String hostId,
+) async {
+  try {
+    await (await previews).delete(hostId);
+  } catch (error) {
+    debugPrint('upgrade.vnc $hostId: preview not removed: $error');
+  }
+}
 
 final screenPreviewProvider = FutureProvider.family<StoredPreview?, String>((
   ref,

@@ -1397,10 +1397,22 @@ class ShellSessions extends ChangeNotifier {
     String hostId,
     ShellSession session, {
     required UserIntent intent,
-  }) {
+  }) => _closeBy(hostId, session, UserAction(intent));
+
+  /// Every tab on the host goes on the one tap, as [redialHost] dials them.
+  Future<void> closeHost(String hostId, UserIntent intent) {
     final action = UserAction(intent);
-    return _close(hostId, session, UserClosed.by(action), action: action);
+    return Future.wait([
+      for (final session in List.of(forHost(hostId)))
+        _closeBy(hostId, session, action),
+    ]);
   }
+
+  Future<void> _closeBy(
+    String hostId,
+    ShellSession session,
+    UserAction action,
+  ) => _close(hostId, session, UserClosed.by(action), action: action);
 
   /// Without an [action] a cleanly exited shell closes its tab with its own [ShellEnded].
   Future<void> _close(

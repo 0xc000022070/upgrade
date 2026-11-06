@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/data/database.dart';
@@ -19,12 +20,15 @@ import 'package:upgrade/features/settings/host_form_screen.dart';
 import 'package:upgrade/features/settings/key_form_screen.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/features/screen/screen_preview.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/ssh/host_key_dial.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/vnc/framebuffer.dart';
 import 'package:upgrade/application/providers.dart';
 
+import '../../support/fake_shell.dart';
 import '../../support/platform_channels.dart';
+import '../../support/reasons.dart';
 import '../../support/themed_app.dart';
 
 /// `[ PORT ]` sits between `[ ADDRESS ]` and `[ USER ]`, so the fields are reached
@@ -81,26 +85,32 @@ void main() {
     return db.close();
   });
 
-  Widget app(Widget home) => ProviderScope(
-    retry: noRetry,
-    overrides: [
-      ...featureTestOverrides(db),
-      keyRepositoryProvider.overrideWithValue(keys),
-      hostRepositoryProvider.overrideWithValue(hosts),
-      privateKeyStoreProvider.overrideWithValue(privateKeys),
-      screenPreviewsProvider.overrideWith((ref) async => previews),
-      hostKeyDialProvider.overrideWith((ref) => dial),
-    ],
-    child: MaterialApp(theme: testTheme, home: home),
-  );
+  Widget app(Widget home, {List<Override> overrides = const []}) =>
+      ProviderScope(
+        retry: noRetry,
+        overrides: [
+          ...overrides,
+          ...featureTestOverrides(db),
+          keyRepositoryProvider.overrideWithValue(keys),
+          hostRepositoryProvider.overrideWithValue(hosts),
+          privateKeyStoreProvider.overrideWithValue(privateKeys),
+          screenPreviewsProvider.overrideWith((ref) async => previews),
+          hostKeyDialProvider.overrideWith((ref) => dial),
+        ],
+        child: MaterialApp(theme: testTheme, home: home),
+      );
 
   /// The default 800x600 test surface puts the action bar under the fold, and a [ListView]
   /// never builds what it does not show.
-  Future<void> open(WidgetTester tester, Widget home) async {
+  Future<void> open(
+    WidgetTester tester,
+    Widget home, {
+    List<Override> overrides = const [],
+  }) async {
     tester.view.physicalSize = const Size(400, 1800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(app(home));
+    await tester.pumpWidget(app(home, overrides: overrides));
     await _ready(tester);
   }
 
@@ -563,6 +573,50 @@ void main() {
     expect(await hosts.all(), isEmpty);
     expect(previews.fileFor(nyx.id).existsSync(), isFalse);
     expect(announced, <String>[nyx.id]);
+
+    await unmount(tester);
+  });
+
+  testWidgets('deleting a host closes its shell tabs and no others', (
+    tester,
+  ) async {
+    const nyx = Host(
+      id: 'h1',
+      name: 'nyx',
+      address: '100.64.0.2',
+      port: 357,
+      user: 'luis',
+      keyId: 'key-1',
+    );
+    const rose = Host(
+      id: 'h2',
+      name: 'rose',
+      address: '100.64.0.1',
+      port: 22,
+      user: 'luis',
+      keyId: 'key-1',
+    );
+    await keys.save(_key('key-1', 'faraday'));
+    await hosts.save(nyx);
+    await hosts.save(rose);
+    final sessions = fakeShellSessions(FakeShellTransport());
+    addTearDown(sessions.dispose);
+    sessions.open(nyx, intent: testIntent());
+    sessions.open(nyx, intent: testIntent());
+    sessions.open(rose, intent: testIntent());
+
+    await open(
+      tester,
+      const HostFormScreen(host: nyx),
+      overrides: [shellSessionsProvider.overrideWithValue(sessions)],
+    );
+    await tester.tap(find.text('DELETE HOST'));
+    await _sheet(tester);
+    await tester.tap(find.text('DELETE'));
+    await _sheet(tester);
+
+    expect(sessions.forHost(nyx.id), isEmpty);
+    expect(sessions.forHost(rose.id), hasLength(1));
 
     await unmount(tester);
   });

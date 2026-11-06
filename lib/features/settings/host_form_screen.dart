@@ -27,6 +27,8 @@ import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/hosts/host_key_sheet.dart';
 import 'package:upgrade/features/settings/key_form_screen.dart';
 import 'package:upgrade/features/screen/screen_preview.dart';
@@ -123,7 +125,10 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
   }
 
   Future<void> _loadIntegrations(String hostId) async {
-    final current = await readFirst(ref, hostIntegrationsProvider(hostId).future);
+    final current = await readFirst(
+      ref,
+      hostIntegrationsProvider(hostId).future,
+    );
     if (!mounted) return;
     setState(() {
       _integrations = current.toSet();
@@ -289,37 +294,40 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
     final linux = ref.read(phoneLinuxHostProvider);
     final onPhone = (await linux?.hostIds())?.contains(host.id) ?? false;
     if (!mounted) return;
-    final confirmed = await confirmSheet(
+    const title = 'DELETE HOST?';
+    final shells = ref.read(shellSessionsProvider);
+    final confirmed = await showPanelSheet<bool>(
       context,
-      title: 'DELETE HOST?',
-      confirmLabel: 'DELETE',
-      message: onPhone
-          ? 'Deletes the system with every file in it, and the '
-                '${host.name} host.'
-          : null,
+      title: title,
+      builder: (_) => ConfirmSheetBody(
+        title: title,
+        confirmLabel: 'DELETE',
+        message: onPhone
+            ? 'Deletes the system with every file in it, and the '
+                  '${host.name} host.'
+            : null,
+        onConfirm: UserIntent.onGesture(
+          (intent) => unawaited(shells.closeHost(host.id, intent)),
+        ),
+      ),
     );
-    if (!confirmed || !mounted) return;
-    if (onPhone) {
-      await linux!.remove(host);
-    } else {
-      await ref.read(hostRepositoryProvider).delete(host.id);
+    if (confirmed != true || !mounted) return;
+    final repository = ref.read(hostRepositoryProvider);
+    final previews = ref.read(screenPreviewsProvider.future);
+    setState(() => _submitting = true);
+    try {
+      if (onPhone) {
+        await linux!.remove(host);
+      } else {
+        await repository.delete(host.id);
+      }
+      await deletePreview(previews, host.id);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
-    if (!mounted) return;
-    await _deletePreview(host.id);
     if (mounted) {
       _leaving = true;
       Navigator.of(context).pop();
-    }
-  }
-
-  /// A store that will not open costs a stray file and nothing else, which is not a reason
-  /// to leave the user on a form for a host that is already gone.
-  Future<void> _deletePreview(String hostId) async {
-    try {
-      final previews = await ref.read(screenPreviewsProvider.future);
-      await previews.delete(hostId);
-    } catch (error) {
-      debugPrint('upgrade.vnc $hostId: preview not removed: $error');
     }
   }
 
