@@ -470,6 +470,8 @@ class _AgentSnapshotCache {
 class _CachedSnapshot {
   List<AgentSnapshot> agents = const [];
   DateTime? receivedAt;
+  int _asked = 0;
+  int _held = 0;
 }
 
 final _agentSnapshotCacheProvider = Provider((ref) => _AgentSnapshotCache());
@@ -621,6 +623,7 @@ Future<HostOutcome> _poll(
     log('no private key stored for ${host.keyId}');
     return failure(AgentOutcomeKind.keyRejected);
   }
+  final asked = ++cache._asked;
   try {
     final agents = await fetch(
       address: host.address,
@@ -629,14 +632,17 @@ Future<HostOutcome> _poll(
       privateKey: privateKey,
       verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
     );
-    cache
-      ..agents = agents
-      ..receivedAt = DateTime.now();
+    if (asked > cache._held) {
+      cache
+        ..agents = agents
+        ..receivedAt = DateTime.now()
+        .._held = asked;
+    }
     return HostOutcome(
       host: host,
       kind: AgentOutcomeKind.snapshot,
       source: source,
-      agents: agents,
+      agents: cache.agents,
       lastGoodAt: cache.receivedAt,
     );
   } on HerdrFailure catch (error) {

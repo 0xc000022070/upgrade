@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/application/agents/agent_state.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
@@ -30,11 +33,13 @@ void main() {
   late CountingStore storage;
   late List<String> dialledWith;
   late ProviderContainer container;
+  late List<Completer<List<AgentSnapshot>>> held;
 
   setUp(() async {
     storage = CountingStore();
     await storage.write('key-a', 'private-a');
     dialledWith = [];
+    held = [];
     container = ProviderContainer(
       retry: noRetry,
       overrides: [
@@ -49,7 +54,8 @@ void main() {
           HostKeyVerifier? verifier,
         }) async {
           dialledWith.add(privateKey);
-          return const <AgentSnapshot>[];
+          if (held.isEmpty) return const <AgentSnapshot>[];
+          return held.removeAt(0).future;
         }),
       ],
     );
@@ -79,5 +85,31 @@ void main() {
     final outcome = await poll(host);
     expect(outcome.kind, AgentOutcomeKind.keyRejected);
     expect(dialledWith, hasLength(2));
+  });
+
+  test('a poll that answers late does not undo a newer one', () async {
+    AgentSnapshot agent(String pane) => AgentSnapshot(
+      session: 'lab',
+      paneId: pane,
+      agent: 'claude',
+      state: const WorkingState(),
+      terminalTitleStripped: '',
+      workspaceId: 'w1',
+      cwd: '/home/ops',
+      stateChangeSeq: 1,
+    );
+    final older = Completer<List<AgentSnapshot>>();
+    final newer = Completer<List<AgentSnapshot>>();
+    held.addAll([older, newer]);
+    final poll = container.read(agentRetryProvider);
+
+    final first = poll(host);
+    final second = poll(host);
+    await pumpEventQueue();
+    newer.complete([agent('new')]);
+    await second;
+    older.complete([agent('old')]);
+
+    expect((await first).agents.single.paneId, 'new');
   });
 }
