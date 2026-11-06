@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/design/components/sheet_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:upgrade/application/agents/agent_input.dart';
 import 'package:upgrade/application/agents/agents.dart';
@@ -732,6 +733,34 @@ void main() {
 
     Navigator.of(tester.element(find.text('ON TOP'))).pop();
     await ready(tester);
+    expect(find.text('ROSE'), findsNothing);
+    expect(find.text('OPEN'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('the last shell exiting takes the sheet over it along', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions, home: const Launcher()));
+    await tester.pump();
+    await tester.tap(find.text('OPEN'));
+    await ready(tester);
+    unawaited(
+      showSheetRoute<void>(
+        tester.element(find.text('ROSE').first),
+        title: 'SHEET',
+        child: const Text('IN A SHEET'),
+      ),
+    );
+    await ready(tester);
+
+    transport.opened.single.exit(0);
+    await ready(tester);
+
+    expect(find.text('IN A SHEET'), findsNothing);
     expect(find.text('ROSE'), findsNothing);
     expect(find.text('OPEN'), findsOneWidget);
 

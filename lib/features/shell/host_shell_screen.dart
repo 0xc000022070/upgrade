@@ -459,7 +459,8 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           _store.forHost(widget.host.id).isEmpty &&
           route != null &&
           route.isActive) {
-        final navigator = Navigator.of(context);
+        final navigator = Navigator.of(context)
+          ..popUntil((top) => top == route || top is! PopupRoute);
         route.isCurrent ? navigator.pop() : navigator.removeRoute(route);
       }
     } finally {
