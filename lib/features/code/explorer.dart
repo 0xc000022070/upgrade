@@ -134,8 +134,9 @@ class _ExplorerState extends ConsumerState<Explorer> {
 
   Future<void> _list(String directory) async {
     if (!_asked.add(directory)) return;
+    final worktree = _directory;
     final entries = await widget.controller.list(directory);
-    if (!mounted) return;
+    if (!mounted || worktree != _directory) return;
     setState(() {
       if (entries == null) {
         _failed.add(directory);

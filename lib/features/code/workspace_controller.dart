@@ -276,8 +276,9 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   Future<void> _load(int attempt) async {
-    final reply = await _run(WorkspaceCommands.overview(_directory));
-    if (_disposed || attempt != _attempt) return;
+    final directory = _directory;
+    final reply = await _run(WorkspaceCommands.overview(directory));
+    if (_disposed || attempt != _attempt || directory != _directory) return;
     if (reply == null) return;
     if (reply.exitCode == workspaceNoDirectory) {
       _fail('directory gone');

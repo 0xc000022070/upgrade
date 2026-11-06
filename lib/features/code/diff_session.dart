@@ -64,6 +64,8 @@ class DiffSession extends ChangeNotifier {
 
   Map<String, String> _viewed = {};
 
+  late String _directoryOf = controller.directory;
+
   bool _disposed = false;
 
   void start({WorkspaceFile? file}) {
@@ -77,6 +79,17 @@ class DiffSession extends ChangeNotifier {
 
   void _onWorkspace() {
     if (_disposed) return;
+    if (controller.directory != _directoryOf) {
+      _directoryOf = controller.directory;
+      commits = null;
+      _commitFiles.clear();
+      _viewed = {};
+      unawaited(_loadViewed());
+      if (source != null) {
+        unawaited(select(null));
+        return;
+      }
+    }
     final overview = controller.overview;
     if (source == null) {
       final fresh = !identical(overview, _overviewOf);
@@ -182,8 +195,9 @@ class DiffSession extends ChangeNotifier {
   }
 
   Future<void> _loadCommits() async {
+    final directory = controller.directory;
     final commits = await controller.commits();
-    if (_disposed || commits == null) return;
+    if (_disposed || commits == null || directory != _directoryOf) return;
     this.commits = commits;
     _notify();
   }
@@ -469,8 +483,9 @@ class DiffSession extends ChangeNotifier {
   Future<void> _loadViewed() async {
     final settings = this.settings;
     if (settings == null) return;
-    final raw = await settings.text(_viewedKey, orElse: '{}');
-    if (_disposed) return;
+    final key = _viewedKey;
+    final raw = await settings.text(key, orElse: '{}');
+    if (_disposed || key != _viewedKey) return;
     try {
       final decoded = jsonDecode(raw);
       if (decoded is Map<String, Object?>) {
