@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/features/code/diff_session.dart';
 import 'package:upgrade/features/code/workspace_controller.dart';
+import 'package:upgrade/platform/herdr/herdr_client.dart';
 
 import 'workspace_sheet_harness.dart';
 
@@ -24,6 +25,30 @@ WorkspaceReply _onBranch(String branch) => WorkspaceReply(
   stdout: gitOverview.replaceFirst('branch.head main', 'branch.head $branch'),
   stderr: '',
 );
+
+class _Dropping extends FakeRunner {
+  final dropped = Completer<WorkspaceReply>();
+
+  @override
+  Future<WorkspaceReply> run(String command) =>
+      command.contains('git --no-pager log')
+      ? dropped.future
+      : super.run(command);
+}
+
+WorkspaceController _onEach(List<WorkspaceRunner> runners) =>
+    WorkspaceController(
+      host: host,
+      directory: '/home/luis/src/upgrade',
+      readPrivateKey: (_) async => 'key',
+      open: ({
+        required address,
+        required port,
+        required user,
+        required privateKey,
+        required verifier,
+      }) async => runners.removeAt(0),
+    );
 
 WorkspaceController _on(WorkspaceRunner runner) => WorkspaceController(
   host: host,
@@ -76,5 +101,19 @@ void main() {
 
     expect(controller.directory, '/home/luis/src/upgrade-fix');
     expect(controller.overview?.status.branch, 'fix/paths');
+  });
+
+  test('the link that was replaced cannot fail the one after it', () async {
+    final old = _Dropping();
+    final controller = _onEach([old, FakeRunner()]);
+    await controller.connect();
+    final history = controller.commits();
+    await controller.connect();
+    expect(controller.phase, WorkspacePhase.ready);
+
+    old.dropped.completeError(const HerdrUnreachable());
+    expect(await history, isNull);
+
+    expect(controller.phase, WorkspacePhase.ready);
   });
 }

@@ -306,8 +306,8 @@ class WorkspaceController extends ChangeNotifier {
       return await runner.run(command);
     } on HerdrFailure catch (error) {
       debugPrint('upgrade.workspace ${host.name}: ${error.detail ?? error}');
-      if (_disposed || quiet) return null;
-      if (error is! HerdrBusy && identical(_runner, runner)) {
+      if (_disposed || quiet || !identical(_runner, runner)) return null;
+      if (error is! HerdrBusy) {
         _runner = null;
         unawaited(runner.close());
       }
