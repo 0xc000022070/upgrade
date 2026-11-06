@@ -507,6 +507,47 @@ void main() {
     expect(group.phase, isA<DevicesFailed>());
   });
 
+  test('a failed list keeps the link a boot still runs on', () async {
+    final link = _hostLink();
+    final boot = link.held[_bootPart] = Completer<String>();
+    final group = DevicesController(
+      host: _rose,
+      dock: DeviceDock(
+        group: (_, _) => throw UnimplementedError(),
+        desktopOf: (_) => throw UnimplementedError(),
+      ),
+      readPrivateKey: (_) async => 'key',
+      open: ({
+        required address,
+        required port,
+        required user,
+        required privateKey,
+        required verifier,
+      }) async => link,
+    );
+    addTearDown(group.dispose);
+    await group.refresh();
+
+    final booting = group.boot(
+      const StoppedDevice(
+        kind: DeviceKind.android,
+        id: 'Pixel_9',
+        name: 'Pixel 9',
+      ),
+      cold: false,
+    );
+    await Future<void>.delayed(Duration.zero);
+    link.listError = const HerdrUnreachable('adb: not found');
+    await group.refresh();
+    expect(group.phase, isA<DevicesFailed>());
+    expect(link.closed, isFalse);
+
+    boot.complete('B emulator-5556\n');
+    await booting;
+    expect(group.boots, isEmpty);
+    expect(link.closed, isTrue);
+  });
+
   test('a link closes on its last release, and at once when discarded', () {
     final link = _hostLink();
     final first = LinkHold.open(link);

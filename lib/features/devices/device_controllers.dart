@@ -118,15 +118,21 @@ class DevicesController extends ChangeNotifier {
     if (_hold?.link.closed ?? false) unawaited(refresh());
   }
 
-  Future<DeviceLink> _ready() async {
-    final link = _live()?.link ?? await _connect();
-    if (link == null) throw const HerdrUnreachable('no device link');
-    return link;
+  Future<T> _onLink<T>(Future<T> Function(DeviceLink link) work) async {
+    if (_live() == null) await _connect();
+    final share = _live()?.share();
+    if (share == null) throw const HerdrUnreachable('no device link');
+    try {
+      return await work(share.link);
+    } finally {
+      share.release();
+    }
   }
 
   Future<StoppedListing> stopped() async {
-    final link = await _ready();
-    final listing = parseStoppedList(await link.read(DeviceCommands.stopped()));
+    final listing = parseStoppedList(
+      await _onLink((link) => link.read(DeviceCommands.stopped())),
+    );
     final running = {
       for (final boot in _boots)
         if (boot is BootRunning) boot.device,
@@ -150,12 +156,12 @@ class DevicesController extends ChangeNotifier {
     notifyListeners();
     String? reason;
     try {
-      final link = await _ready();
-      if (_disposed) return;
       final outcome = parseOutcome(
-        await link.read(
-          DeviceCommands.boot(device, cold: cold),
-          limit: bootLimit,
+        await _onLink(
+          (link) => link.read(
+            DeviceCommands.boot(device, cold: cold),
+            limit: bootLimit,
+          ),
         ),
       );
       reason = outcome.ok ? null : outcome.error;
@@ -202,8 +208,7 @@ class DevicesController extends ChangeNotifier {
     dock.stopWatching(host.id, device);
     String? reason;
     try {
-      final link = await _ready();
-      final outcome = parseOutcome(await link.read(command));
+      final outcome = parseOutcome(await _onLink((link) => link.read(command)));
       reason = outcome.ok ? null : outcome.error;
     } catch (error) {
       reason = _reason(error);
@@ -225,8 +230,9 @@ class DevicesController extends ChangeNotifier {
       _answer(DeviceCommands.create(device));
 
   Future<DeviceCatalog> catalog(DeviceKind kind) async {
-    final link = await _ready();
-    final out = await link.read(DeviceCommands.catalog(kind));
+    final out = await _onLink(
+      (link) => link.read(DeviceCommands.catalog(kind)),
+    );
     return switch (kind) {
       DeviceKind.android => parseAndroidCatalog(out),
       DeviceKind.simulator => parseSimulatorCatalog(out),
@@ -235,8 +241,7 @@ class DevicesController extends ChangeNotifier {
 
   Future<String?> _answer(String command) async {
     try {
-      final link = await _ready();
-      final outcome = parseOutcome(await link.read(command));
+      final outcome = parseOutcome(await _onLink((link) => link.read(command)));
       return outcome.ok ? null : outcome.error;
     } catch (error) {
       return _reason(error);
@@ -254,8 +259,7 @@ class DevicesController extends ChangeNotifier {
   Future<void> _relist() async {
     final attempt = _attempt;
     try {
-      final link = await _ready();
-      final devices = await link.list();
+      final devices = await _onLink((link) => link.list());
       if (_disposed || attempt != _attempt) return;
       _phase = DevicesListed(devices);
       _boots.removeWhere(
@@ -358,8 +362,7 @@ class DevicesController extends ChangeNotifier {
     _disposed = true;
     _boots.clear();
     _work.clear();
-    _hold?.release();
-    _hold = null;
+    _discardHold();
     super.dispose();
   }
 }
