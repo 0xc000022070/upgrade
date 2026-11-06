@@ -87,6 +87,9 @@ class HostScreenController extends ChangeNotifier {
   bool _stalled = false;
   Timer? _park;
   bool _parked = false;
+
+  bool _attended = false;
+  bool _resumeAttended = false;
   Framebuffer? _lastFramebuffer;
   Size _framebufferSize = Size.zero;
   Duration? _lastFrame;
@@ -121,6 +124,7 @@ class HostScreenController extends ChangeNotifier {
 
   Future<void> _connect({required bool attended}) async {
     final attempt = ++_attempt;
+    _attended = attended;
     _stalled = false;
     _phase = const ScreenConnecting();
     notifyListeners();
@@ -233,7 +237,7 @@ class HostScreenController extends ChangeNotifier {
     }
     if (_parked) {
       _parked = false;
-      unawaited(_connect(attended: false));
+      unawaited(_connect(attended: _resumeAttended));
       return;
     }
     if (!_stalled) return;
@@ -247,8 +251,11 @@ class HostScreenController extends ChangeNotifier {
 
   void _parkNow() {
     _park = null;
-    if (_disposed || !_away || _connection == null) return;
+    if (_disposed || !_away) return;
+    final dialing = _connection == null;
+    if (dialing && _phase is! ScreenConnecting) return;
     _parked = true;
+    _resumeAttended = dialing && _attended;
     _attempt++;
     _log('parked while away');
     unawaited(_teardown());

@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/screen/screen_controller.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/vnc/vnc_failure.dart';
 import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
+
+import '../../support/vnc_channel.dart';
 
 const _nyx = Host(
   id: 'nyx',
@@ -69,4 +73,43 @@ void main() {
     expect(controller.phase, isA<ScreenConnecting>());
     await dialling;
   });
+
+  testWidgets(
+    'a dial still in flight when the app parks is closed on landing',
+    (tester) async {
+      final dials = <Completer<VncConnection>>[];
+      final controller = HostScreenController(
+        host: _nyx,
+        readPrivateKey: (_) async => 'PRIVATE',
+        open:
+            ({
+              required address,
+              required port,
+              required user,
+              required privateKey,
+              vncUsername,
+              password,
+              required verifier,
+            }) {
+              dials.add(Completer());
+              return dials.last.future;
+            },
+      );
+      addTearDown(controller.dispose);
+      unawaited(controller.connect());
+      await tester.pump();
+      controller.setAway(true);
+      await tester.pump(HostScreenController.parkAfter);
+
+      final landed = await tester.runAsync(FakeVncConnection.open);
+      dials.single.complete(landed);
+      await tester.pump();
+      expect(landed!.closed, isTrue);
+      expect(controller.phase, isA<ScreenConnecting>());
+
+      controller.setAway(false);
+      await tester.pump();
+      expect(dials, hasLength(2));
+    },
+  );
 }
