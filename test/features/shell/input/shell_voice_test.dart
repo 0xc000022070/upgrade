@@ -773,9 +773,9 @@ void main() {
       events.add(const SpeechEnded());
       await tester.pump();
       expect(find.text('WHISPER DOWNLOADING\u00a0·\u00a042%'), findsOneWidget);
-      dictation().model = const WhisperFetching(0.57);
+      dictation().model = const WhisperFetching(0.75);
       await tester.pump();
-      expect(find.text('WHISPER DOWNLOADING\u00a0·\u00a057%'), findsOneWidget);
+      expect(find.text('WHISPER DOWNLOADING\u00a0·\u00a075%'), findsOneWidget);
       dictation().model = const WhisperReady();
       await tester.pump();
       expect(find.text('TRY AGAIN'), findsOneWidget);
