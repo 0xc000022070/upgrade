@@ -19,6 +19,7 @@ class _FakeLink implements ChatLink {
   final _events = StreamController<Map<String, Object?>>.broadcast();
   var verified = false;
   Completer<void>? held;
+  Object? sendError;
 
   void ack() {
     for (final m in messages) {
@@ -60,6 +61,7 @@ class _FakeLink implements ChatLink {
           for (final m in messages) {...m},
         ];
       case 'send':
+        if (sendError case final error?) throw error;
         messages.add({
           'index': messages.length,
           'mine': true,
@@ -148,6 +150,41 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('you: hola'), findsOneWidget);
   });
+  testWidgets('a send that fails gives the draft back and says why', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final link = _FakeLink()..sendError = const ChatException('node offline');
+    await tester.pumpWidget(
+      ProviderScope(
+        retry: noRetry,
+        overrides: [
+          chatLinkProvider.overrideWith((ref) async => link),
+          staticEnabledProvider.overrideWith((ref) => Stream.value(false)),
+        ],
+        child: MaterialApp(
+          theme: testTheme,
+          home: const Scaffold(body: ChatScreen()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ben'));
+    await tester.pumpAndSettle();
+
+    final semantics = tester.ensureSemantics();
+    await tester.enterText(find.widgetWithText(TextField, 'message'), 'hola');
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('send'));
+    await tester.pumpAndSettle();
+    semantics.dispose();
+
+    expect(find.widgetWithText(TextField, 'hola'), findsOneWidget);
+    expect(find.textContaining('node offline'), findsOneWidget);
+  });
+
   testWidgets('media shows how many views are left and opens in a viewer', (
     tester,
   ) async {

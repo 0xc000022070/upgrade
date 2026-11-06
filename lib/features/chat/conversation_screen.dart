@@ -91,16 +91,23 @@ class _ConversationState extends ConsumerState<ConversationScreen> {
     super.dispose();
   }
 
-  void _send() {
+  Future<void> _send() async {
     final text = _text.text.trim();
     if (text.isEmpty) return;
     _text.clear();
-    chatRequest(ref, {
-      'op': 'send',
-      'record': widget.record,
-      'text': text,
-      'at': DateTime.now().millisecondsSinceEpoch,
-    });
+    setState(() => _error = null);
+    try {
+      await chatRequest(ref, {
+        'op': 'send',
+        'record': widget.record,
+        'text': text,
+        'at': DateTime.now().millisecondsSinceEpoch,
+      });
+    } catch (error) {
+      if (!mounted) return;
+      if (_text.text.isEmpty) _text.text = text;
+      setState(() => _error = '$error');
+    }
   }
 
   Future<void> _attach() async {
