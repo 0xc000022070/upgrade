@@ -148,7 +148,7 @@ class HostScreenController extends ChangeNotifier {
         password: host.vncPassword,
         verifier: HostKeyVerifier(
           pinned: _pinned ?? host.hostKey,
-          prompt: attended ? prompt : null,
+          prompt: attended ? _asked : null,
           pin: (key) async {
             _pinned = key;
             await pinHostKey?.call(host.id, key);
@@ -178,6 +178,17 @@ class HostScreenController extends ChangeNotifier {
     } catch (error) {
       if (_disposed || attempt != _attempt) return;
       _fail(error);
+    }
+  }
+
+  int _asking = 0;
+
+  Future<bool> _asked(HostKeyOffer offer, PinnedHostKey? pinned) async {
+    _asking++;
+    try {
+      return await prompt?.call(offer, pinned) ?? false;
+    } finally {
+      _asking--;
     }
   }
 
@@ -254,6 +265,8 @@ class HostScreenController extends ChangeNotifier {
     if (_disposed || !_away) return;
     final dialing = _connection == null;
     if (dialing && _phase is! ScreenConnecting) return;
+    // A dial on the host-key sheet waits on the person, and parking it would ask again.
+    if (_asking > 0) return;
     _parked = true;
     _resumeAttended = dialing && _attended;
     _attempt++;

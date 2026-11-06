@@ -112,4 +112,48 @@ void main() {
       expect(dials, hasLength(2));
     },
   );
+
+  testWidgets('a dial waiting on the host-key sheet is not parked', (
+    tester,
+  ) async {
+    final asked = <Completer<bool>>[];
+    var dials = 0;
+    final controller = HostScreenController(
+      host: _nyx,
+      readPrivateKey: (_) async => 'PRIVATE',
+      prompt: (offer, pinned) {
+        asked.add(Completer());
+        return asked.last.future;
+      },
+      open:
+          ({
+            required address,
+            required port,
+            required user,
+            required privateKey,
+            vncUsername,
+            password,
+            required verifier,
+          }) async {
+            dials++;
+            await verifier.prompt!(
+              const HostKeyOffer(type: 'ssh-ed25519', fingerprint: 'SHA256:x'),
+              null,
+            );
+            throw const VncUnreachable();
+          },
+    );
+    addTearDown(controller.dispose);
+    unawaited(controller.connect());
+    await tester.pump();
+    controller.setAway(true);
+    await tester.pump(HostScreenController.parkAfter);
+    controller.setAway(false);
+    await tester.pump();
+
+    expect(dials, 1);
+    expect(asked, hasLength(1));
+    asked.single.complete(false);
+    await tester.pump();
+  });
 }
