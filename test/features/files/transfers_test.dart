@@ -267,6 +267,22 @@ void main() {
     expect(files.puts, ['/home/a.txt']);
   });
 
+  test('two texts of one name into one folder land side by side', () async {
+    final landing = Completer<void>();
+    files.hold = landing.future;
+    Future<String?> text(HostFiles link, _, String Function(String)? claim) =>
+        link
+            .put(claim!('t.txt'), FileBody.bytes(Uint8List(0)))
+            .then((write) => write.failure);
+    final first = transfers.upload(_nyx, const [], into: '/home', then: text);
+    final second = transfers.upload(_nyx, const [], into: '/home', then: text);
+    await Future<void>.delayed(Duration.zero);
+    landing.complete();
+    await Future.wait([first, second]);
+
+    expect(files.puts, unorderedEquals(['/home/t.txt', '/home/t (2).txt']));
+  });
+
   test('a retried batch takes the place of the one it retries', () async {
     final sheet = Object();
     await failedPull(sheet);

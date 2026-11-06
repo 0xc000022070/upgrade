@@ -40,7 +40,7 @@ String rateWord(double bytesPerSecond) {
 typedef AfterUpload = Future<String?> Function(
   HostFiles link,
   Map<String, String> sent,
-  Set<String>? taken,
+  String Function(String name)? claim,
 );
 
 typedef UploadEnded = void Function(
@@ -310,7 +310,13 @@ class Transfers extends ChangeNotifier {
           ]);
           job._retry = () => attempt(missed, landed, job);
         } else if (failure == null && then != null) {
-          failure = await then(link!, landed, taken);
+          String claim(String name) {
+            final path = _claim(host.id, into!, name, taken!);
+            paths.add(path);
+            return path;
+          }
+
+          failure = await then(link!, landed, taken == null ? null : claim);
           if (job != null && failure != null) {
             job.note = [failure, if (into == null) ...landed.values].join('\n');
           }

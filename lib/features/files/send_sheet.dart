@@ -19,7 +19,6 @@ import 'package:upgrade/design/components/section.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/files/files_sheet.dart' show pickHostFolder;
-import 'package:upgrade/features/files/host_transfers.dart';
 import 'package:upgrade/features/files/transfer_queue.dart';
 import 'package:upgrade/features/files/transfers.dart';
 
@@ -94,7 +93,7 @@ class _SendSheetState extends ConsumerState<SendSheet> {
       files,
       into: into,
       sent: sent,
-      then: into == null ? _copyTo(widget.items) : _writeTo(widget.items, into),
+      then: into == null ? _copyTo(widget.items) : _writeTo(widget.items),
       began: (job) {
         if (!mounted) return;
         setState(() {
@@ -128,14 +127,12 @@ class _SendSheetState extends ConsumerState<SendSheet> {
     return failed == null ? null : 'CLIPBOARD · $failed';
   };
 
-  static AfterUpload _writeTo(List<SharedItem> items, String folder) =>
-      (link, _, taken) async {
+  static AfterUpload _writeTo(List<SharedItem> items) =>
+      (link, _, claim) async {
         final now = DateTime.now();
         for (final text in items.whereType<SharedText>()) {
-          final name = freeName(sharedTextName(now), taken!);
-          taken.add(name);
           final write = await link.put(
-            joinPath(folder, name),
+            claim!(sharedTextName(now)),
             FileBody.bytes(utf8.encode(text.text)),
           );
           if (write.failure case final failure?) return 'TEXT · $failure';
