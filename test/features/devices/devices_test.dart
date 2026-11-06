@@ -70,11 +70,16 @@ class FakeDeviceLink implements DeviceLink {
 
   List<HostDevice> devices;
   Object? listError;
+  Completer<List<HostDevice>>? listing;
   final commands = <String>[];
   final frameStreams = <StreamController<DeviceFrame>>[];
 
   @override
   Future<List<HostDevice>> list() async {
+    if (listing case final held?) {
+      listing = null;
+      return held.future;
+    }
     if (listError case final error?) throw error;
     return devices;
   }
@@ -119,6 +124,7 @@ class FakeDeviceLink implements DeviceLink {
     for (final pending in held.values) {
       if (!pending.isCompleted) pending.completeError(StateError('ended'));
     }
+    listing?.completeError(StateError('ended'));
   }
 }
 
@@ -546,6 +552,38 @@ void main() {
     await booting;
     expect(group.boots, isEmpty);
     expect(link.closed, isTrue);
+  });
+
+  test('a failed relist keeps the link a refresh still lists on', () async {
+    final link = _hostLink();
+    final group = DevicesController(
+      host: _rose,
+      dock: DeviceDock(
+        group: (_, _) => throw UnimplementedError(),
+        desktopOf: (_) => throw UnimplementedError(),
+      ),
+      readPrivateKey: (_) async => 'key',
+      open: ({
+        required address,
+        required port,
+        required user,
+        required privateKey,
+        required verifier,
+      }) async => link,
+    );
+    addTearDown(group.dispose);
+    await group.refresh();
+
+    final listed = link.listing = Completer();
+    final refreshing = group.refresh();
+    await Future<void>.delayed(Duration.zero);
+    link.listError = const HerdrUnreachable('adb: not found');
+    await group.shutDown(_pixel);
+    expect(link.closed, isFalse);
+
+    listed.complete(const [_pixel]);
+    await refreshing;
+    expect(group.phase, isA<DevicesListed>());
   });
 
   test('a link closes on its last release, and at once when discarded', () {

@@ -281,9 +281,9 @@ class DevicesController extends ChangeNotifier {
     _work.removeWhere((_, work) => work is WorkFailed);
     notifyListeners();
     try {
-      final link = _live()?.link ?? await _connect();
-      if (link == null || _disposed || attempt != _attempt) return;
-      final devices = await link.list();
+      if (_live() == null && await _connect() == null) return;
+      if (_disposed || attempt != _attempt) return;
+      final devices = await _onLink((link) => link.list());
       if (_disposed || attempt != _attempt) return;
       _phase = DevicesListed(devices);
       notifyListeners();
