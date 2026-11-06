@@ -85,8 +85,12 @@ class InMemoryHostRepository implements HostRepository {
   @override
   Future<void> save(Host host) async {
     final known = _hosts.where((item) => item.id == host.id).firstOrNull;
-    if (known?.system != null && host.system == null) {
-      host = _copy(host, system: known!.system);
+    if (known != null) {
+      host = _copy(
+        host,
+        system: host.system ?? known.system,
+        hostKey: host.hostKey == null ? () => known.hostKey : null,
+      );
     }
     _hosts.removeWhere((item) => item.id == host.id);
     _hosts.add(host);

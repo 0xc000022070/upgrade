@@ -387,4 +387,29 @@ void main() {
       );
     });
   });
+
+  test('the in-memory twin also keeps a pin across an edit', () async {
+    final memory = InMemoryHostRepository();
+    const nyx = Host(
+      id: 'h1',
+      name: 'nyx',
+      address: '100.64.0.2',
+      port: 22,
+      user: 'luis',
+      keyId: 'k1',
+    );
+    await memory.save(nyx);
+    await memory.pinHostKey(
+      'h1',
+      PinnedHostKey(
+        type: 'ssh-ed25519',
+        fingerprint: 'SHA256:abc',
+        pinnedAt: at(2),
+      ),
+    );
+
+    await memory.save(nyx);
+
+    expect((await memory.all()).single.hostKey?.fingerprint, 'SHA256:abc');
+  });
 }
