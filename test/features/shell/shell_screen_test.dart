@@ -710,6 +710,34 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the last shell exiting under another route takes only its own', (
+    tester,
+  ) async {
+    final transport = FakeShellTransport();
+    final sessions = fakeShellSessions(transport);
+    await tester.pumpWidget(app(sessions, home: const Launcher()));
+    await tester.pump();
+    await tester.tap(find.text('OPEN'));
+    await ready(tester);
+    unawaited(
+      Navigator.of(tester.element(find.text('ROSE').first))
+          .push(MaterialPageRoute<void>(builder: (_) => const Text('ON TOP'))),
+    );
+    await ready(tester);
+
+    transport.opened.single.exit(0);
+    await ready(tester);
+    expect(sessions.forHost(rose.id), isEmpty);
+    expect(find.text('ON TOP'), findsOneWidget);
+
+    Navigator.of(tester.element(find.text('ON TOP'))).pop();
+    await ready(tester);
+    expect(find.text('ROSE'), findsNothing);
+    expect(find.text('OPEN'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
   testWidgets('a shell that exits on anything else says so in a sheet', (
     tester,
   ) async {

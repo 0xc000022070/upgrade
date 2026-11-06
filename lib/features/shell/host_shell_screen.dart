@@ -454,8 +454,13 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
         }
       }
       if (!mounted) return;
-      if (_opened && _store.forHost(widget.host.id).isEmpty) {
-        Navigator.of(context).pop();
+      final route = ModalRoute.of(context);
+      if (_opened &&
+          _store.forHost(widget.host.id).isEmpty &&
+          route != null &&
+          route.isActive) {
+        final navigator = Navigator.of(context);
+        route.isCurrent ? navigator.pop() : navigator.removeRoute(route);
       }
     } finally {
       _announcing = false;
