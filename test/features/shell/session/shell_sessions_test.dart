@@ -2449,6 +2449,40 @@ void main() {
       },
     );
 
+    test(
+      'a bell that lands while a failing ask is out is still asked',
+      () async {
+        final transport = FakeShellTransport();
+        final sessions = fakeShellSessions(transport);
+        final session = sessions.open(intent: testIntent(), _rose)!;
+        await _settle();
+        final connection = transport.opened.single;
+        final payload = base64Encode(
+          utf8.encode(jsonEncode({'mode': 'pin', 'desc': 'the key'})),
+        );
+        var asked = 0;
+        connection.answer = (_, _) => ExecResult(
+          exitCode: asked++ == 0 ? 1 : 0,
+          stdout: Uint8List.fromList(utf8.encode('$id $payload\n')),
+          stderr: Uint8List(0),
+        );
+        final held = connection.holdExec = Completer<void>();
+
+        connection.emit('\x07');
+        await _settle();
+        connection.emit('\x07');
+        await _settle();
+        held.complete();
+        await _settle();
+        await _settle();
+
+        expect(asked, 2);
+        expect(session.pin?.id, id);
+
+        await sessions.close(intent: testIntent(), _rose.id, session);
+      },
+    );
+
     test('a shell that comes up out of sight asks on the return', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(

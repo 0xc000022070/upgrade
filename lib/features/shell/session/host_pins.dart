@@ -136,8 +136,11 @@ class HostPins {
       } while (session._askAgain);
     } finally {
       session._asking = false;
+      final owed = session._askAgain;
       session._askAgain = false;
-      if (session.pin != null &&
+      if (owed && session.connection != null) {
+        unawaited(_ask(session));
+      } else if (session.pin != null &&
           session.connection != null &&
           session._asleep == null) {
         session._reask = Timer(
