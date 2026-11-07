@@ -201,6 +201,9 @@ class DeviceDock extends ChangeNotifier {
       }
       changed = true;
     }
+    final browser = _browser;
+    final network = browser?.network;
+    if (network != null) browser!.follow(byId[network.id]);
     if (changed) notifyListeners();
   }
 
@@ -210,7 +213,9 @@ class DeviceDock extends ChangeNotifier {
     DockSurface.browser => null,
   };
 
-  List<DockSession> get _sessions => [?_session, ?_desktop];
+  List<DockSession> get _sessions => [
+    for (final surface in DockSurface.values) ?sessionOn(surface),
+  ];
 
   void _endSession(DockSession session) => switch (session) {
     DeviceSession() => _end(),

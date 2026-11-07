@@ -76,6 +76,7 @@ class BrowserController extends ChangeNotifier {
   Uri? _home;
   Uri? _current;
   bool _disposed = false;
+  int _dials = 0;
 
   Host? get network => _network;
   bool get dialling => _dialling;
@@ -160,24 +161,47 @@ class BrowserController extends ChangeNotifier {
     }
   }
 
+  /// Takes the saved record of the host the browser goes through: a deleted
+  /// host leaves it on the phone, and a moved one is dialled again.
+  void follow(Host? latest) {
+    final network = _network;
+    if (network == null || identical(network, latest)) return;
+    if (latest == null ||
+        latest.address != network.address ||
+        latest.port != network.port ||
+        latest.user != network.user ||
+        latest.keyId != network.keyId) {
+      unawaited(use(latest));
+      return;
+    }
+    _network = latest;
+    notifyListeners();
+  }
+
   Future<void> use(Host? host) async {
+    final dial = ++_dials;
+    bool stale() => _disposed || dial != _dials;
     _network = host;
     _reason = null;
     _dialling = host != null;
     notifyListeners();
     await _release(clear: host == null);
+    if (stale()) return;
     if (host == null) {
       _reopen();
       return;
     }
-    final privateKey = await _readPrivateKey(host.keyId);
-    if (_disposed || _network != host) return;
-    if (privateKey == null) {
-      _fail(ReasonLine.keyRejected.on(host.name));
-      return;
-    }
+    String name() => (_network ?? host).name;
+    HostLease? lease;
+    SocksProxy? proxy;
     try {
-      final lease = await _links.lease(
+      final privateKey = await _readPrivateKey(host.keyId);
+      if (stale()) return;
+      if (privateKey == null) {
+        _fail(ReasonLine.keyRejected.on(name()));
+        return;
+      }
+      lease = await _links.lease(
         address: host.address,
         port: host.port,
         user: host.user,
@@ -185,23 +209,29 @@ class BrowserController extends ChangeNotifier {
         verifier: _keyPins.verifier(
           host.id,
           host.hostKey,
-          prompt: (offer, pinned) => _prompt(host, offer, pinned),
+          prompt: (offer, pinned) => stale()
+              ? Future.value(false)
+              : _prompt(_network ?? host, offer, pinned),
         ),
         use: HostUse.browser,
       );
-      if (_disposed || _network != host) {
-        lease.release();
-        return;
-      }
-      final proxy = await SocksProxy.bind(lease.client);
+      if (stale()) return;
+      proxy = await SocksProxy.bind(lease.client);
+      if (stale()) return;
+      // A newer dial's own set or clear is queued behind this one, so a stale
+      // set here never wins.
       await BrowserProxy.set(proxy.port);
-      _lease = lease;
+      if (stale()) return;
+      final adopted = lease;
+      _lease = adopted;
       _proxy = proxy;
+      lease = null;
+      proxy = null;
       unawaited(
-        lease.ended.then((_) {
-          if (_lease == lease) {
+        adopted.ended.then((_) {
+          if (_lease == adopted) {
             _lease = null;
-            _fail(ReasonLine.streamClosed.on(host.name));
+            _fail(ReasonLine.streamClosed.on(name()));
           }
         }),
       );
@@ -209,9 +239,12 @@ class BrowserController extends ChangeNotifier {
       notifyListeners();
       _reopen();
     } on HerdrFailure catch (failure) {
-      _fail(failure.reason(host.name));
+      if (!stale()) _fail(failure.reason(name()));
     } catch (error) {
-      _fail(error.toString().toLowerCase());
+      if (!stale()) _fail(error.toString().toLowerCase());
+    } finally {
+      lease?.release();
+      await proxy?.close();
     }
   }
 

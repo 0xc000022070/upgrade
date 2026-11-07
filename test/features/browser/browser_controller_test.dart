@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/features/browser/browser_controller.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/browser/browser_prefs.dart';
+import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart'
@@ -73,5 +75,98 @@ void main() {
     expect(browser.word, 'FAILED');
     expect(browser.address.text, 'http://example.com');
     expect(go(), NavigationDecision.prevent);
+  });
+
+  test(
+    'the browser follows its host being renamed, moved and deleted',
+    () async {
+      stubBrowserProxy();
+      FakeWebViewPlatform();
+      var reads = 0;
+      final dock = DeviceDock(
+        group: (_, _) => throw UnimplementedError(),
+        desktopOf: (_) => throw UnimplementedError(),
+        browserOf: () => BrowserController(
+          links: HostLinks(),
+          readPrivateKey: (_) async {
+            reads++;
+            return null;
+          },
+          keyPins: HostKeyPins(store: (_, _) async {}, forget: (_) async {}),
+          prompt: (_, _, _) async => false,
+        ),
+      );
+      addTearDown(dock.dispose);
+      final browser = dock.openBrowser();
+      await browser.use(pine);
+
+      const renamed = Host(
+        id: 'h1',
+        name: 'oak',
+        address: '100.64.0.1',
+        port: 22,
+        user: 'alex',
+        keyId: 'key-1',
+      );
+      dock.syncHosts(const [renamed]);
+      expect(browser.network, same(renamed));
+      expect(reads, 1);
+
+      const moved = Host(
+        id: 'h1',
+        name: 'oak',
+        address: '100.64.0.2',
+        port: 22,
+        user: 'alex',
+        keyId: 'key-1',
+      );
+      dock.syncHosts(const [moved]);
+      await pumpEventQueue();
+      expect(browser.network, same(moved));
+      expect(reads, 2);
+      expect(browser.word, 'FAILED');
+
+      dock.syncHosts(const []);
+      await pumpEventQueue();
+      expect(browser.network, isNull);
+      expect(browser.word, 'THIS PHONE');
+    },
+  );
+
+  test('a dial that is replaced or cannot read its key never hangs', () async {
+    stubBrowserProxy();
+    FakeWebViewPlatform();
+    final key = Completer<String?>();
+    var reads = 0;
+    final browser = BrowserController(
+      links: HostLinks(),
+      readPrivateKey: (_) {
+        reads++;
+        return key.future;
+      },
+      keyPins: HostKeyPins(store: (_, _) async {}, forget: (_) async {}),
+      prompt: (_, _, _) async => false,
+    );
+    addTearDown(browser.dispose);
+
+    final dial = browser.use(pine);
+    await pumpEventQueue();
+    await browser.use(null);
+    key.complete(null);
+    await dial;
+    expect(reads, 1);
+    expect(browser.reason, isNull);
+    expect(browser.word, 'THIS PHONE');
+
+    final failing = BrowserController(
+      links: HostLinks(),
+      readPrivateKey: (_) async => throw StateError('keystore locked'),
+      keyPins: HostKeyPins(store: (_, _) async {}, forget: (_) async {}),
+      prompt: (_, _, _) async => false,
+    );
+    addTearDown(failing.dispose);
+    await failing.use(pine);
+    expect(failing.dialling, isFalse);
+    expect(failing.word, 'FAILED');
   });
 }
