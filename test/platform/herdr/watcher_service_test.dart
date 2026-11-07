@@ -10,9 +10,9 @@ import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
@@ -100,7 +100,7 @@ void main() {
 
     test('turning alerts off keeps a service the tabs still need', () async {
       final service = _Service();
-      await AgentWatcher.start(const [_rose], {AlertKind.blocked});
+      await AgentWatcher.start(const [_pine], {AlertKind.blocked});
       await AgentWatcher.holdShells(1);
       expect(service.starts, 1);
       expect(await AgentWatcher.running, isTrue);
@@ -118,7 +118,7 @@ void main() {
     test('letting the tabs go keeps a service alerts still need', () async {
       final service = _Service();
       await AgentWatcher.holdShells(1);
-      await AgentWatcher.start(const [_rose], {AlertKind.blocked});
+      await AgentWatcher.start(const [_pine], {AlertKind.blocked});
 
       await AgentWatcher.holdShells(0);
 
@@ -157,7 +157,7 @@ void main() {
       final service = _Service()..running = true;
       final handler = _handler();
       addTearDown(() => handler.onDestroy(DateTime.now(), false));
-      await handler.setHosts(const [_rose]);
+      await handler.setHosts(const [_pine]);
 
       handler.setShells(1);
       await _settle();

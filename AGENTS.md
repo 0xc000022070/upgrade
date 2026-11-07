@@ -11,15 +11,20 @@ the VM.
 3. The guest project is `/home/dev/Projects/fixture`.
 4. Herdr uses the guest session `development`.
 
-The development phone is `pixel_7-api36`, not Faraday. Its Upgrade host entry is:
+Machine names and addresses for this checkout live in `CLAUDE.local.md`
+(gitignored); `<host-ip>` below is the development host's address as the phone
+reaches it, usually its Tailscale IP.
+
+The development phone is `pixel_7-api36`, not the review handset. Its Upgrade
+host entry is:
 
 - name: `UPGRADE HOST VM`
-- address: `100.118.60.77:2222`
+- address: `<host-ip>:2222`
 - user: `dev`
 - key: `test-key`
 
 `just phone-host <ip> [scenario]` writes that entry into the debug build adb
-picks, with no form typed. Pass the bare IP (`100.118.60.77`); the scenario
+picks, with no form typed. Pass the bare IP (`<host-ip>`); the scenario
 supplies the port. It refuses an address that does not answer with
 the declared host key, `SHA256:hDVbIZXceJXxmv9IiBarvzZx3utci+tvV5gyo8ya0Wc`
 (`nix/host-vm/fixtures/host_vm_host_key`, shared by every guest), and keeps
@@ -47,12 +52,12 @@ so a pinned host key survives a reboot.
 | `engine`   | 2225 | 60968-60983 | yes    | no    | writable           |
 | `declared` | 2226 | 60984-60999 | yes    | no    | links to the store |
 
-Name the phone entry `SCENARIO <NAME>`, address `100.118.60.77:<ssh>`, user
+Name the phone entry `SCENARIO <NAME>`, address `<host-ip>:<ssh>`, user
 `dev`, and key `test-key`.
 
-## On rose
+## On an Apple silicon Mac
 
 The same apps exist for `aarch64-darwin`, where they boot an `aarch64-linux`
 guest under HVF. Building that guest needs an `aarch64-linux` builder, which
-rose does not have yet, so this path has never booted. Once it does, point the
-phone entries at rose's Tailscale address, `100.64.94.121`.
+the Mac may not have, so this path has never booted. Once it does, point the
+phone entries at the Mac's address.

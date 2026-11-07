@@ -83,7 +83,7 @@ void main() {
 
   group('the rfb reader is framed by its lengths and not by its packets', () {
     test('the handshake reads the same screen however it was cut', () async {
-      final bytes = serverHandshake(width: 1920, height: 1080, name: 'nyx');
+      final bytes = serverHandshake(width: 1920, height: 1080, name: 'oak');
 
       for (final split in splitsOf(bytes)) {
         final channel = FakeVncChannel();
@@ -99,7 +99,7 @@ void main() {
 
         expect(init.width, 1920, reason: split.reason);
         expect(init.height, 1080, reason: split.reason);
-        expect(init.name, 'nyx', reason: split.reason);
+        expect(init.name, 'oak', reason: split.reason);
 
         await client.close();
         await channel.dispose();

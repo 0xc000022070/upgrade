@@ -35,18 +35,18 @@ import '../../support/platform_channels.dart';
 import '../../support/vnc_channel.dart';
 import '../../support/themed_app.dart';
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '10.0.2.2',
   port: 22,
   user: 'luisnquin',
   keyId: 'k1',
 );
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h2',
-  name: 'nyx',
+  name: 'oak',
   address: '10.0.2.3',
   port: 22,
   user: 'luisnquin',
@@ -185,7 +185,7 @@ const _bubbleKey = ValueKey('device-float-bubble');
 Future<void> _pump(
   WidgetTester tester,
   DeviceLinkOpener open, {
-  List<Host> hosts = const [_rose],
+  List<Host> hosts = const [_pine],
   List<Host> desktops = const [],
   VncOpener? vnc,
   bool show = true,
@@ -200,7 +200,7 @@ Future<void> _pump(
   final saved = StreamController<String?>()..add(remembered);
   addTearDown(() => unawaited(saved.close()));
   final store = MemoryPrivateKeyStore();
-  await store.write(_rose.keyId, 'PRIVATE');
+  await store.write(_pine.keyId, 'PRIVATE');
   await tester.pumpWidget(
     ProviderScope(
       retry: noRetry,
@@ -236,7 +236,7 @@ Future<void> _pump(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextButton(
-                    onPressed: () => ref.read(deviceDockProvider).show(_rose),
+                    onPressed: () => ref.read(deviceDockProvider).show(_pine),
                     child: const Text('DEVICES'),
                   ),
                   const ScreensAction(),
@@ -369,7 +369,7 @@ void main() {
       desktopOf: (_) => throw UnimplementedError(),
     );
     addTearDown(dock.dispose);
-    dock.attach(const [_rose, _nyx]);
+    dock.attach(const [_pine, _oak]);
     await Future<void>.delayed(Duration.zero);
     var told = 0;
     dock.addListener(() => told++);
@@ -383,15 +383,15 @@ void main() {
         user: 'luisnquin',
         keyId: 'k1',
       ),
-      _nyx,
+      _oak,
     ]);
 
-    expect([for (final group in dock.groups) group.host.name], ['mark', 'nyx']);
+    expect([for (final group in dock.groups) group.host.name], ['mark', 'oak']);
     expect(told, 1);
   });
 
   test('a deleted host ends its stream, desktop and link', () async {
-    final links = {_rose.id: _hostLink(), _nyx.id: _hostLink()};
+    final links = {_pine.id: _hostLink(), _oak.id: _hostLink()};
     final dock = DeviceDock(
       group: (host, dock) => DevicesController(
         host: host,
@@ -420,25 +420,25 @@ void main() {
       ),
     );
     addTearDown(dock.dispose);
-    dock.attach(const [_rose, _nyx]);
+    dock.attach(const [_pine, _oak]);
     await Future<void>.delayed(Duration.zero);
     dock
       ..summon()
       ..select(dock.groups.first, _pixel)
-      ..watchDesktop(_rose);
+      ..watchDesktop(_pine);
     await Future<void>.delayed(Duration.zero);
-    final rose = links[_rose.id]!;
-    expect(rose.frameStreams.single.hasListener, isTrue);
+    final pine = links[_pine.id]!;
+    expect(pine.frameStreams.single.hasListener, isTrue);
 
-    dock.syncHosts(const [_nyx]);
+    dock.syncHosts(const [_oak]);
     await Future<void>.delayed(Duration.zero);
 
     expect(dock.session, isNull);
     expect(dock.desktop, isNull);
-    expect([for (final group in dock.groups) group.host.id], [_nyx.id]);
-    expect(rose.frameStreams.single.hasListener, isFalse);
-    expect(rose.closed, isTrue);
-    expect(links[_nyx.id]!.closed, isFalse);
+    expect([for (final group in dock.groups) group.host.id], [_oak.id]);
+    expect(pine.frameStreams.single.hasListener, isFalse);
+    expect(pine.closed, isTrue);
+    expect(links[_oak.id]!.closed, isFalse);
   });
 
   test('a failed list keeps the link a stream rides', () async {
@@ -460,7 +460,7 @@ void main() {
       desktopOf: (_) => throw UnimplementedError(),
     );
     addTearDown(dock.dispose);
-    dock.attach(const [_rose]);
+    dock.attach(const [_pine]);
     await Future<void>.delayed(Duration.zero);
     dock
       ..summon()
@@ -488,7 +488,7 @@ void main() {
   test('a link that closes as it opens fails the list', () async {
     final link = _hostLink();
     final group = DevicesController(
-      host: _rose,
+      host: _pine,
       dock: DeviceDock(
         group: (_, _) => throw UnimplementedError(),
         desktopOf: (_) => throw UnimplementedError(),
@@ -517,7 +517,7 @@ void main() {
     final link = _hostLink();
     final boot = link.held[_bootPart] = Completer<String>();
     final group = DevicesController(
-      host: _rose,
+      host: _pine,
       dock: DeviceDock(
         group: (_, _) => throw UnimplementedError(),
         desktopOf: (_) => throw UnimplementedError(),
@@ -557,7 +557,7 @@ void main() {
   test('a failed relist keeps the link a refresh still lists on', () async {
     final link = _hostLink();
     final group = DevicesController(
-      host: _rose,
+      host: _pine,
       dock: DeviceDock(
         group: (_, _) => throw UnimplementedError(),
         desktopOf: (_) => throw UnimplementedError(),
@@ -668,7 +668,7 @@ void main() {
   test('a drag is clamped into what input swipe is told', () async {
     final link = FakeDeviceLink(const []);
     final controller = DeviceScreenController(
-      hostName: 'rose',
+      hostName: 'pine',
       link: link,
       device: _pixel,
     )..start();
@@ -726,7 +726,7 @@ void main() {
     await _open(tester);
     expect(find.byKey(_bubbleKey), findsNothing);
     expect(find.byKey(_barKey), findsOneWidget);
-    expect(find.text('ROSE'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget);
     expect(find.text('pixel_\u200B7-api36'), findsOneWidget);
     expect(find.text('SCREENS'), findsOneWidget);
     expect(link.frameStreams, isEmpty);
@@ -753,7 +753,7 @@ void main() {
     await _fold(tester);
     link.devices = const [];
     await _open(tester);
-    await tester.tap(find.text('ROSE'));
+    await tester.tap(find.text('PINE'));
     await _settle(tester);
     expect(find.text('NONE'), findsOneWidget);
 
@@ -783,53 +783,53 @@ void main() {
 
     await _pump(tester, open);
     await _open(tester);
-    expect(find.text('rose unreachable'), findsOneWidget);
+    expect(find.text('pine unreachable'), findsOneWidget);
     expect(link.frameStreams, isEmpty);
 
-    await tester.tap(find.text('rose unreachable'));
+    await tester.tap(find.text('pine unreachable'));
     await _settle(tester);
-    expect(find.text('rose unreachable'), findsNothing);
+    expect(find.text('pine unreachable'), findsNothing);
     await _pick(tester, _pixel);
     expect(link.frameStreams.single.hasListener, isTrue);
   });
 
   testWidgets('every host with devices on is listed, and its tabs move the '
       'stream', (tester) async {
-    final rose = FakeDeviceLink(const [_pixel]);
-    final nyx = FakeDeviceLink(const [_iphone]);
+    final pine = FakeDeviceLink(const [_pixel]);
+    final oak = FakeDeviceLink(const [_iphone]);
     Future<DeviceLink> open({
       required String address,
       required int port,
       required String user,
       required String privateKey,
       HostKeyVerifier? verifier,
-    }) async => address == _nyx.address ? nyx : rose;
+    }) async => address == _oak.address ? oak : pine;
 
-    await _pump(tester, open, hosts: const [_rose, _nyx]);
+    await _pump(tester, open, hosts: const [_pine, _oak]);
     await _open(tester);
     await _settle(tester);
-    await tester.tap(find.text('ROSE'));
+    await tester.tap(find.text('PINE'));
     await tester.pump();
     await _pick(tester, _pixel);
-    await _live(tester, rose);
+    await _live(tester, pine);
     await _fold(tester);
     await _open(tester);
     await _settle(tester);
 
-    expect(find.text('NYX'), findsOneWidget);
+    expect(find.text('OAK'), findsOneWidget);
     expect(find.byKey(ValueKey('device-tab-h2-${_iphone.id}')), findsNothing);
-    expect(nyx.frameStreams, isEmpty);
+    expect(oak.frameStreams, isEmpty);
 
-    await tester.tap(find.text('NYX'));
+    await tester.tap(find.text('OAK'));
     await tester.pump();
     await _pick(tester, _iphone, host: 'h2');
-    expect(rose.frameStreams.single.hasListener, isFalse);
-    expect(nyx.frameStreams.single.hasListener, isTrue);
-    expect(rose.closed, isFalse);
+    expect(pine.frameStreams.single.hasListener, isFalse);
+    expect(oak.frameStreams.single.hasListener, isTrue);
+    expect(pine.closed, isFalse);
 
     await _fold(tester);
     await _open(tester);
-    await tester.tap(find.text('ROSE'));
+    await tester.tap(find.text('PINE'));
     await tester.pump();
     expect(
       find.descendant(
@@ -839,34 +839,34 @@ void main() {
       findsOneWidget,
     );
     await _pick(tester, _pixel);
-    expect(rose.frameStreams, hasLength(2));
-    expect(rose.frameStreams.last.hasListener, isTrue);
-    expect(nyx.frameStreams.single.hasListener, isFalse);
-    expect(nyx.closed, isFalse);
+    expect(pine.frameStreams, hasLength(2));
+    expect(pine.frameStreams.last.hasListener, isTrue);
+    expect(oak.frameStreams.single.hasListener, isFalse);
+    expect(oak.closed, isFalse);
 
     await tester.pumpWidget(const SizedBox());
-    expect(rose.closed, isTrue);
-    expect(nyx.closed, isTrue);
+    expect(pine.closed, isTrue);
+    expect(oak.closed, isTrue);
   });
 
   testWidgets('the host last opened from is the one the list opens on', (
     tester,
   ) async {
-    final rose = FakeDeviceLink(const [_pixel]);
-    final nyx = FakeDeviceLink(const [_iphone]);
+    final pine = FakeDeviceLink(const [_pixel]);
+    final oak = FakeDeviceLink(const [_iphone]);
     Future<DeviceLink> open({
       required String address,
       required int port,
       required String user,
       required String privateKey,
       HostKeyVerifier? verifier,
-    }) async => address == _nyx.address ? nyx : rose;
+    }) async => address == _oak.address ? oak : pine;
     final remembers = <String>[];
 
     await _pump(
       tester,
       open,
-      hosts: const [_rose, _nyx],
+      hosts: const [_pine, _oak],
       remembered: 'h2',
       remembers: remembers,
     );
@@ -877,11 +877,11 @@ void main() {
     expect(iphone, findsOneWidget);
     expect(pixel, findsNothing);
     expect(
-      tester.getTopLeft(find.text('NYX')).dy,
-      lessThan(tester.getTopLeft(find.text('ROSE')).dy),
+      tester.getTopLeft(find.text('OAK')).dy,
+      lessThan(tester.getTopLeft(find.text('PINE')).dy),
     );
 
-    await tester.tap(find.text('ROSE'));
+    await tester.tap(find.text('PINE'));
     await tester.pump();
     expect(pixel, findsOneWidget);
     expect(iphone, findsNothing);
@@ -926,10 +926,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(link.frameStreams, hasLength(2));
 
-    await tester.tap(find.text('/ ROSE PIXEL_7-API36'));
+    await tester.tap(find.text('/ PINE PIXEL_7-API36'));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
-    expect(find.text('/ ROSE PIXEL_7-API36'), findsNothing);
+    expect(find.text('/ PINE PIXEL_7-API36'), findsNothing);
     expect(find.byKey(_floatKey), findsOneWidget);
     expect(link.frameStreams.last.hasListener, isTrue);
   });
@@ -955,7 +955,7 @@ void main() {
   test('a paused stream stays paused when the app comes back', () async {
     final link = FakeDeviceLink(const []);
     final controller = DeviceScreenController(
-      hostName: 'rose',
+      hostName: 'pine',
       link: link,
       device: _pixel,
     )..start();
@@ -1006,11 +1006,11 @@ void main() {
 
     await _tapKey(tester, const ValueKey('device-float-expand'));
     await tester.pump(const Duration(seconds: 1));
-    expect(find.text('/ ROSE PIXEL_7-API36'), findsOneWidget);
+    expect(find.text('/ PINE PIXEL_7-API36'), findsOneWidget);
     expect(find.byKey(_floatKey), findsNothing);
     expect(link.frameStreams, hasLength(2));
 
-    await tester.tap(find.text('/ ROSE PIXEL_7-API36'));
+    await tester.tap(find.text('/ PINE PIXEL_7-API36'));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(find.byKey(_floatKey), findsOneWidget);
@@ -1763,7 +1763,7 @@ void main() {
       await _openSheet(tester);
 
       expect(find.byKey(const ValueKey('device-sheet')), findsOneWidget);
-      expect(find.text('ROSE DEVICES'), findsOneWidget);
+      expect(find.text('PINE DEVICES'), findsOneWidget);
       expect(find.byKey(_barKey), findsNothing);
       expect(
         find.byKey(const ValueKey('device-stopped-Pixel_9')),
@@ -1864,7 +1864,7 @@ void main() {
       expect(link.readsOf(_killPart), 0);
 
       link.devices = const [_pixel, _booted];
-      await tester.tap(find.text('ROSE'));
+      await tester.tap(find.text('PINE'));
       await _settle(tester);
       expect(find.text('not booted in 3 min'), findsNothing);
       expect(
@@ -2190,7 +2190,7 @@ void main() {
   group('a desktop', () {
     late List<FakeVncConnection> connections;
 
-    VncOpener vnc({String name = 'nyx'}) {
+    VncOpener vnc({String name = 'oak'}) {
       connections = [];
       return ({
         required String address,
@@ -2242,7 +2242,7 @@ void main() {
       await _pump(
         tester,
         _opener(FakeDeviceLink(const [])),
-        desktops: const [_rose],
+        desktops: const [_pine],
         vnc: ({
           required String address,
           required int port,
@@ -2277,7 +2277,7 @@ void main() {
       await _pump(
         tester,
         _opener(FakeDeviceLink(const [])),
-        desktops: const [_rose],
+        desktops: const [_pine],
         vnc: vnc(),
         pip: pip,
       );
@@ -2311,7 +2311,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final link = FakeDeviceLink(const [_pixel]);
-      await _pump(tester, _opener(link), desktops: const [_rose], vnc: vnc());
+      await _pump(tester, _opener(link), desktops: const [_pine], vnc: vnc());
       await _open(tester);
       final rows = [
         for (final key in const [
@@ -2370,7 +2370,7 @@ void main() {
       await _pump(
         tester,
         _opener(FakeDeviceLink(const [])),
-        desktops: const [_rose],
+        desktops: const [_pine],
         vnc: vnc(name: 'WayVNC'),
       );
       await watchDesktop(tester);
@@ -2403,7 +2403,7 @@ void main() {
       await _pump(
         tester,
         _opener(FakeDeviceLink(const [])),
-        desktops: const [_rose],
+        desktops: const [_pine],
         vnc: vnc(),
       );
       await watchDesktop(tester);
@@ -2416,7 +2416,7 @@ void main() {
       await _pump(
         tester,
         _opener(FakeDeviceLink(const [_pixel])),
-        desktops: const [_rose],
+        desktops: const [_pine],
         vnc: vnc(),
       );
       await watchDesktop(tester);
@@ -2438,19 +2438,19 @@ void main() {
       await _pump(
         tester,
         _opener(FakeDeviceLink(const [_pixel])),
-        desktops: const [_rose],
+        desktops: const [_pine],
         vnc: vnc(),
       );
       await watchDesktop(tester);
       await _tapKey(tester, desktopKey);
       await _tapKey(tester, const ValueKey('desktop-float-expand'));
       await tester.pump(const Duration(seconds: 1));
-      expect(find.text('/ ROSE SCREEN'), findsOneWidget);
+      expect(find.text('/ PINE SCREEN'), findsOneWidget);
       expect(find.byKey(desktopKey), findsNothing);
       expect(find.byKey(_bubbleKey), findsNothing);
       expect(connections, hasLength(1));
 
-      await tester.tap(find.text('/ ROSE SCREEN'));
+      await tester.tap(find.text('/ PINE SCREEN'));
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       expect(find.byKey(desktopKey), findsOneWidget);

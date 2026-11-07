@@ -17,7 +17,7 @@ final pinned = PinnedHostKey(
 
 final host = Host(
   id: 'h1',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.1',
   port: 22,
   user: 'dev',

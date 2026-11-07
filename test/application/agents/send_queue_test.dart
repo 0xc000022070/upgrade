@@ -20,7 +20,7 @@ final _target = PathTarget(
   ),
   host: const Host(
     id: 'host-1',
-    name: 'nyx',
+    name: 'oak',
     address: '100.64.0.1',
     port: 22,
     user: 'luisnquin',

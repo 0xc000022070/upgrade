@@ -25,8 +25,8 @@ import '../../support/themed_app.dart';
 
 final managedKey = ManagedKey(
   id: 'key-1',
-  name: 'faraday',
-  publicKey: 'ssh-ed25519 AAAATEST faraday',
+  name: 'juniper',
+  publicKey: 'ssh-ed25519 AAAATEST juniper',
   fingerprint: 'SHA256:test',
   createdAt: DateTime(2026),
 );
@@ -130,7 +130,7 @@ void main() {
     await hosts.save(
       const Host(
         id: 'host-1',
-        name: 'nyx',
+        name: 'oak',
         address: '100.64.0.1',
         port: 22,
         user: 'luis',
@@ -164,7 +164,7 @@ void main() {
     await tester.pumpWidget(host(const HostFormScreen()));
     await _ready(tester);
     final fields = find.byType(TextField);
-    await tester.enterText(fields.at(0), 'nyx');
+    await tester.enterText(fields.at(0), 'oak');
     await tester.enterText(fields.at(1), '100.64.0.1');
     // Field 2 is the port, prefilled with 22; the user is field 3.
     await tester.enterText(fields.at(3), 'luis');

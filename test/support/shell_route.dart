@@ -18,9 +18,9 @@ import 'launch_scan.dart';
 import 'reasons.dart';
 import 'themed_app.dart';
 
-const rose = Host(
+const pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
@@ -50,7 +50,7 @@ Widget app(
   child: MaterialApp(
     theme: theme ?? testTheme,
     builder: builder,
-    home: home ?? HostShellRoute(host: rose, intent: testIntent()),
+    home: home ?? HostShellRoute(host: pine, intent: testIntent()),
   ),
 );
 
@@ -111,7 +111,7 @@ class Launcher extends StatelessWidget {
     return Scaffold(
       body: Center(
         child: GestureDetector(
-          onTap: () => openHostShell(context, rose, intent: testIntent()),
+          onTap: () => openHostShell(context, pine, intent: testIntent()),
           child: const Text('OPEN'),
         ),
       ),

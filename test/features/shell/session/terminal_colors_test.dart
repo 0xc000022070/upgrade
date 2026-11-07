@@ -12,9 +12,9 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../../support/fake_shell.dart';
 import '../../../support/reasons.dart';
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
@@ -118,7 +118,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      sessions.open(intent: testIntent(), _rose);
+      sessions.open(intent: testIntent(), _pine);
       await _settle();
       final connection = transport.opened.single;
 
@@ -138,7 +138,7 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
 
-      final session = sessions.open(intent: testIntent(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _pine)!;
       await _settle();
       final connection = transport.opened.single;
 

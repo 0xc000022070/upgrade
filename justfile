@@ -1,3 +1,5 @@
+set dotenv-load
+
 [private]
 default:
     @just --list --unsorted
@@ -25,13 +27,17 @@ check: pub-build
 apk: pub-build
     flutter build apk --debug --target-platform android-arm64 --build-name={{build_name}} --build-number={{build_code}} --dart-define=UPGRADE_BUILD=${UPGRADE_BUILD:-dev}
 
-# Hot reload on rose's emulator: `kill -USR1 $(cat build/run.pid)` reloads, -USR2 restarts.
+# Hot reload: `kill -USR1 $(cat build/run.pid)` reloads, -USR2 restarts. UPGRADE_ADB_HOST
+# runs it on that ssh host's adb server; UPGRADE_DEVICE picks the device.
 [group('dev')]
 run: pub-build
     #!/usr/bin/env bash
     set -euo pipefail
-    ssh -fN -o ExitOnForwardFailure=yes -L 5038:127.0.0.1:5037 rose || true
-    ADB_SERVER_SOCKET=tcp:127.0.0.1:5038 flutter run -d emulator-5554 \
+    if [[ -n ${UPGRADE_ADB_HOST:-} ]]; then
+        ssh -fN -o ExitOnForwardFailure=yes -L 5038:127.0.0.1:5037 "$UPGRADE_ADB_HOST" || true
+        export ADB_SERVER_SOCKET=tcp:127.0.0.1:5038
+    fi
+    flutter run ${UPGRADE_DEVICE:+-d "$UPGRADE_DEVICE"} \
         --pid-file build/run.pid \
         --dart-define=UPGRADE_BUILD=${UPGRADE_BUILD:-dev}
 

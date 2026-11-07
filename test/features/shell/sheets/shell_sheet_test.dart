@@ -13,18 +13,18 @@ import '../../../support/reasons.dart';
 import '../../../support/shell_route.dart' show noWorkspaces, openNewShell;
 import '../../../support/themed_app.dart';
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
   keyId: 'key-1',
 );
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h2',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.2',
   port: 22,
   user: 'luis',
@@ -84,7 +84,7 @@ void main() {
   ) async {
     await open(tester);
 
-    expect(find.text('ROSE'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget);
     expect(find.text('OPEN'), findsOneWidget);
     final route = ModalRoute.of(tester.element(header));
     expect(route, isA<ShellSheetRoute>());
@@ -104,8 +104,8 @@ void main() {
     await tester.pumpWidget(app(sessions));
     final context = tester.element(find.text('OPEN'));
 
-    openHostShell(context, _rose, intent: testIntent());
-    openHostShell(context, _rose, intent: testIntent());
+    openHostShell(context, _pine, intent: testIntent());
+    openHostShell(context, _pine, intent: testIntent());
     await ready(tester);
 
     expect(header, findsOneWidget);
@@ -125,17 +125,17 @@ void main() {
     await tester.pumpWidget(app(sessions));
     final context = tester.element(find.text('OPEN'));
 
-    openHostShell(context, _rose, intent: testIntent());
+    openHostShell(context, _pine, intent: testIntent());
     await ready(tester);
-    expect(find.text('ROSE'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget);
 
-    openHostShell(context, _nyx, intent: testIntent());
+    openHostShell(context, _oak, intent: testIntent());
     await ready(tester);
 
     expect(sheet, findsOneWidget);
-    expect(find.text('NYX'), findsOneWidget);
-    expect(find.text('ROSE'), findsOneWidget, reason: 'its group stays');
-    expect(sessions.parked!.host.id, _nyx.id);
+    expect(find.text('OAK'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget, reason: 'its group stays');
+    expect(sessions.parked!.host.id, _oak.id);
 
     await unmount(tester);
   });
@@ -167,9 +167,9 @@ void main() {
     await tester.drag(header, const Offset(0, _height / 2));
     await ready(tester);
 
-    expect(find.text('ROSE'), findsNothing);
+    expect(find.text('PINE'), findsNothing);
     expect(find.text('OPEN'), findsOneWidget);
-    expect(sessions.forHost(_rose.id), isNotEmpty);
+    expect(sessions.forHost(_pine.id), isNotEmpty);
 
     await unmount(tester);
   });
@@ -180,7 +180,7 @@ void main() {
     await tester.drag(header, const Offset(0, _height / 10));
     await ready(tester);
 
-    expect(find.text('ROSE'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget);
     expect(tester.getTopLeft(sheet).dy, _statusBar);
 
     await unmount(tester);
@@ -208,7 +208,7 @@ void main() {
     await tester.fling(header, const Offset(0, 80), 1500);
     await ready(tester);
 
-    expect(find.text('ROSE'), findsNothing);
+    expect(find.text('PINE'), findsNothing);
     expect(find.text('OPEN'), findsOneWidget);
 
     await unmount(tester);
@@ -220,7 +220,7 @@ void main() {
     await openNewShell(tester);
 
     expect(find.byKey(const ValueKey('shell-tab-h1-2')), findsOneWidget);
-    expect(find.text('ROSE'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -234,7 +234,7 @@ class _Launcher extends StatelessWidget {
     return Scaffold(
       body: Center(
         child: GestureDetector(
-          onTap: () => openHostShell(context, _rose, intent: testIntent()),
+          onTap: () => openHostShell(context, _pine, intent: testIntent()),
           child: const Text('OPEN'),
         ),
       ),

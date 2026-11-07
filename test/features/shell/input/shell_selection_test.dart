@@ -9,7 +9,7 @@ import 'package:upgrade/features/shell/shell_terminal.dart';
 import 'package:flterm/flterm.dart';
 
 import '../../../support/platform_channels.dart';
-import '../../../support/shell_route.dart' show rose;
+import '../../../support/shell_route.dart' show pine;
 import '../../../support/themed_app.dart';
 
 const _screen = Size(400, 600);
@@ -18,7 +18,7 @@ ShellSession _session() {
   final session = ShellSession(
     number: 1,
     terminal: TerminalController(),
-    host: rose,
+    host: pine,
   );
   addTearDown(session.dispose);
   return session;
@@ -133,7 +133,7 @@ void main() {
     final opened = stubUrlLauncher();
     final session = _session();
     await _pumpView(tester, session);
-    const url = 'http://100.118.60.77:8080/';
+    const url = 'http://198.51.100.77:8080/';
     _write(session, url);
     _select(session, 0, url.length - 1, row: 0);
     await tester.pump();

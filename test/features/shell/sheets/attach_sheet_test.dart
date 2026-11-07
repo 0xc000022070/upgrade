@@ -19,9 +19,9 @@ import '../../../support/platform_channels.dart';
 import '../../../support/reasons.dart';
 import '../../../support/themed_app.dart';
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h2',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.2',
   port: 22,
   user: 'luis',
@@ -56,7 +56,7 @@ void main() {
     WidgetTester tester, {
     PhotoPicker pick = _none,
   }) async {
-    final session = sessions.open(intent: testIntent(), _nyx)!;
+    final session = sessions.open(intent: testIntent(), _oak)!;
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pumpWidget(
       ProviderScope(
@@ -172,7 +172,7 @@ void main() {
     // What a live shell runs on its own: the pinentry mark, and one look at what the
     // pinentry holds open.
     expect(connection.execs.map((exec) => exec.command), [
-      pinentryMarkCommand(sessions.forHost(_nyx.id).single.tab),
+      pinentryMarkCommand(sessions.forHost(_oak.id).single.tab),
       pinentryOpenCommand(),
     ]);
     expect(connection.writes, isEmpty);

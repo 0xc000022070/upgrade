@@ -11,7 +11,7 @@ void main() {
       SocketException(
         'Connection refused',
         osError: const OSError('Connection refused', 111),
-        address: InternetAddress('100.118.60.77'),
+        address: InternetAddress('198.51.100.77'),
         port: 44354,
       ),
     )!;

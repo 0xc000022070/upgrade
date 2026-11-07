@@ -150,7 +150,7 @@ void main() {
     ) async {
       await open(tester, runner: FakeRunner(fail: const HerdrUnreachable()));
 
-      expect(find.text('nyx unreachable'), findsOneWidget);
+      expect(find.text('oak unreachable'), findsOneWidget);
       expect(find.text('RETRY'), findsOneWidget);
 
       await unmount(tester);
@@ -199,7 +199,7 @@ void main() {
       expect(opens, 2);
       expect(runners.first.closed, isTrue);
       expect(runners.last.commands, isNotEmpty);
-      expect(find.text('nyx unreachable'), findsNothing);
+      expect(find.text('oak unreachable'), findsNothing);
 
       await unmount(tester);
     });

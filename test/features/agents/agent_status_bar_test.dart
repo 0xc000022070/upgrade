@@ -12,17 +12,17 @@ import 'package:upgrade/application/providers.dart';
 
 import '../../support/themed_app.dart';
 
-const nyx = Host(
+const oak = Host(
   id: 'a',
-  name: 'nyx',
+  name: 'oak',
   address: '100.1.1.1',
   port: 22,
   user: 'ops',
   keyId: 'key-a',
 );
-const rose = Host(
+const pine = Host(
   id: 'b',
-  name: 'rose',
+  name: 'pine',
   address: '100.1.1.2',
   port: 22,
   user: 'ops',
@@ -40,7 +40,7 @@ AgentSnapshot agent(String name, String status) => AgentSnapshot(
   stateChangeSeq: 1,
 );
 
-HostOutcome answering(List<AgentSnapshot> agents, {Host on = nyx}) =>
+HostOutcome answering(List<AgentSnapshot> agents, {Host on = oak}) =>
     HostOutcome(host: on, kind: AgentOutcomeKind.snapshot, agents: agents);
 
 /// What a phone hands over when the reader raises the text size: a curve, not a factor,
@@ -144,11 +144,11 @@ void main() {
     testWidgets('HOSTS has the host card, so it has no bar', (tester) async {
       await pumpBar(tester, [
         HostOutcome(
-          host: nyx,
+          host: oak,
           kind: AgentOutcomeKind.unreachable,
           agents: const [],
         ),
-        answering([agent('claude', 'blocked')], on: rose),
+        answering([agent('claude', 'blocked')], on: pine),
       ], tab: 2);
 
       expect(find.byKey(const ValueKey('agent-status')), findsNothing);
@@ -188,11 +188,11 @@ void main() {
   group('a host that stopped answering', () {
     testWidgets('says so beside the hosts that did', (tester) async {
       await pumpBar(tester, [
-        const HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
-        answering([agent('claude', 'working')], on: rose),
+        const HostOutcome(host: oak, kind: AgentOutcomeKind.unreachable),
+        answering([agent('claude', 'working')], on: pine),
       ]);
 
-      expect(line(tester), 'NYX UNREACHABLE · 1 WORKING');
+      expect(line(tester), 'OAK UNREACHABLE · 1 WORKING');
     });
 
     testWidgets('is not counted from the agents it left behind', (
@@ -200,33 +200,33 @@ void main() {
     ) async {
       await pumpBar(tester, [
         HostOutcome(
-          host: nyx,
+          host: oak,
           kind: AgentOutcomeKind.unreachable,
           agents: [agent('claude', 'working'), agent('codex', 'blocked')],
         ),
       ]);
 
-      expect(line(tester), 'NYX UNREACHABLE');
+      expect(line(tester), 'OAK UNREACHABLE');
     });
 
     testWidgets('carries its host where its own words do not', (tester) async {
       await pumpBar(tester, const [
-        HostOutcome(host: nyx, kind: AgentOutcomeKind.keyRejected),
-        HostOutcome(host: rose, kind: AgentOutcomeKind.unreachable),
+        HostOutcome(host: oak, kind: AgentOutcomeKind.keyRejected),
+        HostOutcome(host: pine, kind: AgentOutcomeKind.unreachable),
       ]);
 
-      expect(line(tester), 'NYX · KEY REJECTED +1');
+      expect(line(tester), 'OAK · KEY REJECTED +1');
     });
 
     testWidgets('one line names one of them and counts the rest', (
       tester,
     ) async {
       await pumpBar(tester, const [
-        HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
-        HostOutcome(host: rose, kind: AgentOutcomeKind.keyRejected),
+        HostOutcome(host: oak, kind: AgentOutcomeKind.unreachable),
+        HostOutcome(host: pine, kind: AgentOutcomeKind.keyRejected),
       ]);
 
-      expect(line(tester), 'NYX UNREACHABLE +1');
+      expect(line(tester), 'OAK UNREACHABLE +1');
     });
   });
 
@@ -245,8 +245,8 @@ void main() {
       tester,
     ) async {
       await pumpBar(tester, [
-        const HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
-        answering([agent('claude', 'working')], on: rose),
+        const HostOutcome(host: oak, kind: AgentOutcomeKind.unreachable),
+        answering([agent('claude', 'working')], on: pine),
       ]);
 
       expect(mark(tester), UpgradeColors.danger);
@@ -256,8 +256,8 @@ void main() {
       tester,
     ) async {
       await pumpBar(tester, [
-        const HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
-        answering([agent('claude', 'blocked')], on: rose),
+        const HostOutcome(host: oak, kind: AgentOutcomeKind.unreachable),
+        answering([agent('claude', 'blocked')], on: pine),
       ]);
 
       expect(mark(tester), UpgradeColors.danger);

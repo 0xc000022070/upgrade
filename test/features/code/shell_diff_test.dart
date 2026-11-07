@@ -27,8 +27,8 @@ import '../../support/shell_route.dart';
 
 final _key = ManagedKey(
   id: 'key-1',
-  name: 'faraday',
-  publicKey: 'ssh-ed25519 AAAATEST faraday',
+  name: 'juniper',
+  publicKey: 'ssh-ed25519 AAAATEST juniper',
   fingerprint: 'SHA256:key-1',
   createdAt: DateTime(2026),
 );
@@ -56,17 +56,17 @@ void main() {
   group('a shell says where it is', () {
     test('the path is taken and the host in the url is not', () {
       expect(
-        cwdFromOsc('file://rose/home/luis/src/upgrade'),
+        cwdFromOsc('file://pine/home/luis/src/upgrade'),
         '/home/luis/src/upgrade',
       );
       // A hook writes the path escaped, and a space is the escape that happens.
-      expect(cwdFromOsc('file://rose/home/luis/my%20src'), '/home/luis/my src');
-      expect(cwdFromOsc(' file://rose/srv \n'), '/srv');
+      expect(cwdFromOsc('file://pine/home/luis/my%20src'), '/home/luis/my src');
+      expect(cwdFromOsc(' file://pine/srv \n'), '/srv');
     });
 
     test('anything else is not a directory', () {
-      expect(cwdFromOsc('http://rose/home/luis'), isNull);
-      expect(cwdFromOsc('file://rose'), isNull);
+      expect(cwdFromOsc('http://pine/home/luis'), isNull);
+      expect(cwdFromOsc('file://pine'), isNull);
       expect(cwdFromOsc(''), isNull);
     });
   });
@@ -117,10 +117,10 @@ void main() {
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions));
       await ready(tester);
-      sessions.open(intent: testIntent(), rose);
+      sessions.open(intent: testIntent(), pine);
       await ready(tester);
 
-      final marks = sessions.forHost(rose.id).map((s) => s.mark).toList();
+      final marks = sessions.forHost(pine.id).map((s) => s.mark).toList();
       expect(marks.toSet(), hasLength(2));
       for (final mark in marks) {
         expect(shellMark.hasMatch(mark), isTrue, reason: mark);
@@ -168,11 +168,11 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      final session = sessions.forHost(rose.id).single;
+      final session = sessions.forHost(pine.id).single;
       expect(session.connection, isNull);
       expect(find.byKey(_diffCell), findsNothing);
 
-      await sessions.close(intent: testIntent(), rose.id, session);
+      await sessions.close(intent: testIntent(), pine.id, session);
       await unmount(tester);
     });
 
@@ -220,7 +220,7 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      expect(sessions.forHost(rose.id).single.repository, isNull);
+      expect(sessions.forHost(pine.id).single.repository, isNull);
       expect(_mark(tester).color, UpgradeColors.textDisabled);
 
       await tester.tap(find.byKey(_diffCell));
@@ -242,7 +242,7 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      final session = sessions.forHost(rose.id).single;
+      final session = sessions.forHost(pine.id).single;
       expect(session.cwd, '/home/luis/src/upgrade/lib/features');
       expect(session.repository, '/home/luis/src/upgrade');
       expect(_mark(tester).color, isNot(UpgradeColors.textDisabled));
@@ -261,7 +261,7 @@ void main() {
               _says(command.contains('rev-parse') ? '$here\n' : '$here\n\n');
       await tester.pumpWidget(app(sessions));
       await ready(tester);
-      final session = sessions.forHost(rose.id).single;
+      final session = sessions.forHost(pine.id).single;
       expect(session.repository, '/home/luis/src/upgrade');
 
       here = '/srv/gate';
@@ -319,7 +319,7 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      final session = sessions.forHost(rose.id).single;
+      final session = sessions.forHost(pine.id).single;
       final connection = transport.opened.single;
       connection.answerWith('/home/luis/src/upgrade\n');
 
@@ -340,7 +340,7 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      final session = sessions.open(intent: testIntent(), rose, pane: pane)!;
+      final session = sessions.open(intent: testIntent(), pine, pane: pane)!;
       await ready(tester);
       final connection = transport.opened.last;
       connection.answerWith(
@@ -367,7 +367,7 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      final session = sessions.forHost(rose.id).single
+      final session = sessions.forHost(pine.id).single
         ..pane = pane
         ..cwd = '/srv/opened-at';
       transport.opened.single.answerWith(
@@ -388,12 +388,12 @@ void main() {
       await tester.pumpWidget(
         app(
           sessions,
-          home: HostShellRoute(host: rose, intent: testIntent()),
+          home: HostShellRoute(host: pine, intent: testIntent()),
         ),
       );
       await ready(tester);
 
-      final session = sessions.forHost(rose.id).single;
+      final session = sessions.forHost(pine.id).single;
       session.cwd = '/srv/opened-at';
       transport.opened.single.answerWith('', exitCode: 1);
 
@@ -411,7 +411,7 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
-      final session = sessions.forHost(rose.id).single
+      final session = sessions.forHost(pine.id).single
         ..cwd = '/srv/app'
         ..repository = '/srv/app';
       transport.opened.single.answer = (_, _) =>
@@ -428,12 +428,12 @@ void main() {
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions));
       await ready(tester);
-      expect(sessions.forHost(rose.id).single.cwd, isNull);
+      expect(sessions.forHost(pine.id).single.cwd, isNull);
 
-      transport.opened.first.emit('\x1b]7;file://rose/home/luis/src\x1b\\');
+      transport.opened.first.emit('\x1b]7;file://pine/home/luis/src\x1b\\');
       await ready(tester);
 
-      expect(sessions.forHost(rose.id).single.cwd, '/home/luis/src');
+      expect(sessions.forHost(pine.id).single.cwd, '/home/luis/src');
       expect(find.byKey(_diffCell), findsOneWidget);
 
       await unmount(tester);
@@ -445,7 +445,7 @@ void main() {
       addTearDown(tester.view.reset);
       final sessions = fakeShellSessions(FakeShellTransport());
       for (var i = 0; i < 8; i++) {
-        sessions.open(intent: testIntent(), rose);
+        sessions.open(intent: testIntent(), pine);
       }
       await tester.pumpWidget(app(sessions));
       await ready(tester);
@@ -465,9 +465,9 @@ void main() {
     testWidgets('a registered directory is enough on its own', (tester) async {
       final db = memoryDatabase();
       await DriftKeyRepository(db).save(_key);
-      await DriftHostRepository(db).save(rose);
+      await DriftHostRepository(db).save(pine);
       await DriftPathRepository(db)
-          .add(hostId: rose.id, directory: '~/src/upgrade');
+          .add(hostId: pine.id, directory: '~/src/upgrade');
 
       final sessions = fakeShellSessions(FakeShellTransport());
       await tester.pumpWidget(app(sessions, db: db));
@@ -481,10 +481,10 @@ void main() {
     testWidgets('several registered directories are a pick', (tester) async {
       final db = memoryDatabase();
       await DriftKeyRepository(db).save(_key);
-      await DriftHostRepository(db).save(rose);
+      await DriftHostRepository(db).save(pine);
       final paths = DriftPathRepository(db);
-      await paths.add(hostId: rose.id, directory: '~/src/upgrade');
-      await paths.add(hostId: rose.id, directory: '/srv/gate');
+      await paths.add(hostId: pine.id, directory: '~/src/upgrade');
+      await paths.add(hostId: pine.id, directory: '/srv/gate');
 
       final sessions = fakeShellSessions(FakeShellTransport());
       await tester.pumpWidget(app(sessions, db: db));

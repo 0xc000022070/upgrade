@@ -11,18 +11,18 @@ import 'package:upgrade/application/providers.dart';
 
 import '../../plugins/kanban_plugin_test.dart' show kanbanPackage;
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h1',
-  name: 'nyx',
+  name: 'oak',
   address: 'localhost',
   port: 2222,
   user: 'dev',
   keyId: 'test',
 );
-const _rose = Host(
+const _pine = Host(
   id: 'h2',
-  name: 'rose',
-  address: 'rose',
+  name: 'pine',
+  address: 'pine',
   port: 2222,
   user: 'dev',
   keyId: 'test',
@@ -44,13 +44,13 @@ const _blocked = AgentSnapshot(
 
 final _panel = AgentPanelState([
   HostOutcome(
-    host: _nyx,
+    host: _oak,
     kind: AgentOutcomeKind.snapshot,
     agents: const [_blocked],
     lastGoodAt: DateTime.utc(2026, 10, 20, 12),
     source: AgentSource.engine,
   ),
-  const HostOutcome(host: _rose, kind: AgentOutcomeKind.unreachable),
+  const HostOutcome(host: _pine, kind: AgentOutcomeKind.unreachable),
 ]);
 
 void main() {
@@ -89,18 +89,18 @@ void main() {
     expect(listed['hosts'], [
       {
         'id': 'h1',
-        'name': 'nyx',
+        'name': 'oak',
         'ok': true,
         'read_at': '2026-10-20T12:00:00.000Z',
         'read_ago': 60,
       },
-      {'id': 'h2', 'name': 'rose', 'ok': false, 'reason': isA<String>()},
+      {'id': 'h2', 'name': 'pine', 'ok': false, 'reason': isA<String>()},
     ]);
     expect(listed['items'], [
       {
         'id': 'h1/engine/development/p1',
         'host': 'h1',
-        'host_name': 'nyx',
+        'host_name': 'oak',
         'agent': 'claude',
         'state': 'blocked',
         'title': 'deploy',
@@ -137,7 +137,7 @@ void main() {
     expect(await invoke('open', {'id': 'h1/engine/development/p1'}, gesture), {
       'opened': true,
     });
-    expect(opened, ['nyx/p1']);
+    expect(opened, ['oak/p1']);
     await expectLater(
       invoke('open', {'id': 'h1/engine/development/p1'}, gesture),
       throwsA(isA<PluginException>()),
@@ -155,7 +155,7 @@ void main() {
         ),
       ),
     );
-    expect(opened, ['nyx/p1']);
+    expect(opened, ['oak/p1']);
   });
 
   test('a plugin on screen holds the feed live until it lets go', () {

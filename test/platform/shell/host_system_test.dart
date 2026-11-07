@@ -117,17 +117,17 @@ void main() {
     'the in-memory store keeps a learned system across a form save',
     () async {
       final hosts = InMemoryHostRepository();
-      const nyx = Host(
+      const oak = Host(
         id: 'h1',
-        name: 'nyx',
-        address: '100.118.60.77',
+        name: 'oak',
+        address: '198.51.100.77',
         port: 357,
         user: 'luisnquin',
         keyId: 'k1',
       );
-      await hosts.save(nyx);
+      await hosts.save(oak);
       await hosts.recordSystem('h1', HostSystem.nixos);
-      await hosts.save(nyx);
+      await hosts.save(oak);
 
       expect((await hosts.all()).single.system, HostSystem.nixos);
     },

@@ -21,9 +21,9 @@ import 'package:upgrade/application/providers.dart';
 import '../../support/vnc_channel.dart';
 import '../../support/themed_app.dart';
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h1',
-  name: 'nyx',
+  name: 'oak',
   address: '10.0.2.2',
   port: 357,
   user: 'luisnquin',
@@ -41,7 +41,7 @@ Future<void> pumpRoute(
   bool edgeGesture = false,
 }) async {
   final store = MemoryPrivateKeyStore();
-  if (privateKey != null) await store.write(_nyx.keyId, privateKey);
+  if (privateKey != null) await store.write(_oak.keyId, privateKey);
   await tester.pumpWidget(
     ProviderScope(
       retry: noRetry,
@@ -55,7 +55,7 @@ Future<void> pumpRoute(
                   ? const EdgeInsets.symmetric(horizontal: gestureInset)
                   : EdgeInsets.zero,
             ),
-            child: HostScreenRoute(host: _nyx, open: open),
+            child: HostScreenRoute(host: _oak, open: open),
           ),
         ),
       ),
@@ -96,7 +96,7 @@ void main() {
           },
     );
 
-    expect(find.text('/ NYX SCREEN'), findsOneWidget);
+    expect(find.text('/ OAK SCREEN'), findsOneWidget);
     expect(find.text('CONNECTING'), findsWidgets);
     expect(
       find.byType(ScreenRail),
@@ -109,7 +109,7 @@ void main() {
 
     expect(find.text('LIVE'), findsNothing);
     expect(find.text('KEYS'), findsNothing);
-    expect(find.text('/ NYX SCREEN'), findsOneWidget);
+    expect(find.text('/ OAK SCREEN'), findsOneWidget);
     expect(find.byType(ScreenRail), findsOneWidget);
 
     connection.feedFrame();
@@ -689,7 +689,7 @@ void main() {
   ) async {
     late FakeVncConnection connection;
     final store = MemoryPrivateKeyStore();
-    await store.write(_nyx.keyId, 'PRIVATE');
+    await store.write(_oak.keyId, 'PRIVATE');
     Future<VncConnection> open({
       required String address,
       required int port,
@@ -713,7 +713,7 @@ void main() {
             builder: (context) => TextButton(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => HostScreenRoute(host: _nyx, open: open),
+                  builder: (_) => HostScreenRoute(host: _oak, open: open),
                 ),
               ),
               child: const Text('GO'),
@@ -728,7 +728,7 @@ void main() {
     expect(find.byType(ScreenRail), findsOneWidget);
     expect(connection.closed, isFalse);
 
-    await tester.tap(find.text('/ NYX SCREEN'));
+    await tester.tap(find.text('/ OAK SCREEN'));
     await tester.pumpAndSettle();
     await settleAsync(tester);
 

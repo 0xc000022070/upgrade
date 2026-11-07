@@ -87,7 +87,7 @@ void main() {
         transport,
         pinHostKey: (_, key) async => pinned.add(key),
       );
-      await tester.pumpWidget(await _app(sessions, rose));
+      await tester.pumpWidget(await _app(sessions, pine));
 
       await tester.tap(find.text('OPEN'));
       await ready(tester);
@@ -126,12 +126,12 @@ void main() {
       pinHostKey: (_, key) async => pinned.add(key),
     );
     final host = Host(
-      id: rose.id,
-      name: rose.name,
-      address: rose.address,
-      port: rose.port,
-      user: rose.user,
-      keyId: rose.keyId,
+      id: pine.id,
+      name: pine.name,
+      address: pine.address,
+      port: pine.port,
+      user: pine.user,
+      keyId: pine.keyId,
       hostKey: PinnedHostKey(
         type: 'ssh-ed25519',
         fingerprint: 'SHA256:old',

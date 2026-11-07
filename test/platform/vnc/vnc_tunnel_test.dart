@@ -80,7 +80,7 @@ void main() {
     final connection = await _served(VncTunnel(links), dial);
     final client = dial.clients.single;
     expect(dial.dials, 1);
-    expect(connection.serverInit.name, 'nyx');
+    expect(connection.serverInit.name, 'oak');
 
     await connection.close();
     await connection.close();

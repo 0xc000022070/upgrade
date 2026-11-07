@@ -253,7 +253,7 @@ void setUpWorkspaceSheet() {
 
 const host = Host(
   id: 'host-1',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.1',
   port: 357,
   user: 'luis',

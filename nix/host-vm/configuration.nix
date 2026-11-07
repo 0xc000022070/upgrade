@@ -114,12 +114,8 @@ in
     extraGroups = [ "wheel" ];
     shell = pkgs.zsh;
     openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA7Fr1T+6b4F464Ii+inLkt3asc9p6gBPrHRpTiyJLRL test-key"
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILwL6KeHhB6rulFrVo+3+7wtYAsvSSSIl7fvVLZK7rpH test-key"
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILmoEC73kJCd4nbPt8AXkA/ObcAfOsp3TuOd9UcUuSpr test-key"
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG+ZdHO/AL0RdjWfTyDbSOB807x0fizHvIPQKT88XJFM test"
-      # The `host` tier's key. Kept apart from `test-key` so the phone's entry
-      # goes on working on its own.
+      # The `host` tier's key. The phone's `test-key` goes in through
+      # `just phone-host`, so the two never depend on each other.
       (lib.removeSuffix "\n" (builtins.readFile ./fixtures/host_vm_test_key.pub))
     ];
   };

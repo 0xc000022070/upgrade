@@ -15,9 +15,9 @@ import 'package:upgrade/platform/ssh/host_files.dart';
 import '../../../support/fake_shell.dart';
 import '../../../support/reasons.dart';
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h2',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.2',
   port: 22,
   user: 'luis',
@@ -84,7 +84,7 @@ void main() {
     () async {
       final transport = FakeShellTransport();
       final store = fakeShellSessions(transport);
-      final session = store.open(intent: testIntent(), _nyx)!;
+      final session = store.open(intent: testIntent(), _oak)!;
       await _settle();
       final connection = transport.opened.single;
       _answerProbeWith(connection, _waylandProbe);
@@ -120,7 +120,7 @@ void main() {
   test('the lightest go up first and go in as they land', () async {
     final transport = FakeShellTransport();
     final store = fakeShellSessions(transport);
-    final session = store.open(intent: testIntent(), _nyx)!;
+    final session = store.open(intent: testIntent(), _oak)!;
     await _settle();
     final connection = transport.opened.single;
     _answerProbeWith(connection, _waylandProbe);
@@ -154,7 +154,7 @@ void main() {
   test('a headless host gets the path typed in and nothing else', () async {
     final transport = FakeShellTransport();
     final store = fakeShellSessions(transport);
-    final session = store.open(intent: testIntent(), _nyx)!;
+    final session = store.open(intent: testIntent(), _oak)!;
     await _settle();
     final connection = transport.opened.single;
     _answerProbeWith(connection, _headlessProbe);
@@ -176,7 +176,7 @@ void main() {
   test('a file that is not a picture lands and its path is typed, clipboard or not', () async {
     final transport = FakeShellTransport();
     final store = fakeShellSessions(transport);
-    final session = store.open(intent: testIntent(), _nyx)!;
+    final session = store.open(intent: testIntent(), _oak)!;
     await _settle();
     final connection = transport.opened.single;
     _answerProbeWith(connection, _waylandProbe);
@@ -206,7 +206,7 @@ void main() {
   test('the probe runs once per connection, not once per paste', () async {
     final transport = FakeShellTransport();
     final store = fakeShellSessions(transport);
-    final session = store.open(intent: testIntent(), _nyx)!;
+    final session = store.open(intent: testIntent(), _oak)!;
     await _settle();
     final connection = transport.opened.single;
     _answerProbeWith(connection, _waylandProbe);
@@ -233,7 +233,7 @@ void main() {
   test('an upload that fails is FAILED with what the host said', () async {
     final transport = FakeShellTransport();
     final store = fakeShellSessions(transport);
-    final session = store.open(intent: testIntent(), _nyx)!;
+    final session = store.open(intent: testIntent(), _oak)!;
     await _settle();
     final connection = transport.opened.single;
     connection.answer = (_, _) => ExecResult(
@@ -257,7 +257,7 @@ void main() {
   test('a clipboard tool that fails falls back to the path', () async {
     final transport = FakeShellTransport();
     final store = fakeShellSessions(transport);
-    final session = store.open(intent: testIntent(), _nyx)!;
+    final session = store.open(intent: testIntent(), _oak)!;
     await _settle();
     final connection = transport.opened.single;
     connection.answer = (command, _) => ExecResult(
@@ -284,7 +284,7 @@ void main() {
     () async {
       final transport = FakeShellTransport();
       final store = fakeShellSessions(transport);
-      final session = store.open(intent: testIntent(), _nyx)!;
+      final session = store.open(intent: testIntent(), _oak)!;
       await _settle();
       final connection = transport.opened.single;
       connection.answer = (command, _) => ExecResult(
@@ -311,7 +311,7 @@ void main() {
   test('a photo goes as bytes under a fresh name, held nowhere', () async {
     final transport = FakeShellTransport();
     final store = fakeShellSessions(transport);
-    final session = store.open(intent: testIntent(), _nyx)!;
+    final session = store.open(intent: testIntent(), _oak)!;
     await _settle();
     final connection = transport.opened.single;
     _answerProbeWith(connection, _waylandProbe);
@@ -339,7 +339,7 @@ void main() {
   test('a mosh tab still roaming attaches rather than refusing', () async {
     final transport = FakeShellTransport()..transport = ShellTransport.mosh;
     final store = fakeShellSessions(transport);
-    final session = store.open(intent: testIntent(), _nyx)!;
+    final session = store.open(intent: testIntent(), _oak)!;
     await _settle();
     final connection = transport.opened.single;
     _answerProbeWith(connection, _waylandProbe);
@@ -361,7 +361,7 @@ void main() {
   test('a session with no shell under it is FAILED at once', () async {
     final transport = FakeShellTransport()..stall = true;
     final store = fakeShellSessions(transport);
-    final session = store.open(intent: testIntent(), _nyx)!;
+    final session = store.open(intent: testIntent(), _oak)!;
     await _settle();
 
     final result = await pasteClip(

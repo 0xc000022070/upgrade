@@ -28,7 +28,7 @@ The earlier competitor investigation and device observations remain useful evide
 
 ## Existing work to build on
 
-The statuses below distinguish repository/contract evidence from a fresh runtime test. No device test was run for this document. The earlier Faraday visit observed Home and recent Drops, not every capability below.
+The statuses below distinguish repository/contract evidence from a fresh runtime test. No device test was run for this document. The earlier visit to the maintainer's phone observed Home and recent Drops, not every capability below.
 
 | Investment | Evidence already present | Strategic use | Remaining work |
 |---|---|---|---|
@@ -230,7 +230,7 @@ Still requires an implementation decision: local GUI backend; browser embedding 
 ## Evidence and limits
 
 - Current repository baseline and recent commits listed above; current SPEC, PLUGIN-SPEC and ROADMAP. Their planned sections remain planned.
-- Earlier Faraday inspection: 123 Drops and a dominant raw-list arrangement, plus recent ideas about projects, canvas, kanban, machine setup, attachment handling and reconnect behavior. Only recent entries were sampled. They were not edited. This visit is not evidence of every current layout configuration or latest behavior.
+- Earlier inspection of the maintainer's phone: 123 Drops and a dominant raw-list arrangement, plus recent ideas about projects, canvas, kanban, machine setup, attachment handling and reconnect behavior. Only recent entries were sampled. They were not edited. This visit is not evidence of every current layout configuration or latest behavior.
 - Earlier [Oma video](https://x.com/devsec_ai/status/2113403750371278911) inspection and [source at 1c07b78](https://github.com/SimonSchubert/omalauncher/tree/1c07b78bda7a494238a6c9e75d6f986a36068aec). The clip and the inspected source have different versions. No new competitive runtime benchmark was performed for this strategy.
 - The first browser prototype demonstrated simulated state changes only. It cannot establish native capability, performance or comparative superiority.
 

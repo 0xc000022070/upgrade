@@ -10,8 +10,9 @@ commit count at HEAD, so every commit is a release and every handset that
 holds a commit holds it under the same number. HEAD is exported on its own
 under build/deploy/tree, so nothing another session left in the working tree
 can ride along; the export keeps .dart_tool and build/ between runs for the
-caches. The apk must be signed by ~/.android/debug.keystore: one from any
-other key can only land by uninstalling, and the handsets hold real data.
+caches. The apk must be signed by the debug keystore under
+$ANDROID_USER_HOME (~/.android by default): one from any other key can only
+land by uninstalling, and the handsets hold real data.
 
 Every build and every install runs under build/deploy/lock, and each run pins
 one commit when it takes the lock, so a run queued behind another builds what
@@ -36,7 +37,7 @@ EOF
 
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly PKG=dev.luisnquin.upgrade
-readonly CERT=d6b7cdfb8d0a5c0017e317b7db27f3fb3ce0b3f650f28ca6b989c4582f5d7e5e
+readonly KEYSTORE="${ANDROID_USER_HOME:-$HOME/.android}/debug.keystore"
 readonly OUT="$ROOT/build/deploy"
 readonly TREE="$OUT/tree"
 
@@ -101,6 +102,9 @@ build() {
   fi
 
   local tools="${ANDROID_HOME:?run inside the nix dev shell}/build-tools/37.0.0"
+  local want
+  want=$(keytool -list -v -keystore "$KEYSTORE" -storepass android -alias androiddebugkey 2>/dev/null | awk '/SHA256:/ {print $2; exit}' | tr -d : | tr A-F a-f)
+  [[ -n $want ]] || die "no debug keystore at $KEYSTORE; set ANDROID_USER_HOME"
   command -v flutter >/dev/null || die "no flutter on PATH; run inside the nix dev shell"
   mkdir -p "$TREE/.dart_tool"
   find "$TREE" -mindepth 1 -maxdepth 1 ! -name .dart_tool ! -name build -exec rm -rf {} +
@@ -123,7 +127,7 @@ build() {
   badged=$("$tools/aapt2" dump badging "$built" | sed -n "1s/.*versionCode='\([0-9]*\)'.*/\1/p")
   [[ $badged == "$code" ]] || die "apk reports versionCode $badged, HEAD is $code"
   cert=$("$tools/apksigner" verify --print-certs "$built" | awk '/certificate SHA-256 digest:/ {print $NF; exit}')
-  [[ $cert == "$CERT" ]] || die "apk signed by $cert, not the key the handsets trust"
+  [[ $cert == "$want" ]] || die "apk signed by $cert, not $KEYSTORE ($want)"
 
   cp "$built" "$apk"
   ls -t "$OUT"/upgrade-*.apk | tail -n +3 | xargs -r rm -f

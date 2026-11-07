@@ -24,8 +24,8 @@ abstract final class Rfb {
 
   static const bytesPerPixel = 4;
 
-  /// 24 fps, wayvnc's cap on nyx. A request that cannot be answered only costs a round
-  /// trip.
+  /// 24 fps, wayvnc's cap on the host this was measured on. A request that
+  /// cannot be answered only costs a round trip.
   static const frameInterval = Duration(microseconds: 41667);
 }
 

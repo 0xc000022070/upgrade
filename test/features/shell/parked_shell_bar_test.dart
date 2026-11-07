@@ -26,18 +26,18 @@ import '../../support/platform_channels.dart';
 import '../../support/reasons.dart';
 import '../../support/themed_app.dart';
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
   keyId: 'key-1',
 );
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h2',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.2',
   port: 22,
   user: 'luis',
@@ -46,8 +46,8 @@ const _nyx = Host(
 
 final _key = ManagedKey(
   id: 'key-1',
-  name: 'faraday',
-  publicKey: 'ssh-ed25519 AAAATEST faraday',
+  name: 'juniper',
+  publicKey: 'ssh-ed25519 AAAATEST juniper',
   fingerprint: 'SHA256:key-1',
   createdAt: DateTime(2026),
 );
@@ -115,7 +115,7 @@ void main() {
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
         await tester.pumpWidget(app());
         await ready(tester);
-        sessions.open(intent: testIntent(), _rose);
+        sessions.open(intent: testIntent(), _pine);
         await ready(tester);
 
         expect(tester.getSize(bar).width, width);
@@ -151,49 +151,49 @@ void main() {
     tester,
   ) async {
     await DriftKeyRepository(db).save(_key);
-    await DriftHostRepository(db).save(_rose);
+    await DriftHostRepository(db).save(_pine);
     await tester.pumpWidget(app(extra: [registered()]));
     await ready(tester);
 
     expect(bar, findsNothing);
     expect(fresh, findsOneWidget);
-    expect(freshHost(_rose), findsOneWidget);
+    expect(freshHost(_pine), findsOneWidget);
     expect(tester.widget<Text>(verb).data, 'NEW SHELL');
 
     await tester.tap(fresh);
     await ready(tester);
-    expect(find.text('NEW SHELL ON ROSE'), findsWidgets);
-    expect(sessions.forHost(_rose.id), isEmpty);
+    expect(find.text('NEW SHELL ON PINE'), findsWidgets);
+    expect(sessions.forHost(_pine.id), isEmpty);
 
     await tester.tap(find.byKey(const ValueKey('launch-shell')));
     await ready(tester);
     expect(header, findsOneWidget);
-    expect(sessions.forHost(_rose.id), hasLength(1));
+    expect(sessions.forHost(_pine.id), hasLength(1));
 
     await unmount(tester);
   });
 
   testWidgets('with more than one host the bar asks which one', (tester) async {
     await DriftKeyRepository(db).save(_key);
-    await DriftHostRepository(db).save(_rose);
-    await DriftHostRepository(db).save(_nyx);
+    await DriftHostRepository(db).save(_pine);
+    await DriftHostRepository(db).save(_oak);
     await tester.pumpWidget(app(extra: [registered()]));
     await ready(tester);
-    expect(freshHost(_nyx), findsOneWidget);
+    expect(freshHost(_oak), findsOneWidget);
 
     await tester.tap(fresh);
     await ready(tester);
     expect(find.text('NEW SHELL ON'), findsOneWidget);
     expect(find.text('CURRENT'), findsOneWidget);
 
-    await tester.tap(find.byKey(ValueKey('parked-shell-new-pick-${_rose.id}')));
+    await tester.tap(find.byKey(ValueKey('parked-shell-new-pick-${_pine.id}')));
     await ready(tester);
-    expect(find.text('NEW SHELL ON ROSE'), findsWidgets);
+    expect(find.text('NEW SHELL ON PINE'), findsWidgets);
 
     await tester.tap(find.byKey(const ValueKey('launch-shell')));
     await ready(tester);
-    expect(sessions.forHost(_rose.id), hasLength(1));
-    expect(sessions.forHost(_nyx.id), isEmpty);
+    expect(sessions.forHost(_pine.id), hasLength(1));
+    expect(sessions.forHost(_oak.id), isEmpty);
 
     await unmount(tester);
   });
@@ -202,11 +202,11 @@ void main() {
     tester,
   ) async {
     await DriftKeyRepository(db).save(_key);
-    await DriftHostRepository(db).save(_rose);
-    await DriftHostRepository(db).save(_nyx);
+    await DriftHostRepository(db).save(_pine);
+    await DriftHostRepository(db).save(_oak);
     await tester.pumpWidget(app(extra: [registered()]));
     await ready(tester);
-    final row = find.byKey(ValueKey('parked-shell-new-pick-${_rose.id}'));
+    final row = find.byKey(ValueKey('parked-shell-new-pick-${_pine.id}'));
     final width = tester.getSize(fresh).width;
     final y = tester.getCenter(fresh).dy;
 
@@ -229,28 +229,28 @@ void main() {
     tester,
   ) async {
     await DriftKeyRepository(db).save(_key);
-    await DriftHostRepository(db).save(_rose);
-    await DriftHostRepository(db).save(_nyx);
+    await DriftHostRepository(db).save(_pine);
+    await DriftHostRepository(db).save(_oak);
     await tester.pumpWidget(app(extra: [registered()]));
     await ready(tester);
-    expect(freshHost(_nyx), findsOneWidget);
+    expect(freshHost(_oak), findsOneWidget);
 
-    final session = sessions.open(intent: testIntent(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _pine)!;
     await ready(tester);
     expect(bar, findsOneWidget);
     expect(fresh, findsNothing);
 
-    await sessions.close(intent: testIntent(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _pine.id, session);
     await ready(tester);
 
     expect(bar, findsNothing);
-    expect(freshHost(_rose), findsOneWidget);
+    expect(freshHost(_pine), findsOneWidget);
 
-    await DriftHostRepository(db).delete(_rose.id);
+    await DriftHostRepository(db).delete(_pine.id);
     await ready(tester);
-    expect(freshHost(_nyx), findsOneWidget);
+    expect(freshHost(_oak), findsOneWidget);
 
-    await DriftHostRepository(db).delete(_nyx.id);
+    await DriftHostRepository(db).delete(_oak.id);
     await ready(tester);
     expect(fresh, findsNothing);
 
@@ -261,11 +261,11 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _pine);
     await ready(tester);
 
     expect(bar, findsOneWidget);
-    expect(count(_rose, 1), findsOneWidget);
+    expect(count(_pine, 1), findsOneWidget);
     expect(find.text('TAP TO RESUME'), findsOneWidget);
     expect(
       tester.getBottomLeft(bar).dy,
@@ -293,7 +293,7 @@ void main() {
             (ref) => Stream.value(
               AgentPanelState([
                 HostOutcome(
-                  host: _rose,
+                  host: _pine,
                   kind: AgentOutcomeKind.snapshot,
                   agents: [
                     AgentSnapshot(
@@ -316,7 +316,7 @@ void main() {
     );
     await ready(tester);
 
-    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _pine);
     await ready(tester);
 
     final line = find.byKey(const ValueKey('agent-status'));
@@ -345,14 +345,14 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _pine);
     await ready(tester);
     await tester.tap(bar);
     await ready(tester);
 
     expect(header, findsOneWidget);
     expect(
-      find.descendant(of: header, matching: find.text('ROSE')),
+      find.descendant(of: header, matching: find.text('PINE')),
       findsOneWidget,
     );
 
@@ -365,7 +365,7 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _pine);
     await ready(tester);
     await tester.tap(bar);
     await ready(tester);
@@ -388,19 +388,19 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    final first = sessions.open(intent: testIntent(), _rose)!;
-    sessions.open(intent: testIntent(), _nyx);
+    final first = sessions.open(intent: testIntent(), _pine)!;
+    sessions.open(intent: testIntent(), _oak);
     await ready(tester);
     expect(
-      tester.getTopLeft(cell(_nyx)).dx,
-      lessThan(tester.getTopLeft(cell(_rose)).dx),
+      tester.getTopLeft(cell(_oak)).dx,
+      lessThan(tester.getTopLeft(cell(_pine)).dx),
     );
 
-    sessions.activate(_rose.id, first);
+    sessions.activate(_pine.id, first);
     await ready(tester);
     expect(
-      tester.getTopLeft(cell(_rose)).dx,
-      lessThan(tester.getTopLeft(cell(_nyx)).dx),
+      tester.getTopLeft(cell(_pine)).dx,
+      lessThan(tester.getTopLeft(cell(_oak)).dx),
     );
 
     await unmount(tester);
@@ -410,13 +410,13 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: testIntent(), _rose);
-    sessions.open(intent: testIntent(), _rose);
-    sessions.open(intent: testIntent(), _nyx);
+    sessions.open(intent: testIntent(), _pine);
+    sessions.open(intent: testIntent(), _pine);
+    sessions.open(intent: testIntent(), _oak);
     await ready(tester);
 
-    expect(count(_rose, 2), findsOneWidget);
-    expect(count(_nyx, 1), findsOneWidget);
+    expect(count(_pine, 2), findsOneWidget);
+    expect(count(_oak, 1), findsOneWidget);
     expect(more, findsNothing);
 
     await unmount(tester);
@@ -426,11 +426,11 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: testIntent(), _rose);
-    sessions.open(intent: testIntent(), _nyx);
+    sessions.open(intent: testIntent(), _pine);
+    sessions.open(intent: testIntent(), _oak);
     await ready(tester);
     expect(
-      find.descendant(of: cell(_rose), matching: find.text('ROSE')),
+      find.descendant(of: cell(_pine), matching: find.text('PINE')),
       findsOneWidget,
     );
 
@@ -443,15 +443,15 @@ void main() {
         user: 'luis',
         keyId: 'key-1',
       ),
-      _nyx,
+      _oak,
     ]);
     await ready(tester);
 
     expect(
-      find.descendant(of: cell(_rose), matching: find.text('MARK')),
+      find.descendant(of: cell(_pine), matching: find.text('MARK')),
       findsOneWidget,
     );
-    expect(find.text('ROSE'), findsNothing);
+    expect(find.text('PINE'), findsNothing);
 
     await unmount(tester);
   });
@@ -460,11 +460,11 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    final session = sessions.open(intent: testIntent(), _rose)!;
+    final session = sessions.open(intent: testIntent(), _pine)!;
     await ready(tester);
     expect(bar, findsOneWidget);
 
-    await sessions.close(intent: testIntent(), _rose.id, session);
+    await sessions.close(intent: testIntent(), _pine.id, session);
     await ready(tester);
 
     expect(bar, findsNothing);
@@ -478,16 +478,16 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: testIntent(), _rose);
-    final second = sessions.open(intent: testIntent(), _nyx)!;
+    sessions.open(intent: testIntent(), _pine);
+    final second = sessions.open(intent: testIntent(), _oak)!;
     await ready(tester);
-    expect(cell(_nyx), findsOneWidget);
+    expect(cell(_oak), findsOneWidget);
 
-    await sessions.close(intent: testIntent(), _nyx.id, second);
+    await sessions.close(intent: testIntent(), _oak.id, second);
     await ready(tester);
 
-    expect(cell(_nyx), findsNothing);
-    expect(count(_rose, 1), findsOneWidget);
+    expect(cell(_oak), findsNothing);
+    expect(count(_pine, 1), findsOneWidget);
 
     await unmount(tester);
   });
@@ -496,15 +496,15 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _pine);
     await ready(tester);
     expect(label, findsNothing);
 
-    transport.opened.single.emit('\x1b]0;luis@rose: ~/Projects/upgrade\x07');
+    transport.opened.single.emit('\x1b]0;luis@pine: ~/Projects/upgrade\x07');
     await ready(tester);
     expect(find.text('upgrade'), findsOneWidget);
 
-    sessions.open(intent: testIntent(), _nyx);
+    sessions.open(intent: testIntent(), _oak);
     await ready(tester);
     expect(label, findsNothing);
     expect(find.text('upgrade'), findsNothing);
@@ -518,8 +518,8 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    sessions.open(intent: testIntent(), _rose);
-    sessions.open(intent: testIntent(), _nyx);
+    sessions.open(intent: testIntent(), _pine);
+    sessions.open(intent: testIntent(), _oak);
     await ready(tester);
     final dots = find.descendant(of: bar, matching: find.byType(ShellStateDot));
     expect(dots, findsNothing);
@@ -527,7 +527,7 @@ void main() {
     transport.opened.first.setHealth(ShellConnectionHealth.reconnecting);
     await ready(tester);
     expect(
-      find.descendant(of: cell(_rose), matching: find.byType(ShellStateDot)),
+      find.descendant(of: cell(_pine), matching: find.byType(ShellStateDot)),
       findsOneWidget,
     );
     expect(dots, findsOneWidget);

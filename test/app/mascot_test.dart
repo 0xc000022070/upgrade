@@ -60,8 +60,8 @@ void main() {
           NotificationResponseType.selectedNotificationAction,
       actionId: alertActionOpen,
       payload: const AlertTarget(
-        hostId: 'nyx',
-        address: '100.118.60.77',
+        hostId: 'oak',
+        address: '198.51.100.77',
         port: 357,
         user: 'luisnquin',
         keyId: 'k1',
@@ -114,7 +114,7 @@ void main() {
       await hosts.save(
         const Host(
           id: 'h1',
-          name: 'rose',
+          name: 'pine',
           address: '100.64.0.1',
           port: 22,
           user: 'luis',
@@ -232,9 +232,9 @@ void main() {
       tester,
     ) async {
       const host = Host(
-        id: 'nyx',
-        name: 'Nyx',
-        address: '100.118.60.77',
+        id: 'oak',
+        name: 'Oak',
+        address: '198.51.100.77',
         port: 357,
         user: 'luisnquin',
         keyId: 'k1',

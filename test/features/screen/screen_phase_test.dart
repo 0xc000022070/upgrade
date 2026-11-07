@@ -9,10 +9,10 @@ import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
 
 import '../../support/vnc_channel.dart';
 
-const _nyx = Host(
-  id: 'nyx',
-  name: 'NYX',
-  address: '100.118.60.77',
+const _oak = Host(
+  id: 'oak',
+  name: 'OAK',
+  address: '198.51.100.77',
   port: 22,
   user: 'luisnquin',
   keyId: 'k1',
@@ -33,7 +33,7 @@ void main() {
     'a dial that has not answered yet is connecting, and carries no reason',
     () {
       final controller = HostScreenController(
-        host: _nyx,
+        host: _oak,
         readPrivateKey: (_) async => 'PRIVATE',
         open: _unreachable,
       );
@@ -45,7 +45,7 @@ void main() {
 
   test('a failure puts its worded line on the phase itself', () async {
     final controller = HostScreenController(
-      host: _nyx,
+      host: _oak,
       readPrivateKey: (_) async => null,
       open: _unreachable,
     );
@@ -60,7 +60,7 @@ void main() {
 
   test('a retry goes back to connecting and drops the line with it', () async {
     final controller = HostScreenController(
-      host: _nyx,
+      host: _oak,
       readPrivateKey: (_) async => null,
       open: _unreachable,
     );
@@ -79,7 +79,7 @@ void main() {
     (tester) async {
       final dials = <Completer<VncConnection>>[];
       final controller = HostScreenController(
-        host: _nyx,
+        host: _oak,
         readPrivateKey: (_) async => 'PRIVATE',
         open:
             ({
@@ -119,7 +119,7 @@ void main() {
     final asked = <Completer<bool>>[];
     var dials = 0;
     final controller = HostScreenController(
-      host: _nyx,
+      host: _oak,
       readPrivateKey: (_) async => 'PRIVATE',
       prompt: (offer, pinned) {
         asked.add(Completer());

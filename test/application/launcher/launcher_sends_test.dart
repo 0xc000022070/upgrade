@@ -7,9 +7,9 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
 import 'package:upgrade/platform/launcher_widget/launcher_widget.dart';
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h1',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
@@ -24,7 +24,7 @@ final _target = PathTarget(
     label: 'upgrade',
     createdAt: DateTime.utc(2026, 9, 3),
   ),
-  host: _nyx,
+  host: _oak,
 );
 
 PendingSend _job(
@@ -54,7 +54,7 @@ void main() {
       'id': 'j1',
       'state': 'SENDING',
       'title': 'fix the parser',
-      'target': 'nyx · upgrade · claude',
+      'target': 'oak · upgrade · claude',
       'at': first.millisecondsSinceEpoch,
       'host': 'h1',
     });

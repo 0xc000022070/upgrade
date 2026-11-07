@@ -15,16 +15,16 @@ final fixedNow = DateTime(2026, 10, 18, 12);
 const hostVm = Host(
   id: 'fixture-vm',
   name: 'UPGRADE HOST VM',
-  address: '100.118.60.77',
+  address: '198.51.100.77',
   port: 2222,
   user: 'dev',
   keyId: 'test-key',
 );
 
-const hostRose = Host(
-  id: 'fixture-rose',
-  name: 'rose',
-  address: '100.64.94.121',
+const hostPine = Host(
+  id: 'fixture-pine',
+  name: 'pine',
+  address: '198.51.100.21',
   port: 22,
   user: 'dev',
   keyId: 'test-key',

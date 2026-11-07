@@ -3,9 +3,9 @@ import 'package:upgrade/app/launcher_widget_host.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/herdr/engine_agents.dart';
 
-const _nyx = Host(
-  id: 'nyx',
-  name: 'nyx',
+const _oak = Host(
+  id: 'oak',
+  name: 'oak',
   address: '100.64.0.1',
   port: 22,
   user: 'dev',
@@ -20,7 +20,7 @@ void main() {
     final day = DateTime(2026, 10, 18).millisecondsSinceEpoch;
     final rows = launcherUsage([
       (
-        host: _nyx,
+        host: _oak,
         usage: AgentUsage(
           agent: 'codex',
           plan: 'pro',
@@ -42,7 +42,7 @@ void main() {
         ),
       ),
       (
-        host: _nyx,
+        host: _oak,
         usage: AgentUsage(
           agent: 'claude',
           limits: const [

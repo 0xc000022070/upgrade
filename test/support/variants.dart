@@ -10,10 +10,10 @@ import 'package:upgrade/design/tokens.dart';
 class Surface {
   const Surface(this.name, this.width, this.height);
 
-  /// The emulator and faraday closed: 1080x2400 at the 2.625 the panel reports.
+  /// The emulator, and a Pixel 10 Pro Fold closed: 1080x2400 at the 2.625 the panel reports.
   static const phone = Surface('phone', 411, 914);
 
-  /// faraday open, which the toolchain simulates as `wm size 2232x2310` at that same
+  /// A Pixel 10 Pro Fold open, which the toolchain simulates as `wm size 2232x2310` at that same
   /// density.
   static const fold = Surface('fold', 850, 880);
 

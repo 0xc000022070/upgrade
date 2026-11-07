@@ -44,7 +44,7 @@ final typographyUseCases = [
     builder: (context) {
       final sample = context.knobs.string(
         label: 'Sample',
-        initialValue: 'nyx · 3 agents waiting',
+        initialValue: 'oak · 3 agents waiting',
       );
       final upper = context.knobs.boolean(
         label: 'Upper case',

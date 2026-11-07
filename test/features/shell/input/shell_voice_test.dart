@@ -19,9 +19,9 @@ import 'package:upgrade/platform/voice/whisper.dart';
 
 import '../../../support/themed_app.dart';
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
@@ -31,7 +31,7 @@ const _rose = Host(
 const _speech = MethodChannel('dev.luisnquin.upgrade/speech');
 
 ShellSession _session({String? command, String? title, PaneRef? pane}) =>
-    ShellSession(number: 1, terminal: TerminalController(), host: _rose)
+    ShellSession(number: 1, terminal: TerminalController(), host: _pine)
       ..command = command
       ..title = title
       ..pane = pane;

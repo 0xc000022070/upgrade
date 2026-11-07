@@ -13,9 +13,9 @@ import 'package:upgrade/application/providers.dart';
 
 import '../../support/themed_app.dart';
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h1',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.1',
   port: 22,
   user: 'dev',
@@ -79,11 +79,11 @@ void main() {
   testWidgets('an account shows its plan, host and every window', (
     tester,
   ) async {
-    await _pump(tester, [(host: _nyx, usage: _codex())]);
+    await _pump(tester, [(host: _oak, usage: _codex())]);
 
     expect(find.byType(Panel), findsOneWidget);
     expect(find.text('CODEX · PRO'), findsOneWidget);
-    expect(find.text('NYX'), findsNothing);
+    expect(find.text('OAK'), findsNothing);
     expect(find.text('2m ago'), findsOneWidget);
     expect(find.text('fixture@localhost'), findsOneWidget);
     expect(find.byType(AgentMark), findsOneWidget);
@@ -98,8 +98,8 @@ void main() {
 
   testWidgets('accounts pair up only when two columns fit', (tester) async {
     final both = [
-      (host: _nyx, usage: _codex()),
-      (host: _nyx, usage: _codex(fiveHour: 50, account: 'other@localhost')),
+      (host: _oak, usage: _codex()),
+      (host: _oak, usage: _codex(fiveHour: 50, account: 'other@localhost')),
     ];
     double top(int index) =>
         tester.getTopLeft(find.byType(AgentMark).at(index)).dy;
@@ -119,7 +119,7 @@ void main() {
     tester,
   ) async {
     await _pump(tester, [
-      (host: _nyx, usage: _codex(error: 'failed to fetch codex rate limits')),
+      (host: _oak, usage: _codex(error: 'failed to fetch codex rate limits')),
     ]);
 
     expect(find.text('12%'), findsOneWidget);
@@ -129,7 +129,7 @@ void main() {
   testWidgets('a window is in its agent\'s colour until it reads 90%', (
     tester,
   ) async {
-    await _pump(tester, [(host: _nyx, usage: _codex(fiveHour: 89.6))]);
+    await _pump(tester, [(host: _oak, usage: _codex(fiveHour: 89.6))]);
     final tokens = tester.element(find.byType(UsagePanel)).tokens;
     Color? colour(String text) =>
         tester.widget<Text>(find.text(text).last).style?.color;
@@ -145,7 +145,7 @@ void main() {
     final usage = _codex();
     await _pump(tester, [
       (
-        host: _nyx,
+        host: _oak,
         usage: AgentUsage(
           agent: usage.agent,
           plan: usage.plan,
@@ -228,9 +228,9 @@ void main() {
   });
 
   test('an account read on two hosts is one card, the fresher read', () {
-    const rose = Host(
+    const pine = Host(
       id: 'h2',
-      name: 'rose',
+      name: 'pine',
       address: '100.64.0.2',
       port: 22,
       user: 'dev',
@@ -242,15 +242,15 @@ void main() {
 
     expect(
       usageAccounts([
-        (host: _nyx, usage: stale),
-        (host: rose, usage: fresh),
-        (host: rose, usage: other),
+        (host: _oak, usage: stale),
+        (host: pine, usage: fresh),
+        (host: pine, usage: other),
       ]),
       [fresh, other],
     );
     final failed = fresh.failing('NOT REACHED');
     expect(
-      usageAccounts([(host: _nyx, usage: failed), (host: rose, usage: fresh)]),
+      usageAccounts([(host: _oak, usage: failed), (host: pine, usage: fresh)]),
       [fresh],
     );
   });

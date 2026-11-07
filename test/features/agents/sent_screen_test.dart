@@ -31,7 +31,7 @@ Dispatch _send(
   id: id,
   pathId: 'path-1',
   hostId: 'host-1',
-  hostName: 'nyx',
+  hostName: 'oak',
   label: 'upgrade',
   directory: '~/src/upgrade',
   text: text,
@@ -45,10 +45,10 @@ Dispatch _send(
   states: states,
 );
 
-const _nyx = Host(
+const _oak = Host(
   id: 'host-1',
-  name: 'nyx',
-  address: '100.118.60.77',
+  name: 'oak',
+  address: '198.51.100.77',
   port: 22,
   user: 'luisnquin',
   keyId: 'k1',
@@ -179,7 +179,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('fix the gate'), findsOneWidget);
-    expect(find.text('nyx · upgrade · claude'), findsNWidgets(2));
+    expect(find.text('oak · upgrade · claude'), findsNWidgets(2));
     expect(find.textContaining('DONE'), findsOneWidget);
     expect(find.textContaining('FAILED'), findsOneWidget);
     expect(find.text('KEY REJECTED'), findsOneWidget);
@@ -202,7 +202,7 @@ void main() {
             sendProvider('s1').overrideWith((ref) => Stream.value(send)),
             hostIntegrationsProvider('host-1')
                 .overrideWith((ref) => Stream.value({IntegrationKind.agents})),
-            registeredHostProvider('host-1').overrideWith((ref) => _nyx),
+            registeredHostProvider('host-1').overrideWith((ref) => _oak),
             agentsFeedLiveProvider.overrideWithValue(false),
             engineOpenProvider.overrideWithValue((_) async => engine),
           ],

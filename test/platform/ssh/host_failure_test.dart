@@ -113,7 +113,7 @@ void main() {
     final error = SSHChannelOpenError(1, 'administratively prohibited');
 
     expect(shellFailureFor(error)?.kind, ShellFailureKind.shellRefused);
-    expect(asVncFailure(error)!.reason('nyx'), 'tunnel refused');
+    expect(asVncFailure(error)!.reason('oak'), 'tunnel refused');
     expect(asHerdrFailure(error), isA<HerdrUnreachable>());
   });
 }

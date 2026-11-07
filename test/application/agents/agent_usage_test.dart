@@ -9,9 +9,9 @@ import 'package:upgrade/platform/herdr/engine_agents.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/application/providers.dart';
 
-const _nyx = Host(
-  id: 'nyx',
-  name: 'nyx',
+const _oak = Host(
+  id: 'oak',
+  name: 'oak',
   address: '100.64.0.1',
   port: 22,
   user: 'dev',
@@ -62,7 +62,7 @@ ProviderContainer _feed(_Engine engine, {bool watched = true}) {
   final container = ProviderContainer(
     retry: noRetry,
     overrides: [
-      engineHostsProvider.overrideWith((ref) => Stream.value(const [_nyx])),
+      engineHostsProvider.overrideWith((ref) => Stream.value(const [_oak])),
       engineOpenProvider.overrideWithValue((_) async => engine),
       homeUsageVisibleProvider.overrideWith((ref) => watched),
       appVisibleProvider.overrideWith(

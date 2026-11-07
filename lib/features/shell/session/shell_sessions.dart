@@ -660,7 +660,7 @@ class _Attempt {
 }
 
 /// Held by a provider that is never disposed, because the sessions are the point: leaving
-/// `/ NYX SHELL` and coming back finds the tabs where they were, still running. The route
+/// `/ OAK SHELL` and coming back finds the tabs where they were, still running. The route
 /// disposing closes nothing.
 class ShellSessions extends ChangeNotifier {
   ShellSessions({

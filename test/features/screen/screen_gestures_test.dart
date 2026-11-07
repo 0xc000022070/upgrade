@@ -4,7 +4,7 @@ import 'package:upgrade/features/screen/framebuffer_view.dart';
 
 import '../../support/themed_app.dart';
 
-/// nyx's desktop in a 400 by 800 window: 400 by 225 letterboxed, so the vertical offset
+/// oak's desktop in a 400 by 800 window: 400 by 225 letterboxed, so the vertical offset
 /// is part of every expectation below.
 const _framebuffer = Size(1920, 1080);
 const _viewport = Size(400, 800);

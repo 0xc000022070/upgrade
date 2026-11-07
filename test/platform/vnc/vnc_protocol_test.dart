@@ -110,12 +110,12 @@ void main() {
           appleGenerator: 3,
           appleModulus: appleModulus,
           applePublic: applePublic,
-          name: 'rose',
+          name: 'pine',
         ),
       );
       final init = await client.handshake();
 
-      expect(init.name, 'rose');
+      expect(init.name, 'pine');
       await Future<void>.delayed(Duration.zero);
       expect(channel.sent.sublist(0, 13), [
         ...'RFB 003.008\n'.codeUnits,
@@ -154,12 +154,12 @@ void main() {
           serverHandshake(
             securityTypes: const [2],
             challenge: challenge,
-            name: 'rose',
+            name: 'pine',
           ),
         );
         final init = await client.handshake();
 
-        expect(init.name, 'rose');
+        expect(init.name, 'pine');
         await Future<void>.delayed(Duration.zero);
         expect(channel.sent, expectedPasswordHandshake('password'));
       },
@@ -198,7 +198,7 @@ void main() {
       );
 
       expect(failure, isA<VncPasswordNeeded>());
-      expect((failure! as VncFailure).reason('rose'), 'VNC password missing');
+      expect((failure! as VncFailure).reason('pine'), 'VNC password missing');
       expect((failure as VncFailure).detail, 'server offers 2');
     });
 
@@ -229,7 +229,7 @@ void main() {
 
         expect(failure, isA<VncAuthRejected>());
         expect(
-          (failure! as VncFailure).reason('rose'),
+          (failure! as VncFailure).reason('pine'),
           'VNC credentials rejected',
         );
         expect((failure as VncFailure).detail, 'Authentication failed');
@@ -280,12 +280,12 @@ void main() {
       );
       addTearDown(client.close);
 
-      channel.feed(serverHandshake(width: 1920, height: 1080, name: 'nyx'));
+      channel.feed(serverHandshake(width: 1920, height: 1080, name: 'oak'));
       final init = await client.handshake();
 
       expect(init.width, 1920);
       expect(init.height, 1080);
-      expect(init.name, 'nyx');
+      expect(init.name, 'oak');
       expect(init.pixelFormat.bitsPerPixel, 32);
       expect(init.pixelFormat.redShift, 16);
       expect(client.version, RfbVersion.v3_8);
@@ -327,7 +327,7 @@ void main() {
         onError: (Object error) => error,
       );
       expect(failure, isA<VncAuthUnsupported>());
-      expect((failure! as VncFailure).reason('nyx'), 'auth unsupported');
+      expect((failure! as VncFailure).reason('oak'), 'auth unsupported');
     });
 
     test(

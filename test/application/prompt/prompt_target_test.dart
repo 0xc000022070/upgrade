@@ -12,18 +12,18 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
 
-const _nyx = Host(
+const _oak = Host(
   id: 'host-1',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.1',
   port: 22,
   user: 'luisnquin',
   keyId: 'key-1',
 );
 
-const _rose = Host(
+const _pine = Host(
   id: 'host-2',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.2',
   port: 22,
   user: 'luisnquin',
@@ -41,8 +41,8 @@ PathTarget _at(Host host, String id, String label) => PathTarget(
   host: host,
 );
 
-final _upgrade = _at(_nyx, 'path-1', 'upgrade');
-final _dotfiles = _at(_rose, 'path-2', 'dotfiles');
+final _upgrade = _at(_oak, 'path-1', 'upgrade');
+final _dotfiles = _at(_pine, 'path-2', 'dotfiles');
 
 void main() {
   test('a saved target reads back as it was written', () {
@@ -85,20 +85,20 @@ void main() {
   });
 
   test('only directories on a multiplexed host are offered', () {
-    expect(promptOffered([_upgrade, _dotfiles], [_rose]), [_dotfiles]);
+    expect(promptOffered([_upgrade, _dotfiles], [_pine]), [_dotfiles]);
     expect(promptOffered([_upgrade, _dotfiles], const []), isEmpty);
   });
 
   test('the label names host, directory and agent, then any model', () {
     expect(
       promptTargetLabel(SendChoice(target: _upgrade, kind: const ClaudeKind())),
-      'nyx · upgrade · claude',
+      'oak · upgrade · claude',
     );
     expect(
       promptTargetLabel(
         SendChoice(target: _upgrade, kind: const CodexKind(), model: 'gpt-5'),
       ),
-      'nyx · upgrade · codex · gpt-5',
+      'oak · upgrade · codex · gpt-5',
     );
   });
 
@@ -109,12 +109,12 @@ void main() {
           PathTarget(
             path: AgentPath(
               id: id,
-              hostId: _nyx.id,
+              hostId: _oak.id,
               directory: directory,
               label: label ?? defaultPathLabel(directory),
               createdAt: DateTime.utc(2026, 9, 3),
             ),
-            host: _nyx,
+            host: _oak,
           );
       final mine = under('a', '~/Projects/github.com/0xc000022070/upgrade');
       final fork = under('b', '~/Projects/github.com/luisnquin/upgrade/');
@@ -161,7 +161,7 @@ void main() {
     }
 
     test('persists and comes back as the chip line', () async {
-      final container = scope([_nyx, _rose]);
+      final container = scope([_oak, _pine]);
       await pumpEventQueue();
       expect(container.read(promptSummaryProvider), isNull);
 
@@ -172,7 +172,7 @@ void main() {
       await pumpEventQueue();
       expect(
         container.read(promptSummaryProvider),
-        'rose · dotfiles · codex · o3',
+        'pine · dotfiles · codex · o3',
       );
       expect(container.read(promptChoiceProvider)!.target, same(_dotfiles));
     });
@@ -182,7 +182,7 @@ void main() {
         settings,
         SendChoice(target: _upgrade, kind: const ClaudeKind()),
       );
-      final container = scope([_rose]);
+      final container = scope([_pine]);
       await pumpEventQueue();
       expect(container.read(promptChoiceProvider), isNull);
       expect(container.read(promptSummaryProvider), isNull);
@@ -190,11 +190,11 @@ void main() {
 
     test('falls back to the newest send still offered', () async {
       final container = scope(
-        [_rose],
+        [_pine],
         sends: [_sent('upgrade', 'path-1'), _sent('dotfiles', 'path-2')],
       );
       await pumpEventQueue();
-      expect(container.read(promptSummaryProvider), 'rose · dotfiles · claude');
+      expect(container.read(promptSummaryProvider), 'pine · dotfiles · claude');
     });
 
     test('a saved target outranks the sends', () async {
@@ -203,11 +203,11 @@ void main() {
         SendChoice(target: _upgrade, kind: const CodexKind()),
       );
       final container = scope(
-        [_nyx, _rose],
+        [_oak, _pine],
         sends: [_sent('dotfiles', 'path-2')],
       );
       await pumpEventQueue();
-      expect(container.read(promptSummaryProvider), 'nyx · upgrade · codex');
+      expect(container.read(promptSummaryProvider), 'oak · upgrade · codex');
     });
   });
 }

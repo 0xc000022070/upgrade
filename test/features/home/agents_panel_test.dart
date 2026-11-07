@@ -563,8 +563,8 @@ void main() {
     final state = AgentPanelState([
       HostOutcome(
         host: const Host(
-          id: 'nyx',
-          name: 'Nyx',
+          id: 'oak',
+          name: 'Oak',
           address: 'nope.invalid',
           port: 357,
           user: 'luisnquin',
@@ -576,8 +576,8 @@ void main() {
     ]);
     await tester.pumpWidget(host(state, now: now));
 
-    expect(find.text('nyx unresolved'), findsOneWidget);
-    expect(find.text('nyx unreachable'), findsNothing);
+    expect(find.text('oak unresolved'), findsOneWidget);
+    expect(find.text('oak unreachable'), findsNothing);
     expect(find.text('12s ago'), findsOneWidget);
   });
 
@@ -756,9 +756,9 @@ void main() {
     final state = AgentPanelState([
       HostOutcome(
         host: const Host(
-          id: 'nyx',
-          name: 'Nyx',
-          address: '100.118.60.77',
+          id: 'oak',
+          name: 'Oak',
+          address: '198.51.100.77',
           port: 22,
           user: 'luisnquin',
           keyId: 'k1',
@@ -769,7 +769,7 @@ void main() {
     ]);
     await tester.pumpWidget(host(state, now: now));
 
-    expect(find.text('nyx unreachable'), findsOneWidget);
+    expect(find.text('oak unreachable'), findsOneWidget);
     expect(find.text('12s ago'), findsOneWidget);
     expect(find.text('AGENT'), findsNothing);
     expect(find.textContaining('idle ·'), findsNothing);

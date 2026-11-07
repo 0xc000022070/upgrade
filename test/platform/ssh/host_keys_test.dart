@@ -147,11 +147,11 @@ void main() {
     expect(HostKeyRefusal.unverified.line.words, 'host key unverified');
     expect(HostKeyRefusal.changed.line.words, 'host key changed');
     expect(
-      VncHostKeyChanged('x').reason('nyx'),
+      VncHostKeyChanged('x').reason('oak'),
       HostKeyRefusal.changed.line.words,
     );
     expect(
-      VncHostKeyUnverified('x').reason('nyx'),
+      VncHostKeyUnverified('x').reason('oak'),
       HostKeyRefusal.unverified.line.words,
     );
   });
@@ -161,12 +161,12 @@ void main() {
   ) async {
     bool? answer;
     const host = Host(
-      id: 'rose',
-      name: 'rose',
-      address: '100.64.94.121',
+      id: 'pine',
+      name: 'pine',
+      address: '198.51.100.21',
       port: 22,
       user: 'luis',
-      keyId: 'faraday',
+      keyId: 'juniper',
     );
     await tester.pumpWidget(
       MaterialApp(

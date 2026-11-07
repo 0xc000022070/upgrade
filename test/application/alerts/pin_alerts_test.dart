@@ -27,7 +27,7 @@ PinRequest ask(String id, {String desc = 'the ssh key'}) =>
 void main() {
   group('AUTHORIZATION REQUIRED in the shade', () {
     test('one id per host, above every alert id and inside 32 bits', () {
-      const hosts = ['h1', 'nyx', 'rose', 'a-very-long-host-id-with-marks'];
+      const hosts = ['h1', 'oak', 'pine', 'a-very-long-host-id-with-marks'];
       const panes = ['wQ:pH', 'default:0', ''];
       for (final host in hosts) {
         final id = pinNotificationId(host);
@@ -40,7 +40,7 @@ void main() {
           }
         }
       }
-      expect(pinNotificationId('nyx'), isNot(pinNotificationId('rose')));
+      expect(pinNotificationId('oak'), isNot(pinNotificationId('pine')));
     });
 
     test('the payload names the host and comes back as it', () {
@@ -53,17 +53,17 @@ void main() {
     test('the line is the host in capitals and what the agent said', () {
       expect(
         pinNotificationText(
-          host: 'rose',
+          host: 'pine',
           desc: 'Please enter the passphrase for the ssh key',
           prompt: 'Passphrase:',
         ),
-        'ROSE · Please enter the passphrase for the ssh key',
+        'PINE · Please enter the passphrase for the ssh key',
       );
       expect(
-        pinNotificationText(host: 'rose', desc: '  ', prompt: 'Passphrase:'),
-        'ROSE · Passphrase:',
+        pinNotificationText(host: 'pine', desc: '  ', prompt: 'Passphrase:'),
+        'PINE · Passphrase:',
       );
-      expect(pinNotificationText(host: 'rose', desc: '', prompt: ''), 'ROSE');
+      expect(pinNotificationText(host: 'pine', desc: '', prompt: ''), 'PINE');
       expect(pinNotificationTitle, 'AUTHORIZATION REQUIRED');
     });
 
@@ -89,15 +89,15 @@ void main() {
       final notifier = _Shade();
       final shade = PinShade(notifier);
       Future<void> tell(PinRequest? held) =>
-          shade.tell(hostId: 'h1', hostName: 'nyx', held: held);
+          shade.tell(hostId: 'h1', hostName: 'oak', held: held);
 
       await tell(ask('aaaaaaaaaaaaaaaa'));
       await tell(ask('aaaaaaaaaaaaaaaa'));
-      expect(notifier.raised, ['h1/NYX · the ssh key']);
+      expect(notifier.raised, ['h1/OAK · the ssh key']);
 
       await tell(ask('bbbbbbbbbbbbbbbb', desc: 'another key'));
       expect(notifier.raised, hasLength(2));
-      expect(notifier.raised.last, 'h1/NYX · another key');
+      expect(notifier.raised.last, 'h1/OAK · another key');
 
       await tell(null);
       await tell(null);
@@ -111,10 +111,10 @@ void main() {
 
       await tabs.tell(
         hostId: 'h1',
-        hostName: 'nyx',
+        hostName: 'oak',
         held: ask('cccccccccccccccc'),
       );
-      await watcher.tell(hostId: 'h1', hostName: 'nyx', held: null);
+      await watcher.tell(hostId: 'h1', hostName: 'oak', held: null);
 
       expect(notifier.raised, hasLength(1));
       expect(notifier.withdrawn, isEmpty);
@@ -124,7 +124,7 @@ void main() {
       'a host with no notifier is told nothing and does not throw',
       () async {
         await PinShade(null)
-            .tell(hostId: 'h1', hostName: 'nyx', held: ask('dddddddddddddddd'));
+            .tell(hostId: 'h1', hostName: 'oak', held: ask('dddddddddddddddd'));
       },
     );
   });
@@ -178,12 +178,12 @@ void main() {
     test('an ssh key gives its fingerprint and comment', () {
       final facts = pinFacts(
         'Please enter the passphrase for the ssh key\n'
-        '  SHA256:abc+/def\n  (luis@nyx)',
+        '  SHA256:abc+/def\n  (luis@oak)',
       );
       expect(facts?.lead, 'Please enter the passphrase for the ssh key:');
       expect(facts?.facts, [
         ('FINGERPRINT', 'SHA256:abc+/def'),
-        ('COMMENT', 'luis@nyx'),
+        ('COMMENT', 'luis@oak'),
       ]);
     });
 

@@ -48,8 +48,8 @@ final containerComponents = [
                 onHeaderTap: context.tap(label: 'Header tap'),
                 child: const ListRowGroup(
                   children: [
-                    ListRow(title: 'nyx', value: 'IDLE', onTap: _noop),
-                    ListRow(title: 'rose', value: 'OPEN', onTap: _noop),
+                    ListRow(title: 'oak', value: 'IDLE', onTap: _noop),
+                    ListRow(title: 'pine', value: 'OPEN', onTap: _noop),
                   ],
                 ),
               ),
@@ -119,8 +119,8 @@ final containerComponents = [
         builder: (context) {
           final back = context.knobs.boolean(label: 'Back', initialValue: true);
           return ScreenScaffold(
-            title: context.label('nyx', label: 'Title'),
-            breadcrumb: context.label('/ HOSTS / NYX', label: 'Breadcrumb'),
+            title: context.label('oak', label: 'Title'),
+            breadcrumb: context.label('/ HOSTS / OAK', label: 'Breadcrumb'),
             onBack: back ? _noop : null,
             children: const [
               Panel(
@@ -212,9 +212,9 @@ final containerComponents = [
                 ),
               ],
               children: const [
-                SheetField(label: 'NAME', child: Meta('nyx')),
+                SheetField(label: 'NAME', child: Meta('oak')),
                 SizedBox(height: Spacing.md),
-                SheetField(label: 'ADDRESS', child: Meta('100.118.60.77')),
+                SheetField(label: 'ADDRESS', child: Meta('198.51.100.77')),
               ],
             ),
           ),

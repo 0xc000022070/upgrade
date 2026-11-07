@@ -7,9 +7,9 @@ import 'package:upgrade/platform/shell/shell_connection.dart';
 import '../../../support/fake_shell.dart';
 import '../../../support/reasons.dart';
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
@@ -46,7 +46,7 @@ void main() {
   ) async {
     final (:transport, :sessions, :told) = _setUp();
 
-    sessions.open(_rose, intent: testIntent());
+    sessions.open(_pine, intent: testIntent());
     await _pumpDial(tester);
     transport.transport = ShellTransport.mosh;
     sessions.open(_fig, intent: testIntent());
@@ -59,7 +59,7 @@ void main() {
     tester,
   ) async {
     final (:transport, :sessions, :told) = _setUp();
-    final session = sessions.open(_rose, intent: testIntent())!;
+    final session = sessions.open(_pine, intent: testIntent())!;
     await _pumpDial(tester);
 
     transport.stall = true;
@@ -81,25 +81,25 @@ void main() {
 
   testWidgets('an exited tab lets go while it stays on screen', (tester) async {
     final (:transport, :sessions, :told) = _setUp();
-    final session = sessions.open(_rose, intent: testIntent())!;
+    final session = sessions.open(_pine, intent: testIntent())!;
     await _pumpDial(tester);
 
     transport.opened.single.exit(1);
     await _pumpDial(tester);
 
     expect(session.state, isA<ShellExited>());
-    expect(sessions.forHost(_rose.id), [session]);
+    expect(sessions.forHost(_pine.id), [session]);
     expect(told, [0, 1, 0]);
   });
 
   testWidgets('a closed tab lets go', (tester) async {
     final (:transport, :sessions, :told) = _setUp();
-    final first = sessions.open(_rose, intent: testIntent())!;
-    sessions.open(_rose, intent: testIntent());
+    final first = sessions.open(_pine, intent: testIntent())!;
+    sessions.open(_pine, intent: testIntent());
     await _pumpDial(tester);
     expect(told.last, 2);
 
-    await sessions.close(_rose.id, first, intent: testIntent());
+    await sessions.close(_pine.id, first, intent: testIntent());
     await _pumpDial(tester);
 
     expect(told.last, 1);
@@ -111,7 +111,7 @@ void main() {
     final told = <int>[];
     final hold = ShellHold(sessions, (count) async => told.add(count));
     addTearDown(hold.dispose);
-    sessions.open(_rose, intent: testIntent());
+    sessions.open(_pine, intent: testIntent());
     await _pumpDial(tester);
 
     hold.refresh();

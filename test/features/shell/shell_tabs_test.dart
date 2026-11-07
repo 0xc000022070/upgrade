@@ -200,7 +200,7 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    expect(headerWords(tester), ['1', 'ROSE', '+', '×']);
+    expect(headerWords(tester), ['1', 'PINE', '+', '×']);
 
     await unmount(tester);
   });
@@ -278,7 +278,7 @@ void main() {
     expect(find.text('CURRENT'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('CURRENT')).dx -
-          tester.getTopRight(find.text('ROSE').last).dx,
+          tester.getTopRight(find.text('PINE').last).dx,
       greaterThanOrEqualTo(Spacing.md),
     );
 
@@ -288,11 +288,11 @@ void main() {
     await ready(tester);
 
     expect(find.byKey(const ValueKey('shell-tab-h1-2')), findsOneWidget);
-    expect(sessions.activeFor(rose.id)?.number, 2);
+    expect(sessions.activeFor(pine.id)?.number, 2);
 
     await tester.tap(find.byKey(const ValueKey('shell-tab-h1-1')));
     await ready(tester);
-    expect(sessions.activeFor(rose.id)?.number, 1);
+    expect(sessions.activeFor(pine.id)?.number, 1);
 
     await unmount(tester);
   });
@@ -361,7 +361,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: testTheme,
-          home: HostShellRoute(host: rose, intent: testIntent()),
+          home: HostShellRoute(host: pine, intent: testIntent()),
         ),
       ),
     );
@@ -387,7 +387,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('launch-tmux-new')));
     await ready(tester);
 
-    expect(sessions.activeFor(rose.id)?.number, 2);
+    expect(sessions.activeFor(pine.id)?.number, 2);
     expect(transport.commands.last, contains("tmux new-session -A -s '1'"));
 
     await unmount(tester);
@@ -419,7 +419,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('launch-shell')));
     await ready(tester);
 
-    expect(sessions.activeFor(rose.id)?.number, 2);
+    expect(sessions.activeFor(pine.id)?.number, 2);
     expect(transport.commands.last, isNot(contains('tmux')));
     expect(transport.commands.last, isNot(contains('herdr')));
 
@@ -459,8 +459,8 @@ void main() {
     });
 
     test('a login shell reads where it is, not who it is', () {
-      expect(shellTabLabel('luis@nyx: ~/Projects/upgrade', 1), 'upgrade');
-      expect(shellTabLabel('luis@nyx: ~', 1), '~');
+      expect(shellTabLabel('luis@oak: ~/Projects/upgrade', 1), 'upgrade');
+      expect(shellTabLabel('luis@oak: ~', 1), '~');
       expect(shellTabLabel('~/Projects/upgrade', 1), 'upgrade');
     });
 
@@ -476,7 +476,7 @@ void main() {
       await ready(tester);
       expect(labelOfTab(tester, 1), '1');
 
-      transport.opened.first.emit('\x1b]0;luis@rose: ~/Projects/upgrade\x07');
+      transport.opened.first.emit('\x1b]0;luis@pine: ~/Projects/upgrade\x07');
       await ready(tester);
 
       expect(labelOfTab(tester, 1), 'upgrade');
@@ -549,7 +549,7 @@ void main() {
     ) async {
       const named = Host(
         id: 'h1',
-        name: 'NYX',
+        name: 'OAK',
         address: '100.64.0.1',
         port: 22,
         user: 'luis',
@@ -636,13 +636,13 @@ void main() {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
       for (var i = 0; i < 8; i++) {
-        sessions.open(intent: testIntent(), rose);
+        sessions.open(intent: testIntent(), pine);
       }
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
       // Through the store: the plus itself is off the right edge here.
-      sessions.open(intent: testIntent(), rose);
+      sessions.open(intent: testIntent(), pine);
       await ready(tester);
 
       final ninth = tester.getRect(
@@ -659,7 +659,7 @@ void main() {
     ) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      sessions.open(intent: testIntent(), rose);
+      sessions.open(intent: testIntent(), pine);
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
@@ -680,7 +680,7 @@ void main() {
     final transport = FakeShellTransport();
     final sessions = fakeShellSessions(transport);
     for (var i = 0; i < 9; i++) {
-      sessions.open(intent: testIntent(), rose);
+      sessions.open(intent: testIntent(), pine);
     }
     await tester.pumpWidget(app(sessions));
     await ready(tester);
@@ -721,13 +721,13 @@ void main() {
     await ready(tester);
 
     expect(find.text('CLOSE SHELL 2?'), findsOneWidget);
-    expect(sessions.forHost(rose.id), hasLength(2));
+    expect(sessions.forHost(pine.id), hasLength(2));
 
     await tester.tap(find.text('CLOSE'));
     await ready(tester);
 
-    expect(sessions.forHost(rose.id), hasLength(1));
-    expect(sessions.forHost(rose.id).single.number, 1);
+    expect(sessions.forHost(pine.id), hasLength(1));
+    expect(sessions.forHost(pine.id).single.number, 1);
 
     await unmount(tester);
   });
@@ -750,7 +750,7 @@ void main() {
     await ready(tester);
 
     expect(find.text('CLOSE SHELL 2?'), findsNothing);
-    expect(sessions.forHost(rose.id), hasLength(1));
+    expect(sessions.forHost(pine.id), hasLength(1));
 
     await unmount(tester);
   });
@@ -763,14 +763,14 @@ void main() {
 
     await tester.tap(find.text('OPEN'));
     await ready(tester);
-    expect(find.text('ROSE'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('shell-tab-close')));
     await ready(tester);
     await tester.tap(find.text('CLOSE'));
     await ready(tester);
 
-    expect(sessions.forHost(rose.id), isEmpty);
+    expect(sessions.forHost(pine.id), isEmpty);
     expect(find.byKey(const ValueKey('shell-sheet')), findsNothing);
 
     await unmount(tester);
@@ -788,19 +788,19 @@ void main() {
     await ready(tester);
     tester.state<NavigatorState>(find.byType(Navigator)).pop();
     await ready(tester);
-    expect(find.text('ROSE'), findsNothing);
-    expect(sessions.forHost(rose.id), hasLength(1));
+    expect(find.text('PINE'), findsNothing);
+    expect(sessions.forHost(pine.id), hasLength(1));
 
     await tester.tap(find.text('OPEN'));
     await ready(tester);
-    expect(find.text('ROSE'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('shell-tab-close')));
     await ready(tester);
     await tester.tap(find.text('CLOSE'));
     await ready(tester);
 
-    expect(sessions.forHost(rose.id), isEmpty);
+    expect(sessions.forHost(pine.id), isEmpty);
     expect(find.byKey(const ValueKey('shell-sheet')), findsNothing);
 
     await unmount(tester);
@@ -831,7 +831,7 @@ void main() {
       expect(transport.opened[0].written, 'a');
 
       await openNewShell(tester);
-      expect(sessions.activeFor(rose.id)?.number, 2);
+      expect(sessions.activeFor(pine.id)?.number, 2);
       expect(connected(tester), isTrue);
       await type(tester, 'b');
       expect(transport.opened[1].written, 'b');
@@ -883,7 +883,7 @@ void main() {
 
       transport.opened[1].exit(0);
       await ready(tester);
-      expect(sessions.activeFor(rose.id)?.number, 1);
+      expect(sessions.activeFor(pine.id)?.number, 1);
 
       if (!connected(tester)) {
         await tester.tap(find.byKey(const ValueKey('bar-keyboard')));

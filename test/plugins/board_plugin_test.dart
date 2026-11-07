@@ -426,12 +426,12 @@ void main() {
     await app.send({
       'type': 'action',
       'id': 'save_note',
-      'fields': {'note': 'Ship the board plugin to faraday'},
+      'fields': {'note': 'Ship the board plugin to juniper'},
     });
     final drawn =
         commands(app.view).firstWhere((c) => c['op'] == 'text')['text']!
             as String;
-    expect(drawn.split('\n'), ['Ship the board', 'plugin to faraday']);
+    expect(drawn.split('\n'), ['Ship the board', 'plugin to juniper']);
     await app.send({
       'type': 'action',
       'id': 'save_note',

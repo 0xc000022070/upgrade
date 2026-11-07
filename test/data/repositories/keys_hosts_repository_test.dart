@@ -35,7 +35,7 @@ void main() {
 
   Future<void> host(
     String id, {
-    String name = 'nyx',
+    String name = 'oak',
     String keyId = 'k1',
     int port = 22,
   }) {
@@ -43,7 +43,7 @@ void main() {
       Host(
         id: id,
         name: name,
-        address: '100.118.60.77',
+        address: '198.51.100.77',
         port: port,
         user: 'luisnquin',
         keyId: keyId,
@@ -85,12 +85,12 @@ void main() {
 
     test('delete is refused while a host names the key', () async {
       await key('k1');
-      await host('h1', name: 'nyx');
+      await host('h1', name: 'oak');
 
       await expectLater(
         keys.delete('k1'),
         throwsA(
-          isA<KeyInUseException>().having((e) => e.hostNames, 'hosts', ['nyx']),
+          isA<KeyInUseException>().having((e) => e.hostNames, 'hosts', ['oak']),
         ),
       );
       // This database never enables PRAGMA foreign_keys, so without the repository check the
@@ -100,15 +100,15 @@ void main() {
 
     test('the refusal names every host holding the key', () async {
       await key('k1');
-      await host('h1', name: 'nyx');
-      await host('h2', name: 'rose');
+      await host('h1', name: 'oak');
+      await host('h2', name: 'pine');
 
       await expectLater(
         keys.delete('k1'),
         throwsA(
           isA<KeyInUseException>().having((e) => e.hostNames, 'hosts', [
-            'nyx',
-            'rose',
+            'oak',
+            'pine',
           ]),
         ),
       );
@@ -135,8 +135,8 @@ void main() {
 
       final stored = (await hosts.all()).single;
       expect(stored.id, 'h1');
-      expect(stored.name, 'nyx');
-      expect(stored.address, '100.118.60.77');
+      expect(stored.name, 'oak');
+      expect(stored.address, '198.51.100.77');
       expect(stored.port, 22);
       expect(stored.user, 'luisnquin');
       expect(stored.keyId, 'k1');
@@ -152,10 +152,10 @@ void main() {
 
     test('save is an upsert on the id', () async {
       await key('k1');
-      await host('h1', name: 'nyx');
-      await host('h1', name: 'nyx.tailnet');
+      await host('h1', name: 'oak');
+      await host('h1', name: 'oak.tailnet');
 
-      expect((await hosts.all()).single.name, 'nyx.tailnet');
+      expect((await hosts.all()).single.name, 'oak.tailnet');
     });
   });
 
@@ -203,7 +203,7 @@ void main() {
 
     test('editing a host leaves the key pinned to it alone', () async {
       await key('k1');
-      await host('h1', name: 'nyx');
+      await host('h1', name: 'oak');
       await hosts.pinHostKey(
         'h1',
         PinnedHostKey(
@@ -213,10 +213,10 @@ void main() {
         ),
       );
 
-      await host('h1', name: 'nyx.tailnet');
+      await host('h1', name: 'oak.tailnet');
 
       final stored = (await hosts.all()).single;
-      expect(stored.name, 'nyx.tailnet');
+      expect(stored.name, 'oak.tailnet');
       expect(stored.hostKey?.fingerprint, 'SHA256:abc');
     });
   });
@@ -235,10 +235,10 @@ void main() {
 
     test('editing a host leaves its system alone', () async {
       await key('k1');
-      await host('h1', name: 'nyx');
+      await host('h1', name: 'oak');
       await hosts.recordSystem('h1', HostSystem.nixos);
 
-      await host('h1', name: 'nyx.tailnet');
+      await host('h1', name: 'oak.tailnet');
 
       expect((await hosts.all()).single.system, HostSystem.nixos);
     });
@@ -268,7 +268,7 @@ void main() {
         (await hosts.watchWithIntegration(IntegrationKind.herdr).first)
             .single
             .name,
-        'nyx',
+        'oak',
       );
       final row = (await db.select(db.hostIntegrations).get()).single;
       expect(row.hostId, 'h1');
@@ -307,9 +307,9 @@ void main() {
 
     test('the query carries every host with the kind on', () async {
       await key('k1');
-      await host('h1', name: 'nyx');
-      await host('h2', name: 'rose');
-      await host('h3', name: 'faraday');
+      await host('h1', name: 'oak');
+      await host('h2', name: 'pine');
+      await host('h3', name: 'juniper');
       await hosts.setIntegration('h1', IntegrationKind.herdr, true);
       await hosts.setIntegration('h3', IntegrationKind.herdr, true);
 
@@ -317,13 +317,13 @@ void main() {
         (await hosts.watchWithIntegration(IntegrationKind.herdr).first)
             .map((h) => h.name)
             .toSet(),
-        {'nyx', 'faraday'},
+        {'oak', 'juniper'},
       );
     });
 
     test('the query follows a rename of a host in it', () async {
       await key('k1');
-      await host('h1', name: 'nyx');
+      await host('h1', name: 'oak');
       await hosts.setIntegration('h1', IntegrationKind.herdr, true);
 
       final seen = <String>[];
@@ -331,11 +331,11 @@ void main() {
           .watchWithIntegration(IntegrationKind.herdr)
           .listen((list) => seen.add(list.single.name));
       await pumpEventQueue();
-      await host('h1', name: 'nyx.tailnet');
+      await host('h1', name: 'oak.tailnet');
       await pumpEventQueue();
       await sub.cancel();
 
-      expect(seen.last, 'nyx.tailnet');
+      expect(seen.last, 'oak.tailnet');
     });
 
     test('deleting a host takes its integration rows with it', () async {
@@ -355,8 +355,8 @@ void main() {
 
     test('deleting another host leaves the rows alone', () async {
       await key('k1');
-      await host('h1', name: 'nyx');
-      await host('h2', name: 'rose');
+      await host('h1', name: 'oak');
+      await host('h2', name: 'pine');
       await hosts.setIntegration('h1', IntegrationKind.herdr, true);
 
       await hosts.delete('h2');
@@ -365,7 +365,7 @@ void main() {
         (await hosts.watchWithIntegration(IntegrationKind.herdr).first)
             .single
             .name,
-        'nyx',
+        'oak',
       );
     });
 
@@ -390,15 +390,15 @@ void main() {
 
   test('the in-memory twin also keeps a pin across an edit', () async {
     final memory = InMemoryHostRepository();
-    const nyx = Host(
+    const oak = Host(
       id: 'h1',
-      name: 'nyx',
+      name: 'oak',
       address: '100.64.0.2',
       port: 22,
       user: 'luis',
       keyId: 'k1',
     );
-    await memory.save(nyx);
+    await memory.save(oak);
     await memory.pinHostKey(
       'h1',
       PinnedHostKey(
@@ -408,7 +408,7 @@ void main() {
       ),
     );
 
-    await memory.save(nyx);
+    await memory.save(oak);
 
     expect((await memory.all()).single.hostKey?.fingerprint, 'SHA256:abc');
   });

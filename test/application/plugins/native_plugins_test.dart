@@ -426,7 +426,7 @@ void main() {
         .insert(
           HostsCompanion.insert(
             id: 'host-1',
-            name: 'nyx',
+            name: 'oak',
             address: '100.64.0.1',
             user: 'luis',
             keyId: 'key-1',

@@ -269,7 +269,7 @@
      "kind": "text",
      "props": {
       "color": "danger",
-      "text": "FARADAY · unreachable",
+      "text": "JUNIPER · unreachable",
       "key": "down_h3",
       "lines": 2.0
      },
@@ -410,7 +410,7 @@
                 "fontSize": 11.0,
                 "key": "c_aplace",
                 "color": "muted",
-                "text": "upgrade · nyx",
+                "text": "upgrade · oak",
                 "lines": 1.0
                },
                "children": []
@@ -497,7 +497,7 @@
                 "fontSize": 11.0,
                 "key": "c_bplace",
                 "color": "muted",
-                "text": "upgrade · nyx",
+                "text": "upgrade · oak",
                 "lines": 1.0
                },
                "children": []
@@ -609,7 +609,7 @@
                 "fontSize": 11.0,
                 "key": "c_cplace",
                 "color": "muted",
-                "text": "upgrade · rose",
+                "text": "upgrade · pine",
                 "lines": 1.0
                },
                "children": []
@@ -685,7 +685,7 @@
                 "fontSize": 11.0,
                 "key": "c_eplace",
                 "color": "muted",
-                "text": "tools · rose",
+                "text": "tools · pine",
                 "lines": 1.0
                },
                "children": []
@@ -771,7 +771,7 @@
                 "fontSize": 11.0,
                 "key": "c_dplace",
                 "color": "muted",
-                "text": "fixture · rose",
+                "text": "fixture · pine",
                 "lines": 1.0
                },
                "children": []

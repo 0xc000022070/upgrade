@@ -163,7 +163,7 @@ void main() {
 
   /// The port is left on the 22 the form prefills.
   Future<void> fillFields(WidgetTester tester) async {
-    await tester.enterText(field(_Fields.name), 'nyx');
+    await tester.enterText(field(_Fields.name), 'oak');
     await tester.enterText(field(_Fields.address), '100.64.0.1');
     await tester.enterText(field(_Fields.user), 'luis');
     await tester.pump();
@@ -172,7 +172,7 @@ void main() {
   testWidgets('one key is preselected and validation leaves a stable action', (
     tester,
   ) async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await open(tester, const HostFormScreen());
 
     expect(keyChosen(tester, 'key-1'), isTrue);
@@ -190,10 +190,10 @@ void main() {
   testWidgets('the bar names each missing field in order, then commits', (
     tester,
   ) async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await open(tester, const HostFormScreen());
 
-    await tester.enterText(field(_Fields.name), 'nyx');
+    await tester.enterText(field(_Fields.name), 'oak');
     await tester.pump();
     expect(label(tester), 'CREATE HOST');
     expect(find.text('ADDRESS MISSING'), findsOneWidget);
@@ -212,7 +212,7 @@ void main() {
   });
 
   testWidgets('the created host lands on HOSTS with HERDR on', (tester) async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await open(tester, const HostsScreen());
 
     await tester.tap(find.text('ADD HOST'));
@@ -233,7 +233,7 @@ void main() {
     });
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(HostsScreen), findsOneWidget);
-    expect(find.text('NYX'), findsOneWidget);
+    expect(find.text('OAK'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -241,7 +241,7 @@ void main() {
   testWidgets('a created host is asked about before the form is left', (
     tester,
   ) async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await privateKeys.write('key-1', 'PEM');
     var dialled = 0;
     dial =
@@ -253,7 +253,7 @@ void main() {
           required verifier,
         }) async {
           dialled++;
-          await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:nyx');
+          await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:oak');
         };
     await open(tester, const HostsScreen());
 
@@ -265,13 +265,13 @@ void main() {
 
     expect(dialled, 1);
     expect(find.text('NEW HOST KEY'), findsOneWidget);
-    expect(find.text('SHA256:nyx'), findsOneWidget);
+    expect(find.text('SHA256:oak'), findsOneWidget);
 
     await tester.tap(find.text('TRUST'));
     await _sheet(tester);
 
     final saved = await hosts.all();
-    expect(saved.single.hostKey?.fingerprint, 'SHA256:nyx');
+    expect(saved.single.hostKey?.fingerprint, 'SHA256:oak');
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(HostsScreen), findsOneWidget);
     expect(find.text('VERIFY'), findsNothing);
@@ -282,7 +282,7 @@ void main() {
   testWidgets('the VNC integration round-trips through the form', (
     tester,
   ) async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await open(tester, const HostsScreen());
 
     await tester.tap(find.text('ADD HOST'));
@@ -303,7 +303,7 @@ void main() {
     });
 
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('NYX'));
+    await tester.tap(find.text('OAK'));
     await _sheet(tester);
     await tester.tap(find.text('EDIT'));
     await _ready(tester);
@@ -325,8 +325,8 @@ void main() {
   testWidgets('two keys preselect nothing and the bar reads KEY MISSING', (
     tester,
   ) async {
-    await keys.save(_key('key-1', 'faraday'));
-    await keys.save(_key('key-2', 'rose'));
+    await keys.save(_key('key-1', 'juniper'));
+    await keys.save(_key('key-2', 'pine'));
     await open(tester, const HostFormScreen());
 
     expect(keyChosen(tester, 'key-1'), isFalse);
@@ -362,12 +362,12 @@ void main() {
   });
 
   testWidgets('a dirty form asks before it drops the draft', (tester) async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await open(tester, const _Launcher());
     await tester.tap(find.text('OPEN'));
     await _ready(tester);
 
-    await tester.enterText(field(_Fields.name), 'nyx');
+    await tester.enterText(field(_Fields.name), 'oak');
     await tester.pump();
 
     await tester.tap(find.text('/ UPGRADE / MACHINES'));
@@ -377,7 +377,7 @@ void main() {
     await tester.tap(find.text('CANCEL').last);
     await _sheet(tester);
     expect(find.text('NEW HOST'), findsWidgets);
-    expect(textIn(tester, _Fields.name), 'nyx');
+    expect(textIn(tester, _Fields.name), 'oak');
 
     await tester.binding.handlePopRoute();
     await _sheet(tester);
@@ -394,7 +394,7 @@ void main() {
   testWidgets('a clean form leaves without asking, preselect and all', (
     tester,
   ) async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await open(tester, const _Launcher());
     await tester.tap(find.text('OPEN'));
     await _ready(tester);
@@ -409,7 +409,7 @@ void main() {
   });
 
   testWidgets('the port is prefilled 22 on a numeric keyboard', (tester) async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await open(tester, const HostFormScreen());
 
     expect(textIn(tester, _Fields.port), '22');
@@ -422,7 +422,7 @@ void main() {
   });
 
   testWidgets('a port that is not a port reads PORT MISSING', (tester) async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await open(tester, const HostFormScreen());
     await fillFields(tester);
     expect(label(tester), 'CREATE HOST');
@@ -448,7 +448,7 @@ void main() {
   });
 
   testWidgets('the typed port is the one that is saved', (tester) async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await open(tester, const HostFormScreen());
     await fillFields(tester);
     await tester.enterText(field(_Fields.port), '357');
@@ -465,7 +465,7 @@ void main() {
   testWidgets('the VNC password field comes with the VNC row and is saved', (
     tester,
   ) async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await open(tester, const HostFormScreen());
     await fillFields(tester);
     // The header strip decodes its title over a few frames, so the field is counted rather
@@ -494,11 +494,11 @@ void main() {
   });
 
   testWidgets('a card names the port only when it is not 22', (tester) async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await hosts.save(
       const Host(
         id: 'h1',
-        name: 'rose',
+        name: 'pine',
         address: '100.64.0.1',
         port: 22,
         user: 'luis',
@@ -508,7 +508,7 @@ void main() {
     await hosts.save(
       const Host(
         id: 'h2',
-        name: 'nyx',
+        name: 'oak',
         address: '100.64.0.2',
         port: 357,
         user: 'luis',
@@ -524,7 +524,7 @@ void main() {
   });
 
   testWidgets('a changed port alone is a dirty form', (tester) async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await open(tester, const _Launcher());
     await tester.tap(find.text('OPEN'));
     await _ready(tester);
@@ -545,24 +545,24 @@ void main() {
   });
 
   testWidgets('deleting a host takes its stored frame with it', (tester) async {
-    const nyx = Host(
+    const oak = Host(
       id: 'h1',
-      name: 'nyx',
+      name: 'oak',
       address: '100.64.0.2',
       port: 357,
       user: 'luis',
       keyId: 'key-1',
     );
-    await keys.save(_key('key-1', 'faraday'));
-    await hosts.save(nyx);
-    await tester.runAsync(() => previews.write(nyx.id, Framebuffer(640, 360)));
-    expect(previews.fileFor(nyx.id).existsSync(), isTrue);
+    await keys.save(_key('key-1', 'juniper'));
+    await hosts.save(oak);
+    await tester.runAsync(() => previews.write(oak.id, Framebuffer(640, 360)));
+    expect(previews.fileFor(oak.id).existsSync(), isTrue);
 
     final announced = <String>[];
     final changes = previews.changes.listen(announced.add);
     addTearDown(changes.cancel);
 
-    await open(tester, const HostFormScreen(host: nyx));
+    await open(tester, const HostFormScreen(host: oak));
     await tester.tap(find.text('DELETE HOST'));
     await _sheet(tester);
     expect(find.text('DELETE HOST?'), findsOneWidget);
@@ -571,8 +571,8 @@ void main() {
     await _sheet(tester);
 
     expect(await hosts.all(), isEmpty);
-    expect(previews.fileFor(nyx.id).existsSync(), isFalse);
-    expect(announced, <String>[nyx.id]);
+    expect(previews.fileFor(oak.id).existsSync(), isFalse);
+    expect(announced, <String>[oak.id]);
 
     await unmount(tester);
   });
@@ -580,34 +580,34 @@ void main() {
   testWidgets('deleting a host closes its shell tabs and no others', (
     tester,
   ) async {
-    const nyx = Host(
+    const oak = Host(
       id: 'h1',
-      name: 'nyx',
+      name: 'oak',
       address: '100.64.0.2',
       port: 357,
       user: 'luis',
       keyId: 'key-1',
     );
-    const rose = Host(
+    const pine = Host(
       id: 'h2',
-      name: 'rose',
+      name: 'pine',
       address: '100.64.0.1',
       port: 22,
       user: 'luis',
       keyId: 'key-1',
     );
-    await keys.save(_key('key-1', 'faraday'));
-    await hosts.save(nyx);
-    await hosts.save(rose);
+    await keys.save(_key('key-1', 'juniper'));
+    await hosts.save(oak);
+    await hosts.save(pine);
     final sessions = fakeShellSessions(FakeShellTransport());
     addTearDown(sessions.dispose);
-    sessions.open(nyx, intent: testIntent());
-    sessions.open(nyx, intent: testIntent());
-    sessions.open(rose, intent: testIntent());
+    sessions.open(oak, intent: testIntent());
+    sessions.open(oak, intent: testIntent());
+    sessions.open(pine, intent: testIntent());
 
     await open(
       tester,
-      const HostFormScreen(host: nyx),
+      const HostFormScreen(host: oak),
       overrides: [shellSessionsProvider.overrideWithValue(sessions)],
     );
     await tester.tap(find.text('DELETE HOST'));
@@ -615,8 +615,8 @@ void main() {
     await tester.tap(find.text('DELETE'));
     await _sheet(tester);
 
-    expect(sessions.forHost(nyx.id), isEmpty);
-    expect(sessions.forHost(rose.id), hasLength(1));
+    expect(sessions.forHost(oak.id), isEmpty);
+    expect(sessions.forHost(pine.id), hasLength(1));
 
     await unmount(tester);
   });
@@ -624,19 +624,19 @@ void main() {
   testWidgets('a host that never showed a frame deletes just the same', (
     tester,
   ) async {
-    const rose = Host(
+    const pine = Host(
       id: 'h2',
-      name: 'rose',
+      name: 'pine',
       address: '100.64.0.1',
       port: 22,
       user: 'luis',
       keyId: 'key-1',
     );
-    await keys.save(_key('key-1', 'faraday'));
-    await hosts.save(rose);
-    expect(previews.fileFor(rose.id).existsSync(), isFalse);
+    await keys.save(_key('key-1', 'juniper'));
+    await hosts.save(pine);
+    expect(previews.fileFor(pine.id).existsSync(), isFalse);
 
-    await open(tester, const HostFormScreen(host: rose));
+    await open(tester, const HostFormScreen(host: pine));
     await tester.tap(find.text('DELETE HOST'));
     await _sheet(tester);
     await tester.tap(find.text('DELETE'));

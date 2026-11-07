@@ -6,8 +6,8 @@ import 'package:upgrade/platform/notifications/alert_actions.dart';
 
 void main() {
   AlertTarget target(String text) => AlertTarget(
-    hostId: 'nyx',
-    address: '100.118.60.77',
+    hostId: 'oak',
+    address: '198.51.100.77',
     port: 357,
     user: 'luisnquin',
     keyId: 'k1',

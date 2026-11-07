@@ -53,7 +53,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
-    final session = sessions.activeFor(rose.id)!;
+    final session = sessions.activeFor(pine.id)!;
 
     expect(find.byKey(const ValueKey('bar-send')), findsNothing);
     session.voiceDraft = (agent: const CodexKind(), text: 'check this');
@@ -82,7 +82,7 @@ void main() {
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions));
       await ready(tester);
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
       final connection = transport.opened.single..answerWith(process);
 
       session.terminal.sendText('check this');
@@ -107,7 +107,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
-    final session = sessions.activeFor(rose.id)!;
+    final session = sessions.activeFor(pine.id)!;
     final connection = transport.opened.single;
     connection.emitForeground('codex\t/usr/bin/codex\t\n');
     await tester.pump();
@@ -136,7 +136,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
-    final session = sessions.activeFor(rose.id)!;
+    final session = sessions.activeFor(pine.id)!;
     final connection = transport.opened.single
       ..answerWith('codex\t/usr/bin/codex\t\n');
 
@@ -155,7 +155,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
-    final session = sessions.activeFor(rose.id)!;
+    final session = sessions.activeFor(pine.id)!;
     final connection = transport.opened.single;
     connection.emitForeground('codex\t/usr/bin/codex\t\n');
     await tester.pump();
@@ -180,7 +180,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
-    final session = sessions.activeFor(rose.id)!
+    final session = sessions.activeFor(pine.id)!
       ..pane = (session: 'development', pane: 'p1');
     final container = ProviderScope.containerOf(
       tester.element(find.byType(HostShellRoute)),
@@ -214,7 +214,7 @@ void main() {
             (ref) => Stream.value(
               AgentPanelState([
                 HostOutcome(
-                  host: rose,
+                  host: pine,
                   kind: AgentOutcomeKind.snapshot,
                   agents: agents,
                   lastGoodAt: DateTime.now(),
@@ -231,7 +231,7 @@ void main() {
     );
     container.listen(agentsFeedProvider, (_, _) {});
     await tester.pump();
-    final session = sessions.activeFor(rose.id)!..pane = pane;
+    final session = sessions.activeFor(pine.id)!..pane = pane;
     final connection = transport.opened.single
       ..answerWith('{"result":{"type":"agent_list","agents":[]}}');
 
@@ -263,7 +263,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
-    final session = sessions.activeFor(rose.id)!;
+    final session = sessions.activeFor(pine.id)!;
     final connection = transport.opened.single;
 
     session.terminal.sendText('ls');
@@ -286,7 +286,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
-    final session = sessions.activeFor(rose.id)!;
+    final session = sessions.activeFor(pine.id)!;
     final connection = transport.opened.single
       ..answerWith('codex\t/nix/store/codex/bin/.codex-wrapped\t\n');
 
@@ -311,7 +311,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
-    final session = sessions.activeFor(rose.id)!;
+    final session = sessions.activeFor(pine.id)!;
     final connection = transport.opened.single
       ..answerWith('codex\t/nix/store/codex/bin/.codex-wrapped\t\n');
 
@@ -349,7 +349,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     await tester.pumpWidget(app(sessions));
     await ready(tester);
-    final session = sessions.activeFor(rose.id)!;
+    final session = sessions.activeFor(pine.id)!;
     final connection = transport.opened.single;
     final delayed = Completer<ExecResult?>();
     connection.holdTimedProbe = delayed;
@@ -382,7 +382,7 @@ void main() {
     await tester.pumpWidget(app(fakeShellSessions(transport)));
     await ready(tester);
 
-    expect(find.text('ROSE'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget);
     expect(find.text('CONNECTING'), findsNothing);
     expect(find.byKey(const ValueKey('shell-reason')), findsNothing);
     expect(find.text('RETRY'), findsNothing);
@@ -401,7 +401,7 @@ void main() {
     await tester.pumpWidget(app(fakeShellSessions(transport)));
     await ready(tester);
 
-    expect(find.text('ROSE'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget);
     expect(find.textContaining('SSH'), findsNothing);
     expect(find.textContaining('/'), findsNothing);
     expect(find.text('CONNECTING'), findsNothing);
@@ -625,7 +625,7 @@ void main() {
 
     expect(find.text('STALE · RECONNECT FAILED'), findsOneWidget);
     expect(
-      find.text(ShellFailureKind.unreachable.line.on(rose.name)),
+      find.text(ShellFailureKind.unreachable.line.on(pine.name)),
       findsOneWidget,
     );
     await tester.tap(find.byKey(const ValueKey('shell-reason')));
@@ -680,13 +680,13 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
     await openNewShell(tester);
-    expect(sessions.forHost(rose.id), hasLength(2));
+    expect(sessions.forHost(pine.id), hasLength(2));
 
     transport.opened.last.exit(0);
     await ready(tester);
 
-    expect(sessions.forHost(rose.id), hasLength(1));
-    expect(sessions.forHost(rose.id).single.number, 1);
+    expect(sessions.forHost(pine.id), hasLength(1));
+    expect(sessions.forHost(pine.id).single.number, 1);
     expect(find.textContaining('EXITED'), findsNothing);
 
     await unmount(tester);
@@ -699,13 +699,13 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('OPEN'));
     await ready(tester);
-    expect(find.text('ROSE'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget);
 
     transport.opened.single.exit(0);
     await ready(tester);
 
-    expect(sessions.forHost(rose.id), isEmpty);
-    expect(find.text('ROSE'), findsNothing);
+    expect(sessions.forHost(pine.id), isEmpty);
+    expect(find.text('PINE'), findsNothing);
     expect(find.text('OPEN'), findsOneWidget);
 
     await unmount(tester);
@@ -721,19 +721,19 @@ void main() {
     await tester.tap(find.text('OPEN'));
     await ready(tester);
     unawaited(
-      Navigator.of(tester.element(find.text('ROSE').first))
+      Navigator.of(tester.element(find.text('PINE').first))
           .push(MaterialPageRoute<void>(builder: (_) => const Text('ON TOP'))),
     );
     await ready(tester);
 
     transport.opened.single.exit(0);
     await ready(tester);
-    expect(sessions.forHost(rose.id), isEmpty);
+    expect(sessions.forHost(pine.id), isEmpty);
     expect(find.text('ON TOP'), findsOneWidget);
 
     Navigator.of(tester.element(find.text('ON TOP'))).pop();
     await ready(tester);
-    expect(find.text('ROSE'), findsNothing);
+    expect(find.text('PINE'), findsNothing);
     expect(find.text('OPEN'), findsOneWidget);
 
     await unmount(tester);
@@ -750,7 +750,7 @@ void main() {
     await ready(tester);
     unawaited(
       showSheetRoute<void>(
-        tester.element(find.text('ROSE').first),
+        tester.element(find.text('PINE').first),
         title: 'SHEET',
         child: const Text('IN A SHEET'),
       ),
@@ -761,7 +761,7 @@ void main() {
     await ready(tester);
 
     expect(find.text('IN A SHEET'), findsNothing);
-    expect(find.text('ROSE'), findsNothing);
+    expect(find.text('PINE'), findsNothing);
     expect(find.text('OPEN'), findsOneWidget);
 
     await unmount(tester);
@@ -783,7 +783,7 @@ void main() {
     await ready(tester);
 
     expect(find.text('SHELL 1 EXITED 3'), findsNothing);
-    expect(sessions.forHost(rose.id), hasLength(1));
+    expect(sessions.forHost(pine.id), hasLength(1));
     expect(find.text('EXITED 3'), findsNothing);
 
     await openInfo(tester);
@@ -806,8 +806,8 @@ void main() {
     await tester.tap(find.text('CLOSE'));
     await ready(tester);
 
-    expect(sessions.forHost(rose.id), hasLength(1));
-    expect(sessions.forHost(rose.id).single.number, 1);
+    expect(sessions.forHost(pine.id), hasLength(1));
+    expect(sessions.forHost(pine.id).single.number, 1);
 
     await unmount(tester);
   });
@@ -827,7 +827,7 @@ void main() {
 
     await tester.tap(find.text('KEEP'));
     await ready(tester);
-    expect(sessions.forHost(rose.id), hasLength(1));
+    expect(sessions.forHost(pine.id), hasLength(1));
 
     await unmount(tester);
   });
@@ -857,11 +857,11 @@ void main() {
     await tester.pumpWidget(app(fakeShellSessions(transport)));
     await ready(tester);
 
-    transport.opened.single.emit('\x1b]0;luis@nyx: ~\x07');
+    transport.opened.single.emit('\x1b]0;luis@oak: ~\x07');
     await ready(tester);
 
     expect(find.text('~'), findsOneWidget);
-    expect(find.text('luis@nyx: ~'), findsNothing);
+    expect(find.text('luis@oak: ~'), findsNothing);
 
     transport.opened.single.exit(1);
     await ready(tester);
@@ -892,7 +892,7 @@ void main() {
 
     transport.opened.single.emit('selectme\r\n');
     await ready(tester);
-    final session = sessions.activeFor(rose.id)!;
+    final session = sessions.activeFor(pine.id)!;
     session.terminal.selectRange(
       start: const Position(row: 0, col: 0),
       end: const Position(row: 0, col: 7),

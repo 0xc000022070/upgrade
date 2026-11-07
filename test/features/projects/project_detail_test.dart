@@ -508,7 +508,7 @@ void main() {
           .insert(
             KeysCompanion.insert(
               id: 'key-1',
-              name: 'nyx',
+              name: 'oak',
               publicKey: 'ssh-ed25519 AAAATEST',
               fingerprint: 'SHA256:key-1',
               createdAt: DateTime.utc(2026),
@@ -520,7 +520,7 @@ void main() {
           .insert(
             HostsCompanion.insert(
               id: 'host-1',
-              name: 'nyx',
+              name: 'oak',
               address: '100.64.0.1',
               user: 'luisnquin',
               keyId: 'key-1',
@@ -555,7 +555,7 @@ void main() {
       await tapText(tester, '…/src/upgrade');
 
       expect(find.text('…/src/upgrade'), findsOneWidget);
-      expect(find.text('NYX'), findsOneWidget);
+      expect(find.text('OAK'), findsOneWidget);
 
       await unmount(tester);
     });

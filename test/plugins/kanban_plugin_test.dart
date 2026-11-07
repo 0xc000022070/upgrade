@@ -106,7 +106,7 @@ Map<String, Object?> item(
   String id,
   String state, {
   String host = 'h1',
-  String hostName = 'nyx',
+  String hostName = 'oak',
   String agent = 'claude',
   String title = '',
   String workspace = 'upgrade',
@@ -131,9 +131,9 @@ Map<String, Object?> item(
 final feed = <String, Object?>{
   'ready': true,
   'hosts': [
-    {'id': 'h1', 'name': 'nyx', 'ok': true, 'read_ago': 4},
-    {'id': 'h2', 'name': 'rose', 'ok': true, 'read_ago': 75},
-    {'id': 'h3', 'name': 'faraday', 'ok': false, 'reason': 'unreachable'},
+    {'id': 'h1', 'name': 'oak', 'ok': true, 'read_ago': 4},
+    {'id': 'h2', 'name': 'pine', 'ok': true, 'read_ago': 75},
+    {'id': 'h3', 'name': 'juniper', 'ok': false, 'reason': 'unreachable'},
   ],
   'items': [
     item('a', 'working', title: 'refactor parser'),
@@ -143,16 +143,16 @@ final feed = <String, Object?>{
       title: 'deploy',
       approval: {'id': 'ap1', 'tool': 'bash', 'line': 'bash · rm -rf build'},
     ),
-    item('c', 'done', host: 'h2', hostName: 'rose', agent: 'codex'),
+    item('c', 'done', host: 'h2', hostName: 'pine', agent: 'codex'),
     {
-      ...item('e', 'idle', host: 'h2', hostName: 'rose', workspace: ''),
+      ...item('e', 'idle', host: 'h2', hostName: 'pine', workspace: ''),
       'directory': '/home/dev/tools/',
     },
     item(
       'd',
       'idle',
       host: 'h2',
-      hostName: 'rose',
+      hostName: 'pine',
       workspace: 'fixture',
       message: 'flaky test fixed',
     ),
@@ -213,7 +213,7 @@ void main() {
     expect(keyed(app.view, 'board').props['direction'], 'horizontal');
     expect(lanes(app.view), ['INBOX', 'DOING', 'DONE']);
     expect(lane(app.view, '1'), ['c_a', 'c_b', 'c_c', 'c_e', 'c_d']);
-    expect(texts(app.view), contains('FARADAY · unreachable'));
+    expect(texts(app.view), contains('JUNIPER · unreachable'));
     expect(texts(app.view), contains('bash · rm -rf build'));
     final box = keyed(app.view, 'c_d');
     expect(box.props, containsPair('onPress', 'open'));
@@ -272,7 +272,7 @@ void main() {
 
   test('a session gone from a host that answered leaves; one on a silent host '
       'keeps its place', () async {
-    final down = item('g', 'idle', host: 'h3', hostName: 'faraday');
+    final down = item('g', 'idle', host: 'h3', hostName: 'juniper');
     final items = feed['items']! as List<Object?>;
     await app.send({'type': 'mount'});
     await app.listed({

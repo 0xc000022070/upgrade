@@ -29,7 +29,7 @@ final screenComponents = [
             max: 100,
           );
           final reached = context.knobs.boolean(label: 'Codex limit reached');
-          final unreached = context.knobs.boolean(label: 'Rose not reached');
+          final unreached = context.knobs.boolean(label: 'Pine not reached');
           final stale = context.knobs.int.slider(
             label: 'Captured (min ago)',
             initialValue: 2,
@@ -48,13 +48,13 @@ final screenComponents = [
                 ),
               ),
               (
-                host: hostRose,
+                host: hostPine,
                 usage: usageOf(
                   'codex',
                   session: reached ? 100 : 12,
                   reached: reached,
                   error: unreached ? 'NOT REACHED' : null,
-                  account: 'dev@rose',
+                  account: 'dev@pine',
                 ),
               ),
             ],

@@ -14,9 +14,9 @@ import '../../../support/platform_channels.dart';
 import '../../../support/reasons.dart';
 import '../../../support/shell_route.dart' show noWorkspaces;
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
@@ -39,9 +39,9 @@ void main() {
       required String output,
     }) async {
       final sessions = fakeShellSessions(transport);
-      sessions.open(intent: testIntent(), _rose);
+      sessions.open(intent: testIntent(), _pine);
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-      final session = sessions.activeFor(_rose.id)!;
+      final session = sessions.activeFor(_pine.id)!;
       transport.opened.single.emit(output);
       await tester.pump(const Duration(milliseconds: 10));
       await tester.pumpWidget(
@@ -136,9 +136,9 @@ void main() {
     testWidgets('closing takes the marks with it', (tester) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      sessions.open(intent: testIntent(), _rose);
+      sessions.open(intent: testIntent(), _pine);
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-      final session = sessions.activeFor(_rose.id)!;
+      final session = sessions.activeFor(_pine.id)!;
       transport.opened.single.emit('one\r\none\r\n');
       await tester.pump(const Duration(milliseconds: 10));
 
@@ -181,7 +181,7 @@ void main() {
       ],
       child: MaterialApp(
         theme: ThemeData(extensions: const [UpgradeTokens.house]),
-        home: HostShellRoute(host: _rose, intent: testIntent()),
+        home: HostShellRoute(host: _pine, intent: testIntent()),
       ),
     );
 
@@ -199,7 +199,7 @@ void main() {
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions));
       await ready(tester);
-      final session = sessions.activeFor(_rose.id)!;
+      final session = sessions.activeFor(_pine.id)!;
 
       transport.opened.single.emit('needle\r\n${'filler\r\n' * 300}');
       await ready(tester);

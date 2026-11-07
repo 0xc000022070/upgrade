@@ -239,7 +239,7 @@ void main() {
 
       expect(find.byKey(const ValueKey('shell-copy')), findsNothing);
 
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
       select(session, 0, 5);
       await tester.pump();
       expect(selected(session), 'copyme');
@@ -273,7 +273,7 @@ void main() {
       await ready(tester);
       transport.opened.single.emit('one   two three\r\n');
       await ready(tester);
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
 
       final gesture = await hold(tester, cellAt(tester, 7, 0));
       await tester.pump();
@@ -301,7 +301,7 @@ void main() {
       await ready(tester);
       transport.opened.single.emit('\x1b[?1002h\x1b[?1006hword\r\n');
       await ready(tester);
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
 
       final gesture = await hold(tester, cellAt(tester, 1, 0));
       await tester.pump();
@@ -343,7 +343,7 @@ void main() {
         panes(['alpha one', 'beta two', 'gamma', 'a' * 19, 'bbb']),
       );
       await ready(tester);
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
 
       final gesture = await hold(tester, cellAt(tester, 12, 0));
       await tester.pump();
@@ -399,7 +399,7 @@ void main() {
               .replaceFirst('\x1b[?1049h', ''),
         );
         await ready(tester);
-        final session = sessions.activeFor(rose.id)!;
+        final session = sessions.activeFor(pine.id)!;
 
         final gesture = await hold(tester, cellAt(tester, 12, 0));
         await tester.pump();
@@ -427,7 +427,7 @@ void main() {
         panes(['alpha']).replaceFirst('\x1b[?1049h\x1b[?1002h', ''),
       );
       await ready(tester);
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
 
       await press(tester, cellAt(tester, 12, 0));
 
@@ -448,7 +448,7 @@ void main() {
         '\x1b[?1000h\x1b[?1006hword${'\r\n' * 10}other\r\n',
       );
       await ready(tester);
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
 
       select(session, 0, 3);
       await tester.pump();
@@ -501,7 +501,7 @@ void main() {
         await ready(tester);
         transport.opened.single.emit('\x1b[?1000h\x1b[?1006h');
         await fill(tester, transport);
-        final bar = sessions.activeFor(rose.id)!.terminal.scrollbar;
+        final bar = sessions.activeFor(pine.id)!.terminal.scrollbar;
         expect(bar.total, greaterThan(bar.visible));
 
         await tester.tapAt(cellAt(tester, 1, 2));
@@ -521,7 +521,7 @@ void main() {
       await ready(tester);
       transport.opened.single.emit('\x1b[?1000h\x1b[?1006hword\r\n');
       await ready(tester);
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
 
       transport.opened.single.emit('\x1b[?2026h\x1b[2J\x1b[Hredraw');
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
@@ -591,7 +591,7 @@ void main() {
       await tester.pumpWidget(app(sessions, db: db));
       await ready(tester);
       final shell = transport.opened.single;
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
 
       final last = session.terminal.scrollbar.visible - 1;
       shell.emit('${'\r\n' * last}alpha bravo');
@@ -620,7 +620,7 @@ void main() {
       await ready(tester);
       transport.opened.single.emit('alpha bravo charlie\r\n');
       await ready(tester);
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
 
       final one = await tester.startGesture(cellAt(tester, 1, 0), pointer: 1);
       await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
@@ -647,7 +647,7 @@ void main() {
       await ready(tester);
       transport.opened.single.emit('see url=https://x.dev/a/b?c=1 (done).\r\n');
       await ready(tester);
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
 
       await press(tester, cellAt(tester, 18, 0));
       expect(selected(session), 'url=https://x.dev/a/b?c=1');
@@ -665,7 +665,7 @@ void main() {
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions, db: db));
       await ready(tester);
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
       final url = 'https://x.dev/${'a' * 300}';
       transport.opened.single.emit('$url\r\n');
       await ready(tester);
@@ -684,7 +684,7 @@ void main() {
       await tester.pumpWidget(app(sessions, db: db));
       await ready(tester);
       final shell = transport.opened.single;
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
       final terminal = session.terminal;
 
       shell.emit('\x1b[?1049h');
@@ -737,7 +737,7 @@ void main() {
       transport.opened.single.emit('copyme\r\n');
       await ready(tester);
 
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
       select(session, 0, 5);
       await tester.pump();
 
@@ -757,7 +757,7 @@ void main() {
       final transport = FakeShellTransport()..transport = ShellTransport.mosh;
       final sessions = fakeShellSessions(transport);
       const pane = (session: 'default', pane: 'w1:p1');
-      sessions.open(intent: testIntent(), rose, command: 'attach', pane: pane);
+      sessions.open(intent: testIntent(), pine, command: 'attach', pane: pane);
       await tester.pumpWidget(app(sessions));
       await ready(tester);
       final connection = transport.opened.single;
@@ -792,7 +792,7 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
       final connection = transport.opened.single;
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
 
       connection.emit('line\r\n' * 200);
       await ready(tester);
@@ -828,7 +828,7 @@ void main() {
       await tester.pumpWidget(app(sessions));
       await ready(tester);
       final connection = transport.opened.single;
-      final session = sessions.activeFor(rose.id)!;
+      final session = sessions.activeFor(pine.id)!;
 
       connection.emit('line\r\n' * 200);
       await ready(tester);
@@ -923,7 +923,7 @@ void main() {
       await ready(tester);
       transport.opened.single.emit('line\r\n' * 200);
       await ready(tester);
-      return sessions.activeFor(rose.id)!;
+      return sessions.activeFor(pine.id)!;
     }
 
     void scrollUp(ShellSession session) {

@@ -18,9 +18,9 @@ import 'package:upgrade/application/providers.dart';
 import '../../support/vnc_channel.dart';
 import '../../support/themed_app.dart';
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h1',
-  name: 'nyx',
+  name: 'oak',
   address: '10.0.2.2',
   port: 357,
   user: 'luisnquin',
@@ -91,7 +91,7 @@ void main() {
     await tester.runAsync(() async {
       final connection = await _FakeConnection.open();
       final controller = HostScreenController(
-        host: _nyx,
+        host: _oak,
         readPrivateKey: (_) async => 'PRIVATE',
         open: _opener(connection),
       );
@@ -137,7 +137,7 @@ void main() {
     final changes = previews.changes.listen(written.add);
     addTearDown(changes.cancel);
     final keys = MemoryPrivateKeyStore();
-    await keys.write(_nyx.keyId, 'PRIVATE');
+    await keys.write(_oak.keyId, 'PRIVATE');
 
     late _FakeConnection connection;
     await tester.runAsync(() async {
@@ -153,14 +153,14 @@ void main() {
         ],
         child: MaterialApp(
           theme: testTheme,
-          home: HostScreenRoute(host: _nyx, open: _opener(connection)),
+          home: HostScreenRoute(host: _oak, open: _opener(connection)),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
     expect(
-      previews.fileFor(_nyx.id).existsSync(),
+      previews.fileFor(_oak.id).existsSync(),
       isFalse,
       reason: 'a route that never painted has nothing to store',
     );
@@ -182,9 +182,9 @@ void main() {
       );
       await tester.pump();
     }
-    expect(written, <String>[_nyx.id]);
+    expect(written, <String>[_oak.id]);
 
-    final stored = previews.read(_nyx.id);
+    final stored = previews.read(_oak.id);
     expect(stored, isNotNull);
     expect(stored!.width, previewWidth);
     expect(stored.height, 180);
@@ -209,7 +209,7 @@ void main() {
     final changes = previews.changes.listen(written.add);
     addTearDown(changes.cancel);
     final keys = MemoryPrivateKeyStore();
-    await keys.write(_nyx.keyId, 'PRIVATE');
+    await keys.write(_oak.keyId, 'PRIVATE');
 
     late _FakeConnection connection;
     await tester.runAsync(() async {
@@ -225,7 +225,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: testTheme,
-          home: HostScreenRoute(host: _nyx, open: _opener(connection)),
+          home: HostScreenRoute(host: _oak, open: _opener(connection)),
         ),
       ),
     );
@@ -252,7 +252,7 @@ void main() {
     await paint(0);
     await tester.pump(previewInterval);
     await settleWrites(until: 1);
-    expect(written, <String>[_nyx.id]);
+    expect(written, <String>[_oak.id]);
 
     tester.binding
       ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
@@ -260,7 +260,7 @@ void main() {
     await paint(1);
     await tester.pump(previewInterval * 3);
     await settleWrites();
-    expect(written, <String>[_nyx.id]);
+    expect(written, <String>[_oak.id]);
 
     tester.binding
       ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
@@ -270,7 +270,7 @@ void main() {
         .state++;
     await tester.pump(previewInterval);
     await settleWrites(until: 2);
-    expect(written, <String>[_nyx.id, _nyx.id]);
+    expect(written, <String>[_oak.id, _oak.id]);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));

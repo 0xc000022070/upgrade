@@ -6,9 +6,9 @@ import 'package:upgrade/features/shell/session/program_status.dart';
 import '../../../support/fake_shell.dart';
 import '../../../support/reasons.dart';
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
@@ -195,7 +195,7 @@ void main() {
       var moves = 0;
       sessions.programsMoved.addListener(() => moves++);
 
-      final session = sessions.open(intent: testIntent(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _pine)!;
       await _settle();
       transport.opened.single.emit(
         '\x1b]7501;state=blocked:kind=permission:app=claude-code'
@@ -206,7 +206,7 @@ void main() {
       final program = sessions.programs.single;
       expect(program.record.state, ProgramState.blocked);
       expect(program.line, 'Allow rm?');
-      expect(program.origin, 'ROSE ${session.number}');
+      expect(program.origin, 'PINE ${session.number}');
       expect(moves, 1);
 
       transport.opened.single.emit('\x1b]133;A\x07');
@@ -219,7 +219,7 @@ void main() {
     test('answers the protocol query, so a program knows to report', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      sessions.open(intent: testIntent(), _rose);
+      sessions.open(intent: testIntent(), _pine);
       await _settle();
 
       transport.opened.single.emit('\x1b]7501;?\x07');
@@ -233,7 +233,7 @@ void main() {
       final sessions = fakeShellSessions(transport);
       var moves = 0;
       sessions.programsMoved.addListener(() => moves++);
-      sessions.open(intent: testIntent(), _rose);
+      sessions.open(intent: testIntent(), _pine);
       await _settle();
 
       transport.opened.single.emit('\x1b]7501;state=done:id=a\x07');
@@ -248,7 +248,7 @@ void main() {
     test('an exited shell ends what ran in it', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      sessions.open(intent: testIntent(), _rose);
+      sessions.open(intent: testIntent(), _pine);
       await _settle();
 
       transport.opened.single
@@ -264,14 +264,14 @@ void main() {
     test('a closed tab takes its rows off Home', () async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      final session = sessions.open(intent: testIntent(), _rose)!;
+      final session = sessions.open(intent: testIntent(), _pine)!;
       await _settle();
       transport.opened.single.emit('\x1b]7501;state=working\x07');
       await _settle();
       var moves = 0;
       sessions.programsMoved.addListener(() => moves++);
 
-      await sessions.close(_rose.id, session, intent: testIntent());
+      await sessions.close(_pine.id, session, intent: testIntent());
 
       expect(sessions.programs, isEmpty);
       expect(moves, 1);

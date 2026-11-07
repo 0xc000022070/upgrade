@@ -256,7 +256,7 @@ void main() {
   group('plugin consent', () {
     const host = Host(
       id: 'host-1',
-      name: 'nyx',
+      name: 'oak',
       address: '10.0.0.4',
       port: 22,
       user: 'luis',

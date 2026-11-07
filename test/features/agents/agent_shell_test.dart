@@ -18,9 +18,9 @@ import '../../support/platform_channels.dart';
 import '../../support/reasons.dart';
 import '../../support/themed_app.dart';
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
@@ -124,7 +124,7 @@ void main() {
 
     expect(header, findsOneWidget);
     expect(container.read(navIndexProvider), HostsScreen.navIndex);
-    final session = sessions.forHost(_rose.id).single;
+    final session = sessions.forHost(_pine.id).single;
     expect(session.pane, _pane);
     expect(session.command, _takeoverAttach);
     // A line written at a login shell races whatever that shell reads before its prompt.
@@ -157,7 +157,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(container.read(navIndexProvider), before);
-    expect(sessions.forHost(_rose.id), isEmpty);
+    expect(sessions.forHost(_pine.id), isEmpty);
     expect(transport.opened, isEmpty);
   });
 
@@ -170,10 +170,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('OPEN HERE'));
     await ready(tester);
-    final first = sessions.forHost(_rose.id).single;
-    sessions.open(intent: testIntent(), _rose);
+    final first = sessions.forHost(_pine.id).single;
+    sessions.open(intent: testIntent(), _pine);
     await ready(tester);
-    expect(sessions.activeFor(_rose.id), isNot(same(first)));
+    expect(sessions.activeFor(_pine.id), isNot(same(first)));
     tester.state<NavigatorState>(find.byType(Navigator).first).pop();
     await ready(tester);
     expect(header, findsNothing);
@@ -182,8 +182,8 @@ void main() {
     await ready(tester);
 
     expect(header, findsOneWidget);
-    expect(sessions.forHost(_rose.id), hasLength(2));
-    expect(sessions.activeFor(_rose.id), same(first));
+    expect(sessions.forHost(_pine.id), hasLength(2));
+    expect(sessions.activeFor(_pine.id), same(first));
     expect(transport.opened, hasLength(2));
 
     await unmount(tester);
@@ -198,7 +198,7 @@ class _Launcher extends ConsumerWidget {
     body: Center(
       child: TextButton(
         onPressed: () =>
-            openAgentShell(context, ref, _rose, _agent, testIntent()),
+            openAgentShell(context, ref, _pine, _agent, testIntent()),
         child: const Text('OPEN'),
       ),
     ),

@@ -95,7 +95,7 @@ final feedbackComponents = [
                     context.tone(label: 'Lit', initial: Tone.accent) ??
                     tokens.textPrimary,
                 child: Text(
-                  context.label('CONNECTING TO NYX'),
+                  context.label('CONNECTING TO OAK'),
                   style: tokens.panelHeader,
                 ),
               ),

@@ -183,7 +183,7 @@ AgentSnapshot snapshot({
 
 const host = Host(
   id: 'h1',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.1',
   port: 22,
   user: 'luisnquin',
@@ -192,7 +192,7 @@ const host = Host(
 
 const other = Host(
   id: 'h2',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.2',
   port: 22,
   user: 'luisnquin',
@@ -784,7 +784,7 @@ void main() {
             const [HostOutcome(host: host, kind: AgentOutcomeKind.unreachable)],
             retries: const {'h1': Duration(seconds: 30)},
           ),
-          'NYX UNREACHABLE · RETRY 30S',
+          'OAK UNREACHABLE · RETRY 30S',
         );
       },
     );
@@ -873,7 +873,7 @@ void main() {
           ),
           const HostOutcome(host: other, kind: AgentOutcomeKind.unreachable),
         ]),
-        'ROSE UNREACHABLE',
+        'PINE UNREACHABLE',
       );
     });
   });
@@ -907,7 +907,7 @@ void main() {
       keyId: host.keyId,
       hostKey: PinnedHostKey(
         type: 'ssh-ed25519',
-        fingerprint: 'SHA256:nyx',
+        fingerprint: 'SHA256:oak',
         pinnedAt: DateTime.fromMillisecondsSinceEpoch(1750000000000),
       ),
     );
@@ -915,7 +915,7 @@ void main() {
     final decoded = AlertTarget.decode(target.encode())!;
 
     expect(decoded.engine, isFalse);
-    expect(decoded.hostKey?.fingerprint, 'SHA256:nyx');
+    expect(decoded.hostKey?.fingerprint, 'SHA256:oak');
   });
 
   test('a watcher report round-trips between the isolates', () {
@@ -936,7 +936,7 @@ void main() {
     expect(decoded.lastGoodAt, report.lastGoodAt);
     expect(decoded.retryIn, const Duration(seconds: 20));
     expect(decoded.requestId, 'request-1');
-    expect(decoded.toOutcome(host).reason, 'nyx unreachable');
+    expect(decoded.toOutcome(host).reason, 'oak unreachable');
   });
 
   test(
@@ -1082,7 +1082,7 @@ void main() {
 
     const moved = Host(
       id: 'h1',
-      name: 'nyx',
+      name: 'oak',
       address: '100.64.0.2',
       port: 22,
       user: 'luisnquin',
@@ -1125,7 +1125,7 @@ void main() {
       keyId: host.keyId,
       hostKey: PinnedHostKey(
         type: 'ssh-ed25519',
-        fingerprint: 'SHA256:nyx',
+        fingerprint: 'SHA256:oak',
         pinnedAt: DateTime.fromMillisecondsSinceEpoch(1750000000000),
       ),
     );
@@ -1133,7 +1133,7 @@ void main() {
     final decoded = decodeWatcherHosts(encodeWatcherHosts([pinned])).single;
 
     expect(decoded.hostKey?.type, 'ssh-ed25519');
-    expect(decoded.hostKey?.fingerprint, 'SHA256:nyx');
+    expect(decoded.hostKey?.fingerprint, 'SHA256:oak');
     expect(decoded.hostKey?.pinnedAt, pinned.hostKey!.pinnedAt);
     expect(
       decodeWatcherHosts(encodeWatcherHosts([host])).single.hostKey,
@@ -1160,7 +1160,7 @@ void main() {
       keyId: host.keyId,
       hostKey: PinnedHostKey(
         type: 'ssh-ed25519',
-        fingerprint: 'SHA256:nyx',
+        fingerprint: 'SHA256:oak',
         pinnedAt: DateTime.fromMillisecondsSinceEpoch(1750000000000),
       ),
     );
@@ -1173,7 +1173,7 @@ void main() {
 
     final verifier = client.verifiers.single!;
     expect(
-      await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:nyx'),
+      await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:oak'),
       isTrue,
     );
     expect(verifier.refusal, isNull);

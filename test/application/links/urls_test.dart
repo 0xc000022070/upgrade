@@ -4,8 +4,8 @@ import 'package:upgrade/application/links/urls.dart';
 void main() {
   test('a scheme is the whole of what a selected link needs', () {
     expect(
-      explicitUrl('http://100.118.60.77:8080/'),
-      'http://100.118.60.77:8080/',
+      explicitUrl('http://198.51.100.77:8080/'),
+      'http://198.51.100.77:8080/',
     );
     expect(explicitUrl('http://localhost:3000'), 'http://localhost:3000');
     expect(explicitUrl('https://min.io/a?b=1#c'), 'https://min.io/a?b=1#c');

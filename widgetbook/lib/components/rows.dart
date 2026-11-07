@@ -38,11 +38,11 @@ final rowComponents = [
               ListRowGroup(
                 children: [
                   ListRow(
-                    title: context.label('nyx', label: 'Title'),
+                    title: context.label('oak', label: 'Title'),
                     kicker: _optional(context.label('', label: 'Kicker')),
                     subtitle: _optional(
                       context.label(
-                        'dev@100.118.60.77:2222',
+                        'dev@198.51.100.77:2222',
                         label: 'Subtitle',
                       ),
                     ),
@@ -98,15 +98,15 @@ final rowComponents = [
                 child: ListRowGroup(
                   children: [
                     ListRow(
-                      title: 'nyx',
-                      subtitle: 'dev@100.118.60.77:2222',
+                      title: 'oak',
+                      subtitle: 'dev@198.51.100.77:2222',
                       value: 'IDLE',
                       leading: glyph(UpgradeIcons.hosts),
                       onTap: _noop,
                     ),
                     ListRow(
-                      title: 'rose',
-                      subtitle: 'dev@100.64.94.121:22',
+                      title: 'pine',
+                      subtitle: 'dev@198.51.100.21:22',
                       value: 'OPEN',
                       valueColor: tokens.accent,
                       valueStrong: true,
@@ -116,7 +116,7 @@ final rowComponents = [
                       onTap: _noop,
                     ),
                     ListRow(
-                      title: 'faraday',
+                      title: 'juniper',
                       subtitle: 'no key on this phone',
                       titleColor: tokens.textDisabled,
                       subtitleColor: tokens.textDisabled,
@@ -249,7 +249,7 @@ final rowComponents = [
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    MetaRow('ADDRESS', '100.118.60.77:2222'),
+                    MetaRow('ADDRESS', '198.51.100.77:2222'),
                     MetaRow('USER', 'dev'),
                     MetaRow('KEY', 'test-key'),
                   ],
@@ -322,7 +322,7 @@ class _Picker extends StatefulWidget {
 }
 
 class _PickerState extends State<_Picker> {
-  static const _keys = ['test-key', 'faraday', 'rose-ed25519', 'legacy-rsa'];
+  static const _keys = ['test-key', 'juniper', 'pine-ed25519', 'legacy-rsa'];
   String _selected = _keys.first;
 
   @override

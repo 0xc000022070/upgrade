@@ -8,7 +8,7 @@ import '../../support/fake_shell.dart';
 
 void main() {
   HostQueries queries(FakeShellConnection connection) =>
-      HostQueries(connection.channels, host: 'nyx');
+      HostQueries(connection.channels, host: 'oak');
 
   test('a host that fails under a question answers nothing', () async {
     final connection = FakeShellConnection()

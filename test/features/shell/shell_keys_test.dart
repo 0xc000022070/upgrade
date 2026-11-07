@@ -183,7 +183,7 @@ void main() {
       final connection = transport.opened.single;
       expect(
         connection.execs.first.command,
-        pinentryMarkCommand(sessions.forHost(rose.id).single.tab),
+        pinentryMarkCommand(sessions.forHost(pine.id).single.tab),
       );
 
       connection.emit(request(error: 'Bad Passphrase (try 2 of 3)'));
@@ -252,7 +252,7 @@ void main() {
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) =>
-                      HostShellRoute(host: rose, intent: testIntent()),
+                      HostShellRoute(host: pine, intent: testIntent()),
                 ),
               ),
               child: const Text('GO'),
@@ -340,7 +340,7 @@ void main() {
         connection.execs.map((exec) => exec.command),
         isNot(contains(pinentryAnswerCommand(id))),
       );
-      expect(sessions.forHost(rose.id).single.pin?.id, id);
+      expect(sessions.forHost(pine.id).single.pin?.id, id);
       connection.emit('hello\n');
       await ready(tester);
       expect(find.text('AUTHORIZATION REQUIRED'), findsNothing);

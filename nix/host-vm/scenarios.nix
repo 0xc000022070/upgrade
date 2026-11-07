@@ -1,5 +1,5 @@
-# nyx's firewall opens only 60000-61000 for mosh, and its own mosh-server climbs
-# from 60001, so the guests share the top of that range.
+# Firewalls commonly open only mosh's 60000-61000, and a host's own mosh-server
+# climbs from 60001, so the guests share the top of that range.
 {
   full = {
     sshPort = 2222;

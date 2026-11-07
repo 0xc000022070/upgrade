@@ -24,7 +24,7 @@ TranscriptItem _item(
 
 const _host = Host(
   id: 'host-1',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',

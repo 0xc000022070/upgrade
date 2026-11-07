@@ -18,10 +18,10 @@ import 'package:upgrade/application/providers.dart';
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
 
-const nyx = Host(
-  id: 'nyx',
-  name: 'Nyx',
-  address: '100.118.60.77',
+const oak = Host(
+  id: 'oak',
+  name: 'Oak',
+  address: '198.51.100.77',
   port: 22,
   user: 'luisnquin',
   keyId: 'k1',
@@ -112,7 +112,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: testTheme,
-          home: AgentChatScreen(host: nyx, agent: claude),
+          home: AgentChatScreen(host: oak, agent: claude),
         ),
       ),
     );

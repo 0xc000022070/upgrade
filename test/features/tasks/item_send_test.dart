@@ -46,7 +46,7 @@ class _Call {
 
 Host _host = const Host(
   id: 'host-1',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.1',
   port: 22,
   user: 'luisnquin',
@@ -228,7 +228,7 @@ void main() {
           .insert(
             KeysCompanion.insert(
               id: 'key-1',
-              name: 'nyx',
+              name: 'oak',
               publicKey: 'ssh-ed25519 AAAATEST',
               fingerprint: 'SHA256:key-1',
               createdAt: DateTime.utc(2026),
@@ -355,7 +355,7 @@ void main() {
 
       final rows = await dispatches.watchForItem(itemId).first;
       expect(rows, hasLength(1));
-      expect(rows.single.hostName, 'nyx');
+      expect(rows.single.hostName, 'oak');
       expect(rows.single.label, 'upgrade');
       expect(rows.single.agent, 'claude');
       expect(rows.single.paneId, 'wQ:p7');
@@ -369,7 +369,7 @@ void main() {
         (entry) => entry.action == ActivityAction.sent,
       );
       expect(sent.title, 'read the gate log');
-      expect(sent.context, 'nyx / upgrade');
+      expect(sent.context, 'oak / upgrade');
       expect(sent.detail, 'wQ:p7');
     });
 
@@ -585,8 +585,8 @@ void main() {
           return (state as SendFailed).reason;
         }
 
-        expect(await reasonFor(const HerdrUnreachable()), 'nyx unreachable');
-        expect(await reasonFor(const HerdrUnresolved()), 'nyx unresolved');
+        expect(await reasonFor(const HerdrUnreachable()), 'oak unreachable');
+        expect(await reasonFor(const HerdrUnresolved()), 'oak unresolved');
         expect(await reasonFor(const HerdrKeyRejected()), 'key rejected');
         expect(await reasonFor(const HerdrProtocolMismatch(22)), 'protocol 22');
         expect(await dispatches.watchForItem(itemId).first, isEmpty);
@@ -679,7 +679,7 @@ void main() {
           .insert(
             KeysCompanion.insert(
               id: 'key-1',
-              name: 'nyx',
+              name: 'oak',
               publicKey: 'ssh-ed25519 AAAATEST',
               fingerprint: 'SHA256:key-1',
               createdAt: DateTime.utc(2026),
@@ -867,10 +867,10 @@ void main() {
 
       expect(find.text('SEND TO'), findsOneWidget);
       expect(find.text('LINKED'), findsNWidgets(2));
-      final loose = tester.getTopLeft(find.text('NYX / GATE')).dy;
-      expect(tester.getTopLeft(find.text('NYX / UPGRADE')).dy, lessThan(loose));
+      final loose = tester.getTopLeft(find.text('OAK / GATE')).dy;
+      expect(tester.getTopLeft(find.text('OAK / UPGRADE')).dy, lessThan(loose));
       expect(
-        tester.getTopLeft(find.text('NYX / MONOLITH')).dy,
+        tester.getTopLeft(find.text('OAK / MONOLITH')).dy,
         lessThan(loose),
       );
 
@@ -922,9 +922,9 @@ void main() {
       await tester.tap(find.text('SEND'));
       await _drain(tester);
       expect(find.text('SEND TO'), findsOneWidget);
-      expect(find.text('NYX / UPGRADE'), findsOneWidget);
+      expect(find.text('OAK / UPGRADE'), findsOneWidget);
 
-      await tester.tap(find.text('NYX / UPGRADE'));
+      await tester.tap(find.text('OAK / UPGRADE'));
       await _drain(tester);
       expect(find.text('AGENT'), findsOneWidget);
       expect(find.text('MODEL'), findsOneWidget);
@@ -943,7 +943,7 @@ void main() {
       await tester.binding.handlePopRoute();
       await _drain(tester);
       expect(find.text('SEND TO'), findsOneWidget);
-      await tester.tap(find.text('NYX / UPGRADE'));
+      await tester.tap(find.text('OAK / UPGRADE'));
       await _drain(tester);
       expect(
         tester.widget<UpgradeField>(message).controller.text,
@@ -961,7 +961,7 @@ void main() {
       expect(find.text('[ SENDING ]'), findsNothing);
       expect(find.byType(SentTag), findsOneWidget);
       expect(
-        find.textContaining('NYX / UPGRADE · CLAUDE sonnet · wQ:p7 · '),
+        find.textContaining('OAK / UPGRADE · CLAUDE sonnet · wQ:p7 · '),
         findsOneWidget,
       );
 
@@ -1002,13 +1002,13 @@ void main() {
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);
-      await tester.tap(find.text('NYX / UPGRADE'));
+      await tester.tap(find.text('OAK / UPGRADE'));
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);
 
       expect(
-        find.text('NYX / UPGRADE · CLAUDE · no such directory'),
+        find.text('OAK / UPGRADE · CLAUDE · no such directory'),
         findsOneWidget,
       );
       expect(find.text('FAILED'), findsOneWidget);
@@ -1050,13 +1050,13 @@ void main() {
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);
-      await tester.tap(find.text('NYX / UPGRADE'));
+      await tester.tap(find.text('OAK / UPGRADE'));
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);
 
       expect(find.text('[ SENDING ]'), findsOneWidget);
-      expect(find.text('NYX / UPGRADE · CLAUDE'), findsOneWidget);
+      expect(find.text('OAK / UPGRADE · CLAUDE'), findsOneWidget);
       expect(find.byType(SendingTag), findsOneWidget);
       expect(find.text('RETRY'), findsNothing);
 
@@ -1091,7 +1091,7 @@ void main() {
 
       expect(find.text('[ SENT ]'), findsOneWidget);
       expect(
-        find.textContaining('NYX / UPGRADE · CLAUDE · wQ:p7 · '),
+        find.textContaining('OAK / UPGRADE · CLAUDE · wQ:p7 · '),
         findsOneWidget,
       );
       expect(find.byType(SentTag), findsOneWidget);
@@ -1126,7 +1126,7 @@ void main() {
       expect(find.byType(SentTag), findsNothing);
       expect(find.text('[ SENT ]'), findsOneWidget);
       expect(
-        find.textContaining('NYX / UPGRADE · CLAUDE · wQ:p7 · '),
+        find.textContaining('OAK / UPGRADE · CLAUDE · wQ:p7 · '),
         findsOneWidget,
       );
 
@@ -1243,7 +1243,7 @@ void main() {
 
       await tester.tap(find.text('SEND'));
       await _drain(tester);
-      await tester.tap(find.text('NYX / UPGRADE'));
+      await tester.tap(find.text('OAK / UPGRADE'));
       await _drain(tester);
       await tester.tap(find.text('SEND'));
       await _drain(tester);

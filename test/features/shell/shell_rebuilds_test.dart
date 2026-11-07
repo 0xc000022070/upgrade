@@ -51,7 +51,7 @@ void main() {
         home: Column(
           children: [
             Expanded(
-              child: HostShellRoute(host: rose, intent: testIntent()),
+              child: HostShellRoute(host: pine, intent: testIntent()),
             ),
             const ParkedShellBar(),
           ],
@@ -60,12 +60,12 @@ void main() {
     );
     await ready(tester);
     for (var i = 0; i < 3; i++) {
-      sessions.open(intent: testIntent(), rose);
+      sessions.open(intent: testIntent(), pine);
     }
     await ready(tester);
-    final tabs = sessions.forHost(rose.id);
+    final tabs = sessions.forHost(pine.id);
     expect(tabs, hasLength(4));
-    final active = sessions.activeFor(rose.id)!;
+    final active = sessions.activeFor(pine.id)!;
     final background = tabs.first;
     expect(identical(active, background), isFalse);
     final activeLink = transport.opened[tabs.indexOf(active)];
@@ -93,7 +93,7 @@ void main() {
       'ShellBar': 1,
     });
     expect(
-      await _count(tester, () => backLink.emit('\x1b]7;file://rose/tmp\x1b\\')),
+      await _count(tester, () => backLink.emit('\x1b]7;file://pine/tmp\x1b\\')),
       {'ShellHeader': 1},
     );
     expect(
@@ -112,7 +112,7 @@ void main() {
       {...everything}..remove('_Bar'),
     );
     expect(
-      await _count(tester, () => sessions.activate(rose.id, background)),
+      await _count(tester, () => sessions.activate(pine.id, background)),
       everything,
     );
     await unmount(tester);

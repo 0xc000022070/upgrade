@@ -19,7 +19,7 @@ void main() {
         .insert(
           HostsCompanion.insert(
             id: 'host-1',
-            name: 'nyx',
+            name: 'oak',
             address: '100.64.0.1',
             user: 'luis',
             keyId: 'key-1',
@@ -57,7 +57,7 @@ void main() {
         DispatchStatus.sending,
         'fix the gate\n\nthen run it',
         'fix the gate',
-        'nyx',
+        'oak',
       ),
     );
 
@@ -92,7 +92,7 @@ void main() {
     expect(await sends.watchSentItems().first, {'item-1'});
     expect(
       (await activity.watchRecent().first).single.context,
-      'nyx / upgrade',
+      'oak / upgrade',
     );
   });
 

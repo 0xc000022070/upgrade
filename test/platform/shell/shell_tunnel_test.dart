@@ -575,7 +575,7 @@ Future<ShellConnection> openOn(
   void Function(Reconnect retry)? failed,
 }) => tunnel.open(
   reason: UserAction(testIntent()),
-  address: 'nyx',
+  address: 'oak',
   port: 357,
   user: 'luisnquin',
   privateKey: 'pem',
@@ -1347,7 +1347,7 @@ void main() {
         ..wake();
       await expectLater(
         links.claim(
-          address: 'nyx',
+          address: 'oak',
           port: 357,
           user: 'luisnquin',
           privateKey: 'pem',
@@ -2089,7 +2089,7 @@ void main() {
       final host = FakeHost();
       final tunnel = tunnelTo(
         host,
-        dialError: const SocketException('Failed host lookup: nyx'),
+        dialError: const SocketException('Failed host lookup: oak'),
       );
 
       expect(await kindOf(() => openOn(tunnel)), ShellFailureKind.unresolved);
@@ -2348,7 +2348,7 @@ void main() {
 
       await tunnel.open(
         reason: UserAction(testIntent()),
-        address: 'nyx',
+        address: 'oak',
         port: 357,
         user: 'luisnquin',
         privateKey: 'pem',
@@ -2607,7 +2607,7 @@ void engineTests() {
         'resume': true,
       },
     });
-    expect(dialled.single, (host: 'nyx', port: 60990, key: _engineKey));
+    expect(dialled.single, (host: 'oak', port: 60990, key: _engineKey));
 
     connection.write(Uint8List.fromList([0x6c, 0x73, 0x0d]));
     connection.resize(91, 37, widthPx: 1820, heightPx: 1554);
@@ -3191,7 +3191,7 @@ void engineTests() {
       );
       expect(ops(host), ['start', 'stop']);
       expect(engine.closed, isTrue);
-      expect(verdicts.silent('nyx'), isTrue);
+      expect(verdicts.silent('oak'), isTrue);
     });
 
     test('a refused engine still tries Mosh and leaves no verdict', () async {
@@ -3212,7 +3212,7 @@ void engineTests() {
       addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(connection, isA<MoshShellConnection>());
-      expect(verdicts.silent('nyx'), isFalse);
+      expect(verdicts.silent('oak'), isFalse);
     });
 
     test('an engine that answered once and then missed the deadline is not '
@@ -3233,7 +3233,7 @@ void engineTests() {
       addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(connection, isA<MoshShellConnection>());
-      expect(verdicts.silent('nyx'), isFalse);
+      expect(verdicts.silent('oak'), isFalse);
     });
 
     test(
@@ -3299,7 +3299,7 @@ void engineTests() {
           FakeMoshChannel(),
           verdicts: verdicts,
           next: () {
-            verdicts.record('nyx');
+            verdicts.record('oak');
             return engine;
           },
         ),
@@ -3309,7 +3309,7 @@ void engineTests() {
       addTearDown(() => connection.close(UserClosed(testIntent())));
 
       expect(connection, isA<EngineShellConnection>());
-      expect(verdicts.silent('nyx'), isFalse);
+      expect(verdicts.silent('oak'), isFalse);
     });
 
     test(
@@ -3329,7 +3329,7 @@ void engineTests() {
 
         expect(connection, isA<SshShellConnection>());
         expect(mosh.closed, isTrue);
-        expect(verdicts.silent('nyx'), isTrue);
+        expect(verdicts.silent('oak'), isTrue);
       },
     );
 

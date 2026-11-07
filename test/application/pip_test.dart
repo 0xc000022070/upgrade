@@ -17,17 +17,17 @@ import 'package:upgrade/application/providers.dart';
 import '../support/fake_pip.dart';
 import '../support/themed_app.dart';
 
-const nyx = Host(
+const oak = Host(
   id: 'a',
-  name: 'nyx',
+  name: 'oak',
   address: '100.1.1.1',
   port: 22,
   user: 'ops',
   keyId: 'key-a',
 );
-const rose = Host(
+const pine = Host(
   id: 'b',
-  name: 'rose',
+  name: 'pine',
   address: '100.1.1.2',
   port: 22,
   user: 'ops',
@@ -45,7 +45,7 @@ AgentSnapshot agent(String name, String status) => AgentSnapshot(
   stateChangeSeq: 1,
 );
 
-AgentPanelState panel(List<AgentSnapshot> agents, {Host on = nyx}) =>
+AgentPanelState panel(List<AgentSnapshot> agents, {Host on = oak}) =>
     AgentPanelState([
       HostOutcome(host: on, kind: AgentOutcomeKind.snapshot, agents: agents),
     ]);
@@ -254,12 +254,12 @@ void main() {
           Stream.value(
             AgentPanelState([
               HostOutcome(
-                host: nyx,
+                host: oak,
                 kind: AgentOutcomeKind.snapshot,
                 agents: [agent('claude', 'blocked'), agent('codex', 'working')],
               ),
               HostOutcome(
-                host: rose,
+                host: pine,
                 kind: AgentOutcomeKind.snapshot,
                 agents: [agent('amp', 'working')],
               ),
@@ -291,10 +291,10 @@ void main() {
       await tester.pump();
 
       final rows = drawnRows(tester);
-      expect(rows, contains('CLAUDE · nyx'));
-      expect(rows, contains('AMP · nyx'));
-      expect(rows, isNot(contains('CODEX · nyx')));
-      expect(rows.indexOf('CLAUDE · nyx'), lessThan(rows.indexOf('AMP · nyx')));
+      expect(rows, contains('CLAUDE · oak'));
+      expect(rows, contains('AMP · oak'));
+      expect(rows, isNot(contains('CODEX · oak')));
+      expect(rows.indexOf('CLAUDE · oak'), lessThan(rows.indexOf('AMP · oak')));
     });
 
     testWidgets('more agents than fit are counted', (tester) async {
@@ -323,7 +323,7 @@ void main() {
           pip,
           Stream.value(
             const AgentPanelState([
-              HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
+              HostOutcome(host: oak, kind: AgentOutcomeKind.unreachable),
             ]),
           ),
           const PipPanel(),
@@ -331,7 +331,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('NYX UNREACHABLE'), findsOneWidget);
+      expect(find.text('OAK UNREACHABLE'), findsOneWidget);
     });
   });
 
@@ -406,7 +406,7 @@ void main() {
       expect(find.text('NOT WATCHING'), findsOneWidget);
       expect(find.text('1 BLOCKED · 1 WORKING'), findsNothing);
       expect(find.text('LAST SEEN 1 BLOCKED · 1 WORKING'), findsOneWidget);
-      expect(drawnRows(tester).where((row) => row.contains(' · nyx')), isEmpty);
+      expect(drawnRows(tester).where((row) => row.contains(' · oak')), isEmpty);
     });
 
     testWidgets('the whole window is one sentence to a reader', (tester) async {
@@ -428,7 +428,7 @@ void main() {
             .map((node) => node.properties.label)
             .whereType<String>(),
         contains(
-          '1 BLOCKED, 1 WORKING. claude blocked on nyx. codex working on nyx',
+          '1 BLOCKED, 1 WORKING. claude blocked on oak. codex working on oak',
         ),
       );
     });
@@ -460,13 +460,13 @@ void main() {
       await draw(300);
       await tester.pump();
       final tall = drawnRows(tester);
-      expect(tall.where((row) => row.contains(' · nyx')), hasLength(3));
+      expect(tall.where((row) => row.contains(' · oak')), hasLength(3));
       expect(find.text('+2 MORE'), findsOneWidget);
 
       await draw(72);
       await tester.pump();
       final short = drawnRows(tester);
-      final listed = short.where((row) => row.contains(' · nyx')).length;
+      final listed = short.where((row) => row.contains(' · oak')).length;
       expect(listed, lessThan(3));
       expect(find.text('+${5 - listed} MORE'), findsOneWidget);
     });

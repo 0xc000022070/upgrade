@@ -40,18 +40,18 @@ import '../../support/platform_channels.dart';
 import '../../support/reasons.dart';
 import '../../support/themed_app.dart';
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
   keyId: 'key-1',
 );
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h2',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.2',
   port: 357,
   user: 'luis',
@@ -182,13 +182,13 @@ void main() {
   }
 
   Future<void> seed() async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await keys.save(_key('key-2', 'workstation'));
-    await hosts.save(_rose);
-    await hosts.save(_nyx);
-    await hosts.setIntegration(_rose.id, IntegrationKind.herdr, true);
-    await hosts.setIntegration(_nyx.id, IntegrationKind.herdr, true);
-    await hosts.setIntegration(_nyx.id, IntegrationKind.vnc, true);
+    await hosts.save(_pine);
+    await hosts.save(_oak);
+    await hosts.setIntegration(_pine.id, IntegrationKind.herdr, true);
+    await hosts.setIntegration(_oak.id, IntegrationKind.herdr, true);
+    await hosts.setIntegration(_oak.id, IntegrationKind.vnc, true);
   }
 
   Future<void> details(WidgetTester tester, String host) async {
@@ -207,8 +207,8 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
-    expect(find.text('NYX'), findsOneWidget);
-    expect(find.text('ROSE'), findsOneWidget);
+    expect(find.text('OAK'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget);
     expect(find.text('luis@100.64.0.1'), findsOneWidget);
     expect(find.text('luis@100.64.0.2:357'), findsOneWidget);
     expect(find.text('DETAILS'), findsNWidgets(2));
@@ -234,7 +234,7 @@ void main() {
     expect(find.text('INTEGRATIONS'), findsOneWidget);
     expect(find.byType(ScreenPreviewTile), findsNothing);
     expect(tester.getTopLeft(find.text('INTEGRATIONS')).dx, greaterThan(350));
-    await tester.tap(find.text('NYX'));
+    await tester.tap(find.text('OAK'));
     await ready(tester);
     expect(find.byType(ScreenPreviewTile), findsOneWidget);
     expect(
@@ -251,7 +251,7 @@ void main() {
     await seed();
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
-    await details(tester, 'NYX');
+    await details(tester, 'OAK');
     expect(find.text('INTEGRATIONS'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await ready(tester);
@@ -275,7 +275,7 @@ void main() {
     Future<double> reach([TextScaler? scaler]) async {
       await tester.pumpWidget(app(const HostsScreen(), scaler: scaler));
       await ready(tester);
-      await details(tester, 'ROSE');
+      await details(tester, 'PINE');
       final label = tester.getRect(find.text('INTEGRATIONS').first).left;
       final value = tester.getRect(find.text('HERDR')).left;
       await unmount(tester);
@@ -304,7 +304,7 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
-    await details(tester, 'ROSE');
+    await details(tester, 'PINE');
     expect(find.text('SHELL'), findsOneWidget);
 
     final row = find.ancestor(
@@ -313,14 +313,14 @@ void main() {
     );
     await tester.tapAt(tester.getCenter(row.first));
     await ready(tester);
-    expect(find.text('NEW SHELL ON ROSE'), findsOneWidget);
+    expect(find.text('NEW SHELL ON PINE'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('launch-shell')));
     await ready(tester);
 
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('shell-header')),
-        matching: find.text('ROSE'),
+        matching: find.text('PINE'),
       ),
       findsOneWidget,
     );
@@ -336,13 +336,13 @@ void main() {
     addTearDown(tester.view.reset);
     await seed();
     shells.stall = false;
-    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _pine);
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
     expect(find.text('ACTIVE SESSIONS'), findsNothing);
     expect(find.text('SHELL · 1 OPEN'), findsOneWidget);
-    await details(tester, 'ROSE');
+    await details(tester, 'PINE');
     expect(find.text('SHELL · 1 OPEN'), findsOneWidget);
 
     await unmount(tester);
@@ -355,9 +355,9 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     // HOSTS in front starts the agents poll, and its ten-second tick would outlive the test.
-    await keys.save(_key('key-1', 'faraday'));
-    await hosts.save(_rose);
-    await hosts.save(_nyx);
+    await keys.save(_key('key-1', 'juniper'));
+    await hosts.save(_pine);
+    await hosts.save(_oak);
     answers['100.64.0.1:22'] = const LinkResult(
       LinkStatus.up,
       software: 'OpenSSH_9.9',
@@ -382,7 +382,7 @@ void main() {
       UpgradeColors.warning,
     );
     expect(probed, ['100.64.0.1:22', '100.64.0.2:357']);
-    await details(tester, 'NYX');
+    await details(tester, 'OAK');
 
     final row = find.ancestor(
       of: find.text('REFUSED'),
@@ -407,7 +407,7 @@ void main() {
     final retried = Completer<HostOutcome>();
     Host? requested;
     final failed = AgentPanelState([
-      const HostOutcome(host: _rose, kind: AgentOutcomeKind.unreachable),
+      const HostOutcome(host: _pine, kind: AgentOutcomeKind.unreachable),
     ]);
 
     await tester.pumpWidget(
@@ -428,21 +428,21 @@ void main() {
     );
     await ready(tester);
 
-    await details(tester, 'ROSE');
+    await details(tester, 'PINE');
     expect(find.text('HERDR STATUS'), findsOneWidget);
-    expect(find.text('rose unreachable'), findsOneWidget);
+    expect(find.text('pine unreachable'), findsOneWidget);
     expect(find.text('RETRY'), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-row-dot-h1')), findsNothing);
 
     await tester.tap(find.text('RETRY'));
     await tester.pump();
 
-    expect(requested, _rose);
+    expect(requested, _pine);
     expect(find.text('RETRYING'), findsOneWidget);
     expect(find.byKey(const ValueKey('shell-row-dot-h1')), findsNothing);
 
     retried.complete(
-      const HostOutcome(host: _rose, kind: AgentOutcomeKind.snapshot),
+      const HostOutcome(host: _pine, kind: AgentOutcomeKind.snapshot),
     );
     await ready(tester);
 
@@ -461,10 +461,10 @@ void main() {
     addTearDown(tester.view.reset);
     await seed();
     await hosts.pinHostKey(
-      _rose.id,
+      _pine.id,
       PinnedHostKey(
         type: 'ssh-ed25519',
-        fingerprint: 'SHA256:rose',
+        fingerprint: 'SHA256:pine',
         pinnedAt: DateTime(2026, 9, 3),
       ),
     );
@@ -472,7 +472,7 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
-    await details(tester, 'NYX');
+    await details(tester, 'OAK');
     expect(find.text('VERIFY'), findsOneWidget);
 
     await unmount(tester);
@@ -487,10 +487,10 @@ void main() {
     await seed();
     await privateKeys.write('key-1', 'PEM');
     await hosts.pinHostKey(
-      _rose.id,
+      _pine.id,
       PinnedHostKey(
         type: 'ssh-ed25519',
-        fingerprint: 'SHA256:rose',
+        fingerprint: 'SHA256:pine',
         pinnedAt: DateTime(2026, 9, 3),
       ),
     );
@@ -505,7 +505,7 @@ void main() {
 
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
-    await details(tester, 'NYX');
+    await details(tester, 'OAK');
     await tester.tap(find.text('VERIFY'));
     await ready(tester);
 
@@ -531,19 +531,19 @@ void main() {
     await privateKeys.write('key-1', 'PEM');
     final pin = PinnedHostKey(
       type: 'ssh-ed25519',
-      fingerprint: 'SHA256:rose',
+      fingerprint: 'SHA256:pine',
       pinnedAt: DateTime(2026, 9, 3),
     );
-    await hosts.pinHostKey(_rose.id, pin);
+    await hosts.pinHostKey(_pine.id, pin);
     final stale = AgentPanelState([
       HostOutcome(
         host: Host(
-          id: _rose.id,
-          name: _rose.name,
-          address: _rose.address,
-          port: _rose.port,
-          user: _rose.user,
-          keyId: _rose.keyId,
+          id: _pine.id,
+          name: _pine.name,
+          address: _pine.address,
+          port: _pine.port,
+          user: _pine.user,
+          keyId: _pine.keyId,
           hostKey: pin,
         ),
         kind: AgentOutcomeKind.hostKeyUnverified,
@@ -559,7 +559,7 @@ void main() {
           required verifier,
         }) async {
           asked++;
-          await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:rose');
+          await verifier.verifyFingerprint('ssh-ed25519', 'SHA256:pine');
         };
 
     await tester.pumpWidget(
@@ -570,7 +570,7 @@ void main() {
     );
     await ready(tester);
 
-    await details(tester, 'ROSE');
+    await details(tester, 'PINE');
     expect(find.text('VERIFY'), findsOneWidget);
     await tester.tap(find.text('VERIFY').first);
     await ready(tester);
@@ -579,7 +579,7 @@ void main() {
     expect(find.text('VERIFYING'), findsNothing);
     expect(find.text('VERIFY'), findsNothing);
 
-    await hosts.forgetHostKey(_rose.id);
+    await hosts.forgetHostKey(_pine.id);
     await ready(tester);
     expect(find.text('VERIFY'), findsOneWidget);
 
@@ -593,13 +593,13 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await seed();
-    sessions.open(intent: testIntent(), _rose);
-    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _pine);
+    sessions.open(intent: testIntent(), _pine);
 
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
-    await details(tester, 'ROSE');
+    await details(tester, 'PINE');
     expect(find.text('SHELL · 2 OPEN'), findsOneWidget);
     expect(find.text('SHELL'), findsNothing);
 
@@ -614,12 +614,12 @@ void main() {
     addTearDown(tester.view.reset);
     await seed();
     shells.stall = false;
-    sessions.open(intent: testIntent(), _rose);
+    sessions.open(intent: testIntent(), _pine);
 
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
-    await details(tester, 'ROSE');
+    await details(tester, 'PINE');
     final panel = find
         .ancestor(of: find.text('CLIPBOARD'), matching: find.byType(Panel))
         .first;
@@ -647,8 +647,8 @@ void main() {
   });
 
   testWidgets('a host with no integration reads NONE', (tester) async {
-    await keys.save(_key('key-1', 'faraday'));
-    await hosts.save(_rose);
+    await keys.save(_key('key-1', 'juniper'));
+    await hosts.save(_pine);
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
@@ -668,7 +668,7 @@ void main() {
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
 
-    await details(tester, 'NYX');
+    await details(tester, 'OAK');
     expect(find.byType(ScreenPreviewTile), findsOneWidget);
     expect(find.text('NO FRAME YET'), findsOneWidget);
     expect(find.text('SCREEN'), findsOneWidget);
@@ -681,10 +681,10 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await seed();
-    await tester.runAsync(() => previews.write(_nyx.id, Framebuffer(640, 360)));
+    await tester.runAsync(() => previews.write(_oak.id, Framebuffer(640, 360)));
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
-    await details(tester, 'NYX');
+    await details(tester, 'OAK');
 
     expect(find.byType(ScreenPreviewTile), findsOneWidget);
     expect(find.text('NO FRAME YET'), findsNothing);
@@ -713,20 +713,20 @@ void main() {
     await seed();
     await tester.pumpWidget(app(const HostsScreen()));
     await ready(tester);
-    await details(tester, 'NYX');
+    await details(tester, 'OAK');
     expect(find.text('NO FRAME YET'), findsOneWidget);
 
-    await tester.runAsync(() => previews.write(_nyx.id, Framebuffer(640, 360)));
+    await tester.runAsync(() => previews.write(_oak.id, Framebuffer(640, 360)));
     await ready(tester);
     expect(find.text('NO FRAME YET'), findsNothing);
     expect(find.byType(Image), findsOneWidget);
     expect(aspect(), closeTo(320 / 180, 0.001));
 
-    await tester.runAsync(() => previews.write(_nyx.id, Framebuffer(800, 800)));
+    await tester.runAsync(() => previews.write(_oak.id, Framebuffer(800, 800)));
     await ready(tester);
     expect(aspect(), closeTo(1, 0.001));
 
-    await tester.runAsync(() => previews.delete(_nyx.id));
+    await tester.runAsync(() => previews.delete(_oak.id));
     await ready(tester);
     expect(find.text('NO FRAME YET'), findsOneWidget);
 
@@ -774,8 +774,8 @@ void main() {
 
     expect(find.text('[ HOSTS ]'), findsNothing);
     expect(find.text('[ KEYS ]'), findsNothing);
-    expect(find.text('nyx'), findsNothing);
-    expect(find.text('faraday'), findsNothing);
+    expect(find.text('oak'), findsNothing);
+    expect(find.text('juniper'), findsNothing);
     expect(find.text('[ ALERTS ]'), findsOneWidget);
     expect(find.text('[ BACKGROUND ]'), findsOneWidget);
     expect(find.text('[ BUILD ]'), findsOneWidget);
@@ -788,17 +788,17 @@ void main() {
       final live = ShellSession(
         number: 1,
         terminal: TerminalController(),
-        host: _rose,
+        host: _pine,
       )..state = const ShellLive();
       final connecting = ShellSession(
         number: 2,
         terminal: TerminalController(),
-        host: _rose,
+        host: _pine,
       )..state = const ShellConnecting();
       final failed = ShellSession(
         number: 3,
         terminal: TerminalController(),
-        host: _rose,
+        host: _pine,
       )..state = const ShellFailed(ShellFailureKind.streamClosed);
 
       expect(worstShellState([]), isNull);

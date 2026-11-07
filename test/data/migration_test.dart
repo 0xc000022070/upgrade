@@ -145,7 +145,7 @@ void main() {
     await first.customStatement('ALTER TABLE hosts DROP COLUMN system');
     await first.customStatement(
       "INSERT INTO hosts (id, name, address, port, user, key_id) "
-      "VALUES ('h1', 'nyx', '100.118.60.77', 357, 'luisnquin', 'k1')",
+      "VALUES ('h1', 'oak', '198.51.100.77', 357, 'luisnquin', 'k1')",
     );
     await first.customStatement('PRAGMA user_version = 21');
     await first.close();
@@ -154,7 +154,7 @@ void main() {
     addTearDown(db.close);
 
     final row = await db.select(db.hosts).getSingle();
-    expect(row.name, 'nyx');
+    expect(row.name, 'oak');
     expect(row.port, 357);
     expect(row.system, isNull);
     await (db.update(db.hosts)..where((h) => h.id.equals('h1'))).write(

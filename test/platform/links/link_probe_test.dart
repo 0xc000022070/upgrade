@@ -6,9 +6,9 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/hosts/link_probes.dart';
 import 'package:upgrade/platform/links/link_probe.dart';
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '127.0.0.1',
   port: 22,
   user: 'luis',
@@ -101,7 +101,7 @@ void main() {
   });
 
   test('a name that does not resolve says so', () async {
-    final result = await probeLink('nyx.upgrade.invalid', 22, deadline: _short);
+    final result = await probeLink('oak.upgrade.invalid', 22, deadline: _short);
 
     expect(result.status, LinkStatus.unresolved);
     expect(linkWord(result), 'UNRESOLVED');
@@ -132,15 +132,15 @@ void main() {
       now: () => now,
     );
 
-    await probes.refresh([_rose]);
-    await probes.refresh([_rose]);
+    await probes.refresh([_pine]);
+    await probes.refresh([_pine]);
     expect(calls, 1);
 
-    await probes.probe(_rose, force: true);
+    await probes.probe(_pine, force: true);
     expect(calls, 2);
 
     now = now.add(linkProbeMaxAge + const Duration(seconds: 1));
-    await probes.refresh([_rose]);
+    await probes.refresh([_pine]);
     expect(calls, 3);
   });
 
@@ -150,12 +150,12 @@ void main() {
       final answer = Completer<LinkResult>();
       final probes = LinkProbes(probe: (_, _) => answer.future);
 
-      final pending = probes.probe(_rose);
-      expect(linkWord(probes.forHost(_rose.id)), 'PROBING');
+      final pending = probes.probe(_pine);
+      expect(linkWord(probes.forHost(_pine.id)), 'PROBING');
 
       answer.complete(const LinkResult(LinkStatus.noRoute));
       await pending;
-      expect(linkWord(probes.forHost(_rose.id)), 'NO ROUTE');
+      expect(linkWord(probes.forHost(_pine.id)), 'NO ROUTE');
     },
   );
 
@@ -170,25 +170,25 @@ void main() {
     );
     const twin = Host(
       id: 'h2',
-      name: 'rose root',
+      name: 'pine root',
       address: '127.0.0.1',
       port: 22,
       user: 'root',
       keyId: 'key-1',
     );
 
-    final pending = probes.refresh([_rose, twin]);
+    final pending = probes.refresh([_pine, twin]);
     answer.complete(const LinkResult(LinkStatus.up, software: 'OpenSSH_9.9'));
     await pending;
 
     expect(calls, 1);
     expect(
       linkWord(probes.forHost(twin.id)),
-      linkWord(probes.forHost(_rose.id)),
+      linkWord(probes.forHost(_pine.id)),
     );
   });
 
   test('a host nobody has probed reads as a dash', () {
-    expect(linkWord(LinkProbes().forHost(_rose.id)), '—');
+    expect(linkWord(LinkProbes().forHost(_pine.id)), '—');
   });
 }

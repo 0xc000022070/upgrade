@@ -1,6 +1,6 @@
 ---
 name: upgrade
-description: Work on Upgrade, the open source phone client for hosts, shells, screens and herdr agents. Use for any change in this repo — a user ruling landing in docs/SPEC.md, building it, gating it, committing it, pushing a build to faraday.
+description: Work on Upgrade, the open source phone client for hosts, shells, screens and herdr agents. Use for any change in this repo — a user ruling landing in docs/SPEC.md, building it, gating it, committing it, pushing a build to the review handset.
 ---
 
 # Upgrade
@@ -12,7 +12,7 @@ You build and you review what you built. A ruling lands in the spec, the code fo
 - A feature enters the spec only after the user asks for it in their own words. Silence on your suggestion is not consent. No features the spec does not name; the AGENTS panel never assumes a host.
 - Build the whole ruling, then gate it once. No checkpoints, no interim reports.
 - The spec has no section numbers and no section sign. A section is named by its title, and the title stays in the spec: never in comments, test names, strings or commit messages.
-- Emulator only. Faraday is the user's phone, a review surface: install a release build on it, never drive it.
+- Emulator only. The review handset is the user's phone, a review surface: install a release build on it, never drive it. Machine names and addresses are in `CLAUDE.local.md`.
 - Never edit `authorized_keys` on any host.
 - `just analyze` and `just test` once, at the gate, in the background, one at a time. A second run beside the first stalls both. Subagents do not run the suite; the lead does.
 
@@ -25,4 +25,4 @@ Open the reference for the step you are on:
 | the schema version moves | `references/migrations.md` |
 | a spec claim needs proof on a screen | `references/evidence.md` |
 | the work is done and wants gating and committing | `references/gate.md` |
-| a shipped feature needs the build on faraday | `references/faraday.md` |
+| a shipped feature needs the build on the review handset | `references/review-handset.md` |

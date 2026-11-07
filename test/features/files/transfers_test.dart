@@ -30,9 +30,9 @@ final class _Status implements TransferStatus {
   void done(String title) => dones.add(title);
 }
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h1',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
@@ -45,7 +45,7 @@ final class _Files implements HostFiles {
   Future<void>? hold;
 
   @override
-  Host get host => _nyx;
+  Host get host => _oak;
 
   @override
   bool closed = false;
@@ -131,7 +131,7 @@ void main() {
   Future<void> failedPull(Object sheet, [Transfers? on]) {
     files.failOnce.add('a.txt');
     return (on ?? transfers).pull(
-      _nyx,
+      _oak,
       '/home/a.txt',
       const DirEntry(name: 'a.txt', kind: DirEntryKind.file, size: 3),
       verb: 'SAVING',
@@ -150,7 +150,7 @@ void main() {
   test('a job counts its files and posts its progress', () {
     final job = transfers.begin(
       verb: 'UPLOADING',
-      host: 'nyx',
+      host: 'oak',
       files: const [
         QueuedFile(name: 'a', bytes: 100),
         QueuedFile(name: 'b', bytes: 100),
@@ -167,7 +167,7 @@ void main() {
   test('a file waiting to come down is queued, not up', () {
     final job = transfers.begin(
       verb: 'SAVING',
-      host: 'nyx',
+      host: 'oak',
       files: const [
         QueuedFile(name: 'a', bytes: 10),
         QueuedFile(name: 'b', bytes: 10),
@@ -183,7 +183,7 @@ void main() {
   test('ending the last job says what moved and what failed', () {
     final job = transfers.begin(
       verb: 'UPLOADING',
-      host: 'nyx',
+      host: 'oak',
       files: const [
         QueuedFile(name: 'a', bytes: 1),
         QueuedFile(name: 'b', bytes: 1),
@@ -200,7 +200,7 @@ void main() {
   test('a failed batch stays until it is seen', () {
     final job = transfers.begin(
       verb: 'UPLOADING',
-      host: 'nyx',
+      host: 'oak',
       files: const [QueuedFile(name: 'a', bytes: 1)],
     );
     job.report(0, job.items[0].to(AttachStage.failed, detail: 'denied'));
@@ -232,7 +232,7 @@ void main() {
       final c = copyOf('c.txt');
       File(c.path).deleteSync();
       files.failOnce.add('b.txt');
-      await transfers.upload(_nyx, [a, b, c], into: '/home');
+      await transfers.upload(_oak, [a, b, c], into: '/home');
       final first = transfers.jobs.single;
       expect(
         [for (final item in first.items) item.stage],
@@ -254,8 +254,8 @@ void main() {
   test('two uploads of one name into one folder land side by side', () async {
     final landing = Completer<void>();
     files.hold = landing.future;
-    final first = transfers.upload(_nyx, [copyOf('a.txt')], into: '/home');
-    final second = transfers.upload(_nyx, [copyOf('a.txt')], into: '/home');
+    final first = transfers.upload(_oak, [copyOf('a.txt')], into: '/home');
+    final second = transfers.upload(_oak, [copyOf('a.txt')], into: '/home');
     await Future<void>.delayed(Duration.zero);
     landing.complete();
     await Future.wait([first, second]);
@@ -263,7 +263,7 @@ void main() {
     expect(files.puts, unorderedEquals(['/home/a.txt', '/home/a (2).txt']));
 
     files.puts.clear();
-    await transfers.upload(_nyx, [copyOf('a.txt')], into: '/home');
+    await transfers.upload(_oak, [copyOf('a.txt')], into: '/home');
     expect(files.puts, ['/home/a.txt']);
   });
 
@@ -274,8 +274,8 @@ void main() {
         link
             .put(claim!('t.txt'), FileBody.bytes(Uint8List(0)))
             .then((write) => write.failure);
-    final first = transfers.upload(_nyx, const [], into: '/home', then: text);
-    final second = transfers.upload(_nyx, const [], into: '/home', then: text);
+    final first = transfers.upload(_oak, const [], into: '/home', then: text);
+    final second = transfers.upload(_oak, const [], into: '/home', then: text);
     await Future<void>.delayed(Duration.zero);
     landing.complete();
     await Future.wait([first, second]);
@@ -287,9 +287,9 @@ void main() {
     final sheet = Object();
     await failedPull(sheet);
     final first = transfers.jobs.single;
-    transfers.begin(verb: 'B', host: 'nyx', files: const []);
+    transfers.begin(verb: 'B', host: 'oak', files: const []);
     final run = transfers.retry(first);
-    transfers.begin(verb: 'C', host: 'nyx', files: const []);
+    transfers.begin(verb: 'C', host: 'oak', files: const []);
     await run;
     expect([for (final job in transfers.jobs) job.verb], ['SAVING', 'B', 'C']);
     expect(transfers.jobs.first, isNot(first));
@@ -342,7 +342,7 @@ void main() {
       ),
     );
     await tester.runAsync(() => failedPull(Object(), transfers));
-    transfers.begin(verb: 'UPLOADING', host: 'nyx', files: const []).end();
+    transfers.begin(verb: 'UPLOADING', host: 'oak', files: const []).end();
     await tester.pump();
     expect(find.text('DONE · RETRY 1'), findsOneWidget);
   });
@@ -372,7 +372,7 @@ void main() {
   });
 
   test('the notification stop reaches every moving batch', () {
-    final a = transfers.begin(verb: 'UP', host: 'nyx', files: const []);
+    final a = transfers.begin(verb: 'UP', host: 'oak', files: const []);
     final b = transfers.begin(verb: 'UP', host: 'eos', files: const []);
     transfers.stopAll();
     expect(a.stop.stopped && b.stop.stopped, isTrue);
@@ -396,7 +396,7 @@ void main() {
 
     final job = transfers.begin(
       verb: 'DOWNLOADING',
-      host: 'nyx',
+      host: 'oak',
       files: const [QueuedFile(name: 'a', bytes: 10)],
     );
     job.report(0, job.items[0].to(AttachStage.sending, down: true));
@@ -406,12 +406,12 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('transfer-bar')));
     await tester.pumpAndSettle();
     expect(find.text('TRANSFERS'), findsOneWidget);
-    expect(find.text('DOWNLOADING · nyx · MOVING'), findsOneWidget);
+    expect(find.text('DOWNLOADING · oak · MOVING'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('transfers-0-stop')));
     await tester.pump();
     expect(job.stop.stopped, isTrue);
-    expect(find.text('DOWNLOADING · nyx · STOPPING'), findsOneWidget);
+    expect(find.text('DOWNLOADING · oak · STOPPING'), findsOneWidget);
 
     job.end();
     now = now.add(transferLinger);

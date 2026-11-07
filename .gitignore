@@ -63,7 +63,7 @@ result-*
 *.drift.dart
 *.freezed.dart
 
-# Release artifacts staged for faraday to pull — `just publish`
+# Release artifacts staged for a handset to pull, by `just publish`
 /publish/
 
 # Rust build output for the host engine
@@ -74,3 +74,7 @@ result-*
 # Design exports, regenerated from the .pen sources
 /docs/design/**/*.png
 /chat/target/
+
+# Per-checkout machines and settings
+.env
+CLAUDE.local.md

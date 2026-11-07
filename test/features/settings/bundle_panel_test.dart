@@ -29,18 +29,18 @@ ManagedKey _key(String id, String name) => ManagedKey(
   createdAt: DateTime.utc(2026),
 );
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
   keyId: 'key-1',
 );
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h2',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.2',
   port: 357,
   user: 'luis',
@@ -94,12 +94,12 @@ void main() {
   }
 
   Future<void> seed() async {
-    await keys.save(_key('key-1', 'faraday'));
+    await keys.save(_key('key-1', 'juniper'));
     await keys.save(_key('key-2', 'workstation'));
     await privateKeys.write('key-1', 'PEM 1');
     await privateKeys.write('key-2', 'PEM 2');
-    await hosts.save(_rose);
-    await hosts.setIntegration(_rose.id, IntegrationKind.herdr, true);
+    await hosts.save(_pine);
+    await hosts.setIntegration(_pine.id, IntegrationKind.herdr, true);
   }
 
   Future<void> mount(WidgetTester tester) async {
@@ -167,7 +167,7 @@ void main() {
     expect(name, startsWith('upgrade-'));
     expect(name, endsWith('.bundle'));
     final bundle = Bundle.decode(await cipher.open(bytes, 'correct horse'));
-    expect(bundle.hosts.single.host.name, 'rose');
+    expect(bundle.hosts.single.host.name, 'pine');
     expect(bundle.hosts.single.integrations, {IntegrationKind.herdr});
     expect(bundle.keys.map((k) => k.privateKey), ['PEM 1', 'PEM 2']);
     await unmount(tester);
@@ -177,9 +177,9 @@ void main() {
     tester,
   ) async {
     final other = Bundle(
-      keys: [BundleKey(key: _key('key-1', 'faraday'), privateKey: 'PEM 1')],
+      keys: [BundleKey(key: _key('key-1', 'juniper'), privateKey: 'PEM 1')],
       hosts: const [
-        BundleHost(host: _nyx, integrations: {IntegrationKind.vnc}),
+        BundleHost(host: _oak, integrations: {IntegrationKind.vnc}),
       ],
       paths: const [],
     );
@@ -201,7 +201,7 @@ void main() {
     await ready(tester);
 
     expect(find.text('IMPORTED 1 HOST · 1 KEY · 0 PATHS'), findsOneWidget);
-    expect((await hosts.all()).single.name, 'nyx');
+    expect((await hosts.all()).single.name, 'oak');
     expect(await privateKeys.read('key-1'), 'PEM 1');
     expect(await hosts.watchIntegrations('h2').first, {IntegrationKind.vnc});
     await unmount(tester);
@@ -211,7 +211,7 @@ void main() {
     tester,
   ) async {
     final other = Bundle(
-      keys: [BundleKey(key: _key('key-1', 'faraday'), privateKey: 'PEM 1')],
+      keys: [BundleKey(key: _key('key-1', 'juniper'), privateKey: 'PEM 1')],
       hosts: const [],
       paths: const [],
     );

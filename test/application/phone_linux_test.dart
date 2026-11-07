@@ -169,9 +169,9 @@ void main() {
   test('another host is dialled as it is, with nothing started', () async {
     await linux.install(const PhoneLinuxSetup('ubuntu'));
     final other = Host(
-      id: 'rose',
-      name: 'rose',
-      address: '100.64.94.121',
+      id: 'pine',
+      name: 'pine',
+      address: '198.51.100.21',
       port: 22,
       user: 'luis',
       keyId: (await keys.all()).single.id,
@@ -239,9 +239,9 @@ void main() {
     final phone = await linux.install(const PhoneLinuxSetup('ubuntu'));
     await hosts.save(
       Host(
-        id: 'rose',
-        name: 'rose',
-        address: '100.64.94.121',
+        id: 'pine',
+        name: 'pine',
+        address: '198.51.100.21',
         port: 22,
         user: 'luis',
         keyId: phone.keyId,
@@ -250,7 +250,7 @@ void main() {
 
     await linux.remove(phone);
 
-    expect((await hosts.all()).map((host) => host.id), ['rose']);
+    expect((await hosts.all()).map((host) => host.id), ['pine']);
     expect((await keys.all()).single.id, phone.keyId);
     expect(await store.read(phone.keyId), isNotNull);
   });

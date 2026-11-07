@@ -16,7 +16,7 @@ void main() {
       final store = MemoryPrivateKeyStore();
       final keys = Ed25519Keys(store);
 
-      final generated = await keys.generate(id: 'key-1', name: 'faraday');
+      final generated = await keys.generate(id: 'key-1', name: 'juniper');
       final privateKey = await keys.privateKey('key-1');
 
       expect(privateKey, isNotNull);
@@ -25,7 +25,7 @@ void main() {
         isA<OpenSSHEd25519KeyPair>(),
       );
       expect(generated.publicKey, startsWith('ssh-ed25519 '));
-      expect(generated.publicKey, endsWith(' faraday'));
+      expect(generated.publicKey, endsWith(' juniper'));
       expect(generated.publicKey, isNot(contains('PRIVATE')));
     },
   );

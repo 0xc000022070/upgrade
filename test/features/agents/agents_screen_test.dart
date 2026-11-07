@@ -23,17 +23,17 @@ import '../../support/fake_pip.dart';
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
 
-const nyx = Host(
-  id: 'nyx',
-  name: 'Nyx',
-  address: '100.118.60.77',
+const oak = Host(
+  id: 'oak',
+  name: 'Oak',
+  address: '198.51.100.77',
   port: 22,
   user: 'luisnquin',
   keyId: 'k1',
 );
-const rose = Host(
-  id: 'rose',
-  name: 'Rose',
+const pine = Host(
+  id: 'pine',
+  name: 'Pine',
   address: '100.1.1.2',
   port: 22,
   user: 'luisnquin',
@@ -103,12 +103,12 @@ void main() {
     final claude = agent('claude', workspace: 'w22');
     final state = AgentPanelState([
       HostOutcome(
-        host: nyx,
+        host: oak,
         kind: AgentOutcomeKind.snapshot,
         agents: [agent('codex', workspace: 'w9', status: 'idle')],
       ),
       HostOutcome(
-        host: rose,
+        host: pine,
         kind: AgentOutcomeKind.snapshot,
         agents: [claude],
       ),
@@ -130,9 +130,9 @@ void main() {
     );
     await ready(tester);
 
-    await tester.tap(find.widgetWithText(ListRow, 'CLAUDE · upgrade · Rose'));
+    await tester.tap(find.widgetWithText(ListRow, 'CLAUDE · upgrade · Pine'));
 
-    expect(opened, [(rose, claude)]);
+    expect(opened, [(pine, claude)]);
 
     await unmount(tester);
   });
@@ -144,7 +144,7 @@ void main() {
       host(
         AgentPanelState([
           HostOutcome(
-            host: nyx,
+            host: oak,
             kind: AgentOutcomeKind.snapshot,
             agents: [
               agent(
@@ -181,15 +181,15 @@ void main() {
     await tester.pumpWidget(
       host(
         const AgentPanelState([
-          HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
+          HostOutcome(host: oak, kind: AgentOutcomeKind.unreachable),
         ]),
       ),
     );
     await ready(tester);
 
-    expect(find.text('nyx unreachable'), findsOneWidget);
+    expect(find.text('oak unreachable'), findsOneWidget);
     expect(find.text('HERDR check could not reach host'), findsOneWidget);
-    expect(find.text('luisnquin@100.118.60.77:22'), findsOneWidget);
+    expect(find.text('luisnquin@198.51.100.77:22'), findsOneWidget);
     expect(find.text('never connected'), findsOneWidget);
     expect(find.text('RETRY'), findsOneWidget);
     expect(find.text('WORKSPACES'), findsNothing);
@@ -204,7 +204,7 @@ void main() {
     await tester.pumpWidget(
       host(
         const AgentPanelState([
-          HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
+          HostOutcome(host: oak, kind: AgentOutcomeKind.unreachable),
         ]),
         retry: (host, {source = AgentSource.herdr}) {
           requested = host;
@@ -217,11 +217,11 @@ void main() {
     await tester.tap(find.text('RETRY'));
     await tester.pump();
 
-    expect(requested, nyx);
+    expect(requested, oak);
     expect(find.text('RETRYING'), findsOneWidget);
 
     retried.complete(
-      const HostOutcome(host: nyx, kind: AgentOutcomeKind.keyRejected),
+      const HostOutcome(host: oak, kind: AgentOutcomeKind.keyRejected),
     );
     await ready(tester);
 
@@ -239,7 +239,7 @@ void main() {
     await tester.pumpWidget(
       host(
         const AgentPanelState([
-          HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable),
+          HostOutcome(host: oak, kind: AgentOutcomeKind.unreachable),
         ]),
         retry: (_, {source = AgentSource.herdr}) => Future.error(
           StateError('private key material must not reach the screen'),
@@ -263,7 +263,7 @@ void main() {
       host(
         AgentPanelState([
           HostOutcome(
-            host: nyx,
+            host: oak,
             kind: AgentOutcomeKind.snapshot,
             agents: [
               agent('claude', workspace: 'wK', label: 'upgrade 2'),
@@ -279,7 +279,7 @@ void main() {
     expect(find.text('wR'), findsOneWidget);
     expect(find.text('WK'), findsNothing);
     expect(find.text('WR'), findsNothing);
-    expect(find.textContaining('NYX'), findsNothing);
+    expect(find.textContaining('OAK'), findsNothing);
     await unmount(tester);
   });
 
@@ -290,7 +290,7 @@ void main() {
       host(
         AgentPanelState([
           HostOutcome(
-            host: nyx,
+            host: oak,
             kind: AgentOutcomeKind.snapshot,
             agents: [
               agent('claude', workspace: 'wQ', session: 'lab'),
@@ -313,12 +313,12 @@ void main() {
       host(
         AgentPanelState([
           HostOutcome(
-            host: nyx,
+            host: oak,
             kind: AgentOutcomeKind.snapshot,
             agents: [agent('claude', workspace: 'wQ')],
           ),
           HostOutcome(
-            host: rose,
+            host: pine,
             kind: AgentOutcomeKind.snapshot,
             agents: [agent('codex', workspace: 'wQ', label: '~')],
           ),
@@ -327,8 +327,8 @@ void main() {
     );
     await ready(tester);
 
-    expect(find.text('NYX / wQ'), findsOneWidget);
-    expect(find.text('ROSE / ~'), findsOneWidget);
+    expect(find.text('OAK / wQ'), findsOneWidget);
+    expect(find.text('PINE / ~'), findsOneWidget);
     await unmount(tester);
   });
 
@@ -339,18 +339,18 @@ void main() {
       host(
         AgentPanelState([
           HostOutcome(
-            host: nyx,
+            host: oak,
             kind: AgentOutcomeKind.snapshot,
             agents: [agent('claude', workspace: 'wQ')],
           ),
-          const HostOutcome(host: rose, kind: AgentOutcomeKind.keyRejected),
+          const HostOutcome(host: pine, kind: AgentOutcomeKind.keyRejected),
         ]),
       ),
     );
     await ready(tester);
 
-    expect(find.text('NYX / wQ'), findsOneWidget);
-    expect(find.text('ROSE'), findsOneWidget);
+    expect(find.text('OAK / wQ'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget);
     expect(find.text('key rejected'), findsOneWidget);
     await unmount(tester);
   });
@@ -362,7 +362,7 @@ void main() {
       host(
         AgentPanelState([
           HostOutcome(
-            host: nyx,
+            host: oak,
             kind: AgentOutcomeKind.snapshot,
             agents: [
               agent('claude', workspace: 'wQ'),
@@ -382,7 +382,7 @@ void main() {
     expect(find.text('G'), findsOneWidget);
     expect(find.text('?'), findsNothing);
     expect(find.text('C'), findsNothing);
-    expect(find.text('GIZMO · upgrade · Nyx'), findsOneWidget);
+    expect(find.text('GIZMO · upgrade · Oak'), findsOneWidget);
     await unmount(tester);
   });
 
@@ -391,7 +391,7 @@ void main() {
       host(
         AgentPanelState([
           HostOutcome(
-            host: nyx,
+            host: oak,
             kind: AgentOutcomeKind.snapshot,
             agents: [
               agent('claude', workspace: 'wQ', status: 'done'),
@@ -421,7 +421,7 @@ void main() {
       host(
         AgentPanelState([
           HostOutcome(
-            host: nyx,
+            host: oak,
             kind: AgentOutcomeKind.snapshot,
             agents: [agent('', workspace: 'wQ')],
           ),
@@ -430,7 +430,7 @@ void main() {
     );
     await ready(tester);
 
-    expect(find.text('? · upgrade · Nyx'), findsOneWidget);
+    expect(find.text('? · upgrade · Oak'), findsOneWidget);
     expect(
       find.descendant(of: find.byType(AgentMark), matching: find.text('?')),
       findsOneWidget,
@@ -446,7 +446,7 @@ void main() {
       host(
         AgentPanelState([
           HostOutcome(
-            host: nyx,
+            host: oak,
             kind: AgentOutcomeKind.snapshot,
             agents: [agent('claude', workspace: 'wQ', status: 'working')],
           ),

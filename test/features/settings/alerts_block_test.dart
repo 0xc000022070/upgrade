@@ -17,9 +17,9 @@ import 'package:upgrade/application/providers.dart';
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
 
-const nyx = Host(
+const oak = Host(
   id: 'host-1',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.1',
   port: 22,
   user: 'luisnquin',
@@ -39,8 +39,8 @@ void main() {
   tearDown(() => db.close());
 
   Future<void> withHerdrHost() async {
-    await hosts.save(nyx);
-    await hosts.setIntegration(nyx.id, IntegrationKind.herdr, true);
+    await hosts.save(oak);
+    await hosts.setIntegration(oak.id, IntegrationKind.herdr, true);
   }
 
   Widget shell({Future<bool> Function()? permission}) => ProviderScope(

@@ -7,10 +7,10 @@ import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/vnc/vnc_failure.dart';
 
-const nyx = Host(
-  id: 'nyx',
-  name: 'NYX',
-  address: '100.118.60.77',
+const oak = Host(
+  id: 'oak',
+  name: 'OAK',
+  address: '198.51.100.77',
   port: 22,
   user: 'luisnquin',
   keyId: 'k1',
@@ -19,17 +19,17 @@ const nyx = Host(
 void main() {
   group('the vocabulary', () {
     test('only the two lines about reaching a machine name one', () {
-      expect(ReasonLine.unreachable.on('NYX'), 'nyx unreachable');
-      expect(ReasonLine.unresolved.on('NYX'), 'nyx unresolved');
-      expect(ReasonLine.keyRejected.on('NYX'), 'key rejected');
-      expect(ReasonLine.streamClosed.on('NYX'), 'stream closed');
-      expect(ReasonLine.hostKeyChanged.on('NYX'), 'host key changed');
+      expect(ReasonLine.unreachable.on('OAK'), 'oak unreachable');
+      expect(ReasonLine.unresolved.on('OAK'), 'oak unresolved');
+      expect(ReasonLine.keyRejected.on('OAK'), 'key rejected');
+      expect(ReasonLine.streamClosed.on('OAK'), 'stream closed');
+      expect(ReasonLine.hostKeyChanged.on('OAK'), 'host key changed');
     });
 
     test('the header word is the line without the host, uppercased', () {
       for (final line in ReasonLine.values) {
         expect(line.short, line.words.toUpperCase());
-        expect(line.short, isNot(contains('NYX')));
+        expect(line.short, isNot(contains('OAK')));
       }
     });
 
@@ -42,35 +42,35 @@ void main() {
   group('one fact, one sentence, whatever layer found it', () {
     test('a key the host rejected', () {
       const line = 'key rejected';
-      expect(const HerdrKeyRejected().reason('NYX'), line);
-      expect(const VncKeyRejected().reason('NYX'), line);
-      expect(ShellFailureKind.keyRejected.line.on('NYX'), line);
+      expect(const HerdrKeyRejected().reason('OAK'), line);
+      expect(const VncKeyRejected().reason('OAK'), line);
+      expect(ShellFailureKind.keyRejected.line.on('OAK'), line);
       expect(
-        const HostOutcome(host: nyx, kind: AgentOutcomeKind.keyRejected).reason,
+        const HostOutcome(host: oak, kind: AgentOutcomeKind.keyRejected).reason,
         line,
       );
     });
 
     test('a machine that did not answer', () {
-      const line = 'nyx unreachable';
-      expect(const HerdrUnreachable().reason('NYX'), line);
-      expect(const VncUnreachable().reason('NYX'), line);
-      expect(ShellFailureKind.unreachable.line.on('NYX'), line);
+      const line = 'oak unreachable';
+      expect(const HerdrUnreachable().reason('OAK'), line);
+      expect(const VncUnreachable().reason('OAK'), line);
+      expect(ShellFailureKind.unreachable.line.on('OAK'), line);
       expect(
-        const HostOutcome(host: nyx, kind: AgentOutcomeKind.unreachable).reason,
+        const HostOutcome(host: oak, kind: AgentOutcomeKind.unreachable).reason,
         line,
       );
     });
 
     test('a host key that is not the one pinned for it', () {
       const line = 'host key changed';
-      expect(const HerdrHostKeyChanged().reason('NYX'), line);
-      expect(const VncHostKeyChanged().reason('NYX'), line);
-      expect(ShellFailureKind.hostKeyChanged.line.on('NYX'), line);
+      expect(const HerdrHostKeyChanged().reason('OAK'), line);
+      expect(const VncHostKeyChanged().reason('OAK'), line);
+      expect(ShellFailureKind.hostKeyChanged.line.on('OAK'), line);
       expect(HostKeyRefusal.changed.line.words, line);
       expect(
         const HostOutcome(
-          host: nyx,
+          host: oak,
           kind: AgentOutcomeKind.hostKeyChanged,
         ).reason,
         line,
@@ -78,10 +78,10 @@ void main() {
     });
 
     test('a protocol the app does not speak', () {
-      expect(const HerdrProtocolMismatch(3).reason('NYX'), 'protocol 3');
+      expect(const HerdrProtocolMismatch(3).reason('OAK'), 'protocol 3');
       expect(
         const HostOutcome(
-          host: nyx,
+          host: oak,
           kind: AgentOutcomeKind.protocolMismatch,
           protocol: 3,
         ).reason,
@@ -91,16 +91,16 @@ void main() {
 
     test('a host with no herdr on its path', () {
       const line = 'no herdr';
-      expect(const HerdrMissing().reason('NYX'), line);
+      expect(const HerdrMissing().reason('OAK'), line);
       expect(
-        const HostOutcome(host: nyx, kind: AgentOutcomeKind.noHerdr).reason,
+        const HostOutcome(host: oak, kind: AgentOutcomeKind.noHerdr).reason,
         line,
       );
     });
 
     test('a snapshot is not a failure and has no line', () {
       expect(
-        const HostOutcome(host: nyx, kind: AgentOutcomeKind.snapshot).reason,
+        const HostOutcome(host: oak, kind: AgentOutcomeKind.snapshot).reason,
         '',
       );
     });
@@ -111,12 +111,12 @@ void main() {
       for (final kind in AgentOutcomeKind.values) {
         if (kind == AgentOutcomeKind.snapshot) continue;
         final named = HostOutcome(
-          host: nyx,
+          host: oak,
           kind: kind,
           protocol: 3,
         ).namedReason;
         expect(
-          'nyx'.allMatches(named).length,
+          'oak'.allMatches(named).length,
           1,
           reason: '$kind reads "$named"',
         );
@@ -126,32 +126,32 @@ void main() {
     test('asks the line rather than the kind', () {
       expect(
         const HostOutcome(
-          host: nyx,
+          host: oak,
           kind: AgentOutcomeKind.unreachable,
         ).namedReason,
-        'nyx unreachable',
+        'oak unreachable',
       );
       expect(
         const HostOutcome(
-          host: nyx,
+          host: oak,
           kind: AgentOutcomeKind.keyRejected,
         ).namedReason,
-        'nyx · key rejected',
+        'oak · key rejected',
       );
       expect(
         const HostOutcome(
-          host: nyx,
+          host: oak,
           kind: AgentOutcomeKind.protocolMismatch,
           protocol: 3,
         ).namedReason,
-        'nyx · protocol 3',
+        'oak · protocol 3',
       );
     });
 
     test('a snapshot is no failure and is not prefixed into one', () {
       expect(
         const HostOutcome(
-          host: nyx,
+          host: oak,
           kind: AgentOutcomeKind.snapshot,
         ).namedReason,
         '',
@@ -164,25 +164,25 @@ void main() {
       for (final kind in ShellFailureKind.values) {
         expect(kind.line.short, kind.line.words.toUpperCase());
       }
-      expect(ShellFailureKind.shellRefused.line.on('NYX'), 'shell refused');
+      expect(ShellFailureKind.shellRefused.line.on('OAK'), 'shell refused');
       expect(ShellFailureKind.streamClosed.line.short, 'STREAM CLOSED');
     });
 
     test('the screen route words its own three beside the ssh ones', () {
-      expect(const VncTunnelRefused().reason('NYX'), 'tunnel refused');
-      expect(const VncAuthUnsupported().reason('NYX'), 'auth unsupported');
-      expect(const VncUsernameNeeded().reason('NYX'), 'VNC username missing');
-      expect(const VncPasswordNeeded().reason('NYX'), 'VNC password missing');
-      expect(const VncAuthRejected().reason('NYX'), 'VNC credentials rejected');
-      expect(const VncStreamClosed().reason('NYX'), 'stream closed');
-      expect(const VncUnresolved().reason('NYX'), 'nyx unresolved');
-      expect(const VncHostKeyUnverified().reason('NYX'), 'host key unverified');
+      expect(const VncTunnelRefused().reason('OAK'), 'tunnel refused');
+      expect(const VncAuthUnsupported().reason('OAK'), 'auth unsupported');
+      expect(const VncUsernameNeeded().reason('OAK'), 'VNC username missing');
+      expect(const VncPasswordNeeded().reason('OAK'), 'VNC password missing');
+      expect(const VncAuthRejected().reason('OAK'), 'VNC credentials rejected');
+      expect(const VncStreamClosed().reason('OAK'), 'stream closed');
+      expect(const VncUnresolved().reason('OAK'), 'oak unresolved');
+      expect(const VncHostKeyUnverified().reason('OAK'), 'host key unverified');
     });
 
     test('the poll words the rest of the herdr failures', () {
-      expect(const HerdrUnresolved().reason('NYX'), 'nyx unresolved');
+      expect(const HerdrUnresolved().reason('OAK'), 'oak unresolved');
       expect(
-        const HerdrHostKeyUnverified().reason('NYX'),
+        const HerdrHostKeyUnverified().reason('OAK'),
         'host key unverified',
       );
     });

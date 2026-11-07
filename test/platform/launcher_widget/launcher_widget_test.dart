@@ -8,9 +8,9 @@ import 'package:upgrade/platform/launcher_widget/launcher_widget.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
@@ -80,7 +80,7 @@ void main() {
       addTearDown(() => handler.onDestroy(DateTime.now(), false));
       await handler.setKinds({AlertKind.blocked});
 
-      await handler.setHosts(const [_rose]);
+      await handler.setHosts(const [_pine]);
       handler.setShells(1);
       await _settle();
 
@@ -108,7 +108,7 @@ void main() {
       final handler = _handler();
       addTearDown(() => handler.onDestroy(DateTime.now(), false));
 
-      await handler.setHosts(const [_rose]);
+      await handler.setHosts(const [_pine]);
       await _settle();
 
       expect(bridge.shade, isNotEmpty);
@@ -130,8 +130,8 @@ void main() {
     test('is the holder\'s title in caps, then its summary', () {
       expect(launcherBarLabel('Capture', null), 'CAPTURE');
       expect(
-        launcherBarLabel('Prompt', 'nyx · owner/repo · claude'),
-        'PROMPT · nyx · owner/repo · claude',
+        launcherBarLabel('Prompt', 'oak · owner/repo · claude'),
+        'PROMPT · oak · owner/repo · claude',
       );
       expect(launcherBarLabel('Prompt', ''), 'PROMPT');
       expect(launcherBarLabel(null, 'stray'), isNull);

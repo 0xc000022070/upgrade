@@ -6,9 +6,9 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/launcher_widget/launcher_widget.dart';
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
@@ -44,13 +44,13 @@ HostOutcome _ok(
   List<AgentSnapshot> agents, {
   AgentSource source = AgentSource.herdr,
 }) => HostOutcome(
-  host: _rose,
+  host: _pine,
   kind: AgentOutcomeKind.snapshot,
   agents: agents,
   source: source,
 );
 
-const _down = HostOutcome(host: _rose, kind: AgentOutcomeKind.unreachable);
+const _down = HostOutcome(host: _pine, kind: AgentOutcomeKind.unreachable);
 
 const OpenSend _send = (
   id: 's1',

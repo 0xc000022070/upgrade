@@ -384,7 +384,7 @@ class MainActivity : FlutterActivity() {
     }
 }
 
-// Swiping the task away used to take the engine with it, and on faraday's PowerVR driver that
+// Swiping the task away used to take the engine with it, and on the Pixel 10 Pro Fold's PowerVR driver that
 // Vulkan teardown can hang for good while the watcher service keeps the process alive.
 internal object UpgradeEngine {
     private var engine: FlutterEngine? = null

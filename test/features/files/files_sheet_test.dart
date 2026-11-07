@@ -19,9 +19,9 @@ import 'package:upgrade/application/providers.dart';
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h2',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.2',
   port: 22,
   user: 'luis',
@@ -47,7 +47,7 @@ final class _FakeFiles implements HostFiles {
   String? copyFails;
 
   @override
-  Host get host => _nyx;
+  Host get host => _oak;
 
   @override
   Future<String> home() async => '/home/luis';
@@ -120,7 +120,7 @@ void main() {
             opened++;
             return files..closed = false;
           }),
-          hostsProvider.overrideWith((ref) => Stream.value(const [_nyx])),
+          hostsProvider.overrideWith((ref) => Stream.value(const [_oak])),
         ],
         child: MaterialApp(
           theme: testTheme,
@@ -143,7 +143,7 @@ void main() {
   testWidgets('the tree opens at home, folders first and dotfiles last', (
     tester,
   ) async {
-    await open(tester, (context) => showHostFiles(context, _nyx));
+    await open(tester, (context) => showHostFiles(context, _oak));
 
     expect(find.byKey(const ValueKey('files-dir-/home/luis')), findsOneWidget);
     expect(top(tester, 'src'), lessThan(top(tester, 'notes.txt')));
@@ -170,7 +170,7 @@ void main() {
       _dir('alpha'),
       _dir('.Config'),
     ];
-    await open(tester, (context) => showHostFiles(context, _nyx));
+    await open(tester, (context) => showHostFiles(context, _oak));
 
     final names = [
       'alpha',
@@ -190,7 +190,7 @@ void main() {
   testWidgets('a link that died is opened again by the next tap', (
     tester,
   ) async {
-    await open(tester, (context) => showHostFiles(context, _nyx));
+    await open(tester, (context) => showHostFiles(context, _oak));
     final before = opened;
     files.closed = true;
 
@@ -202,7 +202,7 @@ void main() {
   });
 
   testWidgets('a file offers share, save and send', (tester) async {
-    await open(tester, (context) => showHostFiles(context, _nyx));
+    await open(tester, (context) => showHostFiles(context, _oak));
 
     await tester.tap(find.text('notes.txt'));
     await tester.pumpAndSettle();
@@ -218,7 +218,7 @@ void main() {
     String? picked;
     await open(
       tester,
-      (context) async => picked = await pickHostFolder(context, _nyx),
+      (context) async => picked = await pickHostFolder(context, _oak),
     );
 
     await tester.tap(find.text('src'));
@@ -239,7 +239,7 @@ void main() {
 
   testWidgets('put here stays in reach under a long home', (tester) async {
     files.tree['/home/luis'] = [for (var i = 0; i < 80; i++) _dir('dir$i')];
-    await open(tester, (context) => pickHostFolder(context, _nyx));
+    await open(tester, (context) => pickHostFolder(context, _oak));
 
     final put = find.byKey(const ValueKey('files-put-here'));
     expect(put, findsOneWidget);
@@ -260,7 +260,7 @@ void main() {
       (context) => showSendSheet(context, const [SharedText('hello')]),
     );
 
-    await tester.tap(find.text('nyx'));
+    await tester.tap(find.text('oak'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('send-clipboard')));
     await tester.pump();
@@ -279,7 +279,7 @@ void main() {
       (context) => showSendSheet(context, const [SharedText('hello')]),
     );
 
-    await tester.tap(find.text('nyx'));
+    await tester.tap(find.text('oak'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('send-folder')));
     await tester.pumpAndSettle();
@@ -311,7 +311,7 @@ void main() {
           showSendSheet(context, const [SharedText('hello')], unreadable: 1),
     );
 
-    await tester.tap(find.text('nyx'));
+    await tester.tap(find.text('oak'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('send-clipboard')));
     await tester.pumpAndSettle(sendSheetLinger);
@@ -326,7 +326,7 @@ void main() {
       (context) => showSendSheet(context, const [SharedText('hello')]),
     );
 
-    await tester.tap(find.text('nyx'));
+    await tester.tap(find.text('oak'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('send-folder')));
     await tester.pumpAndSettle();
@@ -534,7 +534,7 @@ void main() {
 
   testWidgets('an unreachable host can be tried again', (tester) async {
     unreachable = 1;
-    await open(tester, (context) => showHostFiles(context, _nyx));
+    await open(tester, (context) => showHostFiles(context, _oak));
     expect(find.byKey(const ValueKey('files-error')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('files-reconnect')));

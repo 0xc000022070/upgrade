@@ -33,7 +33,7 @@ HostKeyVerifier get _pinned => HostKeyVerifier.pinnedOnly(_pin);
 
 final _host = Host(
   id: 'h1',
-  name: 'NYX',
+  name: 'OAK',
   address: '10.0.0.2',
   port: 22,
   user: 'dev',
@@ -438,7 +438,7 @@ void main() {
           greaterThan(1),
           reason: 'busy only once the overflow refuses',
         );
-        expect(ReasonLine.hostBusy.on('NYX'), 'host busy');
+        expect(ReasonLine.hostBusy.on('OAK'), 'host busy');
         container.dispose();
         links.close();
       },

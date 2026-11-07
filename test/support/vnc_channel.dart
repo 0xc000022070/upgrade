@@ -44,7 +44,7 @@ List<int> serverHandshake({
   String? reason,
   int width = 1920,
   int height = 1080,
-  String name = 'nyx',
+  String name = 'oak',
 }) {
   final out = <int>[...version.codeUnits];
   if (version == 'RFB 003.003\n') {
@@ -143,7 +143,7 @@ class FakeVncConnection implements VncConnection {
   static Future<FakeVncConnection> open({
     int width = 16,
     int height = 8,
-    String name = 'nyx',
+    String name = 'oak',
   }) async {
     final channel = FakeVncChannel();
     final rfb = RfbClient(incoming: channel.stream, outgoing: channel.sink);

@@ -488,7 +488,7 @@ new file mode 100644
             .data,
         'LINES',
       );
-      expect(find.text('nyx unreachable'), findsNothing);
+      expect(find.text('oak unreachable'), findsNothing);
 
       await unmount(tester);
     });

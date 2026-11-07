@@ -34,9 +34,9 @@ Claude inspected [OmaLauncher's source at 1c07b78](https://github.com/SimonSchub
 
 Negative source findings are bounded to that revision. They are not permanent claims about OmaLauncher. Neither researcher ran OmaLauncher on a device.
 
-## What Faraday adds to the decision
+## What the maintainer's phone adds to the decision
 
-I inspected Upgrade on Faraday, including the unfolded Home and recent Drops, then released it. The Home showed 123 Drops. Its raw list occupied most of the available space, with capture, resume and navigation below. That is a real composition problem: the user's collected material dominates the place intended to show ongoing work.
+I inspected Upgrade on the maintainer's phone, including the unfolded Home and recent Drops, then released it. The Home showed 123 Drops. Its raw list occupied most of the available space, with capture, resume and navigation below. That is a real composition problem: the user's collected material dominates the place intended to show ongoing work.
 
 The recent Drops contain several connected requests:
 
@@ -135,7 +135,7 @@ All frames mode exposes the screen family together. Individual frames contain th
 - [Oma widget catalog](https://github.com/SimonSchubert/omarchy-widgets).
 - [Android app widgets](https://developer.android.com/develop/ui/views/appwidgets/overview), [sharing shortcuts](https://developer.android.com/training/sharing/direct-share-targets), and [Live Updates](https://developer.android.com/develop/ui/compose/notifications/live-update).
 - [Project motion reference](https://x.com/salungprastyo/status/2113100863304855896), [notes reference](https://x.com/steveruizok/status/2113370058135068899), and [kanban reference](https://x.com/odd_joel/status/2112211109533061194). Their text was recovered; this study does not claim a full audiovisual review of those three references.
-- Local product contracts: [SPEC](../../SPEC.md), [plugin target](../../PLUGIN-SPEC.md), [roadmap](../../ROADMAP.md), plus direct Faraday inspection.
+- Local product contracts: [SPEC](../../SPEC.md), [plugin target](../../PLUGIN-SPEC.md), [roadmap](../../ROADMAP.md), plus direct inspection on the maintainer's phone.
 
 Two Claude Code instances researched competition and product structure independently of the main implementation pass. They shared the task and repository context, so this was parallel research, not a blind evaluation. The lead made the final proposal.
 

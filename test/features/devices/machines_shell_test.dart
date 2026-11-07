@@ -19,18 +19,18 @@ import '../../support/platform_channels.dart';
 import '../../support/reasons.dart';
 import '../../support/themed_app.dart';
 
-const _rose = Host(
+const _pine = Host(
   id: 'h1',
-  name: 'rose',
+  name: 'pine',
   address: '100.64.0.1',
   port: 22,
   user: 'luis',
   keyId: 'key-1',
 );
 
-const _nyx = Host(
+const _oak = Host(
   id: 'h2',
-  name: 'nyx',
+  name: 'oak',
   address: '100.64.0.2',
   port: 357,
   user: 'luis',
@@ -98,8 +98,8 @@ void main() {
   }
 
   Future<void> seed() async {
-    await hosts.save(_rose);
-    await hosts.save(_nyx);
+    await hosts.save(_pine);
+    await hosts.save(_oak);
   }
 
   void sized(WidgetTester tester) {
@@ -114,8 +114,8 @@ void main() {
     await tester.pumpWidget(app());
     await ready(tester);
 
-    expect(find.text('ROSE'), findsOneWidget);
-    expect(find.text('NYX'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget);
+    expect(find.text('OAK'), findsOneWidget);
     expect(find.text('luis@100.64.0.1'), findsOneWidget);
     expect(find.text('luis@100.64.0.2:357'), findsOneWidget);
 
@@ -128,9 +128,9 @@ void main() {
     sized(tester);
     await seed();
     shells.stall = false;
-    sessions.open(intent: testIntent(), _rose);
-    sessions.open(intent: testIntent(), _nyx);
-    sessions.open(intent: testIntent(), _nyx);
+    sessions.open(intent: testIntent(), _pine);
+    sessions.open(intent: testIntent(), _oak);
+    sessions.open(intent: testIntent(), _oak);
     await tester.pumpWidget(app());
     await ready(tester);
 
@@ -150,18 +150,18 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('ssh-host-h2')));
     await ready(tester);
-    expect(find.text('NEW SHELL ON NYX'), findsOneWidget);
+    expect(find.text('NEW SHELL ON OAK'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('launch-shell')));
     await ready(tester);
 
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('shell-header')),
-        matching: find.text('NYX'),
+        matching: find.text('OAK'),
       ),
       findsOneWidget,
     );
-    expect(sessions.forHost(_nyx.id), hasLength(1));
+    expect(sessions.forHost(_oak.id), hasLength(1));
 
     await unmount(tester);
   });
@@ -172,7 +172,7 @@ void main() {
       sized(tester);
       await seed();
       shells.stall = false;
-      final dead = sessions.open(intent: testIntent(), _nyx)!;
+      final dead = sessions.open(intent: testIntent(), _oak)!;
       await tester.pumpWidget(app());
       await ready(tester);
       shells.opened.last.exit(1);
@@ -181,13 +181,13 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('ssh-host-h2')));
       await ready(tester);
-      expect(find.text('NEW SHELL ON NYX'), findsOneWidget);
+      expect(find.text('NEW SHELL ON OAK'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('launch-shell')));
       await ready(tester);
 
-      expect(sessions.forHost(_nyx.id), hasLength(2));
-      expect(sessions.forHost(_nyx.id).first, same(dead));
-      expect(sessions.activeFor(_nyx.id)?.number, 2);
+      expect(sessions.forHost(_oak.id), hasLength(2));
+      expect(sessions.forHost(_oak.id).first, same(dead));
+      expect(sessions.activeFor(_oak.id)?.number, 2);
 
       await unmount(tester);
     },
@@ -197,7 +197,7 @@ void main() {
     sized(tester);
     await seed();
     await tester.pumpWidget(
-      app(desktops: const [_rose], devices: const [_nyx]),
+      app(desktops: const [_pine], devices: const [_oak]),
     );
     await ready(tester);
 

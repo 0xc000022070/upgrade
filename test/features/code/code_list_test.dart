@@ -30,8 +30,8 @@ const _scanned = ['~/src/upgrade', '/srv/gate', '~/src/monolith'];
 
 ManagedKey _key(String id) => ManagedKey(
   id: id,
-  name: 'faraday',
-  publicKey: 'ssh-ed25519 AAAATEST faraday',
+  name: 'juniper',
+  publicKey: 'ssh-ed25519 AAAATEST juniper',
   fingerprint: 'SHA256:$id',
   createdAt: DateTime(2026),
 );
@@ -155,7 +155,7 @@ void main() {
   testWidgets('MACHINES opens on HOSTS and the switch reaches CODE', (
     tester,
   ) async {
-    await hosts.save(_host('1', 'nyx'));
+    await hosts.save(_host('1', 'oak'));
     await open(tester);
 
     expect(find.text('MACHINES'), findsWidgets);
@@ -176,7 +176,7 @@ void main() {
   testWidgets('CODE lists and registers with the Projects plugin off', (
     tester,
   ) async {
-    await hosts.save(_host('1', 'nyx'));
+    await hosts.save(_host('1', 'oak'));
     await paths.add(hostId: '1', directory: '~/src/monolith');
     await open(tester, projects: false);
     await toCode(tester);
@@ -197,7 +197,7 @@ void main() {
   testWidgets('a long workspace path gives up its parents before its name', (
     tester,
   ) async {
-    await hosts.save(_host('1', 'nyx'));
+    await hosts.save(_host('1', 'oak'));
     await paths.add(
       hostId: '1',
       directory:
@@ -207,7 +207,7 @@ void main() {
     await toCode(tester);
 
     expect(find.text('…/upgrade'), findsOneWidget);
-    expect(find.text('NYX'), findsOneWidget);
+    expect(find.text('OAK'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -227,14 +227,14 @@ void main() {
   testWidgets('ADD asks the host and registers a multiple pick', (
     tester,
   ) async {
-    await hosts.save(_host('1', 'nyx'));
-    await hosts.save(_host('2', 'rose'));
+    await hosts.save(_host('1', 'oak'));
+    await hosts.save(_host('2', 'pine'));
     await open(tester);
     await toCode(tester);
 
     await tapText(tester, 'ADD');
-    expect(find.text('ROSE'), findsOneWidget);
-    await tapText(tester, 'NYX');
+    expect(find.text('PINE'), findsOneWidget);
+    await tapText(tester, 'OAK');
 
     await tapText(tester, shortPathLabel('~/src/upgrade'));
     await tapText(tester, shortPathLabel('/srv/gate'));
@@ -245,7 +245,7 @@ void main() {
       '~/src/upgrade',
       '/srv/gate',
     ]);
-    expect(find.text('NYX'), findsNWidgets(2));
+    expect(find.text('OAK'), findsNWidgets(2));
 
     await unmount(tester);
   });
@@ -253,7 +253,7 @@ void main() {
   testWidgets('one host is not a question, so the picker opens straight', (
     tester,
   ) async {
-    await hosts.save(_host('1', 'nyx'));
+    await hosts.save(_host('1', 'oak'));
     await open(tester);
     await toCode(tester);
 
@@ -266,7 +266,7 @@ void main() {
   testWidgets('a directory already registered is not offered again', (
     tester,
   ) async {
-    await hosts.save(_host('1', 'nyx'));
+    await hosts.save(_host('1', 'oak'));
     await paths.add(hostId: '1', directory: '~/src/upgrade');
     await open(tester);
     await toCode(tester);
@@ -279,7 +279,7 @@ void main() {
   });
 
   testWidgets('a long press re-points a row', (tester) async {
-    await hosts.save(_host('1', 'nyx'));
+    await hosts.save(_host('1', 'oak'));
     final path = await paths.add(hostId: '1', directory: '~/src/upgrade');
     await open(tester);
     await toCode(tester);
@@ -298,7 +298,7 @@ void main() {
   });
 
   testWidgets('a long press removes a row', (tester) async {
-    await hosts.save(_host('1', 'nyx'));
+    await hosts.save(_host('1', 'oak'));
     await paths.add(hostId: '1', directory: '~/src/upgrade');
     await paths.add(hostId: '1', directory: '/srv/gate');
     await open(tester);
@@ -319,7 +319,7 @@ void main() {
   testWidgets('a host with herdr off still lists and still registers', (
     tester,
   ) async {
-    await hosts.save(_host('1', 'nyx'));
+    await hosts.save(_host('1', 'oak'));
     await open(tester);
     await toCode(tester);
 
@@ -333,15 +333,15 @@ void main() {
   });
 
   testWidgets('rows are grouped by the host that holds them', (tester) async {
-    await hosts.save(_host('1', 'nyx'));
-    await hosts.save(_host('2', 'rose'));
+    await hosts.save(_host('1', 'oak'));
+    await hosts.save(_host('2', 'pine'));
     await paths.add(hostId: '1', directory: '~/src/upgrade');
     await paths.add(hostId: '2', directory: '/srv/gate');
     await open(tester);
     await toCode(tester);
 
-    expect(find.text('NYX'), findsOneWidget);
-    expect(find.text('ROSE'), findsOneWidget);
+    expect(find.text('OAK'), findsOneWidget);
+    expect(find.text('PINE'), findsOneWidget);
     expect(find.text(shortPathLabel('~/src/upgrade')), findsOneWidget);
     expect(find.text(shortPathLabel('/srv/gate')), findsOneWidget);
 

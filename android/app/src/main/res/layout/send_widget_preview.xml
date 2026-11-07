@@ -65,7 +65,7 @@
                 android:textColor="@color/launcher_disabled"
                 android:maxLines="1"
                 android:ellipsize="end"
-                android:text="claude · nyx"/>
+                android:text="claude · oak"/>
         </LinearLayout>
 
         <ImageView

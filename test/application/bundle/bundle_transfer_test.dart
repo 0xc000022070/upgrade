@@ -23,7 +23,7 @@ ManagedKey _key(String id) => ManagedKey(
   createdAt: DateTime.utc(2026, 9, 1),
 );
 
-Host _rose({String name = 'rose', String keyId = 'k1'}) => Host(
+Host _pine({String name = 'pine', String keyId = 'k1'}) => Host(
   id: 'h1',
   name: name,
   address: '100.64.0.1',
@@ -32,7 +32,7 @@ Host _rose({String name = 'rose', String keyId = 'k1'}) => Host(
   keyId: keyId,
   hostKey: PinnedHostKey(
     type: 'ssh-ed25519',
-    fingerprint: 'SHA256:rose',
+    fingerprint: 'SHA256:pine',
     pinnedAt: DateTime.utc(2026, 9, 2),
   ),
   vncUsername: 'luis',
@@ -87,7 +87,7 @@ class _Phone {
     await keys.save(_key('k2'));
     await store.write('k1', 'PEM k1');
     await store.write('k2', 'PEM k2');
-    final host = _rose();
+    final host = _pine();
     await hosts.save(host);
     await hosts.pinHostKey(host.id, host.hostKey!);
     await hosts.setIntegration(host.id, IntegrationKind.herdr, true);
@@ -169,8 +169,8 @@ void main() {
     expect(bundle.keys.map((k) => k.key.id), ['k1', 'k2']);
     expect(bundle.keys.map((k) => k.privateKey), ['PEM k1', 'PEM k2']);
     final host = bundle.hosts.single;
-    expect(host.host.name, 'rose');
-    expect(host.host.hostKey?.fingerprint, 'SHA256:rose');
+    expect(host.host.name, 'pine');
+    expect(host.host.hostKey?.fingerprint, 'SHA256:pine');
     expect(host.host.vncUsername, 'luis');
     expect(host.host.vncPassword, 'hunter2');
     expect(host.integrations, {IntegrationKind.herdr});
@@ -300,8 +300,8 @@ void main() {
     expect(await b.store.read('k1'), 'PEM k1');
     expect(await b.store.read('k2'), 'PEM k2');
     final host = (await b.hosts.all()).single;
-    expect(host.name, 'rose');
-    expect(host.hostKey?.fingerprint, 'SHA256:rose');
+    expect(host.name, 'pine');
+    expect(host.hostKey?.fingerprint, 'SHA256:pine');
     expect(host.hostKey?.pinnedAt, DateTime.utc(2026, 9, 2));
     expect(host.vncUsername, 'luis');
     expect(host.vncPassword, 'hunter2');
@@ -340,11 +340,11 @@ void main() {
     await a.seed();
     final bundle = await a.transfer.gather();
     await b.keys.save(_key('k1'));
-    await b.hosts.save(_rose(name: 'old name'));
+    await b.hosts.save(_pine(name: 'old name'));
     await b.hosts.setIntegration('h1', IntegrationKind.vnc, true);
     await b.transfer.apply(bundle);
     final host = (await b.hosts.all()).single;
-    expect(host.name, 'rose');
+    expect(host.name, 'pine');
     expect(await b.hosts.watchIntegrations('h1').first, {
       IntegrationKind.herdr,
     });
@@ -357,7 +357,7 @@ void main() {
       keys: gathered.keys,
       hosts: [
         BundleHost(
-          host: _rose(keyId: 'nowhere'),
+          host: _pine(keyId: 'nowhere'),
           integrations: const {},
         ),
       ],
