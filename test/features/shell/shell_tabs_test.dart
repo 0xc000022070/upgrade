@@ -459,8 +459,8 @@ void main() {
     });
 
     test('a login shell reads where it is, not who it is', () {
-      expect(shellTabLabel('luis@oak: ~/Projects/upgrade', 1), 'upgrade');
-      expect(shellTabLabel('luis@oak: ~', 1), '~');
+      expect(shellTabLabel('alex@oak: ~/Projects/upgrade', 1), 'upgrade');
+      expect(shellTabLabel('alex@oak: ~', 1), '~');
       expect(shellTabLabel('~/Projects/upgrade', 1), 'upgrade');
     });
 
@@ -476,7 +476,7 @@ void main() {
       await ready(tester);
       expect(labelOfTab(tester, 1), '1');
 
-      transport.opened.first.emit('\x1b]0;luis@pine: ~/Projects/upgrade\x07');
+      transport.opened.first.emit('\x1b]0;alex@pine: ~/Projects/upgrade\x07');
       await ready(tester);
 
       expect(labelOfTab(tester, 1), 'upgrade');
@@ -552,7 +552,7 @@ void main() {
         name: 'OAK',
         address: '100.64.0.1',
         port: 22,
-        user: 'luis',
+        user: 'alex',
         keyId: 'key-1',
       );
       final transport = FakeShellTransport();
@@ -595,7 +595,7 @@ void main() {
         name: 'UPGRADE HOST VM',
         address: '100.64.0.1',
         port: 22,
-        user: 'luis',
+        user: 'alex',
         keyId: 'key-1',
       );
       final transport = FakeShellTransport();

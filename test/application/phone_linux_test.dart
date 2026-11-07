@@ -173,7 +173,7 @@ void main() {
       name: 'pine',
       address: '198.51.100.21',
       port: 22,
-      user: 'luis',
+      user: 'alex',
       keyId: (await keys.all()).single.id,
     );
 
@@ -243,7 +243,7 @@ void main() {
         name: 'pine',
         address: '198.51.100.21',
         port: 22,
-        user: 'luis',
+        user: 'alex',
         keyId: phone.keyId,
       ),
     );

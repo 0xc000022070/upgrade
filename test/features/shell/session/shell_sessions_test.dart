@@ -40,7 +40,7 @@ const _pine = Host(
   name: 'pine',
   address: '100.64.0.1',
   port: 22,
-  user: 'luis',
+  user: 'alex',
   keyId: 'key-1',
 );
 
@@ -49,7 +49,7 @@ const _oak = Host(
   name: 'oak',
   address: '100.64.0.2',
   port: 357,
-  user: 'luis',
+  user: 'alex',
   keyId: 'key-1',
 );
 
@@ -190,7 +190,7 @@ void main() {
       name: 'MARK',
       address: '100.64.0.1',
       port: 22,
-      user: 'luis',
+      user: 'alex',
       keyId: 'key-1',
     );
     sessions.syncHosts(const [renamed, _oak]);
@@ -272,7 +272,7 @@ void main() {
         name: 'pine',
         address: '100.64.0.1',
         port: 22,
-        user: 'luis',
+        user: 'alex',
         keyId: 'key-1',
         system: HostSystem.darwin,
       ),
@@ -974,10 +974,10 @@ void main() {
     await _settle();
     expect(session.title, isNull);
 
-    transport.opened.single.emit('\x1b]0;luis@oak: ~\x07');
+    transport.opened.single.emit('\x1b]0;alex@oak: ~\x07');
     await _settle();
 
-    expect(session.title, 'luis@oak: ~');
+    expect(session.title, 'alex@oak: ~');
   });
 
   testWidgets('a reconnected session starts without the last one\'s title or '
@@ -986,7 +986,7 @@ void main() {
     final sessions = fakeShellSessions(transport);
     final session = sessions.open(intent: testIntent(), _pine)!;
     await _pumpDial(tester);
-    transport.opened.single.emit('\x1b]0;luis@oak: ~\x07');
+    transport.opened.single.emit('\x1b]0;alex@oak: ~\x07');
     await _pumpDial(tester);
     sessions.arm(session, {StickyModifier.ctrl}, repeat: 2);
 
@@ -1215,7 +1215,7 @@ void main() {
 
     final state = session.state as ShellWaiting;
     expect(state.kind, ShellFailureKind.unreachable);
-    expect(state.detail, 'luis@100.64.0.1:22 · connection refused');
+    expect(state.detail, 'alex@100.64.0.1:22 · connection refused');
 
     await sessions.close(intent: testIntent(), _pine.id, session);
   });
@@ -1672,7 +1672,7 @@ void main() {
       session.controlFailure,
       _failure(
         ShellFailureKind.unreachable,
-        'luis@100.64.0.1:22 · connection refused',
+        'alex@100.64.0.1:22 · connection refused',
       ),
     );
 
@@ -1703,7 +1703,7 @@ void main() {
       session.controlFailure,
       _failure(
         ShellFailureKind.unreachable,
-        'luis@100.64.0.1:22 · connection refused',
+        'alex@100.64.0.1:22 · connection refused',
       ),
     );
 

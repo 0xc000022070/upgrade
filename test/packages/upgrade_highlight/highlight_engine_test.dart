@@ -7,7 +7,7 @@ const _samples = <String, String>{
   'c': '#include <stdio.h>\nint main(void) { return 0; }',
   'cpp': 'auto x = std::vector<int>{1, 2};',
   'css': 'a:hover { color: #fff; }',
-  'dart': "final name = 'luis'; // one",
+  'dart': "final name = 'alex'; // one",
   'diff': '--- a\n+++ b\n@@ -1 +1 @@\n-old\n+new',
   'dockerfile': 'FROM alpine\nRUN apk add git',
   'go': 'func main() { fmt.Println("hi", 42) }',

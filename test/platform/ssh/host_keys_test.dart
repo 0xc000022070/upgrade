@@ -165,7 +165,7 @@ void main() {
       name: 'pine',
       address: '198.51.100.21',
       port: 22,
-      user: 'luis',
+      user: 'alex',
       keyId: 'juniper',
     );
     await tester.pumpWidget(

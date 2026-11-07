@@ -149,7 +149,7 @@ void main() {
     test('an OpenPGP unlock splits into the sentence and its key', () {
       final facts = pinFacts(
         'Please enter the passphrase to unlock the OpenPGP secret key:\n'
-        '"Luis Quiñones <luis@example.com>"\n'
+        '"Alex Muñoz <alex@example.com>"\n'
         '255-bit EDDSA key, ID D6FC92FD3A094AF8,\n'
         'created 2024-01-16.\n',
       );
@@ -158,7 +158,7 @@ void main() {
         'Please enter the passphrase to unlock the OpenPGP secret key:',
       );
       expect(facts?.facts, [
-        ('KEY', 'Luis Quiñones <luis@example.com>'),
+        ('KEY', 'Alex Muñoz <alex@example.com>'),
         ('TYPE', '255-bit EDDSA'),
         ('ID', 'D6FC92FD3A094AF8'),
         ('CREATED', '2024-01-16'),
@@ -178,12 +178,12 @@ void main() {
     test('an ssh key gives its fingerprint and comment', () {
       final facts = pinFacts(
         'Please enter the passphrase for the ssh key\n'
-        '  SHA256:abc+/def\n  (luis@oak)',
+        '  SHA256:abc+/def\n  (alex@oak)',
       );
       expect(facts?.lead, 'Please enter the passphrase for the ssh key:');
       expect(facts?.facts, [
         ('FINGERPRINT', 'SHA256:abc+/def'),
-        ('COMMENT', 'luis@oak'),
+        ('COMMENT', 'alex@oak'),
       ]);
     });
 

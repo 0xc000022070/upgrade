@@ -17,7 +17,7 @@ const _oak = Host(
   name: 'oak',
   address: '100.64.0.1',
   port: 22,
-  user: 'luisnquin',
+  user: 'developer',
   keyId: 'key-1',
 );
 
@@ -26,7 +26,7 @@ const _pine = Host(
   name: 'pine',
   address: '100.64.0.2',
   port: 22,
-  user: 'luisnquin',
+  user: 'developer',
   keyId: 'key-1',
 );
 
@@ -117,10 +117,10 @@ void main() {
             host: _oak,
           );
       final mine = under('a', '~/Projects/github.com/0xc000022070/upgrade');
-      final fork = under('b', '~/Projects/github.com/luisnquin/upgrade/');
+      final fork = under('b', '~/Projects/github.com/developer/upgrade/');
       expect(promptDirectoryLabel(mine, [mine, _dotfiles]), 'upgrade');
       expect(promptDirectoryLabel(mine, [mine, fork]), '0xc000022070/upgrade');
-      expect(promptDirectoryLabel(fork, [mine, fork]), 'luisnquin/upgrade');
+      expect(promptDirectoryLabel(fork, [mine, fork]), 'developer/upgrade');
       final named = under('c', '~/work/upgrade', 'work');
       expect(
         promptDirectoryLabel(named, [named, under('d', '~/x/work')]),

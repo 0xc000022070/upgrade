@@ -28,14 +28,14 @@ Host _pine({String name = 'pine', String keyId = 'k1'}) => Host(
   name: name,
   address: '100.64.0.1',
   port: 22,
-  user: 'luis',
+  user: 'alex',
   keyId: keyId,
   hostKey: PinnedHostKey(
     type: 'ssh-ed25519',
     fingerprint: 'SHA256:pine',
     pinnedAt: DateTime.utc(2026, 9, 2),
   ),
-  vncUsername: 'luis',
+  vncUsername: 'alex',
   vncPassword: 'hunter2',
 );
 
@@ -171,7 +171,7 @@ void main() {
     final host = bundle.hosts.single;
     expect(host.host.name, 'pine');
     expect(host.host.hostKey?.fingerprint, 'SHA256:pine');
-    expect(host.host.vncUsername, 'luis');
+    expect(host.host.vncUsername, 'alex');
     expect(host.host.vncPassword, 'hunter2');
     expect(host.integrations, {IntegrationKind.herdr});
     expect(bundle.paths.map((p) => p.directory), [
@@ -303,7 +303,7 @@ void main() {
     expect(host.name, 'pine');
     expect(host.hostKey?.fingerprint, 'SHA256:pine');
     expect(host.hostKey?.pinnedAt, DateTime.utc(2026, 9, 2));
-    expect(host.vncUsername, 'luis');
+    expect(host.vncUsername, 'alex');
     expect(host.vncPassword, 'hunter2');
     expect(await b.hosts.watchIntegrations('h1').first, {
       IntegrationKind.herdr,

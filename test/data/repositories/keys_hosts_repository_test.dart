@@ -45,7 +45,7 @@ void main() {
         name: name,
         address: '198.51.100.77',
         port: port,
-        user: 'luisnquin',
+        user: 'developer',
         keyId: keyId,
       ),
     );
@@ -138,7 +138,7 @@ void main() {
       expect(stored.name, 'oak');
       expect(stored.address, '198.51.100.77');
       expect(stored.port, 22);
-      expect(stored.user, 'luisnquin');
+      expect(stored.user, 'developer');
       expect(stored.keyId, 'k1');
     });
 
@@ -395,7 +395,7 @@ void main() {
       name: 'oak',
       address: '100.64.0.2',
       port: 22,
-      user: 'luis',
+      user: 'alex',
       keyId: 'k1',
     );
     await memory.save(oak);

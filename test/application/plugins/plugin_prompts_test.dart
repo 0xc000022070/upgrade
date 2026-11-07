@@ -259,7 +259,7 @@ void main() {
       name: 'oak',
       address: '10.0.0.4',
       port: 22,
-      user: 'luis',
+      user: 'alex',
       keyId: 'key-1',
     );
 
@@ -320,7 +320,7 @@ void main() {
 
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.text('ALLOW PROJECTS?'), findsOneWidget);
-      expect(find.textContaining('luis@10.0.0.4:22'), findsOneWidget);
+      expect(find.textContaining('alex@10.0.0.4:22'), findsOneWidget);
       expect(find.textContaining('setup, run'), findsOneWidget);
       expect(
         find.textContaining('namespaced host runner and user timer'),

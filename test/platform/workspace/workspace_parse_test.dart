@@ -22,11 +22,11 @@ u UU N... 100644 100644 100644 100644 fff ggg hhh pubspec.yaml
 ''';
 
 const _worktrees = '''
-worktree /home/luis/src/upgrade
+worktree /home/alex/src/upgrade
 HEAD 1a2b3c4d
 branch refs/heads/main
 
-worktree /home/luis/src/upgrade-fix
+worktree /home/alex/src/upgrade-fix
 HEAD 5e6f7a8b
 branch refs/heads/fix/paths
 
@@ -91,8 +91,8 @@ void main() {
     test('each record becomes a row with a short branch', () {
       final rows = parseWorktrees(_worktrees);
       expect(rows.map((w) => w.directory), [
-        '/home/luis/src/upgrade',
-        '/home/luis/src/upgrade-fix',
+        '/home/alex/src/upgrade',
+        '/home/alex/src/upgrade-fix',
       ]);
       expect(rows.map((w) => w.branch), ['main', 'fix/paths']);
       expect(rows.map((w) => w.label), ['upgrade', 'upgrade-fix']);
@@ -641,14 +641,14 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
   group('the history', () {
     test('a log line is split on the field mark, subject and all', () {
       const log =
-          '1a2b3c${workspaceField}1a2b3c${workspaceField}Luis'
+          '1a2b3c${workspaceField}1a2b3c${workspaceField}Alex'
           '${workspaceField}3 days ago${workspaceField}fix(shell): the font\n'
-          '4d5e6f${workspaceField}4d5e6f${workspaceField}Luis'
+          '4d5e6f${workspaceField}4d5e6f${workspaceField}Alex'
           '${workspaceField}2 weeks ago${workspaceField}docs(spec): rulings\n';
       final commits = parseCommits(log);
       expect(commits, hasLength(2));
       expect(commits.first.short, '1a2b3c');
-      expect(commits.first.author, 'Luis');
+      expect(commits.first.author, 'Alex');
       expect(commits.first.age, '3 days ago');
       expect(commits.first.subject, 'fix(shell): the font');
       expect(commits.last.subject, 'docs(spec): rulings');
@@ -656,7 +656,7 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
 
     test('a subject with a tab or a pipe in it is still one subject', () {
       final commits = parseCommits(
-        'aaa${workspaceField}aaa${workspaceField}Luis'
+        'aaa${workspaceField}aaa${workspaceField}Alex'
         '${workspaceField}an hour ago${workspaceField}feat: a\tb | c\n',
       );
       expect(commits.single.subject, 'feat: a\tb | c');

@@ -9,7 +9,7 @@ void main() {
     hostId: 'oak',
     address: '198.51.100.77',
     port: 357,
-    user: 'luisnquin',
+    user: 'developer',
     keyId: 'k1',
     session: 'default',
     paneId: 'wQ:pH',

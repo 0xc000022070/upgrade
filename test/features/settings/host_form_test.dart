@@ -165,7 +165,7 @@ void main() {
   Future<void> fillFields(WidgetTester tester) async {
     await tester.enterText(field(_Fields.name), 'oak');
     await tester.enterText(field(_Fields.address), '100.64.0.1');
-    await tester.enterText(field(_Fields.user), 'luis');
+    await tester.enterText(field(_Fields.user), 'alex');
     await tester.pump();
   }
 
@@ -203,7 +203,7 @@ void main() {
     expect(label(tester), 'CREATE HOST');
     expect(find.text('USER MISSING'), findsOneWidget);
 
-    await tester.enterText(field(_Fields.user), 'luis');
+    await tester.enterText(field(_Fields.user), 'alex');
     await tester.pump();
     expect(label(tester), 'CREATE HOST');
     expect(fill(tester), UpgradeColors.accent);
@@ -478,7 +478,7 @@ void main() {
     // Drawn after the integrations block, so these follow USER.
     final username = find.byType(TextField).at(_Fields.user.index + 1);
     final password = find.byType(TextField).at(_Fields.user.index + 2);
-    await tester.enterText(username, 'luisnquin');
+    await tester.enterText(username, 'developer');
     expect(tester.widget<TextField>(password).obscureText, isTrue);
     await tester.enterText(password, 'secret');
     await tester.pump();
@@ -487,7 +487,7 @@ void main() {
     await _ready(tester);
 
     final host = (await hosts.all()).single;
-    expect(host.vncUsername, 'luisnquin');
+    expect(host.vncUsername, 'developer');
     expect(host.vncPassword, 'secret');
 
     await unmount(tester);
@@ -501,7 +501,7 @@ void main() {
         name: 'pine',
         address: '100.64.0.1',
         port: 22,
-        user: 'luis',
+        user: 'alex',
         keyId: 'key-1',
       ),
     );
@@ -511,14 +511,14 @@ void main() {
         name: 'oak',
         address: '100.64.0.2',
         port: 357,
-        user: 'luis',
+        user: 'alex',
         keyId: 'key-1',
       ),
     );
     await open(tester, const HostsScreen());
 
-    expect(find.text('luis@100.64.0.1'), findsOneWidget);
-    expect(find.text('luis@100.64.0.2:357'), findsOneWidget);
+    expect(find.text('alex@100.64.0.1'), findsOneWidget);
+    expect(find.text('alex@100.64.0.2:357'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -550,7 +550,7 @@ void main() {
       name: 'oak',
       address: '100.64.0.2',
       port: 357,
-      user: 'luis',
+      user: 'alex',
       keyId: 'key-1',
     );
     await keys.save(_key('key-1', 'juniper'));
@@ -585,7 +585,7 @@ void main() {
       name: 'oak',
       address: '100.64.0.2',
       port: 357,
-      user: 'luis',
+      user: 'alex',
       keyId: 'key-1',
     );
     const pine = Host(
@@ -593,7 +593,7 @@ void main() {
       name: 'pine',
       address: '100.64.0.1',
       port: 22,
-      user: 'luis',
+      user: 'alex',
       keyId: 'key-1',
     );
     await keys.save(_key('key-1', 'juniper'));
@@ -629,7 +629,7 @@ void main() {
       name: 'pine',
       address: '100.64.0.1',
       port: 22,
-      user: 'luis',
+      user: 'alex',
       keyId: 'key-1',
     );
     await keys.save(_key('key-1', 'juniper'));

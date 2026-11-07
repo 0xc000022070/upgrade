@@ -28,9 +28,9 @@ void main() {
     expect(agents.first.session, 'lab');
     expect(agents.first.agent, 'claude');
     expect(agents.first.state.word, 'idle');
-    expect(agents.first.terminalTitleStripped, 'app-init-orchestator');
+    expect(agents.first.terminalTitleStripped, 'dotfiles');
     expect(agents.first.workspaceId, 'wQ');
-    expect(agents.first.cwd, '/home/luisnquin/.dotfiles');
+    expect(agents.first.cwd, '/home/developer/.dotfiles');
     expect(agents.first.stateChangeSeq, 248);
     expect(HerdrCommands.agents('lab'), contains('agent list --json'));
   });
@@ -633,7 +633,7 @@ void main() {
       ).connect(
         address: tarpit.address,
         port: tarpit.port,
-        user: 'luis',
+        user: 'alex',
         privateKey: privateKey,
         verifier: HostKeyVerifier.pinnedOnly(null),
       ),

@@ -65,7 +65,7 @@ void main() {
       'Apple DH returns encrypted credentials followed by its public key',
       () {
         final response = appleAuthResponse(
-          username: 'luisnquin',
+          username: 'developer',
           password: 'secret',
           generator: 3,
           modulus: appleModulus,
@@ -79,7 +79,7 @@ void main() {
         expect(
           response.sublist(0, 128),
           hex(
-            '462dd13bbf2ae7c91fca518d03ba3293'
+            'faaabd3fc6e47758700c129fd13dfaeb'
             '59e512c7d58cca13e249f23f90dd87ba'
             '59e512c7d58cca13e249f23f90dd87ba'
             '59e512c7d58cca13e249f23f90dd87ba'
@@ -98,7 +98,7 @@ void main() {
       final client = RfbClient(
         incoming: channel.stream,
         outgoing: channel.sink,
-        username: 'luisnquin',
+        username: 'developer',
         password: 'secret',
       );
       addTearDown(client.close);

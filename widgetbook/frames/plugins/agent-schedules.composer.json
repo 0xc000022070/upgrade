@@ -166,7 +166,7 @@
     {
      "kind": "input",
      "props": {
-      "value": "America/Lima",
+      "value": "Europe/Paris",
       "key": "timezone",
       "label": "Timezone"
      },

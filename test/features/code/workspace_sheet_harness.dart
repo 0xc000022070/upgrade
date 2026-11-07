@@ -68,11 +68,11 @@ const gitStatus = '''
 ''';
 
 const gitWorktrees = '''
-worktree /home/luis/src/upgrade
+worktree /home/alex/src/upgrade
 HEAD 1a2b
 branch refs/heads/main
 
-worktree /home/luis/src/upgrade-fix
+worktree /home/alex/src/upgrade-fix
 HEAD 5e6f
 branch refs/heads/fix/paths
 
@@ -103,9 +103,9 @@ diff --git a/lib/main.dart b/lib/main.dart
 ''';
 
 String get _log =>
-    '1a2b3c4d5e${workspaceField}1a2b3c${workspaceField}Luis'
+    '1a2b3c4d5e${workspaceField}1a2b3c${workspaceField}Alex'
     '${workspaceField}3 days ago${workspaceField}fix(shell): the font\n'
-    '5e6f7a8b9c${workspaceField}5e6f7a${workspaceField}Luis'
+    '5e6f7a8b9c${workspaceField}5e6f7a${workspaceField}Alex'
     '${workspaceField}2 weeks ago${workspaceField}docs(spec): rulings\n';
 
 String get _commitFiles =>
@@ -256,14 +256,14 @@ const host = Host(
   name: 'oak',
   address: '100.64.0.1',
   port: 357,
-  user: 'luis',
+  user: 'alex',
   keyId: 'key-1',
 );
 
 final path = AgentPath(
   id: 'path-1',
   hostId: 'host-1',
-  directory: '/home/luis/src/upgrade',
+  directory: '/home/alex/src/upgrade',
   label: 'upgrade',
   createdAt: DateTime(2026, 9, 3),
 );

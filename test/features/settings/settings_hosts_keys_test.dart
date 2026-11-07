@@ -133,7 +133,7 @@ void main() {
         name: 'oak',
         address: '100.64.0.1',
         port: 22,
-        user: 'luis',
+        user: 'alex',
         keyId: 'key-1',
       ),
     );
@@ -167,7 +167,7 @@ void main() {
     await tester.enterText(fields.at(0), 'oak');
     await tester.enterText(fields.at(1), '100.64.0.1');
     // Field 2 is the port, prefilled with 22; the user is field 3.
-    await tester.enterText(fields.at(3), 'luis');
+    await tester.enterText(fields.at(3), 'alex');
     await tester.pump();
 
     expect(find.text('CREATE HOST'), findsOneWidget);

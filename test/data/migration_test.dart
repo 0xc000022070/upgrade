@@ -145,7 +145,7 @@ void main() {
     await first.customStatement('ALTER TABLE hosts DROP COLUMN system');
     await first.customStatement(
       "INSERT INTO hosts (id, name, address, port, user, key_id) "
-      "VALUES ('h1', 'oak', '198.51.100.77', 357, 'luisnquin', 'k1')",
+      "VALUES ('h1', 'oak', '198.51.100.77', 357, 'developer', 'k1')",
     );
     await first.customStatement('PRAGMA user_version = 21');
     await first.close();

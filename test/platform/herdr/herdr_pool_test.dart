@@ -63,7 +63,7 @@ class _Rig {
   Future<List<AgentSnapshot>> fetch() => pool.fetch(
     address: '10.0.0.2',
     port: 22,
-    user: 'luisnquin',
+    user: 'developer',
     privateKey: 'key',
     verifier: HostKeyVerifier.pinnedOnly(_pin),
   );

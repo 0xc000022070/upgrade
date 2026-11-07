@@ -56,16 +56,16 @@ void main() {
   group('a shell says where it is', () {
     test('the path is taken and the host in the url is not', () {
       expect(
-        cwdFromOsc('file://pine/home/luis/src/upgrade'),
-        '/home/luis/src/upgrade',
+        cwdFromOsc('file://pine/home/alex/src/upgrade'),
+        '/home/alex/src/upgrade',
       );
       // A hook writes the path escaped, and a space is the escape that happens.
-      expect(cwdFromOsc('file://pine/home/luis/my%20src'), '/home/luis/my src');
+      expect(cwdFromOsc('file://pine/home/alex/my%20src'), '/home/alex/my src');
       expect(cwdFromOsc(' file://pine/srv \n'), '/srv');
     });
 
     test('anything else is not a directory', () {
-      expect(cwdFromOsc('http://pine/home/luis'), isNull);
+      expect(cwdFromOsc('http://pine/home/alex'), isNull);
       expect(cwdFromOsc('file://pine'), isNull);
       expect(cwdFromOsc(''), isNull);
     });
@@ -136,16 +136,16 @@ void main() {
 
   group('what the probe came back with', () {
     test('a plain shell is a directory and no session', () {
-      final place = parseShellPlace('/home/luis/src/upgrade\n\n');
+      final place = parseShellPlace('/home/alex/src/upgrade\n\n');
 
-      expect(place.cwd, '/home/luis/src/upgrade');
+      expect(place.cwd, '/home/alex/src/upgrade');
       expect(place.herdrSession, isNull);
     });
 
     test('a tab holding a client names the session it is on', () {
-      final place = parseShellPlace('/home/luis\nhub\n');
+      final place = parseShellPlace('/home/alex\nhub\n');
 
-      expect(place.cwd, '/home/luis');
+      expect(place.cwd, '/home/alex');
       expect(place.herdrSession, 'hub');
     });
 
@@ -214,7 +214,7 @@ void main() {
       final sessions = fakeShellSessions(transport);
       transport.opening = (connection) => connection.answer = (command, _) =>
           _says(
-            command.contains('rev-parse') ? '' : '/home/luis\n\n',
+            command.contains('rev-parse') ? '' : '/home/alex\n\n',
             exitCode: command.contains('rev-parse') ? 128 : 0,
           );
       await tester.pumpWidget(app(sessions));
@@ -236,15 +236,15 @@ void main() {
       transport.opening = (connection) => connection.answer = (command, _) =>
           _says(
             command.contains('rev-parse')
-                ? '/home/luis/src/upgrade\n'
-                : '/home/luis/src/upgrade/lib/features\n\n',
+                ? '/home/alex/src/upgrade\n'
+                : '/home/alex/src/upgrade/lib/features\n\n',
           );
       await tester.pumpWidget(app(sessions));
       await ready(tester);
 
       final session = sessions.forHost(pine.id).single;
-      expect(session.cwd, '/home/luis/src/upgrade/lib/features');
-      expect(session.repository, '/home/luis/src/upgrade');
+      expect(session.cwd, '/home/alex/src/upgrade/lib/features');
+      expect(session.repository, '/home/alex/src/upgrade');
       expect(_mark(tester).color, isNot(UpgradeColors.textDisabled));
 
       await unmount(tester);
@@ -255,14 +255,14 @@ void main() {
     ) async {
       final transport = FakeShellTransport();
       final sessions = fakeShellSessions(transport);
-      var here = '/home/luis/src/upgrade';
+      var here = '/home/alex/src/upgrade';
       transport.opening = (connection) =>
           connection.answer = (command, _) =>
               _says(command.contains('rev-parse') ? '$here\n' : '$here\n\n');
       await tester.pumpWidget(app(sessions));
       await ready(tester);
       final session = sessions.forHost(pine.id).single;
-      expect(session.repository, '/home/luis/src/upgrade');
+      expect(session.repository, '/home/alex/src/upgrade');
 
       here = '/srv/gate';
       await tester.tap(find.byKey(_diffCell));
@@ -287,8 +287,8 @@ void main() {
         connection = opened;
         opened.answer = (command, _) => _says(
           command.contains('rev-parse')
-              ? '/home/luis/src/upgrade\n'
-              : '/home/luis/src/upgrade\n\n',
+              ? '/home/alex/src/upgrade\n'
+              : '/home/alex/src/upgrade\n\n',
         );
       };
       await tester.pumpWidget(app(sessions));
@@ -321,12 +321,12 @@ void main() {
 
       final session = sessions.forHost(pine.id).single;
       final connection = transport.opened.single;
-      connection.answerWith('/home/luis/src/upgrade\n');
+      connection.answerWith('/home/alex/src/upgrade\n');
 
-      expect(await sessions.cwdFromHost(session), '/home/luis/src/upgrade');
+      expect(await sessions.cwdFromHost(session), '/home/alex/src/upgrade');
       expect(connection.execs.last.command, shellCwdProbe(session.mark));
       expect(connection.written, isNot(contains('/proc')));
-      expect(session.cwd, '/home/luis/src/upgrade');
+      expect(session.cwd, '/home/alex/src/upgrade');
 
       await unmount(tester);
     });
@@ -345,13 +345,13 @@ void main() {
       final connection = transport.opened.last;
       connection.answerWith(
         '{"result":{"type":"pane_list","panes":['
-        '{"pane_id":"w2C:p2","cwd":"/home/luis"},'
-        '{"pane_id":"w22:p1","cwd":"/home/luis/src/upgrade",'
-        '"foreground_cwd":"/home/luis/src/upgrade/lib"}'
+        '{"pane_id":"w2C:p2","cwd":"/home/alex"},'
+        '{"pane_id":"w22:p1","cwd":"/home/alex/src/upgrade",'
+        '"foreground_cwd":"/home/alex/src/upgrade/lib"}'
         ']}}',
       );
 
-      expect(await sessions.cwdFromHost(session), '/home/luis/src/upgrade');
+      expect(await sessions.cwdFromHost(session), '/home/alex/src/upgrade');
       expect(connection.execs.last.command, HerdrCommands.panes('hub'));
       expect(connection.execs.last.command, isNot(contains('/proc')));
 
@@ -430,10 +430,10 @@ void main() {
       await ready(tester);
       expect(sessions.forHost(pine.id).single.cwd, isNull);
 
-      transport.opened.first.emit('\x1b]7;file://pine/home/luis/src\x1b\\');
+      transport.opened.first.emit('\x1b]7;file://pine/home/alex/src\x1b\\');
       await ready(tester);
 
-      expect(sessions.forHost(pine.id).single.cwd, '/home/luis/src');
+      expect(sessions.forHost(pine.id).single.cwd, '/home/alex/src');
       expect(find.byKey(_diffCell), findsOneWidget);
 
       await unmount(tester);

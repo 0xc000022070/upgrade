@@ -24,7 +24,7 @@ const _pine = Host(
   name: 'pine',
   address: '100.64.0.1',
   port: 22,
-  user: 'luis',
+  user: 'alex',
   keyId: 'key-1',
 );
 
@@ -33,7 +33,7 @@ const _oak = Host(
   name: 'oak',
   address: '100.64.0.2',
   port: 357,
-  user: 'luis',
+  user: 'alex',
   keyId: 'key-1',
 );
 
@@ -116,8 +116,8 @@ void main() {
 
     expect(find.text('PINE'), findsOneWidget);
     expect(find.text('OAK'), findsOneWidget);
-    expect(find.text('luis@100.64.0.1'), findsOneWidget);
-    expect(find.text('luis@100.64.0.2:357'), findsOneWidget);
+    expect(find.text('alex@100.64.0.1'), findsOneWidget);
+    expect(find.text('alex@100.64.0.2:357'), findsOneWidget);
 
     await unmount(tester);
   });

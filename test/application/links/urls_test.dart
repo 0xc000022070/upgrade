@@ -14,7 +14,7 @@ void main() {
 
   test('nothing is promoted into a link it did not say it was', () {
     expect(explicitUrl('min.io/docs'), isNull);
-    expect(explicitUrl('/home/luis/x.dart:42'), isNull);
+    expect(explicitUrl('/home/alex/x.dart:42'), isNull);
     expect(explicitUrl('git@github.com:o/r.git'), isNull);
     expect(explicitUrl('mailto:a@b.com'), isNull);
     expect(explicitUrl('file:///etc/hosts'), isNull);
@@ -72,8 +72,8 @@ void main() {
       'https://min.io/a?b=1#anchor',
     );
     expect(
-      normalizeUrl('https://shop.example.com/x?tag=luis-20&ref=home'),
-      'https://shop.example.com/x?tag=luis-20&ref=home',
+      normalizeUrl('https://shop.example.com/x?tag=alex-20&ref=home'),
+      'https://shop.example.com/x?tag=alex-20&ref=home',
     );
   });
 

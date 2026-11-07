@@ -28,7 +28,7 @@ const oak = Host(
   name: 'Oak',
   address: '198.51.100.77',
   port: 22,
-  user: 'luisnquin',
+  user: 'developer',
   keyId: 'k1',
 );
 const pine = Host(
@@ -36,7 +36,7 @@ const pine = Host(
   name: 'Pine',
   address: '100.1.1.2',
   port: 22,
-  user: 'luisnquin',
+  user: 'developer',
   keyId: 'k1',
 );
 
@@ -189,7 +189,7 @@ void main() {
 
     expect(find.text('oak unreachable'), findsOneWidget);
     expect(find.text('HERDR check could not reach host'), findsOneWidget);
-    expect(find.text('luisnquin@198.51.100.77:22'), findsOneWidget);
+    expect(find.text('developer@198.51.100.77:22'), findsOneWidget);
     expect(find.text('never connected'), findsOneWidget);
     expect(find.text('RETRY'), findsOneWidget);
     expect(find.text('WORKSPACES'), findsNothing);

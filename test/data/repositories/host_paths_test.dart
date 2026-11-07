@@ -18,7 +18,7 @@ void main() {
           id: 'host-1',
           name: 'oak',
           address: '100.64.0.1',
-          user: 'luis',
+          user: 'alex',
           keyId: 'key-1',
         ),
       );
@@ -49,8 +49,8 @@ void main() {
 
   test('a row shows the last two segments of a long directory', () {
     expect(
-      shortPathLabel('~/Projects/github.com/luisnquin/upgrade'),
-      '…/luisnquin/upgrade',
+      shortPathLabel('~/Projects/github.com/developer/upgrade'),
+      '…/developer/upgrade',
     );
     expect(shortPathLabel('/srv/gate'), '/srv/gate');
     expect(shortPathLabel('upgrade'), 'upgrade');

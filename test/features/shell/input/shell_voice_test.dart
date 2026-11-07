@@ -24,7 +24,7 @@ const _pine = Host(
   name: 'pine',
   address: '100.64.0.1',
   port: 22,
-  user: 'luis',
+  user: 'alex',
   keyId: 'key-1',
 );
 
@@ -43,7 +43,7 @@ AgentSnapshot _agent(String agent, String pane) => AgentSnapshot(
   state: const WorkingState(),
   terminalTitleStripped: '',
   workspaceId: 'w1',
-  cwd: '/home/luis',
+  cwd: '/home/alex',
   stateChangeSeq: 1,
 );
 

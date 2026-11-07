@@ -12,7 +12,7 @@ const _pine = Host(
   name: 'pine',
   address: '100.64.0.1',
   port: 22,
-  user: 'luis',
+  user: 'alex',
   keyId: 'key-1',
 );
 
@@ -21,7 +21,7 @@ const _fig = Host(
   name: 'fig',
   address: '100.64.0.2',
   port: 22,
-  user: 'luis',
+  user: 'alex',
   keyId: 'key-1',
 );
 

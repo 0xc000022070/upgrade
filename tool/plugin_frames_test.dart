@@ -118,7 +118,7 @@ void main() {
       'timer_active': true,
       'supported': true,
       'agents': ['codex', 'claude'],
-      'timezone': 'America/Lima',
+      'timezone': 'Europe/Paris',
       'features': ['queue', 'cancel', 'summary'],
     };
     await app.send({'type': 'mount'});

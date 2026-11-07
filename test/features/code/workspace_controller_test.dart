@@ -41,10 +41,10 @@ class _HeldSwitch extends FakeRunner {
 
   @override
   Future<WorkspaceReply> run(String command) {
-    if (command == WorkspaceCommands.sourceDiff('/home/luis/src/upgrade')) {
+    if (command == WorkspaceCommands.sourceDiff('/home/alex/src/upgrade')) {
       return diff.future;
     }
-    if (command == WorkspaceCommands.overview('/home/luis/src/upgrade-fix')) {
+    if (command == WorkspaceCommands.overview('/home/alex/src/upgrade-fix')) {
       return switched.future;
     }
     return super.run(command);
@@ -54,7 +54,7 @@ class _HeldSwitch extends FakeRunner {
 WorkspaceController _onEach(List<WorkspaceRunner> runners) =>
     WorkspaceController(
       host: host,
-      directory: '/home/luis/src/upgrade',
+      directory: '/home/alex/src/upgrade',
       readPrivateKey: (_) async => 'key',
       open: ({
         required address,
@@ -67,7 +67,7 @@ WorkspaceController _onEach(List<WorkspaceRunner> runners) =>
 
 WorkspaceController _on(WorkspaceRunner runner) => WorkspaceController(
   host: host,
-  directory: '/home/luis/src/upgrade',
+  directory: '/home/alex/src/upgrade',
   readPrivateKey: (_) async => 'key',
   open: ({
     required address,
@@ -89,7 +89,7 @@ void main() {
       await pumpEventQueue();
       await session.select(session.commits!.first);
 
-      await controller.openWorktree('/home/luis/src/upgrade-fix');
+      await controller.openWorktree('/home/alex/src/upgrade-fix');
       await pumpEventQueue();
 
       expect(session.source, isNull);
@@ -111,7 +111,7 @@ void main() {
       await pumpEventQueue();
       session.pick(session.files!.first);
 
-      unawaited(controller.openWorktree('/home/luis/src/upgrade-fix'));
+      unawaited(controller.openWorktree('/home/alex/src/upgrade-fix'));
       await pumpEventQueue();
       runner.diff.complete(
         const WorkspaceReply(exitCode: 0, stdout: gitDiff, stderr: ''),
@@ -130,14 +130,14 @@ void main() {
     unawaited(controller.connect());
     await pumpEventQueue();
 
-    unawaited(controller.openWorktree('/home/luis/src/upgrade-fix'));
+    unawaited(controller.openWorktree('/home/alex/src/upgrade-fix'));
     await pumpEventQueue();
     runner.held['fix']!.complete(_onBranch('fix/paths'));
     await pumpEventQueue();
     runner.held['root']!.complete(_onBranch('main'));
     await pumpEventQueue();
 
-    expect(controller.directory, '/home/luis/src/upgrade-fix');
+    expect(controller.directory, '/home/alex/src/upgrade-fix');
     expect(controller.overview?.status.branch, 'fix/paths');
   });
 

@@ -577,7 +577,7 @@ Future<ShellConnection> openOn(
   reason: UserAction(testIntent()),
   address: 'oak',
   port: 357,
-  user: 'luisnquin',
+  user: 'developer',
   privateKey: 'pem',
   columns: 100,
   rows: 40,
@@ -1349,7 +1349,7 @@ void main() {
         links.claim(
           address: 'oak',
           port: 357,
-          user: 'luisnquin',
+          user: 'developer',
           privateKey: 'pem',
           verifier: HostKeyVerifier.pinnedOnly(pinnedKey),
           use: HostUse.tab,
@@ -2293,7 +2293,7 @@ void main() {
     await runZonedGuarded(() async {
       final client = SSHClient(
         socket,
-        username: 'luis',
+        username: 'alex',
         identities: SSHKeyPair.fromPem(privateKey),
         keepAliveInterval: const Duration(seconds: 15),
       );
@@ -2350,7 +2350,7 @@ void main() {
         reason: UserAction(testIntent()),
         address: 'oak',
         port: 357,
-        user: 'luisnquin',
+        user: 'developer',
         privateKey: 'pem',
         columns: 100,
         rows: 40,
@@ -2370,7 +2370,7 @@ void main() {
     final socket = RudeSocket();
     final client = SSHClient(
       socket,
-      username: 'luis',
+      username: 'alex',
       identities: SSHKeyPair.fromPem(privateKey),
       keepAliveInterval: const Duration(seconds: 15),
     );
@@ -2595,7 +2595,7 @@ void engineTests() {
     expect(engineRequests(host).single, {
       'service': 'shell/1',
       'op': 'start',
-      'owner': 'luisnquin',
+      'owner': 'developer',
       'args': {
         'tab': session,
         'cols': 100,
@@ -2978,7 +2978,7 @@ void engineTests() {
     expect(engineRequests(host).last, {
       'service': 'shell/1',
       'op': 'stop',
-      'owner': 'luisnquin',
+      'owner': 'developer',
       'args': {'tab': session},
     });
     expect(host.requests.last, 'exec ${moshServerCleanupCommand(session)}');

@@ -177,7 +177,7 @@ AgentSnapshot snapshot({
   state: AgentState.of(status),
   terminalTitleStripped: title,
   workspaceId: pane.split(':').first,
-  cwd: '/home/luisnquin/src',
+  cwd: '/home/developer/src',
   stateChangeSeq: 1,
 );
 
@@ -186,7 +186,7 @@ const host = Host(
   name: 'oak',
   address: '100.64.0.1',
   port: 22,
-  user: 'luisnquin',
+  user: 'developer',
   keyId: 'k1',
 );
 
@@ -195,7 +195,7 @@ const other = Host(
   name: 'pine',
   address: '100.64.0.2',
   port: 22,
-  user: 'luisnquin',
+  user: 'developer',
   keyId: 'k1',
 );
 
@@ -357,7 +357,7 @@ void main() {
           state: DoneState(),
           terminalTitleStripped: 'wrote the migration',
           workspaceId: 'wQ',
-          cwd: '/home/luisnquin/src',
+          cwd: '/home/developer/src',
           stateChangeSeq: 4,
         ),
       ];
@@ -886,7 +886,7 @@ void main() {
     expect(decoded.session, 'lab');
     expect(decoded.pane, (session: 'lab', pane: 'wQ:p1'));
     expect(decoded.port, 22);
-    expect(decoded.user, 'luisnquin');
+    expect(decoded.user, 'developer');
     expect(decoded.keyId, 'k1');
     expect(decoded.paneId, 'wQ:p1');
     expect(decoded.agent, 'claude');
@@ -1085,7 +1085,7 @@ void main() {
       name: 'oak',
       address: '100.64.0.2',
       port: 22,
-      user: 'luisnquin',
+      user: 'developer',
       keyId: 'k1',
     );
     final first = handler.setHosts(const [moved]);

@@ -63,7 +63,7 @@ void main() {
         hostId: 'oak',
         address: '198.51.100.77',
         port: 357,
-        user: 'luisnquin',
+        user: 'developer',
         keyId: 'k1',
         session: 'default',
         paneId: 'wQ:pH',
@@ -117,7 +117,7 @@ void main() {
           name: 'pine',
           address: '100.64.0.1',
           port: 22,
-          user: 'luis',
+          user: 'alex',
           keyId: 'k1',
         ),
       );
@@ -236,7 +236,7 @@ void main() {
         name: 'Oak',
         address: '198.51.100.77',
         port: 357,
-        user: 'luisnquin',
+        user: 'developer',
         keyId: 'k1',
       );
       await tester.pumpWidget(
@@ -273,7 +273,7 @@ void main() {
         name: 'Dead',
         address: '100.64.0.253',
         port: 22,
-        user: 'luisnquin',
+        user: 'developer',
         keyId: 'k1',
       );
       await tester.pumpWidget(

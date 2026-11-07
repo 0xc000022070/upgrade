@@ -857,11 +857,11 @@ void main() {
     await tester.pumpWidget(app(fakeShellSessions(transport)));
     await ready(tester);
 
-    transport.opened.single.emit('\x1b]0;luis@oak: ~\x07');
+    transport.opened.single.emit('\x1b]0;alex@oak: ~\x07');
     await ready(tester);
 
     expect(find.text('~'), findsOneWidget);
-    expect(find.text('luis@oak: ~'), findsNothing);
+    expect(find.text('alex@oak: ~'), findsNothing);
 
     transport.opened.single.exit(1);
     await ready(tester);

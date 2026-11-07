@@ -131,7 +131,7 @@ const linkFull = LinkPreview(
       'The front tab retries on the short ladder; background tabs keep the '
       'long one so a flaky link does not wake every session at once.',
   siteName: 'GitHub',
-  author: 'luisnquin',
+  author: 'developer',
 );
 
 const linkBare = LinkPreview(

@@ -89,7 +89,7 @@ void main() {
     test('gives back the line it was handed, whatever it did with it', () {
       const lines = {
         'lib/main.dart': [
-          "  final name = 'luis'; // the one on the key",
+          "  final name = 'alex'; // the one on the key",
           '@override',
           '',
           '  Widget build(BuildContext context) => const SizedBox();',
@@ -115,8 +115,8 @@ void main() {
 
     test('a string keeps its quotes', () {
       expect(
-        coloured("  final name = 'luis';", 'lib/main.dart'),
-        contains(("'luis'", SyntaxToken.string)),
+        coloured("  final name = 'alex';", 'lib/main.dart'),
+        contains(("'alex'", SyntaxToken.string)),
       );
     });
 

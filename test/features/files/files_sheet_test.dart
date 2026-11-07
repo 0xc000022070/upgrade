@@ -24,7 +24,7 @@ const _oak = Host(
   name: 'oak',
   address: '100.64.0.2',
   port: 22,
-  user: 'luis',
+  user: 'alex',
   keyId: 'key-1',
 );
 
@@ -50,7 +50,7 @@ final class _FakeFiles implements HostFiles {
   Host get host => _oak;
 
   @override
-  Future<String> home() async => '/home/luis';
+  Future<String> home() async => '/home/alex';
 
   @override
   Future<List<DirEntry>?> list(String directory) async =>
@@ -102,8 +102,8 @@ void main() {
 
   setUp(() {
     files = _FakeFiles({
-      '/home/luis': [_file('.bashrc', 10), _file('notes.txt', 3), _dir('src')],
-      '/home/luis/src': [_file('main.dart', 40)],
+      '/home/alex': [_file('.bashrc', 10), _file('notes.txt', 3), _dir('src')],
+      '/home/alex/src': [_file('main.dart', 40)],
     });
   });
 
@@ -145,7 +145,7 @@ void main() {
   ) async {
     await open(tester, (context) => showHostFiles(context, _oak));
 
-    expect(find.byKey(const ValueKey('files-dir-/home/luis')), findsOneWidget);
+    expect(find.byKey(const ValueKey('files-dir-/home/alex')), findsOneWidget);
     expect(top(tester, 'src'), lessThan(top(tester, 'notes.txt')));
     expect(top(tester, 'notes.txt'), lessThan(top(tester, '.bashrc')));
     expect(find.text('main.dart'), findsNothing);
@@ -160,7 +160,7 @@ void main() {
 
   testWidgets('folders, then files, then dot folders, then dotfiles, each '
       'by name whatever the case', (tester) async {
-    files.tree['/home/luis'] = [
+    files.tree['/home/alex'] = [
       _file('b.txt', 1),
       _dir('.cache'),
       _file('.zshrc', 1),
@@ -198,7 +198,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(opened, before + 1);
     expect(find.text('main.dart'), findsOneWidget);
-    expect(find.byKey(const ValueKey('files-dir-/home/luis')), findsOneWidget);
+    expect(find.byKey(const ValueKey('files-dir-/home/alex')), findsOneWidget);
   });
 
   testWidgets('a file offers share, save and send', (tester) async {
@@ -233,12 +233,12 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('files-put-here')));
     await tester.pumpAndSettle();
 
-    expect(picked, '/home/luis/src');
+    expect(picked, '/home/alex/src');
     expect(files.closed, isTrue);
   });
 
   testWidgets('put here stays in reach under a long home', (tester) async {
-    files.tree['/home/luis'] = [for (var i = 0; i < 80; i++) _dir('dir$i')];
+    files.tree['/home/alex'] = [for (var i = 0; i < 80; i++) _dir('dir$i')];
     await open(tester, (context) => pickHostFolder(context, _oak));
 
     final put = find.byKey(const ValueKey('files-put-here'));
@@ -286,7 +286,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('files-put-here')));
     await tester.pumpAndSettle();
 
-    expect(files.puts.keys.single, startsWith('/home/luis/shared-'));
+    expect(files.puts.keys.single, startsWith('/home/alex/shared-'));
     expect(String.fromCharCodes(files.puts.values.single), 'hello');
     await tester.pumpAndSettle(sendSheetLinger);
   });
@@ -389,16 +389,16 @@ void main() {
         find.byKey(const ValueKey('files-put-here')),
         () => shows('UPLOADING · 1 FAILED'),
       );
-      expect(files.puts.keys, ['/home/luis/a.txt']);
+      expect(files.puts.keys, ['/home/alex/a.txt']);
       expect(find.text('UPLOADING · 1 FAILED'), findsOneWidget);
 
       await settle(
         tester,
         find.byKey(const ValueKey('send-retry')),
-        () => shows('IN luis'),
+        () => shows('IN alex'),
       );
-      expect(files.puts.keys, ['/home/luis/a.txt', '/home/luis/b.txt']);
-      expect(find.text('IN luis'), findsOneWidget);
+      expect(files.puts.keys, ['/home/alex/a.txt', '/home/alex/b.txt']);
+      expect(find.text('IN alex'), findsOneWidget);
       await tester.pumpAndSettle(sendSheetLinger);
     });
 
@@ -433,7 +433,7 @@ void main() {
             files.puts.length == 2 &&
             !File((shared[1] as SharedFile).path).existsSync(),
       );
-      expect(files.puts.keys, ['/home/luis/a.txt', '/home/luis/b.txt']);
+      expect(files.puts.keys, ['/home/alex/a.txt', '/home/alex/b.txt']);
       expect(File((shared[1] as SharedFile).path).existsSync(), isFalse);
     });
 
@@ -452,11 +452,11 @@ void main() {
       await settle(
         tester,
         find.byKey(const ValueKey('send-retry')),
-        () => shows('IN luis · 1 FAILED'),
+        () => shows('IN alex · 1 FAILED'),
       );
 
-      expect(files.puts.keys, ['/home/luis/a.txt']);
-      expect(find.text('IN luis · 1 FAILED'), findsOneWidget);
+      expect(files.puts.keys, ['/home/alex/a.txt']);
+      expect(find.text('IN alex · 1 FAILED'), findsOneWidget);
       expect(find.text(copyGone), findsOneWidget);
       expect(find.byKey(const ValueKey('send-retry')), findsNothing);
     });

@@ -522,7 +522,7 @@ void main() {
               id: 'host-1',
               name: 'oak',
               address: '100.64.0.1',
-              user: 'luisnquin',
+              user: 'developer',
               keyId: 'key-1',
             ),
             mode: InsertMode.insertOrIgnore,

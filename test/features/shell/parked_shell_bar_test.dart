@@ -31,7 +31,7 @@ const _pine = Host(
   name: 'pine',
   address: '100.64.0.1',
   port: 22,
-  user: 'luis',
+  user: 'alex',
   keyId: 'key-1',
 );
 
@@ -40,7 +40,7 @@ const _oak = Host(
   name: 'oak',
   address: '100.64.0.2',
   port: 22,
-  user: 'luis',
+  user: 'alex',
   keyId: 'key-1',
 );
 
@@ -440,7 +440,7 @@ void main() {
         name: 'mark',
         address: '100.64.0.1',
         port: 22,
-        user: 'luis',
+        user: 'alex',
         keyId: 'key-1',
       ),
       _oak,
@@ -500,7 +500,7 @@ void main() {
     await ready(tester);
     expect(label, findsNothing);
 
-    transport.opened.single.emit('\x1b]0;luis@pine: ~/Projects/upgrade\x07');
+    transport.opened.single.emit('\x1b]0;alex@pine: ~/Projects/upgrade\x07');
     await ready(tester);
     expect(find.text('upgrade'), findsOneWidget);
 
@@ -555,7 +555,7 @@ void main() {
               name: 'machine-$i',
               address: '100.64.1.$i',
               port: 22,
-              user: 'luis',
+              user: 'alex',
               keyId: 'key-1',
             ),
         ];

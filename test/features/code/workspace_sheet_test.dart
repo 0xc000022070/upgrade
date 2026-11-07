@@ -358,7 +358,7 @@ void main() {
       );
 
       await tapText(tester, 'lib');
-      expect(runner.commands.last, contains('/home/luis/src/upgrade/lib'));
+      expect(runner.commands.last, contains('/home/alex/src/upgrade/lib'));
       expect(find.text('lib'), findsNWidgets(2));
       expect(find.text('README.md'), findsNWidgets(2));
       expect(

@@ -23,7 +23,7 @@ const _pine = Host(
   name: 'pine',
   address: '100.64.0.1',
   port: 22,
-  user: 'luis',
+  user: 'alex',
   keyId: 'key-1',
 );
 
@@ -34,7 +34,7 @@ const _agent = AgentSnapshot(
   state: WorkingState(),
   terminalTitleStripped: 'refactor',
   workspaceId: 'w22',
-  cwd: '/home/luis/upgrade',
+  cwd: '/home/alex/upgrade',
   stateChangeSeq: 4,
 );
 

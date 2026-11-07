@@ -40,7 +40,7 @@ const _pine = Host(
   name: 'pine',
   address: '10.0.2.2',
   port: 22,
-  user: 'luisnquin',
+  user: 'developer',
   keyId: 'k1',
 );
 
@@ -49,7 +49,7 @@ const _oak = Host(
   name: 'oak',
   address: '10.0.2.3',
   port: 22,
-  user: 'luisnquin',
+  user: 'developer',
   keyId: 'k1',
 );
 
@@ -380,7 +380,7 @@ void main() {
         name: 'mark',
         address: '10.0.2.2',
         port: 22,
-        user: 'luisnquin',
+        user: 'developer',
         keyId: 'k1',
       ),
       _oak,

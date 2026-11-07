@@ -33,7 +33,7 @@ const _fadeWidth = Spacing.xxl;
 
 const _labelDrop = Spacing.md;
 
-/// A login shell's title is who and where (`luis@oak: ~/Projects/upgrade`), and the where
+/// A login shell's title is who and where (`alex@oak: ~/Projects/upgrade`), and the where
 /// is the half that tells two tabs apart. A title with a space in it is a sentence the
 /// program wrote and is kept as it stands, slashes included: `vim design/SPEC.md` is not
 /// a path.
