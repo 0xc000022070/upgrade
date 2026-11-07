@@ -10,9 +10,10 @@ commit count at HEAD, so every commit is a release and every handset that
 holds a commit holds it under the same number. HEAD is exported on its own
 under build/deploy/tree, so nothing another session left in the working tree
 can ride along; the export keeps .dart_tool and build/ between runs for the
-caches. The apk must be signed by the debug keystore under
-$ANDROID_USER_HOME (~/.android by default): one from any other key can only
-land by uninstalling, and the handsets hold real data.
+caches. The apk must be signed by the debug keystore Gradle signs with, found
+where Gradle looks: $ANDROID_USER_HOME, ~/.android, then $XDG_CONFIG_HOME/.android.
+One from any other key can only land by uninstalling, and the handsets hold
+real data.
 
 Every build and every install runs under build/deploy/lock, and each run pins
 one commit when it takes the lock, so a run queued behind another builds what
@@ -37,7 +38,10 @@ EOF
 
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly PKG=dev.luisnquin.upgrade
-readonly KEYSTORE="${ANDROID_USER_HOME:-$HOME/.android}/debug.keystore"
+for dir in "${ANDROID_USER_HOME:-}" "$HOME/.android" "${XDG_CONFIG_HOME:-$HOME/.config}/.android"; do
+  [[ -f $dir/debug.keystore ]] && break
+done
+readonly KEYSTORE="$dir/debug.keystore"
 readonly OUT="$ROOT/build/deploy"
 readonly TREE="$OUT/tree"
 
