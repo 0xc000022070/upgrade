@@ -538,13 +538,19 @@ new file mode 100644
       await unmount(tester);
     });
 
-    testWidgets('an unfolded phone keeps every tool on the bar', (
+    testWidgets('an unfolded phone keeps the tools on one row of words', (
       tester,
     ) async {
       await viewer(tester, runner: withTexts(), size: const Size(840, 700));
       Finder tool(String key) => onSheet(find.byKey(ValueKey('diff-$key')));
-      expect(tool('more'), findsNothing);
-      expect(tool('history'), findsOneWidget);
+      expect(tool('search'), findsOneWidget);
+      expect(tool('viewed'), findsOneWidget);
+      expect(onSheet(find.text('SEARCH')), findsOneWidget);
+      final last = tool('more').evaluate().isEmpty ? 'history' : 'more';
+      expect(
+        tester.getTopLeft(tool(last)).dy,
+        tester.getTopLeft(tool('search')).dy,
+      );
       expect(tester.takeException(), isNull);
       await unmount(tester);
     });

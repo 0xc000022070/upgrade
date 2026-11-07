@@ -20,6 +20,7 @@ import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/shell/shell_launch.dart';
 import 'package:upgrade/platform/ssh/ssh_settle.dart';
+import 'package:upgrade/platform/workspace/workspace_commands.dart';
 
 enum AgentSource { herdr, engine }
 
@@ -264,7 +265,7 @@ abstract final class HerdrCommands {
   static String paths() => underSh(r'''
 for root in "$HOME/Projects" "$HOME/.dotfiles" "$HOME/src"; do
   [ -d "$root" ] || continue
-  find "$root" -name .git -prune -print 2>/dev/null
+  find -H "$root" -name .git -prune -print 2>/dev/null
 done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
 ''');
 
@@ -698,6 +699,18 @@ class HerdrSession {
     );
     if (result.exitCode != 0) return const [];
     return HerdrClient.parsePaths(utf8.decode(result.stdout));
+  }
+
+  Future<String> survey(
+    List<String> directories, {
+    Duration within = launchScanDeadline,
+  }) async {
+    final result = await _bounded(
+      'survey',
+      within,
+      () => _run(WorkspaceCommands.survey(directories)),
+    );
+    return utf8.decode(result.stdout, allowMalformed: true);
   }
 
   Future<LaunchTargets> launchTargets({Duration within = launchScanDeadline}) =>
@@ -1723,6 +1736,22 @@ class HerdrClient {
     privateKey: privateKey,
     verifier: verifier,
     body: (session) => session.paths(),
+  );
+
+  Future<String> fetchSurvey({
+    required String address,
+    required int port,
+    required String user,
+    required String privateKey,
+    required HostKeyVerifier verifier,
+    required List<String> directories,
+  }) => _borrow(
+    address: address,
+    port: port,
+    user: user,
+    privateKey: privateKey,
+    verifier: verifier,
+    body: (session) => session.survey(directories),
   );
 
   Future<LaunchTargets> fetchLaunchTargets({

@@ -367,6 +367,11 @@ class DiffSession extends ChangeNotifier {
   Future<String?> unstage(List<WorkspaceFile> files) =>
       _wrote(controller.unstage([for (final file in files) file.path]));
 
+  Future<String?> commit(String subject, String body) =>
+      _wrote(controller.commit(subject, body));
+
+  Future<String?> push() => _wrote(controller.push());
+
   Future<String?> discard(List<WorkspaceFile> files) async {
     final untracked = [
       for (final file in files)

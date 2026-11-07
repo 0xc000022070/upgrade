@@ -162,10 +162,13 @@ class _SendStepsState extends ConsumerState<SendSteps> {
           );
     if (host == null || !mounted) return;
     final picked = await showPathPicker(context, host: host);
-    if (picked == null || picked.isEmpty || !mounted) return;
-    final path = await ref
-        .read(pathRepositoryProvider)
-        .add(hostId: host.id, directory: picked.first);
+    if (picked == null || !mounted) return;
+    final repository = ref.read(pathRepositoryProvider);
+    final path =
+        (await repository.listForHost(host.id))
+            .where((path) => path.directory == picked)
+            .firstOrNull ??
+        await repository.add(hostId: host.id, directory: picked);
     if (!mounted) return;
     _toDispatch(PathTarget(path: path, host: host));
   }

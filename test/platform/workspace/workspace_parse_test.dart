@@ -87,6 +87,42 @@ void main() {
     });
   });
 
+  group('the survey', () {
+    test('one record per checkout, the directory first and the counts after', () {
+      final surveys = parseSurvey(
+        '$workspaceRecord~/src/upgrade\n$_status# numstat 142 38\n'
+        '$workspaceRecord/srv/gate\n# branch.head main\n# numstat 0 0\n',
+      );
+
+      expect(surveys.map((s) => s.directory), ['~/src/upgrade', '/srv/gate']);
+      expect(surveys.first.status.branch, 'main');
+      expect(surveys.first.status.ahead, 2);
+      expect(surveys.first.status.changes, hasLength(5));
+      expect((surveys.first.added, surveys.first.removed), (142, 38));
+      expect(surveys.last.status.clean, isTrue);
+      expect((surveys.last.added, surveys.last.removed), (0, 0));
+    });
+
+    test('a directory git refused is a record with no status', () {
+      final surveys = parseSurvey(
+        '$workspaceRecord/opt/plain\n# numstat 0 0\n',
+      );
+
+      expect(surveys.single.directory, '/opt/plain');
+      expect(surveys.single.status.branch, isNull);
+      expect(surveys.single.status.clean, isTrue);
+    });
+
+    test('the command walks every directory it was handed, tilde included', () {
+      final command = WorkspaceCommands.survey(['~/src/upgrade', '/srv/gate']);
+
+      expect(command, contains('~/src/upgrade'));
+      expect(command, contains('/srv/gate'));
+      expect(command, contains('status --porcelain=v2 --branch'));
+      expect(command, contains('# numstat'));
+    });
+  });
+
   group('worktrees', () {
     test('each record becomes a row with a short branch', () {
       final rows = parseWorktrees(_worktrees);

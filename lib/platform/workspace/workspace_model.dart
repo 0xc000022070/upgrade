@@ -178,6 +178,45 @@ WorkspaceOverview parseOverview(String output) {
   );
 }
 
+class CheckoutSurvey {
+  const CheckoutSurvey({
+    required this.directory,
+    required this.status,
+    required this.added,
+    required this.removed,
+  });
+
+  final String directory;
+  final WorkspaceStatus status;
+  final int added;
+  final int removed;
+}
+
+List<CheckoutSurvey> parseSurvey(String output) {
+  final surveys = <CheckoutSurvey>[];
+  for (final record in output.split(workspaceRecord)) {
+    final lines = _lines(record);
+    if (lines.isEmpty) continue;
+    var added = 0;
+    var removed = 0;
+    for (final line in lines) {
+      if (!line.startsWith('# numstat ')) continue;
+      final counts = line.substring('# numstat '.length).split(' ');
+      added = int.tryParse(counts[0]) ?? 0;
+      removed = counts.length > 1 ? int.tryParse(counts[1]) ?? 0 : 0;
+    }
+    surveys.add(
+      CheckoutSurvey(
+        directory: lines.first,
+        status: parseStatus(lines.skip(1).join('\n')),
+        added: added,
+        removed: removed,
+      ),
+    );
+  }
+  return surveys;
+}
+
 WorkspaceStatus parseStatus(String output) {
   String? branch;
   String? upstream;
@@ -471,9 +510,11 @@ List<DirEntry> parseListing(String output) {
   for (final line in _lines(output)) {
     final fields = line.split('\t');
     if (fields.length < 3) continue;
+    final name = fields.sublist(2).join('\t');
+    if (name == '.git') continue;
     entries.add(
       DirEntry(
-        name: fields.sublist(2).join('\t'),
+        name: name,
         kind: switch (fields[0]) {
           'd' => DirEntryKind.directory,
           'l' => DirEntryKind.link,

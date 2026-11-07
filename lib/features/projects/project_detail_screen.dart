@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/drops/drop_selection.dart';
 import 'package:upgrade/application/formatting.dart';
 import 'package:upgrade/application/navigation.dart';
@@ -8,6 +9,7 @@ import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
 import 'package:upgrade/data/views.dart';
 import 'package:upgrade/data/project_icons.dart';
@@ -25,7 +27,8 @@ import 'package:upgrade/design/effects/glitch.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/features/code/workspace_sheet.dart';
+import 'package:upgrade/features/code/workspace_page.dart';
+import 'package:upgrade/features/hosts/path_picker_sheet.dart';
 import 'package:upgrade/features/home/capture_bar.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
@@ -493,7 +496,8 @@ class _CodePanel extends ConsumerWidget {
                 title: shortPathLabel(target.path.directory),
                 literalTitle: true,
                 value: target.host.name.toUpperCase(),
-                onTap: () => openWorkspace(context, target.path, target.host),
+                onTap: () =>
+                    openWorkspace(context, target.host, target.path.directory),
                 onLongPress: () => _unlink(context, ref, target),
               ),
           ],
@@ -503,44 +507,63 @@ class _CodePanel extends ConsumerWidget {
   }
 
   Future<void> _link(BuildContext context, WidgetRef ref) async {
-    final repository = ref.read(pathRepositoryProvider);
-    final all = await repository.watchTargets().first;
-    final free = await repository.watchUnlinked().first;
+    final hosts = await ref.read(hostRepositoryProvider).all();
     if (!context.mounted) return;
-    final picked = await showPanelSheet<PathTarget>(
-      context,
-      title: 'LINK',
-      builder: (context) => PanelSheetBody(
-        title: 'LINK',
-        children: [
-          if (all.isEmpty)
-            PickerRow(
-              label: 'ADD A HOST',
-              subtitle: 'NO WORKSPACES YET',
-              onTap: () {
-                Navigator.of(
-                  context,
-                  rootNavigator: true,
-                ).popUntil((route) => route.isFirst);
-                ref.read(navIndexProvider.notifier).state =
-                    HostsScreen.navIndex;
-              },
-            )
-          else if (free.isEmpty)
-            const EmptyState('every directory is linked'),
-          for (final target in free)
-            PickerRow(
-              label: shortPathLabel(target.path.directory),
-              subtitle: target.host.name.toUpperCase(),
-              onTap: () => Navigator.of(context).pop(target),
+    final host = hosts.length == 1
+        ? hosts.single
+        : await showPanelSheet<Host>(
+            context,
+            title: 'LINK',
+            builder: (context) => PanelSheetBody(
+              title: 'LINK',
+              children: [
+                if (hosts.isEmpty)
+                  PickerRow(
+                    label: 'ADD A HOST',
+                    subtitle: 'NO WORKSPACES YET',
+                    onTap: () {
+                      Navigator.of(
+                        context,
+                        rootNavigator: true,
+                      ).popUntil((route) => route.isFirst);
+                      ref.read(navIndexProvider.notifier).state =
+                          HostsScreen.navIndex;
+                    },
+                  ),
+                for (final host in hosts)
+                  PickerRow(
+                    label: host.name.toUpperCase(),
+                    subtitle: '${host.address}:${host.port}',
+                    onTap: () => Navigator.of(context).pop(host),
+                  ),
+              ],
             ),
-        ],
-      ),
+          );
+    if (host == null || !context.mounted) return;
+    final repository = ref.read(pathRepositoryProvider);
+    final known = await repository.listForHost(host.id);
+    if (!context.mounted) return;
+    final directory = await showPathPicker(
+      context,
+      host: host,
+      taken: {
+        for (final path in known)
+          if (path.projectId != null) path.directory,
+      },
     );
-    if (picked == null) return;
-    await ref
-        .read(pathRepositoryProvider)
-        .setProject(picked.path.id, projectId);
+    if (directory == null) return;
+    final remembered = known
+        .where((path) => path.directory == directory)
+        .firstOrNull;
+    if (remembered != null) {
+      await repository.setProject(remembered.id, projectId);
+    } else {
+      await repository.add(
+        hostId: host.id,
+        directory: directory,
+        projectId: projectId,
+      );
+    }
   }
 
   Future<void> _unlink(

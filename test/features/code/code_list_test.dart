@@ -13,12 +13,15 @@ import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/features/hosts/link_probes.dart';
 import 'package:upgrade/features/screen/screen_preview.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/platform/workspace/workspace_commands.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/platform/links/link_probe.dart';
 import 'package:upgrade/application/providers.dart';
 
@@ -26,7 +29,28 @@ import '../../support/fake_shell.dart';
 import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
 
-const _scanned = ['~/src/upgrade', '/srv/gate', '~/src/monolith'];
+final _scanned = <String, List<String>>{};
+HerdrFailure? _refused;
+var _walks = 0;
+
+const _found = ['~/src/upgrade', '/srv/gate', '~/src/monolith'];
+
+const _survey =
+    '$workspaceRecord~/src/upgrade\n'
+    '# branch.head main\n'
+    '# branch.upstream origin/main\n'
+    '# branch.ab +2 -0\n'
+    '1 .M N... 100644 100644 100644 aaa bbb lib/main.dart\n'
+    '? scratch.txt\n'
+    '# numstat 142 38\n'
+    '$workspaceRecord/srv/gate\n'
+    '# branch.head main\n'
+    '# branch.upstream origin/main\n'
+    '# branch.ab +0 -0\n'
+    '# numstat 0 0\n'
+    '$workspaceRecord~/src/monolith\n'
+    '# branch.head feat/x\n'
+    '# numstat 0 0\n';
 
 ManagedKey _key(String id) => ManagedKey(
   id: id,
@@ -70,6 +94,11 @@ void main() {
     addTearDown(previews.dispose);
     await keys.save(_key('key-1'));
     await privateKeys.write('key-1', 'PEM');
+    _scanned
+      ..clear()
+      ..['100.64.0.1'] = _found;
+    _refused = null;
+    _walks = 0;
   });
 
   tearDown(() {
@@ -103,13 +132,18 @@ void main() {
       hostKeyDialProvider.overrideWith((ref) => noDial),
       pathScannerProvider.overrideWithValue(
         PathScanner(
-          fetch: ({
-            required address,
-            required port,
-            required user,
-            required privateKey,
-            required verifier,
-          }) async => _scanned,
+          fetch:
+              ({
+                required address,
+                required port,
+                required user,
+                required privateKey,
+                required verifier,
+              }) async {
+                _walks++;
+                if (_refused case final failure?) throw failure;
+                return _scanned[address] ?? const [];
+              },
           fetchModels: ({
             required address,
             required port,
@@ -118,6 +152,14 @@ void main() {
             required kind,
             required verifier,
           }) async => const [],
+          fetchSurvey: ({
+            required address,
+            required port,
+            required user,
+            required privateKey,
+            required verifier,
+            required directories,
+          }) async => _survey,
           keys: Ed25519Keys(privateKeys),
         ),
       ),
@@ -152,6 +194,11 @@ void main() {
 
   Future<void> toCode(WidgetTester tester) => tapText(tester, 'CODE');
 
+  Finder row(String directory) => find.byKey(ValueKey('code-row-$directory'));
+
+  String? subtitle(WidgetTester tester, String directory) =>
+      tester.widget<ListRow>(row(directory)).subtitle;
+
   testWidgets('MACHINES opens on HOSTS and the switch reaches CODE', (
     tester,
   ) async {
@@ -160,190 +207,172 @@ void main() {
 
     expect(find.text('MACHINES'), findsWidgets);
     expect(find.text('ADD HOST'), findsOneWidget);
-    expect(find.text('WORKSPACES'), findsNothing);
+    expect(find.text('RESCAN'), findsNothing);
 
     await toCode(tester);
-    expect(find.text('WORKSPACES'), findsOneWidget);
+    expect(find.text('RESCAN'), findsOneWidget);
     expect(find.text('ADD HOST'), findsNothing);
 
     await tapText(tester, 'HOSTS');
-    expect(find.text('WORKSPACES'), findsNothing);
+    expect(find.text('RESCAN'), findsNothing);
     expect(find.text('ADD HOST'), findsOneWidget);
 
     await unmount(tester);
   });
 
-  testWidgets('CODE lists and registers with the Projects plugin off', (
+  testWidgets('the host is walked and every checkout it has is a row', (
     tester,
   ) async {
     await hosts.save(_host('1', 'oak'));
-    await paths.add(hostId: '1', directory: '~/src/monolith');
     await open(tester, projects: false);
     await toCode(tester);
 
-    expect(find.text('WORKSPACES'), findsOneWidget);
-    expect(find.text(shortPathLabel('~/src/monolith')), findsOneWidget);
-
-    await tapText(tester, 'ADD');
-    await tapText(tester, shortPathLabel('~/src/upgrade'));
-    await tapText(tester, 'ADD 1');
-
-    expect(find.text(shortPathLabel('~/src/upgrade')), findsOneWidget);
-    expect((await paths.listForHost('1')).length, 2);
+    for (final directory in _found) {
+      expect(row(directory), findsOneWidget);
+    }
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('ADD'), findsNothing);
+    expect(await paths.listForHost('1'), isEmpty);
 
     await unmount(tester);
   });
 
-  testWidgets('a long workspace path gives up its parents before its name', (
+  testWidgets('each row says how dirty its checkout is, or nothing', (
     tester,
   ) async {
     await hosts.save(_host('1', 'oak'));
-    await paths.add(
-      hostId: '1',
-      directory:
-          '~/src/${'a-parent-directory-far-too-long-to-fit' * 2}/upgrade',
-    );
+    await open(tester);
+    await toCode(tester);
+
+    expect(subtitle(tester, '~/src/upgrade'), 'main ↑2  +142 −38  2 files');
+    expect(subtitle(tester, '/srv/gate'), isNull);
+    expect(subtitle(tester, '~/src/monolith'), isNull);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a long checkout path gives up its parents before its name', (
+    tester,
+  ) async {
+    final deep =
+        '~/src/${'a-parent-directory-far-too-long-to-fit' * 2}/upgrade';
+    _scanned['100.64.0.1'] = [deep];
+    await hosts.save(_host('1', 'oak'));
     await open(tester);
     await toCode(tester);
 
     expect(find.text('…/upgrade'), findsOneWidget);
-    expect(find.text('OAK'), findsOneWidget);
+    expect(find.text('OAK'), findsWidgets);
 
     await unmount(tester);
   });
 
-  testWidgets('with no host at all there is nothing to register on', (
-    tester,
-  ) async {
+  testWidgets('with no host at all there is nothing to walk', (tester) async {
     await open(tester);
     await toCode(tester);
 
     expect(find.text('NO HOSTS YET'), findsOneWidget);
-    expect(find.text('ADD'), findsOneWidget);
+    expect(find.text('RESCAN'), findsNothing);
 
     await unmount(tester);
   });
 
-  testWidgets('ADD asks the host and registers a multiple pick', (
-    tester,
-  ) async {
+  testWidgets('a registered checkout the walk no longer finds is gone, and a '
+      'long press removes it', (tester) async {
     await hosts.save(_host('1', 'oak'));
-    await hosts.save(_host('2', 'pine'));
+    await paths.add(hostId: '1', directory: '/opt/old');
     await open(tester);
     await toCode(tester);
 
-    await tapText(tester, 'ADD');
-    expect(find.text('PINE'), findsOneWidget);
-    await tapText(tester, 'OAK');
+    expect(subtitle(tester, '/opt/old'), 'gone');
+    expect(subtitle(tester, '/srv/gate'), isNull);
+    expect(find.text('4'), findsOneWidget);
 
-    await tapText(tester, shortPathLabel('~/src/upgrade'));
-    await tapText(tester, shortPathLabel('/srv/gate'));
-    await tapText(tester, 'ADD 2');
-
-    final registered = await paths.listForHost('1');
-    expect(registered.map((path) => path.directory), [
-      '~/src/upgrade',
-      '/srv/gate',
-    ]);
-    expect(find.text('OAK'), findsNWidgets(2));
-
-    await unmount(tester);
-  });
-
-  testWidgets('one host is not a question, so the picker opens straight', (
-    tester,
-  ) async {
-    await hosts.save(_host('1', 'oak'));
-    await open(tester);
-    await toCode(tester);
-
-    await tapText(tester, 'ADD');
-    expect(find.text(shortPathLabel('~/src/upgrade')), findsOneWidget);
-
-    await unmount(tester);
-  });
-
-  testWidgets('a directory already registered is not offered again', (
-    tester,
-  ) async {
-    await hosts.save(_host('1', 'oak'));
-    await paths.add(hostId: '1', directory: '~/src/upgrade');
-    await open(tester);
-    await toCode(tester);
-
-    await tapText(tester, 'ADD');
-    expect(find.text(shortPathLabel('~/src/upgrade')), findsOneWidget);
-    expect(find.text(shortPathLabel('/srv/gate')), findsOneWidget);
-
-    await unmount(tester);
-  });
-
-  testWidgets('a long press re-points a row', (tester) async {
-    await hosts.save(_host('1', 'oak'));
-    final path = await paths.add(hostId: '1', directory: '~/src/upgrade');
-    await open(tester);
-    await toCode(tester);
-
-    await tester.longPress(find.text(shortPathLabel('~/src/upgrade')));
+    await tester.longPress(row('/opt/old'));
     await ready(tester);
-    await tapText(tester, 'RE-POINT');
-    await tapText(tester, shortPathLabel('~/src/monolith'));
+    await tapText(tester, 'REMOVE');
 
-    final registered = await paths.listForHost('1');
-    expect(registered.single.id, path.id);
-    expect(registered.single.directory, '~/src/monolith');
-    expect(registered.single.label, 'monolith');
+    expect(await paths.listForHost('1'), isEmpty);
+    expect(row('/opt/old'), findsNothing);
 
     await unmount(tester);
   });
 
-  testWidgets('a long press removes a row', (tester) async {
+  testWidgets('a checkout the walk still finds has nothing to remove', (
+    tester,
+  ) async {
     await hosts.save(_host('1', 'oak'));
-    await paths.add(hostId: '1', directory: '~/src/upgrade');
     await paths.add(hostId: '1', directory: '/srv/gate');
     await open(tester);
     await toCode(tester);
 
-    await tester.longPress(find.text(shortPathLabel('~/src/upgrade')));
-    await ready(tester);
-    await tapText(tester, 'REMOVE');
-
-    expect((await paths.listForHost('1')).map((p) => p.directory), [
-      '/srv/gate',
-    ]);
-    expect(find.text(shortPathLabel('~/src/upgrade')), findsNothing);
+    expect(tester.widget<ListRow>(row('/srv/gate')).onLongPress, isNull);
+    expect(row('/srv/gate'), findsOneWidget);
 
     await unmount(tester);
   });
 
-  testWidgets('a host with herdr off still lists and still registers', (
+  testWidgets('a host that cannot be reached says so and keeps what it knew', (
     tester,
   ) async {
+    _refused = const HerdrUnreachable();
+    await hosts.save(_host('1', 'oak'));
+    await paths.add(hostId: '1', directory: '~/src/upgrade');
+    await open(tester);
+    await toCode(tester);
+
+    expect(find.text('unreachable'), findsOneWidget);
+    expect(row('~/src/upgrade'), findsOneWidget);
+    expect(subtitle(tester, '~/src/upgrade'), isNull);
+    expect(row('/srv/gate'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('an unreachable host with nothing registered says why', (
+    tester,
+  ) async {
+    _refused = const HerdrUnreachable();
     await hosts.save(_host('1', 'oak'));
     await open(tester);
     await toCode(tester);
 
-    await tapText(tester, 'ADD');
-    await tapText(tester, shortPathLabel('/srv/gate'));
-    await tapText(tester, 'ADD 1');
+    expect(find.text('OAK UNREACHABLE'), findsOneWidget);
 
-    expect((await paths.listForHost('1')).single.directory, '/srv/gate');
+    await unmount(tester);
+  });
+
+  testWidgets('RESCAN walks the host again', (tester) async {
+    _refused = const HerdrUnreachable();
+    await hosts.save(_host('1', 'oak'));
+    await open(tester);
+    await toCode(tester);
+    expect(_walks, 1);
+    expect(row('/srv/gate'), findsNothing);
+
+    _refused = null;
+    await tapText(tester, 'RESCAN');
+
+    expect(_walks, 2);
+    expect(row('/srv/gate'), findsOneWidget);
+    expect(find.text('unreachable'), findsNothing);
 
     await unmount(tester);
   });
 
   testWidgets('rows are grouped by the host that holds them', (tester) async {
+    _scanned['100.64.0.1'] = ['~/src/upgrade'];
+    _scanned['100.64.0.2'] = ['/srv/gate'];
     await hosts.save(_host('1', 'oak'));
     await hosts.save(_host('2', 'pine'));
-    await paths.add(hostId: '1', directory: '~/src/upgrade');
-    await paths.add(hostId: '2', directory: '/srv/gate');
     await open(tester);
     await toCode(tester);
 
-    expect(find.text('OAK'), findsOneWidget);
-    expect(find.text('PINE'), findsOneWidget);
-    expect(find.text(shortPathLabel('~/src/upgrade')), findsOneWidget);
-    expect(find.text(shortPathLabel('/srv/gate')), findsOneWidget);
+    expect(find.text('RESCAN'), findsNWidgets(2));
+    expect(find.text('OAK'), findsWidgets);
+    expect(find.text('PINE'), findsWidgets);
+    expect(tester.widget<ListRow>(row('~/src/upgrade')).value, 'OAK');
+    expect(tester.widget<ListRow>(row('/srv/gate')).value, 'PINE');
 
     await unmount(tester);
   });

@@ -5,11 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/path_repository.dart';
-import 'package:upgrade/design/components/drag_sheet.dart';
 import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
+import 'package:upgrade/design/components/toolbar_icon_action.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
@@ -21,72 +20,40 @@ import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
 import 'package:upgrade/features/code/explorer.dart';
 import 'package:upgrade/features/code/workspace_controller.dart';
 
-final _openWorkspaceRoutes = Expando<WorkspaceSheetRoute>();
-
 void openWorkspace(
   BuildContext context,
-  AgentPath path,
-  Host host, {
+  Host host,
+  String directory, {
   WorkspaceOpener? open,
 }) {
-  final navigator = Navigator.of(context, rootNavigator: true);
-  final up = _openWorkspaceRoutes[navigator];
-  if (up != null && up.isActive) {
-    if (up.path.id == path.id) return;
-    navigator.removeRoute(up);
-  }
-
-  final route = WorkspaceSheetRoute(path: path, host: host, open: open);
-  _openWorkspaceRoutes[navigator] = route;
   unawaited(
-    navigator.push(route).whenComplete(() {
-      if (identical(_openWorkspaceRoutes[navigator], route)) {
-        _openWorkspaceRoutes[navigator] = null;
-      }
-    }),
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            WorkspacePage(host: host, directory: directory, open: open),
+      ),
+    ),
   );
 }
 
-class WorkspaceSheetRoute extends DragSheetRoute<void> {
-  WorkspaceSheetRoute({required this.path, required this.host, this.open});
-
-  final AgentPath path;
-  final Host host;
-
-  final WorkspaceOpener? open;
-
-  @override
-  Key get frameKey => const ValueKey('code-sheet');
-
-  @override
-  Key get ruleKey => const ValueKey('code-grip-rule');
-
-  @override
-  String get barrierLabel => '${path.label} workspace';
-
-  @override
-  Widget buildSheet(BuildContext context) =>
-      WorkspaceSheet(path: path, host: host, open: open);
-}
-
-class WorkspaceSheet extends ConsumerStatefulWidget {
-  const WorkspaceSheet({
+class WorkspacePage extends ConsumerStatefulWidget {
+  const WorkspacePage({
     super.key,
-    required this.path,
     required this.host,
+    required this.directory,
     this.open,
   });
 
-  final AgentPath path;
   final Host host;
+  final String directory;
 
   final WorkspaceOpener? open;
 
   @override
-  ConsumerState<WorkspaceSheet> createState() => _WorkspaceSheetState();
+  ConsumerState<WorkspacePage> createState() => _WorkspacePageState();
 }
 
-class _WorkspaceSheetState extends ConsumerState<WorkspaceSheet> {
+class _WorkspacePageState extends ConsumerState<WorkspacePage> {
   late final WorkspaceController _controller;
 
   @override
@@ -94,7 +61,7 @@ class _WorkspaceSheetState extends ConsumerState<WorkspaceSheet> {
     super.initState();
     _controller = WorkspaceController(
       host: widget.host,
-      directory: widget.path.directory,
+      directory: widget.directory,
       readPrivateKey: ref.read(ed25519KeysProvider).privateKey,
       open: widget.open ?? ref.read(workspaceOpenerProvider),
     );
@@ -109,20 +76,24 @@ class _WorkspaceSheetState extends ConsumerState<WorkspaceSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: context.tokens.backgroundPrimary,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SheetGrip(key: const ValueKey('code-grip'), child: _toolbar()),
-            Expanded(
-              child: _controller.phase == WorkspacePhase.failed
-                  ? _failure()
-                  : Explorer(controller: _controller),
-            ),
-          ],
+    return Scaffold(
+      key: const ValueKey('code-page'),
+      backgroundColor: context.tokens.backgroundPrimary,
+      body: SafeArea(
+        bottom: false,
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _toolbar(),
+              Expanded(
+                child: _controller.phase == WorkspacePhase.failed
+                    ? _failure()
+                    : Explorer(controller: _controller),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -140,7 +111,13 @@ class _WorkspaceSheetState extends ConsumerState<WorkspaceSheet> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(width: Spacing.screenEdge),
+          const SizedBox(width: Spacing.sm),
+          ToolbarIconAction(
+            label: 'BACK',
+            icon: UpgradeIcons.back,
+            onTap: () => Navigator.of(context).pop(),
+          ),
+          const SizedBox(width: Spacing.sm),
           Align(child: _Name(label: _controller.label)),
           const SizedBox(width: Spacing.sm),
           Expanded(
@@ -158,7 +135,7 @@ class _WorkspaceSheetState extends ConsumerState<WorkspaceSheet> {
           _Cell(
             label: 'SHELL',
             // The directory is the tab's own command, so the terminal comes up where the
-            // sheet was rather than in `$HOME`.
+            // page is rather than in `$HOME`.
             onTap: UserIntent.onGesture(
               (intent) => openHostShell(
                 context,
@@ -169,7 +146,6 @@ class _WorkspaceSheetState extends ConsumerState<WorkspaceSheet> {
               ),
             ),
           ),
-          _Cell(label: '×', onTap: () => Navigator.of(context).pop()),
           const SizedBox(width: Spacing.screenEdge),
         ],
       ),

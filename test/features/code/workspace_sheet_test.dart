@@ -7,7 +7,7 @@ import 'workspace_sheet_harness.dart';
 void main() {
   setUpWorkspaceSheet();
 
-  group('the sheet', () {
+  group('the page', () {
     testWidgets('opens on the tree, one command behind it', (tester) async {
       final runner = await open(tester);
 
@@ -42,9 +42,9 @@ void main() {
           child: MaterialApp(
             theme: testTheme,
             builder: houseText,
-            home: WorkspaceSheet(
-              path: path,
+            home: WorkspacePage(
               host: host,
+              directory: path.directory,
               open: ({
                 required address,
                 required port,
@@ -70,7 +70,7 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('the foot of the sheet clears the phone\'s own bar', (
+    testWidgets('the foot of the page clears the phone\'s own bar', (
       tester,
     ) async {
       const inset = 48.0;
@@ -177,9 +177,9 @@ void main() {
           child: MaterialApp(
             theme: testTheme,
             builder: houseText,
-            home: WorkspaceSheet(
-              path: path,
+            home: WorkspacePage(
               host: host,
+              directory: path.directory,
               open: ({
                 required address,
                 required port,
@@ -259,7 +259,7 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('the connection closes when the sheet goes', (tester) async {
+    testWidgets('the connection closes when the page goes', (tester) async {
       final runner = await open(tester);
       await unmount(tester);
       await tester.pump(const Duration(milliseconds: 10));
@@ -267,9 +267,7 @@ void main() {
       expect(runner.closed, isTrue);
     });
 
-    testWidgets('a tap on a workspace opens the sheet over the list', (
-      tester,
-    ) async {
+    testWidgets('a tap on a checkout opens a page of its own', (tester) async {
       final runner = FakeRunner();
       tester.view.physicalSize = const Size(400, 1600);
       tester.view.devicePixelRatio = 1;
@@ -277,8 +275,8 @@ void main() {
       addTearDown(tester.view.reset);
       void from(BuildContext context) => openWorkspace(
         context,
-        path,
         host,
+        path.directory,
         open: ({
           required address,
           required port,
@@ -309,19 +307,16 @@ void main() {
 
       await tapText(tester, 'UPGRADE ROW');
 
+      final page = find.byKey(const ValueKey('code-page'));
       expect(find.text('README.md'), findsOneWidget);
-      expect(find.text('UPGRADE ROW'), findsOneWidget);
-      final sheet = find.byKey(const ValueKey('code-sheet'));
-      expect(tester.getTopLeft(sheet).dy, 24);
-      expect(find.byKey(const ValueKey('code-grip-rule')), findsOneWidget);
-
-      from(tester.element(find.text('UPGRADE ROW')));
-      await ready(tester);
-      expect(sheet, findsOneWidget);
+      expect(find.text('UPGRADE ROW'), findsNothing);
+      expect(tester.getTopLeft(page).dy, 0);
+      expect(find.text('BACK'), findsNothing);
+      expect(find.bySemanticsLabel('BACK'), findsOneWidget);
 
       await tester.binding.handlePopRoute();
       await ready(tester);
-      expect(sheet, findsNothing);
+      expect(page, findsNothing);
       expect(find.text('UPGRADE ROW'), findsOneWidget);
 
       await unmount(tester);
@@ -332,7 +327,7 @@ void main() {
     Future<FakeRunner> browse(WidgetTester tester, {Size? size}) async =>
         open(tester, size: size ?? const Size(400, 1600));
 
-    /// One per open file. The sheet's toolbar closes with one too, and that one is not a tab.
+    /// One per open file.
     Finder crosses() =>
         find.descendant(of: find.byType(Explorer), matching: find.text('×'));
 

@@ -230,6 +230,11 @@ class WorkspaceController extends ChangeNotifier {
   Future<String?> unstage(List<String> paths) =>
       _write(WorkspaceCommands.unstage(_directory, paths));
 
+  Future<String?> commit(String subject, String body) =>
+      _write(WorkspaceCommands.commit(_directory, subject, body));
+
+  Future<String?> push() => _write(WorkspaceCommands.push(_directory));
+
   Future<String?> discard(List<String> paths, {required bool untracked}) =>
       _write(
         WorkspaceCommands.discard(_directory, paths, untracked: untracked),

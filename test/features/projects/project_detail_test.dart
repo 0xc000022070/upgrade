@@ -5,10 +5,13 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/navigation.dart';
+import 'package:upgrade/application/shell/path_scan.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/activity_repository.dart';
+import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/attachment_repository.dart';
 import 'package:upgrade/data/repositories/goal_repository.dart';
 import 'package:upgrade/data/repositories/project_repository.dart';
@@ -60,7 +63,13 @@ void main() {
 
   Widget host(Widget screen) => ProviderScope(
     retry: noRetry,
-    overrides: [...featureTestOverrides(db)],
+    overrides: [
+      ...featureTestOverrides(db),
+      hostRepositoryProvider.overrideWithValue(DriftHostRepository(db)),
+      checkoutsFoundProvider.overrideWith(
+        (ref, hostId) async => const PathScanFound(['~/src/upgrade']),
+      ),
+    ],
     child: MaterialApp(theme: testTheme, home: screen),
   );
 
@@ -572,7 +581,7 @@ void main() {
 
       expect(find.text('NO WORKSPACES YET'), findsOneWidget);
       expect(find.text('ADD A HOST'), findsOneWidget);
-      expect(find.text('EVERY DIRECTORY IS LINKED'), findsNothing);
+      expect(find.text('ALL REGISTERED'), findsNothing);
 
       await tapText(tester, 'ADD A HOST');
       expect(container.read(navIndexProvider), 2);
@@ -592,7 +601,7 @@ void main() {
       await _ready(tester);
       await tapText(tester, 'LINK');
 
-      expect(find.text('EVERY DIRECTORY IS LINKED'), findsOneWidget);
+      expect(find.text('ALL REGISTERED'), findsOneWidget);
       expect(find.text('…/src/upgrade'), findsNothing);
 
       await unmount(tester);

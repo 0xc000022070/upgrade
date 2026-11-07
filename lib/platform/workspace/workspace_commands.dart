@@ -257,6 +257,30 @@ abstract final class WorkspaceCommands {
     "--pretty='format:%H%x1f%h%x1f%an%x1f%ar%x1f%s' -- ${shellQuote(path)}\n",
   );
 
+  /// The status is capped so a checkout with ten thousand untracked files does not hold
+  /// the rest of the list.
+  static String survey(List<String> directories) => underSh(
+    'for d in ${directories.map(shellQuote).join(' ')}; do\n'
+    "printf '\\036%s\\n' \"\$d\"\n"
+    r'''case "$d" in '~') p="$HOME";; '~/'*) p="$HOME/${d#'~/'}";; *) p="$d";; esac'''
+    '\n'
+    'git -C "\$p" --no-optional-locks -c core.quotePath=false status '
+    '--porcelain=v2 --branch --untracked-files=normal 2>/dev/null | head -n 500\n'
+    'git -C "\$p" --no-optional-locks diff --numstat HEAD 2>/dev/null | '
+    "awk '{a+=\$1;r+=\$2} END{printf \"# numstat %d %d\\n\",a,r}'\n"
+    'done\n',
+  );
+
+  static String commit(String directory, String subject, String body) =>
+      underSh(
+        '${_enter(directory)}'
+        'exec git commit -q -m ${shellQuote(subject)}'
+        '${body.isEmpty ? '' : ' -m ${shellQuote(body)}'}\n',
+      );
+
+  static String push(String directory) =>
+      underSh('${_enter(directory)}exec git push -q\n');
+
   static String stage(String directory, List<String> paths) => underSh(
     '${_enter(directory)}'
     'exec git add -A -- ${paths.map(shellQuote).join(' ')}\n',

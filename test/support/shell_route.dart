@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/application/shell/path_scan.dart';
 import 'package:upgrade/application/shell/shell_font.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -45,6 +46,7 @@ Widget app(
       ...noSettings,
     ],
     noLaunchTargets,
+    noCheckouts,
     ...overrides,
   ],
   child: MaterialApp(
@@ -52,6 +54,10 @@ Widget app(
     builder: builder,
     home: home ?? HostShellRoute(host: pine, intent: testIntent()),
   ),
+);
+
+Override get noCheckouts => checkoutsFoundProvider.overrideWith(
+  (ref, hostId) async => const PathScanFound([]),
 );
 
 /// The answer and not the database it would come out of: drift keeps timers a widget test

@@ -10,6 +10,7 @@ import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/application/agents/agent_kind.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 typedef HerdrPaths = Future<List<String>> Function({
   required String address,
@@ -26,6 +27,15 @@ typedef HerdrModels = Future<List<String>> Function({
   required String privateKey,
   required AgentKind kind,
   required HostKeyVerifier verifier,
+});
+
+typedef HerdrSurvey = Future<String> Function({
+  required String address,
+  required int port,
+  required String user,
+  required String privateKey,
+  required HostKeyVerifier verifier,
+  required List<String> directories,
 });
 
 sealed class PathScan {
@@ -52,12 +62,14 @@ class PathScanner {
   const PathScanner({
     required this.fetch,
     required this.fetchModels,
+    required this.fetchSurvey,
     required this.keys,
     this.checkActive,
   });
 
   final HerdrPaths fetch;
   final HerdrModels fetchModels;
+  final HerdrSurvey fetchSurvey;
   final Ed25519Keys keys;
   final void Function()? checkActive;
 
@@ -83,6 +95,30 @@ class PathScanner {
       verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
     ),
   );
+
+  Future<List<CheckoutSurvey>> survey(
+    Host host,
+    List<String> directories,
+  ) async {
+    if (directories.isEmpty) return const [];
+    checkActive?.call();
+    final privateKey = await keys.privateKey(host.keyId);
+    if (privateKey == null) return const [];
+    try {
+      final output = await fetchSurvey(
+        address: host.address,
+        port: host.port,
+        user: host.user,
+        privateKey: privateKey,
+        verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
+        directories: directories,
+      );
+      return parseSurvey(output);
+    } on HerdrFailure catch (error) {
+      debugPrint('upgrade.survey ${host.name}: ${error.detail ?? error}');
+      return const [];
+    }
+  }
 
   Future<PathScan> _ask(
     Host host,
@@ -113,6 +149,7 @@ final pathScannerProvider = Provider((ref) {
   return PathScanner(
     fetch: client.fetchPaths,
     fetchModels: client.fetchModels,
+    fetchSurvey: client.fetchSurvey,
     keys: ref.watch(ed25519KeysProvider),
     checkActive: ref
         .watch(pluginDataGateProvider)
@@ -120,3 +157,20 @@ final pathScannerProvider = Provider((ref) {
         .check,
   );
 }, dependencies: [pluginDataGateProvider]);
+
+final checkoutsFoundProvider = FutureProvider.family<PathScan, String>((
+  ref,
+  hostId,
+) async {
+  final host = ref.read(registeredHostProvider(hostId));
+  if (host == null) return const PathScanFound([]);
+  return ref.watch(pathScannerProvider)(host);
+}, dependencies: [pathScannerProvider]);
+
+final checkoutSurveyProvider =
+    FutureProvider.family<List<CheckoutSurvey>, String>((ref, hostId) async {
+      final host = ref.read(registeredHostProvider(hostId));
+      final found = await ref.watch(checkoutsFoundProvider(hostId).future);
+      if (host == null || found is! PathScanFound) return const [];
+      return ref.watch(pathScannerProvider).survey(host, found.directories);
+    }, dependencies: [pathScannerProvider, checkoutsFoundProvider]);

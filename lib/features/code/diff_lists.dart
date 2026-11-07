@@ -6,6 +6,7 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 import 'package:upgrade/features/code/change_tree.dart';
+import 'package:upgrade/features/code/diff_key.dart';
 import 'package:upgrade/features/code/diff_outline.dart';
 import 'package:upgrade/features/code/diff_pane.dart';
 
@@ -128,6 +129,7 @@ List<Widget> changeListSlivers(
   required ValueChanged<WorkspaceFile> onPick,
   required ValueChanged<WorkspaceFile> onToggleViewed,
   required ValueChanged<ChangeDir> onFoldDir,
+  ValueChanged<WorkspaceFile>? onStage,
   required Widget Function(WorkspaceFile file, Widget row) peekable,
 }) {
   final letters = StatusLetters.width(context);
@@ -183,6 +185,9 @@ List<Widget> changeListSlivers(
   }
 
   final viewedWidth = Spacing.sm + Spacing.md + diffCharAdvance(context);
+  final stageWidth = onStage == null
+      ? 0.0
+      : DiffKey.widthOf(context, label: 'UNSTAGE');
   Widget fileRow(WorkspaceFile file, int depth) {
     final title = wrappablePath(data.tree ? baseName(file.path) : file.path);
     final counts = fileCountSpans(context, file);
@@ -194,7 +199,7 @@ List<Widget> changeListSlivers(
           context,
           title: title,
           counts: counts,
-          reserved: lead + (data.working ? viewedWidth : 0),
+          reserved: lead + (data.working ? viewedWidth + stageWidth : 0),
           row: (below) => ListRow(
             key: ValueKey('diff-file-${file.path}'),
             title: title,
@@ -214,21 +219,33 @@ List<Widget> changeListSlivers(
             leadingWidth: letters,
             valueSpans: counts,
             trailing: data.working
-                ? GestureDetector(
-                    key: ValueKey('diff-viewed-${file.path}'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => onToggleViewed(file),
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: Spacing.md),
-                      child: Text(
-                        data.viewed(file) ? '✓' : '·',
-                        style: context.tokens.noteBody.copyWith(
-                          color: data.viewed(file)
-                              ? context.tokens.accent
-                              : context.tokens.textDisabled,
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onStage != null)
+                        DiffKey(
+                          key: ValueKey('diff-stage-${file.path}'),
+                          says: file.hasUnstaged ? 'STAGE' : 'UNSTAGE',
+                          label: file.hasUnstaged ? 'STAGE' : 'UNSTAGE',
+                          onTap: () => onStage(file),
+                        ),
+                      GestureDetector(
+                        key: ValueKey('diff-viewed-${file.path}'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => onToggleViewed(file),
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: Spacing.md),
+                          child: Text(
+                            data.viewed(file) ? '✓' : '·',
+                            style: context.tokens.noteBody.copyWith(
+                              color: data.viewed(file)
+                                  ? context.tokens.accent
+                                  : context.tokens.textDisabled,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   )
                 : null,
             onTap: () => onPick(file),

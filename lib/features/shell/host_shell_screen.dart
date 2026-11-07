@@ -10,6 +10,7 @@ import 'package:upgrade/application/agents/agent_kind.dart';
 import 'package:upgrade/application/drops/clips.dart';
 import 'package:upgrade/application/alerts/pin_alerts.dart';
 import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/application/shell/path_scan.dart';
 import 'package:upgrade/application/phone_linux.dart';
 import 'package:upgrade/application/shell/shell_font.dart';
 import 'package:upgrade/application/whisper.dart';
@@ -729,13 +730,18 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   );
 
   List<({String directory, String label})> _diffTargets() {
+    final found = ref.watch(checkoutsFoundProvider(widget.host.id)).value;
     final groups =
         ref.watch(workspacesByHostProvider).value ?? const <HostWorkspaces>[];
-    return [
+    final directories = {
+      if (found case PathScanFound(:final directories)) ...directories,
       for (final group in groups)
         if (group.host.id == widget.host.id)
-          for (final path in group.paths)
-            (directory: path.directory, label: path.label),
+          for (final path in group.paths) path.directory,
+    };
+    return [
+      for (final directory in directories)
+        (directory: directory, label: defaultPathLabel(directory)),
     ];
   }
 

@@ -11,6 +11,8 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/design/components/action_block.dart';
+import 'package:upgrade/design/components/field_panel.dart';
 import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
@@ -86,14 +88,23 @@ Future<void> showDiffSheetFinding(
 }
 
 Future<void> _sheet(BuildContext context, String label, WidgetBuilder builder) {
-  return showPanelSheet<void>(
-    context,
-    title: label.toUpperCase(),
-    maxHeightFraction: 0.9,
-    maxWidth: double.infinity,
-    builder: (context) => ColoredBox(
-      color: context.tokens.backgroundPrimary,
-      child: builder(context),
+  return Navigator.of(context, rootNavigator: true).push(
+    MaterialPageRoute<void>(
+      builder: (context) => Scaffold(
+        key: const ValueKey('diff-page'),
+        backgroundColor: context.tokens.backgroundPrimary,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Spacing.screenEdge,
+              Spacing.md,
+              Spacing.screenEdge,
+              Spacing.md,
+            ),
+            child: builder(context),
+          ),
+        ),
+      ),
     ),
   );
 }
@@ -226,6 +237,8 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
   String? _query;
   int _hit = 0;
   final TextEditingController _search = TextEditingController();
+  final TextEditingController _subject = TextEditingController();
+  final TextEditingController _body = TextEditingController();
 
   DiffDoc? _doc;
   Object? _docKey;
@@ -321,6 +334,8 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
     _jumps.dispose();
     _hunkScroll.dispose();
     _search.dispose();
+    _subject.dispose();
+    _body.dispose();
     // Only the connection this screen dialled is this screen's to drop.
     if (_owned) _controller.dispose();
     super.dispose();
@@ -583,12 +598,35 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
         : source != null
         ? source.subject
         : [
-            status?.branch ?? 'detached',
+            [
+              status?.branch ?? 'detached',
+              if (status != null && status.ahead > 0) '↑${status.ahead}',
+              if (status != null && status.behind > 0) '↓${status.behind}',
+            ].join(' '),
             if (status != null && !status.clean)
               '${status.changes.length} changed',
           ].join('  ·  ');
     final worktrees = _controller.overview?.worktrees.length ?? 0;
+    final staged = files?.any((file) => file.hasStaged) ?? false;
+    final said = _session.file == null ? _session.said : null;
     return Panel(
+      leading: Semantics(
+        button: true,
+        label: 'BACK',
+        child: GestureDetector(
+          key: const ValueKey('diff-back'),
+          behavior: HitTestBehavior.opaque,
+          onTap: () => (_backStep ?? Navigator.of(context).pop)(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+            child: UpgradeIcon(
+              UpgradeIcons.back,
+              size: IconSizes.sm,
+              color: context.tokens.textSecondary,
+            ),
+          ),
+        ),
+      ),
       title:
           '${_controller.label.toUpperCase()} / '
           '${source == null ? 'WORKING TREE' : source.short}',
@@ -612,6 +650,15 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
             Text(
               '${source.author}  ·  ${source.age}',
               style: context.tokens.rowSubtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          if (said != null)
+            Text(
+              said,
+              style: context.tokens.rowSubtitle.copyWith(
+                color: context.tokens.warning,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -648,11 +695,114 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
                   count: '$worktrees',
                   onTap: _swapWorktree,
                 ),
+              if (source == null && !loading && status != null) ...[
+                DiffKey(
+                  key: const ValueKey('diff-commit'),
+                  says: 'COMMIT',
+                  icon: UpgradeIcons.submit,
+                  label: 'COMMIT',
+                  onTap: staged && !_session.writing ? _commit : null,
+                ),
+                DiffKey(
+                  key: const ValueKey('diff-push'),
+                  says: 'PUSH',
+                  icon: UpgradeIcons.arrowUp,
+                  label: 'PUSH',
+                  count: status.ahead > 0 ? '${status.ahead}' : null,
+                  onTap:
+                      status.upstream != null &&
+                          status.ahead > 0 &&
+                          !_session.writing
+                      ? _push
+                      : null,
+                ),
+              ],
             ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _commit() async {
+    final staged = [
+      for (final file in _session.files ?? const <WorkspaceFile>[])
+        if (file.hasStaged) file,
+    ];
+    final letters = StatusLetters.width(context);
+    final go = await showPanelSheet<bool>(
+      context,
+      title: 'COMMIT',
+      builder: (sheet) => PanelSheetBody(
+        title: 'COMMIT',
+        affordance: PanelAffordance('${staged.length}', showIcon: false),
+        children: [
+          ListRowGroup(
+            children: [
+              for (final file in staged)
+                ListRow(
+                  title: file.path,
+                  literalTitle: true,
+                  leading: StatusLetters.of(file),
+                  leadingWidth: letters,
+                ),
+            ],
+          ),
+          const SheetRule(),
+          FieldPanel(
+            label: 'SUBJECT',
+            controller: _subject,
+            hint: 'what this commit does',
+            autofocus: true,
+          ),
+          const SizedBox(height: Spacing.md),
+          FieldPanel(
+            label: 'BODY',
+            controller: _body,
+            hint: 'why, when the subject is not enough',
+            maxLines: 4,
+            textInputAction: TextInputAction.newline,
+          ),
+          const SizedBox(height: Spacing.lg),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ActionBlock(
+                label: 'COMMIT',
+                filled: true,
+                tone: context.tokens.accent,
+                onTap: () {
+                  if (_subject.text.trim().isEmpty) return;
+                  Navigator.pop(sheet, true);
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+    final failed = await _session.commit(
+      _subject.text.trim(),
+      _body.text.trim(),
+    );
+    if (failed == null) {
+      _subject.clear();
+      _body.clear();
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _push() async {
+    await _session.push();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _stage(WorkspaceFile file) async {
+    await (file.hasUnstaged
+        ? _session.stage([file])
+        : _session.unstage([file]));
+    if (mounted) setState(() {});
   }
 
   Future<void> _swapWorktree() async {
@@ -834,6 +984,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
       ),
       onPick: _pick,
       onToggleViewed: _toggleViewed,
+      onStage: working ? _stage : null,
       onFoldDir: (dir) => setState(() {
         if (!_closed.remove(dir.path)) _closed.add(dir.path);
       }),
@@ -1177,6 +1328,7 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
     key: ValueKey('diff-${tool.key}'),
     says: tool.says,
     icon: tool.icon,
+    label: tool.says,
     on: tool.on,
     onTap: tool.onTap,
   );
@@ -1287,7 +1439,8 @@ class _DiffSheetState extends ConsumerState<DiffSheet>
 
   double _toolsWidth(List<_Tool> tools) => tools.fold(
     0,
-    (width, tool) => width + DiffKey.widthOf(context, icon: tool.icon),
+    (width, tool) =>
+        width + DiffKey.widthOf(context, icon: tool.icon, label: tool.says),
   );
 
   Future<void> _moreTools(List<_Tool> spares) {

@@ -10,8 +10,9 @@ import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
 import 'package:upgrade/design/components/list_row.dart';
+import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/code/diff_sheet.dart';
-import 'package:upgrade/features/code/workspace_sheet.dart';
+import 'package:upgrade/features/code/workspace_page.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/workspace/workspace_client.dart';
@@ -47,7 +48,7 @@ export 'package:upgrade/features/code/explorer.dart';
 export 'package:upgrade/features/code/diff_lists.dart';
 export 'package:upgrade/features/code/diff_sheet.dart';
 export 'package:upgrade/features/code/file_icons.dart';
-export 'package:upgrade/features/code/workspace_sheet.dart';
+export 'package:upgrade/features/code/workspace_page.dart';
 export 'package:upgrade/platform/herdr/herdr_client.dart';
 export 'package:upgrade/platform/ssh/keys.dart';
 export 'package:upgrade/platform/workspace/workspace_client.dart';
@@ -277,9 +278,9 @@ Widget app(FakeRunner runner) => ProviderScope(
   child: MaterialApp(
     theme: testTheme,
     builder: houseText,
-    home: WorkspaceSheet(
-      path: path,
+    home: WorkspacePage(
       host: host,
+      directory: path.directory,
       open: ({
         required address,
         required port,
@@ -336,8 +337,11 @@ Finder onSheet(Finder matching) =>
 /// a device's would not.
 Finder fileRow(String path) => onSheet(find.byKey(ValueKey('diff-file-$path')));
 
+/// On the name and not the row's middle: a narrow row drops its counts and `STAGE` to a
+/// second line, and the middle is then the key.
 Future<void> tapFile(WidgetTester tester, String path) async {
-  await tester.tap(fileRow(path));
+  final row = tester.getRect(fileRow(path));
+  await tester.tapAt(Offset(row.center.dx, row.top + RowMetrics.padding * 2));
   await ready(tester);
 }
 
