@@ -112,6 +112,7 @@ Everything here uses only the SSH account and its normal login path.
 | MACHINES > CODE: Git checkouts under `~/Projects`, `~/.dotfiles`, `~/src`; files, diffs, history | verified: navigation of Code, diff and history |
 | Clipboard attachments | implemented |
 | Key passphrase prompts from `pinentry-gate`, answered in the app | implemented |
+| Browser (TOOLS > BROWSER): a web view on the phone's network, or through a host so `localhost` and LAN names resolve there | implemented |
 
 ### Optional integrations
 

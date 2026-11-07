@@ -579,12 +579,12 @@ void main() {
       use: use,
     );
 
-    test('every use but vnc and the device dock rides the control lane', () {
+    test('every use but vnc, the device dock and the browser rides the control lane', () {
       expect(
         {for (final use in HostUse.values) use: use.lane},
         {
           for (final use in HostUse.values)
-            use: use == HostUse.vnc || use == HostUse.deviceDock
+            use: use == HostUse.vnc || use == HostUse.deviceDock || use == HostUse.browser
                 ? HostLane.screen
                 : HostLane.control,
         },

@@ -44,14 +44,15 @@ enum HostUse {
   devices('devices'),
   files('files'),
   vnc('vnc'),
-  deviceDock('device dock');
+  deviceDock('device dock'),
+  browser('browser');
 
   const HostUse(this.label);
 
   final String label;
 
   HostLane get lane => switch (this) {
-    vnc || deviceDock => HostLane.screen,
+    vnc || deviceDock || browser => HostLane.screen,
     tab ||
     ownTab ||
     herdrPoll ||
@@ -84,7 +85,8 @@ enum HostUse {
     watcher ||
     devices ||
     vnc ||
-    deviceDock => false,
+    deviceDock ||
+    browser => false,
   };
 }
 

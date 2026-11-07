@@ -1825,6 +1825,20 @@ On Android a tap is `input tap`, a long press is a swipe that does not move for 
 
 **`PIP` parks one screen outside the app.** The system gives picture-in-picture to one activity, so the window shows whichever surface asked last: the agents panel from AGENTS, or a device or the desktop from its overlay. It is that stream and nothing else, edge to edge in the stream's own aspect, held inside the system's 2.39:1 either way, with nothing on it to tap. The stream it carries keeps playing while the app is out of sight, a paused desktop resumed for it; every other window pauses as it would in the background. Coming back to the app puts the window back where it floated; dismissing the corner window pauses the stream like any trip to the background.
 
+## Browser
+
+### The browser is on one network, and the network is picked like a shell's host
+
+`TOOLS` opens with a `[ BROWSER ]` panel over `[ PLUGINS ]`, one row, `BROWSER` · `ON THIS PHONE, OR THROUGH A HOST`. It opens `/ UPGRADE / BROWSER`: the title, an `ADDRESS` field under it, and the page filling the rest of the screen. An address typed without a scheme is taken as `http`, because what people type here is a dev server's `localhost:3000` and a tailnet address, not a site; one with no host at all reads `not an address` and loads nothing. The phone's back steps the page back while it has somewhere to go, and leaves the route when it does not.
+
+**The network is the affordance at the title's right.** It reads `THIS PHONE` in accent, or the host's name, and opens `NETWORK`: `THIS PHONE` · `what the phone itself can reach`, then under `THROUGH A HOST` one row per registered host, `what <address> can reach, over ssh`, the one in use checked. **Through a host, every connection the page makes leaves from the host**: the name in the address is resolved there, so `localhost` is the host's own loopback, a LAN name is the host's LAN, and nothing on the far side listens for the phone. It is `ssh -D`, and nothing more: a SOCKS5 listener on the phone's loopback, bound while the browser is on that network and closed when it leaves, each connection a `direct-tcpip` channel on the host's shared ssh connection, which is leased the way the screen leases it and asks the host key sheet when the host is unpinned. The field's hint says so, `ADDRESS · localhost is <host>'s`. `CONNECTING` stands under the field while the host is dialled; a failure stands there in the shell's reason words, `<host> unreachable`, `key rejected`, `<host> stream closed` when the link dies under a page, each with `RETRY`, which dials the same host again. A page the browser could not load says why in the same place, in the WebView's own lowercase words.
+
+**One network at a time.** The proxy is one setting for every web view in the process, so the route is one page on one network; switching networks reloads the page on the new one, and there are no tabs. Cookies are the web view's and are kept by origin, not by network: `localhost:3000` on two hosts is one jar. **Nothing is installed on the host**, nothing new listens there, and no key beyond the host's own is used. A `restrict`ed key line refuses the channel opens, as it does the screen's.
+
+**Links tapped elsewhere in the app still leave the app.** The browser is a place the user goes to on purpose, with a network chosen on purpose; a link in a note or a shell is still the system browser's.
+
+**Struck:** a browser rendered on the host and streamed, like the screen. It needed software on the host, and its text came as pixels. **Struck:** a tunnel per address, `host:port` saved on the host. It made the user name every service before reaching it, where a network makes them all reachable at once.
+
 ## Code
 
 ### A registered directory is a primitive of its own, beside the projects

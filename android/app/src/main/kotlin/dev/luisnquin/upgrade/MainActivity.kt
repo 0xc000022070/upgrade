@@ -227,6 +227,9 @@ class MainActivity : FlutterActivity() {
                 PhoneLinux.handle(this, call.method, call.arguments as? Map<*, *>, result)
             }
 
+        MethodChannel(messenger, "dev.luisnquin.upgrade/browser")
+            .setMethodCallHandler { call, result -> BrowserProxy.handle(this, call, result) }
+
         val speech = MethodChannel(messenger, "dev.luisnquin.upgrade/speech")
         dictation?.destroy()
         dictation = Dictation(this, speech).also { speech.setMethodCallHandler(it::handle) }
@@ -242,6 +245,7 @@ class MainActivity : FlutterActivity() {
         MethodChannel(messenger, "dev.luisnquin.upgrade/pip").setMethodCallHandler(null)
         MethodChannel(messenger, "dev.luisnquin.upgrade/speech").setMethodCallHandler(null)
         MethodChannel(messenger, "dev.luisnquin.upgrade/linux").setMethodCallHandler(null)
+        MethodChannel(messenger, "dev.luisnquin.upgrade/browser").setMethodCallHandler(null)
         shared?.setMethodCallHandler(null)
         shared = null
         SharedInbox.listener = null

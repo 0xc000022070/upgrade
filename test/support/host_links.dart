@@ -24,6 +24,7 @@ final class FakeLinkClient implements SSHClient {
   Object? execError;
   Completer<void>? execGate;
   final forwards = <FakeForwardChannel>[];
+  final forwardTargets = <(String, int)>[];
   Object? forwardError;
   Completer<void>? forwardGate;
 
@@ -87,6 +88,7 @@ final class FakeLinkClient implements SSHClient {
     if (error != null) throw error;
     final channel = FakeForwardChannel();
     forwards.add(channel);
+    forwardTargets.add((remoteHost, remotePort));
     return channel;
   }
 

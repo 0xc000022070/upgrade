@@ -19,6 +19,7 @@ import 'package:upgrade/platform/plugins/ui.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/plugins/plugin_frames.dart';
+import 'package:upgrade/features/browser/browser_screen.dart';
 import 'package:upgrade/features/plugins/plugin_development_screen.dart';
 import 'package:upgrade/features/plugins/plugin_management_screen.dart';
 
@@ -206,6 +207,19 @@ class PluginLibraryScreen extends ConsumerWidget {
       children: [
         PanelStack(
           children: [
+            Panel(
+              title: '[ BROWSER ]',
+              bodyPadding: panelRowsPadding,
+              child: Semantics(
+                button: true,
+                child: ListRow(
+                  title: 'BROWSER',
+                  subtitle: 'ON THIS PHONE, OR THROUGH A HOST',
+                  node: true,
+                  onTap: () => openBrowser(context),
+                ),
+              ),
+            ),
             Panel(
               title: '[ PLUGINS ]',
               bodyPadding: panelRowsPadding,
