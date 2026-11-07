@@ -146,3 +146,31 @@ extension HostKeyRefusalLine on HostKeyRefusal {
     HostKeyRefusal.changed => ReasonLine.hostKeyChanged,
   };
 }
+
+/// Every connection checks the key pinned this run before the host's stored one: a [Host]
+/// read before the sheet said `TRUST` would otherwise ask about the same key again.
+class HostKeyPins {
+  HostKeyPins({required this._store, required this._forget});
+
+  final Future<void> Function(String hostId, PinnedHostKey key) _store;
+  final Future<void> Function(String hostId) _forget;
+  final _run = <String, PinnedHostKey>{};
+
+  HostKeyVerifier verifier(
+    String hostId,
+    PinnedHostKey? stored, {
+    HostKeyPrompt? prompt,
+  }) => HostKeyVerifier(
+    pinned: _run[hostId] ?? stored,
+    prompt: prompt,
+    pin: (key) async {
+      _run[hostId] = key;
+      await _store(hostId, key);
+    },
+  );
+
+  Future<void> forget(String hostId) {
+    _run.remove(hostId);
+    return _forget(hostId);
+  }
+}

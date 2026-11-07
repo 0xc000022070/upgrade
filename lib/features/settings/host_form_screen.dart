@@ -581,7 +581,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
       confirmLabel: 'FORGET',
     );
     if (!confirmed || !mounted) return;
-    await ref.read(hostRepositoryProvider).forgetHostKey(host.id);
+    await ref.read(hostKeyPinsProvider).forget(host.id);
     if (mounted) setState(() => _hostKey = null);
   }
 }

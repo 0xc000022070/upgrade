@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/alerts/pin_alerts.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/data/repositories/shell_tab_repository.dart';
 import 'package:upgrade/data/shell_snapshot_store.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
@@ -1384,7 +1385,7 @@ void main() {
         if (locked) throw StateError('keystore locked');
         return 'PRIVATE KEY';
       },
-      pinHostKey: (_, _) async {},
+      keyPins: HostKeyPins(store: (_, _) async {}, forget: (_) async {}),
       open: transport.open,
     );
     locked = true;

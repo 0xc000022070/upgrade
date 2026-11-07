@@ -679,7 +679,7 @@ void main() {
       );
       final sessions = ShellSessions(
         readPrivateKey: (_) async => 'PEM',
-        pinHostKey: (_, _) async {},
+        keyPins: HostKeyPins(store: (_, _) async {}, forget: (_) async {}),
         open: ShellTunnel(links: links).open,
       );
       const host = Host(

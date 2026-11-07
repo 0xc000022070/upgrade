@@ -3364,7 +3364,7 @@ final _vm = Host(
   return (
     sessions: ShellSessions(
       readPrivateKey: (_) async => 'PEM',
-      pinHostKey: (_, _) async {},
+      keyPins: HostKeyPins(store: (_, _) async {}, forget: (_) async {}),
       open: tunnel.open,
     ),
     hosts: hosts,
@@ -3543,7 +3543,7 @@ void refusedCloseTests() {
     final channel = FakeMoshChannel();
     final sessions = ShellSessions(
       readPrivateKey: (_) async => 'PEM',
-      pinHostKey: (_, _) async {},
+      keyPins: HostKeyPins(store: (_, _) async {}, forget: (_) async {}),
       open: ShellTunnel(
         links: links,
         moshDialer:

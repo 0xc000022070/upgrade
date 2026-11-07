@@ -15,7 +15,7 @@ class BrowserController extends ChangeNotifier {
   BrowserController({
     required this._links,
     required this._readPrivateKey,
-    required this._pinHostKey,
+    required this._keyPins,
     required this._prompt,
   }) {
     web = WebViewController()
@@ -39,7 +39,7 @@ class BrowserController extends ChangeNotifier {
 
   final HostLinks _links;
   final Future<String?> Function(String keyId) _readPrivateKey;
-  final Future<void> Function(String hostId, PinnedHostKey key) _pinHostKey;
+  final HostKeyPins _keyPins;
   final Future<bool> Function(
     Host host,
     HostKeyOffer offer,
@@ -130,10 +130,10 @@ class BrowserController extends ChangeNotifier {
         port: host.port,
         user: host.user,
         privateKey: privateKey,
-        verifier: HostKeyVerifier(
-          pinned: host.hostKey,
+        verifier: _keyPins.verifier(
+          host.id,
+          host.hostKey,
           prompt: (offer, pinned) => _prompt(host, offer, pinned),
-          pin: (key) => _pinHostKey(host.id, key),
         ),
         use: HostUse.browser,
       );

@@ -26,6 +26,19 @@ Uint8List _bytes(String fingerprint) =>
     Uint8List.fromList(utf8.encode(fingerprint));
 
 void main() {
+  test('a key trusted this run holds until it is forgotten', () async {
+    final pins = HostKeyPins(store: (_, _) async {}, forget: (_) async {});
+    final first = pins.verifier('pine', null, prompt: (_, _) async => true);
+    expect(await first.verify(_type, _bytes(_fingerprint)), isTrue);
+
+    final again = pins.verifier('pine', null);
+    expect(await again.verify(_type, _bytes(_fingerprint)), isTrue);
+
+    await pins.forget('pine');
+    final forgotten = pins.verifier('pine', null);
+    expect(await forgotten.verify(_type, _bytes(_fingerprint)), isFalse);
+  });
+
   test('an unpinned host is asked about once and pinned on TRUST', () async {
     final asked = <HostKeyOffer>[];
     final written = <PinnedHostKey>[];

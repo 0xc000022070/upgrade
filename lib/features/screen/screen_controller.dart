@@ -58,7 +58,7 @@ class HostScreenController extends ChangeNotifier {
   HostScreenController({
     required this.host,
     required this._readPrivateKey,
-    this.pinHostKey,
+    this.keyPins,
     this.prompt,
     required this._open,
   });
@@ -68,14 +68,10 @@ class HostScreenController extends ChangeNotifier {
 
   /// Both null in a test, and a null [prompt] is what makes an unattended dial refuse an
   /// unpinned host rather than hang on a sheet nobody can see.
-  final Future<void> Function(String hostId, PinnedHostKey key)? pinHostKey;
+  final HostKeyPins? keyPins;
   final HostKeyPrompt? prompt;
 
   final VncOpener _open;
-
-  /// [host] was read before the sheet answered, so without this a `RETRY` would ask about
-  /// the same key again.
-  PinnedHostKey? _pinned;
 
   VncConnection? _connection;
   StreamSubscription<Framebuffer>? _frames;
@@ -172,14 +168,16 @@ class HostScreenController extends ChangeNotifier {
         privateKey: privateKey,
         vncUsername: host.vncUsername,
         password: host.vncPassword,
-        verifier: HostKeyVerifier(
-          pinned: _pinned ?? host.hostKey,
-          prompt: attended ? _asked : null,
-          pin: (key) async {
-            _pinned = key;
-            await pinHostKey?.call(host.id, key);
-          },
-        ),
+        verifier:
+            keyPins?.verifier(
+              host.id,
+              host.hostKey,
+              prompt: attended ? _asked : null,
+            ) ??
+            HostKeyVerifier(
+              pinned: host.hostKey,
+              prompt: attended ? _asked : null,
+            ),
       );
       if (_disposed || attempt != _attempt) {
         await connection.close();

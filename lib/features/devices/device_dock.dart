@@ -565,7 +565,7 @@ final screenPipProvider = StateProvider<DockSurface?>((ref) => null);
 
 final deviceDockProvider = Provider<DeviceDock>((ref) {
   final keys = ref.read(ed25519KeysProvider);
-  final hosts = ref.read(hostRepositoryProvider);
+  final keyPins = ref.read(hostKeyPinsProvider);
   final open = ref.read(deviceLinkOpenerProvider);
   final openVnc = ref.read(vncOpenerProvider);
   Future<bool> prompt(Host host, HostKeyOffer offer, PinnedHostKey? pinned) {
@@ -579,21 +579,21 @@ final deviceDockProvider = Provider<DeviceDock>((ref) {
       host: host,
       dock: dock,
       readPrivateKey: keys.privateKey,
-      pinHostKey: hosts.pinHostKey,
+      keyPins: keyPins,
       prompt: (offer, pinned) => prompt(host, offer, pinned),
       open: open,
     ),
     desktopOf: (host) => HostScreenController(
       host: host,
       readPrivateKey: keys.privateKey,
-      pinHostKey: hosts.pinHostKey,
+      keyPins: keyPins,
       prompt: (offer, pinned) => prompt(host, offer, pinned),
       open: openVnc,
     ),
     browserOf: () => BrowserController(
       links: ref.read(hostLinksProvider),
       readPrivateKey: keys.privateKey,
-      pinHostKey: hosts.pinHostKey,
+      keyPins: keyPins,
       prompt: prompt,
     ),
   );

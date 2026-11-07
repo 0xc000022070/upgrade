@@ -379,7 +379,10 @@ ShellSessions fakeShellSessions(
   Future<LinkResult> Function(String address, int port)? probeHost,
 }) => ShellSessions(
   readPrivateKey: (_) async => privateKey,
-  pinHostKey: pinHostKey ?? (_, _) async {},
+  keyPins: HostKeyPins(
+    store: pinHostKey ?? (_, _) async {},
+    forget: (_) async {},
+  ),
   tabs: tabs,
   snapshots: snapshots,
   snapshotQuiet: snapshotQuiet,

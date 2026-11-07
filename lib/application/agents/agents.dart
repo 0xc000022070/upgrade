@@ -395,6 +395,11 @@ typedef HerdrFetch = Future<List<AgentSnapshot>> Function({
   required HostKeyVerifier verifier,
 });
 
+final hostKeyPinsProvider = Provider<HostKeyPins>((ref) {
+  final hosts = ref.watch(hostRepositoryProvider);
+  return HostKeyPins(store: hosts.pinHostKey, forget: hosts.forgetHostKey);
+});
+
 final hostLinksProvider = Provider<HostLinks>((ref) {
   final links = HostLinks();
   ref.onDispose(links.close);

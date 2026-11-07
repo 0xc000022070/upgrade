@@ -665,7 +665,7 @@ class _Attempt {
 class ShellSessions extends ChangeNotifier {
   ShellSessions({
     required this.readPrivateKey,
-    required this.pinHostKey,
+    required this.keyPins,
     this.recordSystem,
     this.beforeDial,
     this.tabs,
@@ -719,7 +719,7 @@ class ShellSessions extends ChangeNotifier {
 
   final Future<String?> Function(String keyId) readPrivateKey;
 
-  final Future<void> Function(String hostId, PinnedHostKey key) pinHostKey;
+  final HostKeyPins keyPins;
 
   final Future<void> Function(String hostId, HostSystem system)? recordSystem;
 
@@ -779,11 +779,6 @@ class ShellSessions extends ChangeNotifier {
   final _active = <String, int>{};
 
   String? _parkedHostId;
-
-  /// The [Host] a route hands in was read before the sheet said `TRUST`, so without this
-  /// the second tab on the same host would ask about the same key again while the hosts
-  /// stream catches up.
-  final _pinnedThisRun = <String, PinnedHostKey>{};
 
   bool _restored = false;
 
@@ -2076,14 +2071,7 @@ class ShellSessions extends ChangeNotifier {
   }
 
   HostKeyVerifier verifierFor(Host host, {HostKeyPrompt? prompt}) =>
-      HostKeyVerifier(
-        pinned: _pinnedThisRun[host.id] ?? host.hostKey,
-        prompt: prompt,
-        pin: (key) async {
-          _pinnedThisRun[host.id] = key;
-          await pinHostKey(host.id, key);
-        },
-      );
+      keyPins.verifier(host.id, host.hostKey, prompt: prompt);
 
   /// Holds every wake until the returned callback is called. Raised with the passphrase and
   /// host key sheets: a reconnect underneath one would take the shell the question belongs
@@ -2439,7 +2427,7 @@ final shellSessionsProvider = Provider<ShellSessions>((ref) {
   ref.keepAlive();
   final sessions = ShellSessions(
     readPrivateKey: ref.watch(ed25519KeysProvider).privateKey,
-    pinHostKey: ref.watch(hostRepositoryProvider).pinHostKey,
+    keyPins: ref.watch(hostKeyPinsProvider),
     recordSystem: ref.watch(hostRepositoryProvider).recordSystem,
     beforeDial: ref.watch(phoneLinuxHostProvider)?.ensure,
     tabs: ref.watch(shellTabRepositoryProvider),

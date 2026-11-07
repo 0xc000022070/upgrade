@@ -68,7 +68,7 @@ class DevicesController extends ChangeNotifier {
     required this.dock,
     required this._readPrivateKey,
     required this._open,
-    this.pinHostKey,
+    this.keyPins,
     this.prompt,
     this.bootLimit = defaultBootLimit,
   });
@@ -78,12 +78,11 @@ class DevicesController extends ChangeNotifier {
   Host host;
   final DeviceDock dock;
   final Future<String?> Function(String keyId) _readPrivateKey;
-  final Future<void> Function(String hostId, PinnedHostKey key)? pinHostKey;
+  final HostKeyPins? keyPins;
   final HostKeyPrompt? prompt;
   final Duration bootLimit;
   final DeviceLinkOpener _open;
 
-  PinnedHostKey? _pinned;
   LinkHold? _hold;
   DevicesPhase _phase = const DevicesLoading();
   bool _disposed = false;
@@ -326,14 +325,9 @@ class DevicesController extends ChangeNotifier {
       port: host.port,
       user: host.user,
       privateKey: privateKey,
-      verifier: HostKeyVerifier(
-        pinned: _pinned ?? host.hostKey,
-        prompt: prompt,
-        pin: (key) async {
-          _pinned = key;
-          await pinHostKey?.call(host.id, key);
-        },
-      ),
+      verifier:
+          keyPins?.verifier(host.id, host.hostKey, prompt: prompt) ??
+          HostKeyVerifier(pinned: host.hostKey, prompt: prompt),
     );
     if (_disposed) {
       await link.close();
