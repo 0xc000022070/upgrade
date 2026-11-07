@@ -94,7 +94,7 @@ class _PathPickerBodyState extends ConsumerState<_PathPickerBody> {
 
   List<Widget> _list(List<String> directories) {
     final matching = _matching(directories);
-    final offered = directories.length - widget.taken.length;
+    final offered = directories.where((d) => !widget.taken.contains(d)).length;
     return [
       FieldPanel(
         label: 'FILTER',

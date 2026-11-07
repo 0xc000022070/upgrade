@@ -162,15 +162,20 @@ final checkoutsFoundProvider = FutureProvider.family<PathScan, String>((
   ref,
   hostId,
 ) async {
-  final host = ref.read(registeredHostProvider(hostId));
+  final host = await _host(ref, hostId);
   if (host == null) return const PathScanFound([]);
   return ref.watch(pathScannerProvider)(host);
 }, dependencies: [pathScannerProvider]);
 
 final checkoutSurveyProvider =
     FutureProvider.family<List<CheckoutSurvey>, String>((ref, hostId) async {
-      final host = ref.read(registeredHostProvider(hostId));
+      final host = await _host(ref, hostId);
       final found = await ref.watch(checkoutsFoundProvider(hostId).future);
       if (host == null || found is! PathScanFound) return const [];
       return ref.watch(pathScannerProvider).survey(host, found.directories);
     }, dependencies: [pathScannerProvider, checkoutsFoundProvider]);
+
+Future<Host?> _host(Ref ref, String hostId) async =>
+    (await ref.read(hostRepositoryProvider).all())
+        .where((host) => host.id == hostId)
+        .firstOrNull;

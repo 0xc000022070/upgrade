@@ -733,15 +733,17 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     final found = ref.watch(checkoutsFoundProvider(widget.host.id)).value;
     final groups =
         ref.watch(workspacesByHostProvider).value ?? const <HostWorkspaces>[];
-    final directories = {
-      if (found case PathScanFound(:final directories)) ...directories,
+    final labels = {
+      if (found case PathScanFound(:final directories))
+        for (final directory in directories)
+          directory: defaultPathLabel(directory),
       for (final group in groups)
         if (group.host.id == widget.host.id)
-          for (final path in group.paths) path.directory,
+          for (final path in group.paths) path.directory: path.label,
     };
     return [
-      for (final directory in directories)
-        (directory: directory, label: defaultPathLabel(directory)),
+      for (final MapEntry(key: directory, value: label) in labels.entries)
+        (directory: directory, label: label),
     ];
   }
 

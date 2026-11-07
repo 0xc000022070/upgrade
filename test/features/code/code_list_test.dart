@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/navigation.dart';
@@ -116,54 +117,56 @@ void main() {
     required HostKeyVerifier verifier,
   }) async {}
 
+  List<Override> overrides({bool projects = true}) => [
+    ...featureTestOverrides(db, enabled: projects),
+    navIndexProvider.overrideWith((ref) => HostsScreen.navIndex),
+    keyRepositoryProvider.overrideWithValue(keys),
+    hostRepositoryProvider.overrideWithValue(hosts),
+    privateKeyStoreProvider.overrideWithValue(privateKeys),
+    screenPreviewsProvider.overrideWith((ref) async => previews),
+    shellSessionsProvider.overrideWithValue(sessions),
+    linkProbesProvider.overrideWithValue(
+      LinkProbes(probe: (_, _) async => const LinkResult.unknown()),
+    ),
+    hostKeyDialProvider.overrideWith((ref) => noDial),
+    pathScannerProvider.overrideWithValue(
+      PathScanner(
+        fetch:
+            ({
+              required address,
+              required port,
+              required user,
+              required privateKey,
+              required verifier,
+            }) async {
+              _walks++;
+              if (_refused case final failure?) throw failure;
+              return _scanned[address] ?? const [];
+            },
+        fetchModels: ({
+          required address,
+          required port,
+          required user,
+          required privateKey,
+          required kind,
+          required verifier,
+        }) async => const [],
+        fetchSurvey: ({
+          required address,
+          required port,
+          required user,
+          required privateKey,
+          required verifier,
+          required directories,
+        }) async => _survey,
+        keys: Ed25519Keys(privateKeys),
+      ),
+    ),
+  ];
+
   Widget app({bool projects = true}) => ProviderScope(
     retry: noRetry,
-    overrides: [
-      ...featureTestOverrides(db, enabled: projects),
-      navIndexProvider.overrideWith((ref) => HostsScreen.navIndex),
-      keyRepositoryProvider.overrideWithValue(keys),
-      hostRepositoryProvider.overrideWithValue(hosts),
-      privateKeyStoreProvider.overrideWithValue(privateKeys),
-      screenPreviewsProvider.overrideWith((ref) async => previews),
-      shellSessionsProvider.overrideWithValue(sessions),
-      linkProbesProvider.overrideWithValue(
-        LinkProbes(probe: (_, _) async => const LinkResult.unknown()),
-      ),
-      hostKeyDialProvider.overrideWith((ref) => noDial),
-      pathScannerProvider.overrideWithValue(
-        PathScanner(
-          fetch:
-              ({
-                required address,
-                required port,
-                required user,
-                required privateKey,
-                required verifier,
-              }) async {
-                _walks++;
-                if (_refused case final failure?) throw failure;
-                return _scanned[address] ?? const [];
-              },
-          fetchModels: ({
-            required address,
-            required port,
-            required user,
-            required privateKey,
-            required kind,
-            required verifier,
-          }) async => const [],
-          fetchSurvey: ({
-            required address,
-            required port,
-            required user,
-            required privateKey,
-            required verifier,
-            required directories,
-          }) async => _survey,
-          keys: Ed25519Keys(privateKeys),
-        ),
-      ),
-    ],
+    overrides: overrides(projects: projects),
     child: MaterialApp(theme: testTheme, home: const HostsScreen()),
   );
 
@@ -219,6 +222,22 @@ void main() {
 
     await unmount(tester);
   });
+
+  test(
+    'a walk asked before anything watches the hosts still finds the host',
+    () async {
+      await hosts.save(_host('1', 'oak'));
+      final container = ProviderContainer(
+        retry: noRetry,
+        overrides: overrides(),
+      );
+      addTearDown(container.dispose);
+
+      final scan = await container.read(checkoutsFoundProvider('1').future);
+
+      expect((scan as PathScanFound).directories, _found);
+    },
+  );
 
   testWidgets('the host is walked and every checkout it has is a row', (
     tester,
