@@ -5,6 +5,7 @@ import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/design/components/toolbar_icon_action.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/features/devices/bubble_holds.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
 
 class ScreensAction extends ConsumerWidget {
@@ -14,10 +15,11 @@ class ScreensAction extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dock = ref.watch(deviceDockProvider);
     final hosts = ref.watch(screenHostsProvider);
+    final carried = ref.watch(bubbleHoldsProvider).value?.hasScreens ?? true;
     return ListenableBuilder(
       listenable: dock,
       builder: (context, _) {
-        if (!dock.holding && (hosts?.isEmpty ?? true)) {
+        if (!carried || (!dock.holdingScreens && (hosts?.isEmpty ?? true))) {
           return const SizedBox.shrink();
         }
         return Padding(

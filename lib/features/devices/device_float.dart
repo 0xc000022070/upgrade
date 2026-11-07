@@ -22,9 +22,12 @@ import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/platform/devices/device_link.dart';
+import 'package:upgrade/features/browser/browser_controller.dart';
+import 'package:upgrade/features/browser/browser_screen.dart';
 import 'package:upgrade/features/hosts/host_mark.dart';
 import 'package:upgrade/features/screen/host_screen.dart';
 import 'package:upgrade/features/screen/screen_controller.dart';
+import 'package:upgrade/features/devices/bubble_holds.dart';
 import 'package:upgrade/features/devices/device_controllers.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/features/devices/device_screen.dart';
@@ -45,6 +48,10 @@ const desktopFloatShare = 0.6;
 const screensHandleWidth = 28.0;
 const screensHandleHeight = deviceBubbleSize;
 const _handleReach = 40.0;
+const browserFloatShare = 0.6;
+const _browserFloatAspect = 0.75;
+
+const browserBesideWidth = 720.0;
 
 final screensHostProvider = StreamProvider<String?>(
   (ref) => ref
@@ -169,13 +176,18 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   bool _menu = false;
   bool _sheet = false;
   late bool _edge = rootRoutes.edge.value;
+  late bool _shellUp = rootRoutes.sheet.value;
   late int _asks;
+
+  BubbleHolds get _holds =>
+      ref.read(bubbleHoldsProvider).value ?? BubbleHolds.both;
 
   @override
   void initState() {
     super.initState();
     _dock = ref.read(deviceDockProvider);
     rootRoutes.edge.addListener(_onRoute);
+    rootRoutes.sheet.addListener(_onRoute);
     _asks = _dock.asks;
     _dock.addListener(_onAsk);
     ref.listenManual<List<ScreenHost>?>(screenHostsProvider, (_, hosts) {
@@ -194,6 +206,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   @override
   void dispose() {
     rootRoutes.edge.removeListener(_onRoute);
+    rootRoutes.sheet.removeListener(_onRoute);
     _dock.removeListener(_onAsk);
     super.dispose();
   }
@@ -201,7 +214,11 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   /// The navigator reports a push from inside its own build.
   void _onRoute() {
     void apply() {
-      if (mounted) setState(() => _edge = rootRoutes.edge.value);
+      if (!mounted) return;
+      setState(() {
+        _edge = rootRoutes.edge.value;
+        _shellUp = rootRoutes.sheet.value;
+      });
     }
 
     if (SchedulerBinding.instance.schedulerPhase ==
@@ -213,6 +230,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   }
 
   void _attach(List<ScreenHost>? hosts) {
+    if (!_holds.hasScreens) return;
     _dock.attach([
       for (final screen in hosts ?? const <ScreenHost>[])
         if (screen.devices) screen.host,
@@ -260,6 +278,17 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     final context = rootNavigatorKey.currentContext;
     if (context == null) return;
     expandDesktop(context, _dock);
+  }
+
+  void _expandBrowser() {
+    final context = rootNavigatorKey.currentContext;
+    if (context == null) return;
+    openBrowser(context, ref);
+  }
+
+  void _openBrowser() {
+    setState(() => _menu = false);
+    _dock.openBrowser();
   }
 
   double _clampTop(MediaQueryData media, double height, [double? top]) {
@@ -311,24 +340,45 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   Widget build(BuildContext context) {
     final hosts = ref.watch(screenHostsProvider);
     final pip = ref.watch(pipAvailableProvider).value ?? false;
+    final holds = ref.watch(bubbleHoldsProvider).value ?? BubbleHolds.both;
     return ListenableBuilder(
       listenable: _dock,
       builder: (context, _) {
-        if (_sheet) return const SizedBox.shrink();
+        if (_sheet || holds == BubbleHolds.off) return const SizedBox.shrink();
         if (!_dock.floating) {
           _menu = false;
-          final reachable = _dock.holding || (hosts?.isNotEmpty ?? false);
+          final reachable =
+              holds.hasBrowser ||
+              _dock.holdingScreens ||
+              (hosts?.isNotEmpty ?? false);
           if (_dock.expanded != null || !_edge || !reachable) {
             return const SizedBox.shrink();
           }
-          return _placeHandle(context);
+          return _placeHandle(context, holds);
         }
         final session = _dock.session;
         final desktop = _dock.desktop;
-        final screens = _screens(hosts);
+        final browser = _dock.browser;
+        final screens = holds.hasScreens
+            ? _screens(hosts)
+            : const <ScreenHost>[];
+        final wide = MediaQuery.sizeOf(context).width >= browserBesideWidth;
         return Stack(
           fit: StackFit.expand,
           children: [
+            if (browser != null &&
+                !_dock.browserCollapsed &&
+                !_dock.browserBeside)
+              _BrowserWindow(
+                key: const ValueKey('browser-window'),
+                dock: _dock,
+                browser: browser,
+                right: !_right,
+                onExpand: _expandBrowser,
+                onBeside: _shellUp && wide
+                    ? () => _dock.besideBrowser(true, right: !_right)
+                    : null,
+              ),
             if (desktop != null && !_dock.desktopCollapsed)
               _DesktopWindow(
                 key: const ValueKey('desktop-window'),
@@ -351,7 +401,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
                     ? (aspect) => _pip(DockSurface.device, aspect)
                     : null,
               ),
-            _placeRest(context, screens),
+            _placeRest(context, screens, holds),
           ],
         );
       },
@@ -373,7 +423,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     return listed;
   }
 
-  Widget _placeHandle(BuildContext context) {
+  Widget _placeHandle(BuildContext context, BubbleHolds holds) {
     final media = MediaQuery.of(context);
     final held = _dock.holding;
     final tokens = context.tokens;
@@ -389,7 +439,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
           top: _clampTop(media, deviceBubbleSize),
           child: Semantics(
             button: true,
-            label: 'SCREENS',
+            label: holds.word,
             child: GestureDetector(
               key: const ValueKey('screens-handle'),
               behavior: HitTestBehavior.opaque,
@@ -422,6 +472,7 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
                     ),
                     child: Center(
                       child: _ScreensMark(
+                        icon: holds.icon,
                         size: IconSizes.sm,
                         pulse: true,
                         color: held ? tokens.accent : null,
@@ -467,7 +518,11 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
   void _remember(Host host) =>
       unawaited(ref.read(rememberScreensHostProvider)(host.id));
 
-  Widget _placeRest(BuildContext context, List<ScreenHost> screens) {
+  Widget _placeRest(
+    BuildContext context,
+    List<ScreenHost> screens,
+    BubbleHolds holds,
+  ) {
     final media = MediaQuery.of(context);
     final screen = media.size;
     final top = _clampTop(media, deviceBubbleSize);
@@ -491,8 +546,10 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
             child: _DeviceList(
               key: _barKey,
               dock: _dock,
+              holds: holds,
               screens: screens,
               remembered: ref.watch(screensHostProvider).value,
+              onBrowser: _openBrowser,
               onSelect: (group, device) {
                 setState(() => _menu = false);
                 _remember(group.host);
@@ -522,10 +579,14 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
               onTap: _openList,
               child: Semantics(
                 button: true,
-                label: 'SCREENS',
-                child: const _Frame(
+                label: holds.word,
+                child: _Frame(
                   child: Center(
-                    child: _ScreensMark(size: IconSizes.lg, pulse: true),
+                    child: _ScreensMark(
+                      icon: holds.icon,
+                      size: IconSizes.lg,
+                      pulse: true,
+                    ),
                   ),
                 ),
               ),
@@ -765,6 +826,59 @@ class _DesktopWindow extends StatelessWidget {
   }
 }
 
+class _BrowserWindow extends StatelessWidget {
+  const _BrowserWindow({
+    super.key,
+    required this.dock,
+    required this.browser,
+    required this.right,
+    required this.onExpand,
+    required this.onBeside,
+  });
+
+  final DeviceDock dock;
+  final BrowserController browser;
+  final bool right;
+  final VoidCallback onExpand;
+  final VoidCallback? onBeside;
+
+  @override
+  Widget build(BuildContext context) {
+    return _FloatWindow(
+      id: 'browser-float',
+      aspect: _browserFloatAspect,
+      right: right,
+      low: false,
+      width: (screen) => screen.width * browserFloatShare,
+      widest: (screen) => screen.width - Spacing.screenEdge * 2,
+      liveOf: (toggleOverlay) => BrowserView(
+        browser,
+        trailing: [
+          _Glyph(
+            key: const ValueKey('browser-float-window'),
+            icon: UpgradeIcons.more,
+            label: 'WINDOW',
+            onTap: toggleOverlay,
+          ),
+        ],
+      ),
+      picture: true,
+      marks: const [],
+      actions: (_) => const [],
+      beside: onBeside == null
+          ? null
+          : _Word(
+              key: const ValueKey('browser-float-beside'),
+              label: 'BESIDE',
+              onTap: onBeside!,
+            ),
+      onExpand: onExpand,
+      onCollapse: () => dock.collapseBrowser(true),
+      onClose: dock.endBrowser,
+    );
+  }
+}
+
 class _Desktop extends StatelessWidget {
   const _Desktop({required this.controller, required this.paused});
 
@@ -810,7 +924,8 @@ class _FloatWindow extends StatefulWidget {
     required this.low,
     required this.width,
     required this.widest,
-    required this.live,
+    this.live,
+    this.liveOf,
     required this.picture,
     required this.marks,
     required this.actions,
@@ -820,7 +935,7 @@ class _FloatWindow extends StatefulWidget {
     this.onPip,
     this.onSettled,
     this.beside,
-  });
+  }) : assert((live == null) != (liveOf == null));
 
   final String id;
   final double aspect;
@@ -830,7 +945,11 @@ class _FloatWindow extends StatefulWidget {
   final double Function(Size screen) width;
   final double Function(Size screen) widest;
 
-  final Widget live;
+  final Widget? live;
+
+  /// A live view that takes its own taps, so the overlay is its own to call up
+  /// rather than a tap anywhere on the window.
+  final Widget Function(VoidCallback toggleOverlay)? liveOf;
   final bool picture;
   final List<Widget> marks;
   final List<Widget> Function(BuildContext context) actions;
@@ -952,6 +1071,8 @@ class _FloatWindowState extends State<_FloatWindow> {
     }
 
     final id = widget.id;
+    void toggleOverlay() => setState(() => _overlay = !_overlay);
+    final live = widget.live ?? widget.liveOf!(toggleOverlay);
     return Stack(
       children: [
         if (_pointer != null) _CloseSlot(hot: _overClose),
@@ -966,7 +1087,7 @@ class _FloatWindowState extends State<_FloatWindow> {
           child: GestureDetector(
             key: ValueKey(id),
             behavior: HitTestBehavior.opaque,
-            onTap: () => setState(() => _overlay = !_overlay),
+            onTap: widget.liveOf == null ? toggleOverlay : null,
             onScaleStart: (_) => setState(() {
               _gesturing = true;
               _pinchFrom = width;
@@ -977,7 +1098,7 @@ class _FloatWindowState extends State<_FloatWindow> {
               child: _Frame(
                 child: _Tile(
                   id: id,
-                  live: widget.live,
+                  live: live,
                   picture: widget.picture,
                   marks: widget.marks,
                   actions: widget.actions,
@@ -1007,8 +1128,10 @@ class _DeviceList extends StatefulWidget {
   const _DeviceList({
     super.key,
     required this.dock,
+    required this.holds,
     required this.screens,
     required this.remembered,
+    required this.onBrowser,
     required this.onSelect,
     required this.onDesktop,
     required this.onFold,
@@ -1017,8 +1140,10 @@ class _DeviceList extends StatefulWidget {
   });
 
   final DeviceDock dock;
+  final BubbleHolds holds;
   final List<ScreenHost> screens;
   final String? remembered;
+  final VoidCallback onBrowser;
   final void Function(DevicesController, HostDevice) onSelect;
   final void Function(Host) onDesktop;
   final VoidCallback onFold;
@@ -1204,14 +1329,19 @@ class _DeviceListState extends State<_DeviceList> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: Spacing.sm),
-                    child: Center(child: _ScreensMark(size: IconSizes.sm)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+                    child: Center(
+                      child: _ScreensMark(
+                        icon: widget.holds.icon,
+                        size: IconSizes.sm,
+                      ),
+                    ),
                   ),
                   Expanded(
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Text('SCREENS', style: tokens.panelHeader),
+                      child: Text(widget.holds.word, style: tokens.panelHeader),
                     ),
                   ),
                   _Glyph(
@@ -1229,7 +1359,16 @@ class _DeviceListState extends State<_DeviceList> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (widget.screens.isEmpty)
+                  if (widget.holds.hasBrowser)
+                    _ListRow(
+                      key: const ValueKey('browser-tab'),
+                      icon: UpgradeIcons.browser,
+                      tag: _browserTag(dock),
+                      label: 'BROWSER',
+                      active: dock.browser != null,
+                      onTap: widget.onBrowser,
+                    ),
+                  if (widget.holds.hasScreens && widget.screens.isEmpty)
                     const _ListRow(label: 'NO HOST HAS VNC OR DEVICES ON'),
                   for (final (index, screen) in widget.screens.indexed)
                     ...() {
@@ -1255,7 +1394,7 @@ class _DeviceListState extends State<_DeviceList> {
                         _HostRow(
                           key: ValueKey('device-group-${host.id}'),
                           host: host,
-                          first: index == 0,
+                          first: index == 0 && !widget.holds.hasBrowser,
                           failed: group?.phase is DevicesFailed,
                           held: open ? null : held,
                           onTap: () {
@@ -1310,6 +1449,18 @@ class _DeviceListState extends State<_DeviceList> {
 }
 
 const _failedTag = 'FAILED';
+
+String _browserTag(DeviceDock dock) {
+  final browser = dock.browser;
+  if (browser == null) return 'THIS PHONE';
+  final word = browser.word;
+  if (word == _failedTag || word == 'CONNECTING') return word;
+  final away =
+      dock.browserCollapsed ||
+      dock.browserBeside ||
+      (!dock.floating && dock.expanded != DockSurface.browser);
+  return away ? 'HELD' : word;
+}
 
 String _desktopTag(bool away, bool paused, ScreenPhase phase) =>
     switch (phase) {
@@ -1560,8 +1711,14 @@ class _ListRow extends StatelessWidget {
 }
 
 class _ScreensMark extends StatefulWidget {
-  const _ScreensMark({required this.size, this.pulse = false, this.color});
+  const _ScreensMark({
+    this.icon = UpgradeIcons.screens,
+    required this.size,
+    this.pulse = false,
+    this.color,
+  });
 
+  final UpgradeIcons icon;
   final double size;
   final bool pulse;
   final Color? color;
@@ -1610,7 +1767,7 @@ class _ScreensMarkState extends State<_ScreensMark>
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: UpgradeIcon(
-        UpgradeIcons.screens,
+        widget.icon,
         size: widget.size,
         color: widget.color ?? context.tokens.textPrimary,
         glitch: _glitch,

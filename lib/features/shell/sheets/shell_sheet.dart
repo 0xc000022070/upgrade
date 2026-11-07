@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/agents/agents.dart'
@@ -9,6 +10,11 @@ import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/application/alerts/toasts.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/components/drag_sheet.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/browser/browser_screen.dart';
+import 'package:upgrade/features/devices/device_dock.dart';
+import 'package:upgrade/features/devices/device_float.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/shell/shell_launch.dart';
@@ -192,7 +198,14 @@ class _SheetContents extends ConsumerStatefulWidget {
 }
 
 class _SheetContentsState extends ConsumerState<_SheetContents> {
+  late final DeviceDock _dock = ref.read(deviceDockProvider);
   late Host _host = widget.host;
+
+  @override
+  void dispose() {
+    _dock.besideBrowser(false);
+    super.dispose();
+  }
 
   late UserIntent? _intent = widget.intent;
   late ShellSession? _session = widget.session;
@@ -229,7 +242,7 @@ class _SheetContentsState extends ConsumerState<_SheetContents> {
 
   @override
   Widget build(BuildContext context) {
-    return HostShellRoute(
+    final shell = HostShellRoute(
       key: ValueKey(_host.id),
       host: ref.watch(registeredHostProvider(_host.id)) ?? _host,
       intent: _intent,
@@ -244,6 +257,34 @@ class _SheetContentsState extends ConsumerState<_SheetContents> {
       pane: _host.id == widget.host.id ? widget.pane : null,
       onSwitchHost: _switchTo,
       onOpenHost: _openOn,
+    );
+    return ListenableBuilder(
+      listenable: _dock,
+      builder: (context, _) {
+        final browser = _dock.browser;
+        final wide = MediaQuery.sizeOf(context).width >= browserBesideWidth;
+        if (browser == null || !_dock.browserBeside) return shell;
+        if (!wide) {
+          SchedulerBinding.instance.addPostFrameCallback(
+            (_) => _dock.besideBrowser(false),
+          );
+          return shell;
+        }
+        final pane = Expanded(
+          key: const ValueKey('browser-beside'),
+          child: BrowserPane(browser),
+        );
+        final rule = VerticalDivider(
+          width: Borders.hairline,
+          thickness: Borders.hairline,
+          color: context.tokens.borderNormal,
+        );
+        return Row(
+          children: _dock.browserBesideRight
+              ? [Expanded(child: shell), rule, pane]
+              : [pane, rule, Expanded(child: shell)],
+        );
+      },
     );
   }
 }

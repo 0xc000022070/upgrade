@@ -216,7 +216,7 @@ class PluginLibraryScreen extends ConsumerWidget {
                   title: 'BROWSER',
                   subtitle: 'ON THIS PHONE, OR THROUGH A HOST',
                   node: true,
-                  onTap: () => openBrowser(context),
+                  onTap: () => openBrowser(context, ref),
                 ),
               ),
             ),

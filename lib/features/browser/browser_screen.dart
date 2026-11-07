@@ -1,199 +1,157 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'package:upgrade/app/static_surface.dart';
 import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/design/components/screen_scaffold.dart';
+import 'package:upgrade/design/components/toolbar_icon_action.dart';
 import 'package:upgrade/design/components/upgrade_field.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/hosts/host_key_sheet.dart';
-import 'package:upgrade/platform/browser_proxy.dart';
-import 'package:upgrade/platform/ssh/host_failure.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/ssh/host_links.dart';
-import 'package:upgrade/platform/ssh/socks_proxy.dart';
+import 'package:upgrade/features/browser/browser_controller.dart';
+import 'package:upgrade/features/devices/bubble_holds.dart';
+import 'package:upgrade/features/devices/device_dock.dart';
 
-void openBrowser(BuildContext context) {
-  Navigator.of(context, rootNavigator: true).push(
-    MaterialPageRoute<void>(builder: (_) => const BrowserScreen()),
-  );
+void openBrowser(BuildContext context, WidgetRef ref) {
+  ref.read(deviceDockProvider).focusBrowser();
+  Navigator.of(
+    context,
+    rootNavigator: true,
+  ).push(MaterialPageRoute<void>(builder: (_) => const BrowserScreen()));
 }
 
-class BrowserScreen extends ConsumerStatefulWidget {
-  const BrowserScreen({super.key});
+class BrowserView extends ConsumerWidget {
+  const BrowserView(this.controller, {super.key, this.trailing = const []});
+
+  final BrowserController controller;
+  final List<Widget> trailing;
 
   @override
-  ConsumerState<BrowserScreen> createState() => _BrowserScreenState();
-}
-
-class _BrowserScreenState extends ConsumerState<BrowserScreen> {
-  late final WebViewController _web;
-  final _address = TextEditingController();
-
-  Host? _network;
-  HostLease? _lease;
-  SocksProxy? _proxy;
-  bool _dialling = false;
-  String? _reason;
-  bool _canGoBack = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _web = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onUrlChange: (change) {
-            final url = change.url;
-            if (url != null) _address.text = url;
-            unawaited(_refreshBack());
-          },
-          onWebResourceError: (error) {
-            if (mounted && (error.isForMainFrame ?? true)) {
-              setState(() => _reason = error.description.toLowerCase());
-            }
-          },
-          onPageStarted: (_) {
-            if (mounted) setState(() => _reason = null);
-          },
-        ),
-      );
-  }
-
-  @override
-  void dispose() {
-    _address.dispose();
-    unawaited(_release());
-    super.dispose();
-  }
-
-  Future<void> _refreshBack() async {
-    final back = await _web.canGoBack();
-    if (mounted && back != _canGoBack) setState(() => _canGoBack = back);
-  }
-
-  Future<void> _release() async {
-    _lease?.release();
-    _lease = null;
-    final proxy = _proxy;
-    _proxy = null;
-    await proxy?.close();
-    await BrowserProxy.clear();
-  }
-
-  void _load(String typed) {
-    final text = typed.trim();
-    if (text.isEmpty) return;
-    final url = text.contains('://') ? text : 'http://$text';
-    final uri = Uri.tryParse(url);
-    if (uri == null || uri.host.isEmpty) {
-      setState(() => _reason = 'not an address');
-      return;
-    }
-    _address.text = url;
-    unawaited(_web.loadRequest(uri));
-  }
-
-  Future<void> _use(Host? host) async {
-    setState(() {
-      _network = host;
-      _reason = null;
-      _dialling = host != null;
-    });
-    await _release();
-    if (host == null) {
-      _reload();
-      return;
-    }
-    final privateKey = await ref.read(ed25519KeysProvider).privateKey(host.keyId);
-    if (!mounted || _network != host) return;
-    if (privateKey == null) {
-      _fail(ReasonLine.keyRejected.on(host.name));
-      return;
-    }
-    try {
-      final lease = await ref.read(hostLinksProvider).lease(
-        address: host.address,
-        port: host.port,
-        user: host.user,
-        privateKey: privateKey,
-        verifier: HostKeyVerifier(
-          pinned: host.hostKey,
-          prompt: _askHostKey,
-          pin: (key) => ref.read(hostRepositoryProvider).pinHostKey(host.id, key),
-        ),
-        use: HostUse.browser,
-      );
-      if (!mounted || _network != host) {
-        lease.release();
-        return;
-      }
-      final proxy = await SocksProxy.bind(lease.client);
-      await BrowserProxy.set(proxy.port);
-      _lease = lease;
-      _proxy = proxy;
-      unawaited(
-        lease.ended.then((_) {
-          if (mounted && _lease == lease) _fail(ReasonLine.streamClosed.on(host.name));
-        }),
-      );
-      setState(() => _dialling = false);
-      _reload();
-    } on HerdrFailure catch (failure) {
-      _fail(failure.reason(host.name));
-    } catch (error) {
-      _fail(error.toString().toLowerCase());
-    }
-  }
-
-  void _fail(String reason) {
-    if (!mounted) return;
-    setState(() {
-      _dialling = false;
-      _reason = reason;
-    });
-  }
-
-  void _reload() {
-    if (_address.text.isNotEmpty) _load(_address.text);
-  }
-
-  Future<bool> _askHostKey(HostKeyOffer offer, PinnedHostKey? pinned) async {
-    final host = _network;
-    if (!mounted || host == null) return false;
-    return askHostKey(context, host: host, offer: offer, pinned: pinned);
-  }
-
-  Future<void> _pickNetwork() async {
-    final hosts = ref.read(hostsProvider).value ?? const <Host>[];
+  Widget build(BuildContext context, WidgetRef ref) {
     final tokens = context.tokens;
-    Widget check(bool on) => on
-        ? UpgradeIcon(UpgradeIcons.check, size: IconSizes.check, color: tokens.accent)
-        : const SizedBox.shrink();
-    void pick(Host? host) {
-      Navigator.pop(context);
-      if (host?.id != _network?.id) unawaited(_use(host));
-    }
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final network = controller.network;
+        final reason = controller.reason;
+        // The float layer sits above the navigator, where no Material is
+        // around for the address field.
+        return Material(
+          type: MaterialType.transparency,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: UpgradeField(
+                      controller: controller.address,
+                      hint: network == null
+                          ? 'ADDRESS'
+                          : 'ADDRESS · localhost is ${network.name}\'s',
+                      keyboardType: TextInputType.url,
+                      textInputAction: TextInputAction.go,
+                      suggest: false,
+                      onSubmitted: controller.load,
+                      semanticIdentifier: 'browser-address',
+                    ),
+                  ),
+                  PanelAffordance(
+                    controller.word,
+                    key: const ValueKey('browser-network'),
+                    icon: UpgradeIcons.connection,
+                    color: controller.dialling
+                        ? tokens.textMuted
+                        : tokens.accent,
+                    onTap: () => pickBrowserNetwork(context, ref, controller),
+                  ),
+                  ...trailing,
+                ],
+              ),
+              if (controller.dialling)
+                Padding(
+                  padding: const EdgeInsets.all(Spacing.sm),
+                  child: Text('CONNECTING', style: tokens.panelHeader),
+                )
+              else if (reason != null)
+                Padding(
+                  padding: const EdgeInsets.all(Spacing.sm),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          reason,
+                          style: tokens.rowSubtitle.copyWith(
+                            color: tokens.warning,
+                          ),
+                        ),
+                      ),
+                      ActionBlock(label: 'RETRY', onTap: controller.retry),
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: controller.dialling
+                    ? const SizedBox.shrink()
+                    : WebViewWidget(
+                        controller: controller.web,
+                        gestureRecognizers: {
+                          Factory<EagerGestureRecognizer>(
+                            EagerGestureRecognizer.new,
+                          ),
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
 
-    await showPanelSheet<void>(
-      context,
-      title: 'NETWORK',
-      builder: (context) => PanelSheetBody(
+Future<void> pickBrowserNetwork(
+  BuildContext context,
+  WidgetRef ref,
+  BrowserController controller,
+) async {
+  final hosts = ref.read(hostsProvider).value ?? const <Host>[];
+  final tokens = context.tokens;
+  final current = controller.network;
+  Widget check(bool on) => on
+      ? UpgradeIcon(
+          UpgradeIcons.check,
+          size: IconSizes.check,
+          color: tokens.accent,
+        )
+      : const SizedBox.shrink();
+  await showPanelSheet<void>(
+    rootNavigatorKey.currentContext ?? context,
+    title: 'NETWORK',
+    builder: (context) {
+      void pick(Host? host) {
+        Navigator.pop(context);
+        if (host?.id != current?.id) unawaited(controller.use(host));
+      }
+
+      return PanelSheetBody(
         title: 'NETWORK',
-        affordance: PanelAffordance('CANCEL', onTap: () => Navigator.pop(context)),
+        affordance: PanelAffordance(
+          'CANCEL',
+          onTap: () => Navigator.pop(context),
+        ),
         children: [
           ListRowGroup(
             children: [
@@ -206,14 +164,17 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
                 ),
                 title: 'THIS PHONE',
                 subtitle: 'what the phone itself can reach',
-                trailing: check(_network == null),
+                trailing: check(current == null),
                 onTap: () => pick(null),
               ),
             ],
           ),
           if (hosts.isNotEmpty) ...[
             Padding(
-              padding: const EdgeInsets.only(top: Spacing.lg, bottom: Spacing.sm),
+              padding: const EdgeInsets.only(
+                top: Spacing.lg,
+                bottom: Spacing.sm,
+              ),
               child: Text('THROUGH A HOST', style: tokens.label),
             ),
             ListRowGroup(
@@ -228,86 +189,93 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
                     ),
                     title: host.name,
                     subtitle: 'what ${host.address} can reach, over ssh',
-                    trailing: check(_network?.id == host.id),
+                    trailing: check(current?.id == host.id),
                     onTap: () => pick(host),
                   ),
               ],
             ),
           ],
         ],
-      ),
-    );
-  }
+      );
+    },
+  );
+}
+
+class BrowserScreen extends ConsumerWidget {
+  const BrowserScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final network = _network;
-    final reason = _reason;
-    return PopScope(
-      canPop: !_canGoBack,
-      onPopInvokedWithResult: (popped, _) {
-        if (!popped) unawaited(_web.goBack());
-      },
-      child: Scaffold(
-        body: StaticSurface(
-          child: ScreenScaffold(
-            title: 'BROWSER',
-            breadcrumb: '/ UPGRADE / BROWSER',
-            onBack: () => Navigator.of(context).pop(),
-            fill: true,
-            titleTrailing: PanelAffordance(
-              network == null ? 'THIS PHONE' : network.name.toUpperCase(),
-              key: const ValueKey('browser-network'),
-              icon: UpgradeIcons.connection,
-              color: _dialling ? tokens.textMuted : tokens.accent,
-              onTap: _pickNetwork,
-            ),
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  UpgradeField(
-                    controller: _address,
-                    hint: network == null
-                        ? 'ADDRESS'
-                        : 'ADDRESS · localhost is ${network.name}\'s',
-                    keyboardType: TextInputType.url,
-                    textInputAction: TextInputAction.go,
-                    suggest: false,
-                    onSubmitted: _load,
-                    semanticIdentifier: 'browser-address',
-                  ),
-                  const SizedBox(height: Spacing.sm),
-                  if (_dialling)
-                    Text('CONNECTING', style: tokens.panelHeader)
-                  else if (reason != null)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            reason,
-                            style: tokens.rowSubtitle.copyWith(color: tokens.warning),
-                          ),
-                        ),
-                        ActionBlock(
-                          label: 'RETRY',
-                          onTap: () => network == null ? _reload() : _use(network),
-                        ),
-                      ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dock = ref.watch(deviceDockProvider);
+    final carried = ref.watch(bubbleHoldsProvider).value?.hasBrowser ?? true;
+    return ListenableBuilder(
+      listenable: dock,
+      builder: (context, _) {
+        final browser = dock.browser;
+        if (browser == null) {
+          return const Scaffold(body: StaticSurface(child: SizedBox()));
+        }
+        return PopScope(
+          canPop: !browser.canGoBack,
+          onPopInvokedWithResult: (popped, _) {
+            if (!popped) {
+              unawaited(browser.goBack());
+            } else if (carried) {
+              dock.float();
+            } else {
+              dock.endBrowser();
+            }
+          },
+          child: Scaffold(
+            body: StaticSurface(
+              child: SafeArea(
+                child: BrowserView(
+                  browser,
+                  trailing: [
+                    ToolbarIconAction(
+                      key: const ValueKey('browser-minimize'),
+                      label: 'MINIMIZE',
+                      icon: UpgradeIcons.minimize,
+                      onTap: () => Navigator.of(context).maybePop(),
                     ),
-                  const SizedBox(height: Spacing.sm),
-                  Expanded(
-                    child: _dialling
-                        ? const SizedBox.shrink()
-                        : WebViewWidget(controller: _web),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
+        );
+      },
+    );
+  }
+}
+
+class BrowserPane extends ConsumerWidget {
+  const BrowserPane(this.controller, {super.key});
+
+  final BrowserController controller;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dock = ref.read(deviceDockProvider);
+    return BrowserView(
+      controller,
+      trailing: [
+        ToolbarIconAction(
+          key: const ValueKey('browser-beside-expand'),
+          label: 'FULL SCREEN',
+          icon: UpgradeIcons.expand,
+          onTap: () => openBrowser(context, ref),
         ),
-      ),
+        ToolbarIconAction(
+          key: const ValueKey('browser-beside-minimize'),
+          label: 'MINIMIZE',
+          icon: UpgradeIcons.minimize,
+          onTap: () {
+            dock.besideBrowser(false);
+            dock.collapseBrowser(true);
+          },
+        ),
+      ],
     );
   }
 }

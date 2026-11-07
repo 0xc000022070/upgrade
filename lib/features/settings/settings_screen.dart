@@ -9,6 +9,8 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/platform/device.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/design/theme.dart';
+import 'package:upgrade/features/devices/bubble_holds.dart';
+import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/features/settings/alerts_block.dart';
 import 'package:upgrade/features/settings/bundle_panel.dart';
 import 'package:upgrade/features/settings/key_bar_block.dart';
@@ -45,10 +47,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         .setText(SettingsRepository.theme, value.name);
   }
 
+  Future<void> _setBubble(BubbleHolds value) async {
+    final dock = ref.read(deviceDockProvider);
+    if (!value.hasBrowser) dock.endBrowser();
+    if (!value.hasScreens) dock.endScreens();
+    await ref
+        .read(settingsRepositoryProvider)
+        .setText(SettingsRepository.bubble, value.name);
+  }
+
   @override
   Widget build(BuildContext context) {
     final enabled = ref.watch(staticEnabledProvider).value ?? true;
     final theme = ref.watch(themeProvider).value ?? ThemeChoice.house;
+    final bubble = ref.watch(bubbleHoldsProvider).value ?? BubbleHolds.both;
 
     return Scaffold(
       body: StaticSurface(
@@ -94,6 +106,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           label: Text(choice.label),
                           selected: theme == choice,
                           onSelected: (_) => _setTheme(choice),
+                        ),
+                    ],
+                  ),
+                ),
+                Panel(
+                  title: '[ BUBBLE ]',
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final choice in BubbleHolds.values)
+                        ChoiceChip(
+                          key: ValueKey('bubble-${choice.name}'),
+                          label: Text(choice.label),
+                          selected: bubble == choice,
+                          onSelected: (_) => _setBubble(choice),
                         ),
                     ],
                   ),

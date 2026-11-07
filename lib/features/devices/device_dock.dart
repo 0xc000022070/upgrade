@@ -11,6 +11,7 @@ import 'package:upgrade/platform/devices/device_link.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
+import 'package:upgrade/features/browser/browser_controller.dart';
 import 'package:upgrade/features/hosts/host_key_sheet.dart';
 import 'package:upgrade/features/screen/screen_controller.dart';
 import 'package:upgrade/features/devices/device_controllers.dart';
@@ -39,7 +40,7 @@ final class DesktopSession extends DockSession {
   final HostScreenController controller;
 }
 
-enum DockSurface { device, desktop }
+enum DockSurface { device, desktop, browser }
 
 /// One share of a host's device link: it closes on the last release, or at
 /// once on any discard. Repeating either call does nothing.
@@ -99,18 +100,29 @@ typedef DeviceGroupFactory = DevicesController Function(
 
 typedef DesktopFactory = HostScreenController Function(Host host);
 
+typedef BrowserFactory = BrowserController Function();
+
 class DeviceDock extends ChangeNotifier {
-  DeviceDock({required this._group, required this._desktopOf});
+  DeviceDock({
+    required this._group,
+    required this._desktopOf,
+    required this._browserOf,
+  });
 
   final DeviceGroupFactory _group;
   final DesktopFactory _desktopOf;
+  final BrowserFactory _browserOf;
   final _groups = <DevicesController>[];
   DeviceSession? _session;
   DesktopSession? _desktop;
+  BrowserController? _browser;
   bool _floating = false;
   bool _collapsed = false;
   bool _desktopCollapsed = false;
   bool _desktopPaused = false;
+  bool _browserCollapsed = false;
+  bool _browserBeside = false;
+  bool _browserBesideRight = true;
   DockSurface? _expanded;
   int _decodeWidth = floatDecodeWidth;
   bool _away = false;
@@ -125,9 +137,14 @@ class DeviceDock extends ChangeNotifier {
   bool get collapsed => _collapsed;
   bool get desktopCollapsed => _desktopCollapsed;
   bool get desktopPaused => _desktopPaused;
+  BrowserController? get browser => _browser;
+  bool get browserCollapsed => _browserCollapsed;
+  bool get browserBeside => _browserBeside && _browser != null;
+  bool get browserBesideRight => _browserBesideRight;
   DockSurface? get expanded => _expanded;
   DockSurface? get pip => _pip;
-  bool get holding => _session != null || _desktop != null;
+  bool get holdingScreens => _session != null || _desktop != null;
+  bool get holding => holdingScreens || _browser != null;
   int get asks => _asks;
 
   void ask() {
@@ -190,11 +207,10 @@ class DeviceDock extends ChangeNotifier {
   DockSession? sessionOn(DockSurface surface) => switch (surface) {
     DockSurface.device => _session,
     DockSurface.desktop => _desktop,
+    DockSurface.browser => null,
   };
 
-  List<DockSession> get _sessions => [
-    for (final surface in DockSurface.values) ?sessionOn(surface),
-  ];
+  List<DockSession> get _sessions => [?_session, ?_desktop];
 
   void _endSession(DockSession session) => switch (session) {
     DeviceSession() => _end(),
@@ -228,8 +244,60 @@ class DeviceDock extends ChangeNotifier {
     _floating = false;
     _collapsed = _session != null;
     _desktopCollapsed = _desktop != null;
+    _browserCollapsed = _browser != null;
     _sync();
     notifyListeners();
+  }
+
+  BrowserController openBrowser() => _showBrowser(focus: false);
+
+  BrowserController focusBrowser() => _showBrowser(focus: true);
+
+  BrowserController _showBrowser({required bool focus}) {
+    final browser = _browser ??= _browserOf()..addListener(notifyListeners);
+    _floating = !focus;
+    _expanded = focus ? DockSurface.browser : null;
+    _browserCollapsed = false;
+    _browserBeside = false;
+    _sync();
+    notifyListeners();
+    return browser;
+  }
+
+  void collapseBrowser(bool collapsed) {
+    if (_browserCollapsed == collapsed) return;
+    _browserCollapsed = collapsed;
+    notifyListeners();
+  }
+
+  void besideBrowser(bool beside, {bool? right}) {
+    if (_browser == null || _browserBeside == beside) return;
+    _browserBeside = beside;
+    if (right != null) _browserBesideRight = right;
+    _browserCollapsed = false;
+    notifyListeners();
+  }
+
+  void endBrowser() {
+    final browser = _browser;
+    if (browser == null) return;
+    _browser = null;
+    _browserCollapsed = false;
+    _browserBeside = false;
+    if (_expanded == DockSurface.browser) _expanded = null;
+    browser.dispose();
+    if (!_disposed) notifyListeners();
+  }
+
+  void endScreens() {
+    _sessions.forEach(_endSession);
+    for (final group in _groups) {
+      group.dispose();
+    }
+    _groups.clear();
+    _collapsed = false;
+    if (_expanded != DockSurface.browser) _expanded = null;
+    if (!_disposed) notifyListeners();
   }
 
   void select(DevicesController group, HostDevice device) {
@@ -324,6 +392,7 @@ class DeviceDock extends ChangeNotifier {
 
   void float() {
     if (_groups.isEmpty && !holding) return;
+    if (_expanded == DockSurface.browser) _browserCollapsed = false;
     _floating = true;
     _expanded = null;
     _session?.controller.decodeWidth = _decodeWidth;
@@ -359,14 +428,10 @@ class DeviceDock extends ChangeNotifier {
   }
 
   void close() {
-    _sessions.forEach(_endSession);
-    for (final group in _groups) {
-      group.dispose();
-    }
-    _groups.clear();
+    endScreens();
+    endBrowser();
     _floating = false;
     _expanded = null;
-    _collapsed = false;
     if (!_disposed) notifyListeners();
   }
 
@@ -524,6 +589,12 @@ final deviceDockProvider = Provider<DeviceDock>((ref) {
       pinHostKey: hosts.pinHostKey,
       prompt: (offer, pinned) => prompt(host, offer, pinned),
       open: openVnc,
+    ),
+    browserOf: () => BrowserController(
+      links: ref.read(hostLinksProvider),
+      readPrivateKey: keys.privateKey,
+      pinHostKey: hosts.pinHostKey,
+      prompt: prompt,
     ),
   );
   ref

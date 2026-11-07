@@ -33,6 +33,7 @@ class SettingsRepository {
 
   static const screensHost = 'screens_host';
   static const screensRest = 'screens_rest';
+  static const bubble = 'bubble';
 
   Stream<bool> watchFlag(String key, {required bool orElse}) {
     return (_db.select(_db.settings)..where((s) => s.key.equals(key)))

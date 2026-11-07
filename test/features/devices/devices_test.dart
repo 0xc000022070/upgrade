@@ -18,6 +18,7 @@ import 'package:upgrade/design/effects/glitch.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/theme.dart';
 import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/features/devices/bubble_holds.dart';
 import 'package:upgrade/features/devices/device_controllers.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/features/devices/device_float.dart';
@@ -216,6 +217,9 @@ Future<void> _pump(
         ),
         privateKeyStoreProvider.overrideWithValue(store),
         staticEnabledProvider.overrideWith((ref) => Stream.value(false)),
+        bubbleHoldsProvider.overrideWith(
+          (ref) => Stream.value(BubbleHolds.screens),
+        ),
         deviceLinkOpenerProvider.overrideWithValue(open),
         deviceHostsProvider.overrideWith((ref) => Stream.value(hosts)),
         vncHostsProvider.overrideWith((ref) => Stream.value(desktops)),
@@ -367,6 +371,7 @@ void main() {
         }) => Completer<DeviceLink>().future,
       ),
       desktopOf: (_) => throw UnimplementedError(),
+      browserOf: () => throw UnimplementedError(),
     );
     addTearDown(dock.dispose);
     dock.attach(const [_pine, _oak]);
@@ -418,6 +423,7 @@ void main() {
           required verifier,
         }) => Completer<VncConnection>().future,
       ),
+      browserOf: () => throw UnimplementedError(),
     );
     addTearDown(dock.dispose);
     dock.attach(const [_pine, _oak]);
@@ -458,6 +464,7 @@ void main() {
         }) async => links.last,
       ),
       desktopOf: (_) => throw UnimplementedError(),
+      browserOf: () => throw UnimplementedError(),
     );
     addTearDown(dock.dispose);
     dock.attach(const [_pine]);
@@ -492,6 +499,7 @@ void main() {
       dock: DeviceDock(
         group: (_, _) => throw UnimplementedError(),
         desktopOf: (_) => throw UnimplementedError(),
+        browserOf: () => throw UnimplementedError(),
       ),
       readPrivateKey: (_) async => 'key',
       open:
@@ -521,6 +529,7 @@ void main() {
       dock: DeviceDock(
         group: (_, _) => throw UnimplementedError(),
         desktopOf: (_) => throw UnimplementedError(),
+        browserOf: () => throw UnimplementedError(),
       ),
       readPrivateKey: (_) async => 'key',
       open: ({
@@ -561,6 +570,7 @@ void main() {
       dock: DeviceDock(
         group: (_, _) => throw UnimplementedError(),
         desktopOf: (_) => throw UnimplementedError(),
+        browserOf: () => throw UnimplementedError(),
       ),
       readPrivateKey: (_) async => 'key',
       open: ({

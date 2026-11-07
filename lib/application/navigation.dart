@@ -41,8 +41,13 @@ class RootRoutes extends NavigatorObserver {
 
   final edge = ValueNotifier<bool>(true);
 
-  void _changed() =>
-      edge.value = _routes.length <= 1 || _routes.last is KeepsScreensEdge;
+  final sheet = ValueNotifier<bool>(false);
+
+  void _changed() {
+    final kept = _routes.length > 1 && _routes.last is KeepsScreensEdge;
+    edge.value = _routes.length <= 1 || kept;
+    sheet.value = kept;
+  }
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {

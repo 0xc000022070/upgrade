@@ -206,6 +206,7 @@ DevicesController fixtureDevices(DeviceFixture fixture) {
   final dock = DeviceDock(
     group: group,
     desktopOf: (_) => throw UnsupportedError('no desktops in the catalog'),
+    browserOf: () => throw UnsupportedError('no browser in the catalog'),
   );
   return group(hostVm, dock);
 }

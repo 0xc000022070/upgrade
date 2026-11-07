@@ -1522,7 +1522,7 @@ PlatformSignal? signal(NetworkChanged change) => change.signal;
     expect(
       _reads(_hostLinksUri, 'HostLease', 'client', except: _hostLinks),
       {
-        'lib/features/browser/browser_screen.dart': 1,
+        'lib/features/browser/browser_controller.dart': 1,
         'lib/platform/herdr/herdr_client.dart': 1,
         'lib/platform/vnc/vnc_tunnel.dart': 1,
       },
