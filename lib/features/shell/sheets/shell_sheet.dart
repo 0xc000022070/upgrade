@@ -201,12 +201,6 @@ class _SheetContentsState extends ConsumerState<_SheetContents> {
   late final DeviceDock _dock = ref.read(deviceDockProvider);
   late Host _host = widget.host;
 
-  @override
-  void dispose() {
-    _dock.besideBrowser(false);
-    super.dispose();
-  }
-
   late UserIntent? _intent = widget.intent;
   late ShellSession? _session = widget.session;
   late var _openNew = widget.openNew || widget.launch != null;

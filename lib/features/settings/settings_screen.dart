@@ -9,6 +9,7 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/platform/device.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/design/theme.dart';
+import 'package:upgrade/features/browser/browser_prefs.dart';
 import 'package:upgrade/features/devices/bubble_holds.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/features/settings/alerts_block.dart';
@@ -56,8 +57,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         .setText(SettingsRepository.bubble, value.name);
   }
 
+  Future<void> _setText(String key, Enum value) =>
+      ref.read(settingsRepositoryProvider).setText(key, value.name);
+
   @override
   Widget build(BuildContext context) {
+    final engine =
+        ref.watch(searchEngineProvider).value ?? SearchEngine.duckduckgo;
+    final bar = ref.watch(browserBarProvider).value ?? BrowserBar.top;
     final enabled = ref.watch(staticEnabledProvider).value ?? true;
     final theme = ref.watch(themeProvider).value ?? ThemeChoice.house;
     final bubble = ref.watch(bubbleHoldsProvider).value ?? BubbleHolds.both;
@@ -123,6 +130,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           selected: bubble == choice,
                           onSelected: (_) => _setBubble(choice),
                         ),
+                    ],
+                  ),
+                ),
+                Panel(
+                  title: '[ BROWSER ]',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('SEARCH', style: context.tokens.label),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final choice in SearchEngine.values)
+                            ChoiceChip(
+                              key: ValueKey('browser-engine-${choice.name}'),
+                              label: Text(choice.label),
+                              selected: engine == choice,
+                              onSelected: (_) => _setText(
+                                SettingsRepository.browserEngine,
+                                choice,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text('BAR', style: context.tokens.label),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final choice in BrowserBar.values)
+                            ChoiceChip(
+                              key: ValueKey('browser-bar-${choice.name}'),
+                              label: Text(choice.label),
+                              selected: bar == choice,
+                              onSelected: (_) => _setText(
+                                SettingsRepository.browserBar,
+                                choice,
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                 ),

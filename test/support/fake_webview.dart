@@ -9,6 +9,7 @@ class FakeWebViewPlatform extends WebViewPlatform {
   }
 
   final loaded = <Uri>[];
+  int reloads = 0;
 
   @override
   PlatformWebViewController createPlatformWebViewController(
@@ -55,18 +56,39 @@ class FakeWebViewController extends PlatformWebViewController {
 
   @override
   Future<void> goBack() async => back = false;
+
+  @override
+  Future<bool> canGoForward() async => false;
+
+  @override
+  Future<void> goForward() async {}
+
+  @override
+  Future<void> reload() async => _platform.reloads++;
 }
 
 class FakeNavigationDelegate extends PlatformNavigationDelegate {
   FakeNavigationDelegate(super.params) : super.implementation();
 
   PageEventCallback? onPageStarted;
+  NavigationRequestCallback? onNavigationRequest;
   UrlChangeCallback? onUrlChange;
   WebResourceErrorCallback? onWebResourceError;
 
   @override
   Future<void> setOnPageStarted(PageEventCallback onPageStarted) async =>
       this.onPageStarted = onPageStarted;
+
+  @override
+  Future<void> setOnNavigationRequest(
+    NavigationRequestCallback onNavigationRequest,
+  ) async => this.onNavigationRequest = onNavigationRequest;
+
+  @override
+  Future<void> setOnProgress(ProgressCallback onProgress) async {}
+
+  @override
+  Future<void> setOnPageFinished(PageEventCallback onPageFinished) async {}
 
   @override
   Future<void> setOnUrlChange(UrlChangeCallback onUrlChange) async =>

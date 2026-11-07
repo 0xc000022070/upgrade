@@ -35,6 +35,9 @@ class SettingsRepository {
   static const screensRest = 'screens_rest';
   static const bubble = 'bubble';
 
+  static const browserEngine = 'browser_engine';
+  static const browserBar = 'browser_bar';
+
   Stream<bool> watchFlag(String key, {required bool orElse}) {
     return (_db.select(_db.settings)..where((s) => s.key.equals(key)))
         .watchSingleOrNull()

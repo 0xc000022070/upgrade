@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'package:upgrade/application/agents/reason_lines.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/features/browser/browser_prefs.dart';
 import 'package:upgrade/platform/browser_proxy.dart';
 import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
@@ -24,15 +26,28 @@ class BrowserController extends ChangeNotifier {
         NavigationDelegate(
           onUrlChange: (change) {
             final url = change.url;
-            if (url != null) address.text = url;
-            unawaited(_refreshBack());
+            if (url == null) return;
+            address.text = url;
+            _current = Uri.tryParse(url);
+            unawaited(_refreshHistory());
           },
           onWebResourceError: (error) {
             if (error.isForMainFrame ?? true) {
               _set(reason: error.description.toLowerCase());
             }
           },
-          onPageStarted: (_) => _set(reason: null),
+          onPageStarted: (_) {
+            if (!_hostDown) _set(reason: null);
+            _setProgress(0);
+          },
+          onProgress: _setProgress,
+          onNavigationRequest: (_) => _unrouted
+              ? NavigationDecision.prevent
+              : NavigationDecision.navigate,
+          onPageFinished: (_) {
+            _setProgress(100);
+            unawaited(_refreshHistory());
+          },
         ),
       );
   }
@@ -56,18 +71,29 @@ class BrowserController extends ChangeNotifier {
   bool _dialling = false;
   String? _reason;
   bool _canGoBack = false;
+  bool _canGoForward = false;
+  int _progress = 100;
+  Uri? _home;
+  Uri? _current;
   bool _disposed = false;
 
   Host? get network => _network;
   bool get dialling => _dialling;
   String? get reason => _reason;
   bool get canGoBack => _canGoBack;
+  bool get canGoForward => _canGoForward;
+  bool get loading => _progress < 100;
+  double get progress => _progress / 100;
+
+  bool get _unrouted => _network != null && _lease == null;
+
+  bool get _hostDown => _unrouted && !_dialling;
 
   String get word {
     final network = _network;
     if (network == null) return 'THIS PHONE';
     if (_dialling) return 'CONNECTING';
-    if (_reason != null && _lease == null) return 'FAILED';
+    if (_hostDown) return 'FAILED';
     return network.name.toUpperCase();
   }
 
@@ -77,35 +103,61 @@ class BrowserController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _refreshBack() async {
+  void _setProgress(int progress) {
+    if (_disposed || _progress == progress) return;
+    _progress = progress;
+    notifyListeners();
+  }
+
+  Future<void> _refreshHistory() async {
     final back = await web.canGoBack();
-    if (_disposed || back == _canGoBack) return;
+    final forward = await web.canGoForward();
+    if (_disposed || (back == _canGoBack && forward == _canGoForward)) return;
     _canGoBack = back;
+    _canGoForward = forward;
     notifyListeners();
   }
 
   Future<void> goBack() => web.goBack();
 
-  void load(String typed) {
-    final text = typed.trim();
-    if (text.isEmpty) return;
-    final url = text.contains('://') ? text : 'http://$text';
-    final uri = Uri.tryParse(url);
-    if (uri == null || uri.host.isEmpty) {
-      _set(reason: 'not an address');
-      return;
+  Future<void> goForward() => web.goForward();
+
+  void start(Uri home) {
+    if (_disposed || _home != null) return;
+    _home = home;
+    if (address.text.isEmpty && !_dialling) _open(home);
+  }
+
+  void load(String typed, SearchEngine engine) {
+    final target = browserTarget(typed, engine);
+    if (target != null) _open(target);
+  }
+
+  void _open(Uri uri) {
+    _current = uri;
+    address.text = uri.toString();
+    final network = _network;
+    if (_unrouted && network != null) {
+      if (!_dialling) unawaited(use(network));
+    } else {
+      unawaited(web.loadRequest(uri));
     }
-    address.text = url;
-    unawaited(web.loadRequest(uri));
+  }
+
+  void _reopen() {
+    final target = _current ?? _home;
+    if (target != null) _open(target);
   }
 
   void reload() {
-    if (address.text.isNotEmpty) load(address.text);
-  }
-
-  void retry() {
     final network = _network;
-    network == null ? reload() : unawaited(use(network));
+    if (_unrouted && network != null) {
+      if (!_dialling) unawaited(use(network));
+    } else if (_reason != null || _current == null) {
+      _reopen();
+    } else {
+      unawaited(web.reload());
+    }
   }
 
   Future<void> use(Host? host) async {
@@ -113,9 +165,9 @@ class BrowserController extends ChangeNotifier {
     _reason = null;
     _dialling = host != null;
     notifyListeners();
-    await _release();
+    await _release(clear: host == null);
     if (host == null) {
-      reload();
+      _reopen();
       return;
     }
     final privateKey = await _readPrivateKey(host.keyId);
@@ -155,7 +207,7 @@ class BrowserController extends ChangeNotifier {
       );
       _dialling = false;
       notifyListeners();
-      reload();
+      _reopen();
     } on HerdrFailure catch (failure) {
       _fail(failure.reason(host.name));
     } catch (error) {
@@ -170,13 +222,26 @@ class BrowserController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _release() async {
+  Future<void> _release({bool clear = true}) async {
     _lease?.release();
     _lease = null;
     final proxy = _proxy;
     _proxy = null;
     await proxy?.close();
-    await BrowserProxy.clear();
+    if (clear) {
+      await BrowserProxy.clear();
+    } else if (proxy == null) {
+      await BrowserProxy.set(await _deadPort());
+    }
+  }
+
+  /// Going to a host keeps a proxy set while dialling, at a closed port when
+  /// none is up yet, so nothing the page asks for leaves from the phone.
+  static Future<int> _deadPort() async {
+    final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final port = socket.port;
+    await socket.close();
+    return port;
   }
 
   @override

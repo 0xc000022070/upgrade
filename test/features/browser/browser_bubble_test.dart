@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/features/browser/browser_prefs.dart';
 import 'package:upgrade/features/devices/bubble_holds.dart';
 import 'package:upgrade/features/devices/device_float.dart';
 
@@ -37,6 +38,10 @@ Future<FakeWebViewPlatform> _pump(
       overrides: [
         staticEnabledProvider.overrideWith((ref) => Stream.value(false)),
         bubbleHoldsProvider.overrideWith((ref) => Stream.value(holds)),
+        searchEngineProvider.overrideWith(
+          (ref) => Stream.value(SearchEngine.duckduckgo),
+        ),
+        browserBarProvider.overrideWith((ref) => Stream.value(BrowserBar.top)),
         deviceHostsProvider.overrideWith((ref) => Stream.value(const [])),
         vncHostsProvider.overrideWith((ref) => Stream.value(const [])),
       ],
@@ -62,17 +67,52 @@ void main() {
 
     await _tap(tester, const ValueKey('browser-tab'));
     expect(find.byKey(_window), findsOneWidget);
-    expect(find.text('THIS PHONE'), findsOneWidget);
+    expect(web.loaded, [Uri.parse(SearchEngine.duckduckgo.home)]);
 
     final address = find.descendant(
       of: find.byKey(_window),
       matching: find.byType(EditableText),
     );
-    await tester.enterText(address, 'example.com');
-    await tester.testTextInput.receiveAction(TextInputAction.go);
-    await _settle(tester);
-    expect(web.loaded, [Uri.parse('http://example.com')]);
+    Future<void> go(String typed) async {
+      await tester.enterText(address, typed);
+      await tester.testTextInput.receiveAction(TextInputAction.go);
+      await _settle(tester);
+    }
+
+    await go('example.com');
+    expect(web.loaded.last, Uri.parse('http://example.com'));
     expect(find.text('http://example.com'), findsOneWidget);
+
+    await go('whoami');
+    expect(web.loaded.last, SearchEngine.duckduckgo.search('whoami'));
+  });
+
+  testWidgets('the network list opens in the window, once', (tester) async {
+    await _pump(tester);
+    await _tap(tester, _handle);
+    await _tap(tester, const ValueKey('browser-tab'));
+
+    await _tap(tester, const ValueKey('browser-network'));
+    expect(find.byKey(const ValueKey('browser-network-panel')), findsOneWidget);
+    expect(find.byKey(const ValueKey('browser-network-phone')), findsOneWidget);
+
+    await _tap(tester, const ValueKey('browser-network'));
+    expect(find.byKey(const ValueKey('browser-network-panel')), findsNothing);
+  });
+
+  testWidgets('the field swaps reload for clear while typing', (tester) async {
+    final web = await _pump(tester);
+    await _tap(tester, _handle);
+    await _tap(tester, const ValueKey('browser-tab'));
+
+    await _tap(tester, const ValueKey('browser-reload'));
+    expect(web.reloads, 1);
+
+    await tester.tap(find.byType(EditableText));
+    await _settle(tester);
+    await _tap(tester, const ValueKey('browser-clear'));
+    final field = tester.widget<EditableText>(find.byType(EditableText));
+    expect(field.controller.text, isEmpty);
   });
 
   testWidgets('the window expands to the full screen and back', (tester) async {
