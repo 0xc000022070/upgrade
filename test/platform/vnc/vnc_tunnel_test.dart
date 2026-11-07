@@ -100,6 +100,24 @@ void main() {
     links.close();
   });
 
+  test(
+    'a command on the host answers its exit code until the screen closes',
+    () async {
+      final dial = FakeDial();
+      final links = HostLinks(dial: dial.call);
+      final connection = await _served(VncTunnel(links), dial);
+      dial.clients.single.reply = (command) =>
+          (exitCode: 3, stdout: '', stderr: 'no');
+
+      expect(await connection.run('wayvncctl output-cycle'), 3);
+      expect(dial.clients.single.commands, ['wayvncctl output-cycle']);
+
+      await connection.close();
+      await expectLater(connection.run('true'), throwsA(anything));
+      links.close();
+    },
+  );
+
   test('a failed handshake destroys the forward and keeps the link', () async {
     final dial = FakeDial();
     final links = HostLinks(dial: dial.call);

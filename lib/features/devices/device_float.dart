@@ -747,6 +747,16 @@ class _DesktopWindow extends StatelessWidget {
           },
           onExpand: onExpand,
           onPip: onPip == null ? null : () => onPip!(size),
+          beside: phase is ScreenLive && controller.server.cyclesOutputs
+              ? _Word(
+                  key: const ValueKey('desktop-float-monitor'),
+                  label: 'MONITOR',
+                  color: controller.outputFailed
+                      ? context.tokens.warning
+                      : null,
+                  onTap: () => unawaited(controller.cycleOutput()),
+                )
+              : null,
           onCollapse: () => dock.collapseDesktop(true),
           onClose: dock.endDesktop,
         );
@@ -809,6 +819,7 @@ class _FloatWindow extends StatefulWidget {
     required this.onClose,
     this.onPip,
     this.onSettled,
+    this.beside,
   });
 
   final String id;
@@ -828,6 +839,8 @@ class _FloatWindow extends StatefulWidget {
   final VoidCallback onClose;
   final VoidCallback? onPip;
   final void Function(double width, double ratio)? onSettled;
+
+  final Widget? beside;
 
   @override
   State<_FloatWindow> createState() => _FloatWindowState();
@@ -968,6 +981,7 @@ class _FloatWindowState extends State<_FloatWindow> {
                   picture: widget.picture,
                   marks: widget.marks,
                   actions: widget.actions,
+                  beside: widget.beside,
                   overlay: _overlay,
                   onSize: () {
                     setState(() => _width = next);
@@ -1619,11 +1633,13 @@ class _Tile extends StatelessWidget {
     required this.onCollapse,
     required this.onClose,
     required this.onPip,
+    this.beside,
   });
 
   final String id;
   final Widget live;
   final bool picture;
+  final Widget? beside;
   final List<Widget> marks;
   final List<Widget> Function(BuildContext context) actions;
   final bool overlay;
@@ -1694,6 +1710,7 @@ class _Tile extends StatelessWidget {
                                     label: 'SIZE',
                                     onTap: onSize,
                                   ),
+                                  ?beside,
                                 ],
                               ),
                             ],
@@ -1883,10 +1900,16 @@ class _Glyph extends StatelessWidget {
 }
 
 class _Word extends StatelessWidget {
-  const _Word({super.key, required this.label, required this.onTap});
+  const _Word({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
 
   final String label;
   final VoidCallback onTap;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -1907,7 +1930,7 @@ class _Word extends StatelessWidget {
           child: Text(
             label,
             style: context.tokens.panelHeader.copyWith(
-              color: context.tokens.textMuted,
+              color: color ?? context.tokens.textMuted,
             ),
           ),
         ),

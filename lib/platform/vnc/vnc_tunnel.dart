@@ -77,6 +77,9 @@ class VncTunnel {
 abstract interface class VncConnection {
   RfbClient get rfb;
   RfbServerInit get serverInit;
+
+  Future<int> run(String command);
+
   Future<void> close();
 }
 
@@ -92,6 +95,21 @@ class SshVncConnection implements VncConnection {
 
   @override
   final RfbServerInit serverInit;
+
+  @override
+  Future<int> run(String command) async {
+    final session = await guardVnc(
+      () => openWithin(_lease.execute(command), _execTimeout, endExec),
+    );
+    try {
+      await drainExec(session).timeout(_execTimeout);
+      return session.exitCode ?? -1;
+    } finally {
+      endExec(session);
+    }
+  }
+
+  static const _execTimeout = Duration(seconds: 10);
 
   @override
   Future<void> close() async {

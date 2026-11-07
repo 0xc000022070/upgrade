@@ -45,6 +45,9 @@ class _FakeConnection implements VncConnection {
   @override
   final RfbServerInit serverInit;
 
+  @override
+  Future<int> run(String command) async => 0;
+
   /// One Raw pixel, which is all the controller needs to build an image.
   void feedPixel(int x, int y, List<int> bgrx) {
     _channel.feed([

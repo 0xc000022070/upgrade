@@ -2190,7 +2190,7 @@ void main() {
   group('a desktop', () {
     late List<FakeVncConnection> connections;
 
-    VncOpener vnc() {
+    VncOpener vnc({String name = 'nyx'}) {
       connections = [];
       return ({
         required String address,
@@ -2201,7 +2201,7 @@ void main() {
         String? password,
         HostKeyVerifier? verifier,
       }) async {
-        final connection = await FakeVncConnection.open();
+        final connection = await FakeVncConnection.open(name: name);
         connections.add(connection);
         return connection;
       };
@@ -2363,6 +2363,53 @@ void main() {
       expect(find.byKey(_floatKey), findsOneWidget);
       expect(connections.single.closed, isTrue);
       expect(link.closed, isFalse);
+    });
+
+    testWidgets('cycles the outputs of a server that has them', (tester) async {
+      const monitor = ValueKey('desktop-float-monitor');
+      await _pump(
+        tester,
+        _opener(FakeDeviceLink(const [])),
+        desktops: const [_rose],
+        vnc: vnc(name: 'WayVNC'),
+      );
+      await watchDesktop(tester);
+      await _tapKey(tester, desktopKey);
+      await _tapKey(tester, monitor);
+      await tester.pump();
+      expect(connections.single.commands, ['wayvncctl output-cycle']);
+
+      Color? ink() => tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(monitor),
+              matching: find.byType(Text),
+            ),
+          )
+          .style
+          ?.color;
+      final calm = ink();
+      connections.single.exitCode = 1;
+      await _tapKey(tester, monitor);
+      await tester.pump();
+      expect(ink(), isNot(calm));
+      connections.single.exitCode = 0;
+      await _tapKey(tester, monitor);
+      await tester.pump();
+      expect(ink(), calm);
+    });
+
+    testWidgets('offers no output cycle on a plain server', (tester) async {
+      await _pump(
+        tester,
+        _opener(FakeDeviceLink(const [])),
+        desktops: const [_rose],
+        vnc: vnc(),
+      );
+      await watchDesktop(tester);
+      await _tapKey(tester, desktopKey);
+      expect(onDesktop('SIZE'), findsOneWidget);
+      expect(find.byKey(const ValueKey('desktop-float-monitor')), findsNothing);
     });
 
     testWidgets('a minimized desktop comes back from its row', (tester) async {

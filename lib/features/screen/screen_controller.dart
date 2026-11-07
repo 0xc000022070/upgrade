@@ -10,6 +10,7 @@ import 'package:upgrade/platform/vnc/framebuffer.dart';
 import 'package:upgrade/platform/vnc/keysyms.dart';
 import 'package:upgrade/platform/vnc/rfb_messages.dart';
 import 'package:upgrade/platform/vnc/vnc_failure.dart';
+import 'package:upgrade/platform/vnc/vnc_server.dart';
 import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
 
 sealed class ScreenPhase {
@@ -119,6 +120,31 @@ class HostScreenController extends ChangeNotifier {
   Framebuffer? get lastFramebuffer => _lastFramebuffer;
 
   Duration? get lastFrameTime => _lastFrame;
+
+  VncServer get server => VncServer.named(_connection?.serverInit.name ?? '');
+
+  bool _outputFailed = false;
+
+  bool get outputFailed => _outputFailed;
+
+  /// The stream follows on its own: the server announces the new output's size and the
+  /// client takes it as a desktop resize.
+  Future<void> cycleOutput() async {
+    final connection = _connection;
+    if (connection == null) return;
+    var failed = false;
+    try {
+      await server.cycleOutput(connection.run);
+    } catch (error) {
+      _log('output cycle failed: $error');
+      failed = true;
+    }
+    if (_disposed || connection != _connection || failed == _outputFailed) {
+      return;
+    }
+    _outputFailed = failed;
+    notifyListeners();
+  }
 
   Future<void> connect() => _connect(attended: true);
 
@@ -353,6 +379,7 @@ class HostScreenController extends ChangeNotifier {
     final connection = _connection;
     _frames = null;
     _connection = null;
+    _outputFailed = false;
     await frames?.cancel();
     await connection?.close();
   }

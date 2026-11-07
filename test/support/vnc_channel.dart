@@ -143,10 +143,11 @@ class FakeVncConnection implements VncConnection {
   static Future<FakeVncConnection> open({
     int width = 16,
     int height = 8,
+    String name = 'nyx',
   }) async {
     final channel = FakeVncChannel();
     final rfb = RfbClient(incoming: channel.stream, outgoing: channel.sink);
-    channel.feed(serverHandshake(width: width, height: height));
+    channel.feed(serverHandshake(width: width, height: height, name: name));
     final init = await rfb.handshake();
     return FakeVncConnection._(channel, rfb, init);
   }
@@ -160,6 +161,15 @@ class FakeVncConnection implements VncConnection {
   final RfbServerInit serverInit;
 
   bool closed = false;
+
+  final List<String> commands = [];
+  int exitCode = 0;
+
+  @override
+  Future<int> run(String command) async {
+    commands.add(command);
+    return exitCode;
+  }
 
   void feedFrame() {
     channel.feed([
