@@ -1,7 +1,6 @@
 CHEF_ON=0
 CHEF_ROWS=0
 CHEF_TTY=""
-CHEF_LEFT=""
 
 readonly CHEF_QUIPS=(
   "Reducing the Gradle sauce..."
@@ -174,7 +173,7 @@ chef_scene() {
       CHEF_P[4]="|  -1   |"
     fi
     ;;
-  settle) CHEF_P=("" "" "   .-." "  ( $CHEF_LEFT )" "   '-'" "" "" "") ;;
+  settle) CHEF_P=("" "" "" "" "" "" "" "") ;;
   sad) CHEF_P=("" "" "      .---." "      | X |" "      |   |" "      |___|" " (_____)" "") ;;
   esac
 }

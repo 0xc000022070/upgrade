@@ -428,7 +428,6 @@ settle() {
   while :; do
     if ((CHEF_ON)); then
       for ((n = 40; n > 0; n--)); do
-        CHEF_LEFT=$(printf '%2ds' $(((n + 3) / 4)))
         if [[ -n $first ]]; then
           chef_draw settle "$TICK" "Opening the kitchen. Mise en place..."
         else
