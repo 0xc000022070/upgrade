@@ -17,7 +17,7 @@ class DatasetStore {
   static const maxDatasets = 128;
   static const maxOwnerDatasets = 8;
   static const maxReservedBytes = 128 * 1024 * 1024;
-  static const maxOwnerReservedBytes = 32 * 1024 * 1024;
+  static const maxOwnerReservedBytes = DataLimits.ownerReservedBytes;
   final Directory directory;
 
   final Duration timeBudget;
@@ -132,11 +132,11 @@ class DatasetStore {
         dataset.owner.origin.isEmpty ||
         dataset.owner.origin.length > 1024 ||
         dataset.schemaVersion < 1 ||
-        dataset.schemaVersion > 1000000 ||
+        dataset.schemaVersion > DataLimits.schemaVersion ||
         dataset.quotaBytes < 1 ||
-        dataset.quotaBytes > 8 * 1024 * 1024 ||
+        dataset.quotaBytes > DataLimits.quotaBytes ||
         dataset.quotaRecords < 1 ||
-        dataset.quotaRecords > 10000) {
+        dataset.quotaRecords > DataLimits.quotaRecords) {
       throw const DataException('Invalid dataset declaration');
     }
     final index = _index;
@@ -517,7 +517,7 @@ class DataInvocation {
           limit > 64) {
         throw const DataException('Dataset request exceeds its limits');
       }
-      if (_bytes + utf8.encode(value).length > 256 * 1024) {
+      if (_bytes + utf8.encode(value).length > DataLimits.ioBytes) {
         throw const DataException('Dataset transfer budget exceeded');
       }
       final dataset = grant.dataset;
@@ -555,7 +555,7 @@ class DataInvocation {
         0,
         (sum, record) => sum + record.bytes,
       );
-      if (_bytes + read + utf8.encode(value).length > 256 * 1024) {
+      if (_bytes + read + utf8.encode(value).length > DataLimits.ioBytes) {
         throw const DataException('Dataset transfer budget exceeded');
       }
       _bytes += read + utf8.encode(value).length;

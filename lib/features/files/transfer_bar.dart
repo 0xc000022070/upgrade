@@ -13,7 +13,8 @@ import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/files/transfer_queue.dart';
 import 'package:upgrade/features/files/transfers.dart';
-import 'package:upgrade/platform/herdr/agent_watcher.dart' show AgentWatcher;
+import 'package:upgrade/application/alerts/agent_watcher.dart'
+    show AgentWatcher;
 
 const transferBarHeight = 36.0;
 
@@ -23,10 +24,7 @@ String _settled(Transfers transfers) {
     for (final job in transfers.jobs)
       if (!job.retryable) job,
   ];
-  final failed = rest
-      .expand((job) => job.items)
-      .where((item) => item.stage == AttachStage.failed)
-      .length;
+  final failed = rest.fold(0, (sum, job) => sum + job.failedCount);
   return [
     if (failed > 0)
       '$failed FAILED'
@@ -43,9 +41,7 @@ String _settled(Transfers transfers) {
 String jobWord(TransferJob job) {
   if (job.retrying) return 'RETRYING';
   if (!job.ended) return job.stop.stopped ? 'STOPPING' : 'MOVING';
-  final failed = job.items
-      .where((item) => item.stage == AttachStage.failed)
-      .length;
+  final failed = job.failedCount;
   if (failed > 0) return '$failed FAILED';
   if (job.note != null) return 'FAILED';
   return job.stop.stopped ? 'STOPPED' : 'DONE';

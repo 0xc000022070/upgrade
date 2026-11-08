@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/application/links/link_preview.dart';
+import 'package:upgrade/platform/links/link_preview.dart';
 import 'package:upgrade/application/links/urls.dart';
 import 'package:upgrade/design/components/meta.dart';
 import 'package:upgrade/design/spacing.dart';

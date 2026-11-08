@@ -6,6 +6,8 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/design/components/solid_action_bar.dart';
 
+const inlineConfirmWindow = Duration(seconds: 3);
+
 class InlineConfirmBlock extends StatefulWidget {
   const InlineConfirmBlock({
     super.key,
@@ -14,7 +16,7 @@ class InlineConfirmBlock extends StatefulWidget {
     required this.onConfirmed,
     this.tone,
     this.armedTone,
-    this.window = const Duration(seconds: 3),
+    this.window = inlineConfirmWindow,
     this.compact = false,
   });
 

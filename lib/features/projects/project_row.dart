@@ -8,7 +8,7 @@ import 'package:upgrade/data/project_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/priority_row.dart';
+import 'package:upgrade/features/priority/priority_row.dart';
 import 'package:upgrade/features/projects/project_icon.dart';
 
 class ProjectRow extends ConsumerWidget {

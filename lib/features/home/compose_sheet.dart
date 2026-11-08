@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/agents/send.dart';
 import 'package:upgrade/application/agents/send_queue.dart';
 import 'package:upgrade/application/home/compose_window.dart';
@@ -46,14 +46,8 @@ Route<void> composeWindowRoute() =>
 Route<void> launcherWindowRoute(Widget sheet) =>
     _composeRoute(sheet, window: true);
 
-bool isComposeWindowRoute(Route<Object?> route) =>
-    route.settings.name == _windowName;
-
-const _windowName = 'compose-window';
-
 Route<void> _composeRoute(Widget sheet, {bool window = false}) =>
     PageRouteBuilder<void>(
-      settings: RouteSettings(name: window ? _windowName : null),
       opaque: window,
       transitionDuration: window
           ? Duration.zero

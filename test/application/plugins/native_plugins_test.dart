@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:io' as io show Link;
 
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade/app/builtin_plugins.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/plugin_api.dart';
@@ -13,8 +14,8 @@ import 'package:upgrade/data/repositories/attachment_repository.dart';
 import 'package:upgrade/data/repositories/dispatch_repository.dart';
 import 'package:upgrade/data/repositories/project_repository.dart';
 import 'package:upgrade/data/repositories/task_repository.dart';
-import 'package:upgrade/platform/plugins/access.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/access.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';
 import 'package:upgrade/platform/plugins/usage.dart';
 import 'package:drift/native.dart';

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
@@ -34,11 +32,11 @@ class _ArrowStickState extends State<ArrowStick> {
   int? _pointer;
   Offset _origin = Offset.zero;
   AxisDirection? _held;
-  Timer? _repeat;
+  final _repeat = KeyRepeat();
 
   @override
   void dispose() {
-    _repeat?.cancel();
+    _repeat.stop();
     super.dispose();
   }
 
@@ -82,18 +80,11 @@ class _ArrowStickState extends State<ArrowStick> {
   }
 
   void _hold(AxisDirection? direction) {
-    _repeat?.cancel();
-    _repeat = null;
+    _repeat.stop();
     setState(() => _held = direction);
     if (direction == null) return;
     widget.onArrow(direction);
-    _repeat = Timer(Gestures.repeatDelay, () {
-      widget.onArrow(direction);
-      _repeat = Timer.periodic(
-        Gestures.repeatInterval,
-        (_) => widget.onArrow(direction),
-      );
-    });
+    _repeat.start(() => widget.onArrow(direction));
   }
 
   @override

@@ -44,14 +44,14 @@ class WorkspaceSsh implements WorkspaceRunner {
   Future<HostLease> _held() {
     if (!_lease.closed) return Future.value(_lease);
     final again = _again;
-    if (again == null) throw const HerdrUnreachable('workspace closed');
+    if (again == null) throw const HostFailure.unreachable('workspace closed');
     return _leasing ??= () async {
       try {
         _lease.release();
         final lease = await again();
         if (_execs.closed) {
           lease.release();
-          throw const HerdrUnreachable('workspace closed');
+          throw const HostFailure.unreachable('workspace closed');
         }
         return _lease = lease;
       } finally {
@@ -87,7 +87,7 @@ class WorkspaceSsh implements WorkspaceRunner {
     }
   }
 
-  static Object _failure(Object error) => asHerdrFailure(error) ?? error;
+  static Object _failure(Object error) => asHostFailure(error) ?? error;
 
   @override
   Future<void> close() async {

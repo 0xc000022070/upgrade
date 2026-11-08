@@ -700,11 +700,11 @@ Performance budgets retain the phone runtime's bounded execution and rendering m
 
 | Concern | Existing code to extend or reconcile |
 |---|---|
-| Installation and lifecycle | `lib/application/plugins/plugins.dart`, `lib/platform/plugins/store.dart`, `lib/platform/plugins/access.dart` |
-| Manifest and package identity | `lib/platform/plugins/manifest.dart`, `lib/platform/plugins/index.dart` |
-| Management UI | `lib/features/plugins/plugin_management_screen.dart`, `lib/features/plugins/plugin_board.dart`, `lib/features/settings/plugins_panel.dart` |
+| Installation and lifecycle | `lib/application/plugins/plugins.dart`, `lib/platform/plugins/store.dart`, `lib/data/plugins/access.dart` |
+| Manifest and package identity | `lib/data/plugins/manifest.dart`, `lib/platform/plugins/index.dart` |
+| Management UI | `lib/features/plugins/plugin_management_screen.dart`, `lib/features/plugins/plugin_board.dart`, `lib/features/plugins/plugins_panel.dart` |
 | Contributions and placement | `lib/application/plugins/native_plugins.dart`, `lib/data/repositories/plugin_placement_repository.dart` |
-| Luau pages and cards | `lib/features/plugins/plugin_page.dart`, `lib/features/plugins/plugin_card.dart`, `lib/platform/plugins/ui.dart` |
+| Luau pages and cards | `lib/features/plugins/plugin_page.dart`, `lib/features/plugins/plugin_card.dart`, `lib/features/plugins/plugin_ui.dart` |
 | SDK and worker | `packages/upgrade_luau/lib/ui_sdk.dart`, `packages/upgrade_luau/lib/upgrade_luau.dart` |
 | Existing host adapters | `lib/application/plugins/plugin_hosts.dart` |
 | Phone Linux as a host | `lib/application/phone_linux.dart`, `lib/platform/phone_linux.dart`, Android `PhoneLinux.kt` |

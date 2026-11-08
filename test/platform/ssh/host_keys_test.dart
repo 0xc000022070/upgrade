@@ -3,14 +3,16 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/features/hosts/host_key_sheet.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/vnc/vnc_failure.dart';
 
 import '../../support/themed_app.dart';
+
+import 'package:upgrade/platform/ssh/host_failure.dart';
 
 const _type = 'ssh-ed25519';
 const _fingerprint = 'SHA256:1qF0mVZjnJ4tvJq2VbT8Kk9Yo0oRr3Q5nWZs1eJqk2A';
@@ -160,11 +162,11 @@ void main() {
     expect(HostKeyRefusal.unverified.line.words, 'host key unverified');
     expect(HostKeyRefusal.changed.line.words, 'host key changed');
     expect(
-      VncHostKeyChanged('x').reason('oak'),
+      HostFailure(HostFailureKind.hostKeyChanged, detail: 'x').reason('oak'),
       HostKeyRefusal.changed.line.words,
     );
     expect(
-      VncHostKeyUnverified('x').reason('oak'),
+      HostFailure(HostFailureKind.hostKeyUnverified, detail: 'x').reason('oak'),
       HostKeyRefusal.unverified.line.words,
     );
   });

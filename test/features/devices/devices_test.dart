@@ -7,7 +7,9 @@ import 'package:material_ui/material_ui.dart' show ColorScheme;
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/application/pip.dart';
 import 'package:upgrade/app/pip_host.dart';
@@ -18,6 +20,7 @@ import 'package:upgrade/design/effects/glitch.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/theme.dart';
 import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/application/screens_placement.dart';
 import 'package:upgrade/features/devices/bubble_holds.dart';
 import 'package:upgrade/features/devices/device_controllers.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
@@ -474,7 +477,7 @@ void main() {
       ..select(dock.groups.single, _pixel);
     await Future<void>.delayed(Duration.zero);
 
-    link.listError = const HerdrUnreachable('adb: not found');
+    link.listError = const HostFailure.unreachable('adb: not found');
     await dock.groups.single.refresh();
 
     expect(dock.groups.single.phase, isA<DevicesFailed>());
@@ -552,7 +555,7 @@ void main() {
       cold: false,
     );
     await Future<void>.delayed(Duration.zero);
-    link.listError = const HerdrUnreachable('adb: not found');
+    link.listError = const HostFailure.unreachable('adb: not found');
     await group.refresh();
     expect(group.phase, isA<DevicesFailed>());
     expect(link.closed, isFalse);
@@ -587,7 +590,7 @@ void main() {
     final listed = link.listing = Completer();
     final refreshing = group.refresh();
     await Future<void>.delayed(Duration.zero);
-    link.listError = const HerdrUnreachable('adb: not found');
+    link.listError = const HostFailure.unreachable('adb: not found');
     await group.shutDown(_pixel);
     expect(link.closed, isFalse);
 
@@ -787,7 +790,7 @@ void main() {
       required String privateKey,
       HostKeyVerifier? verifier,
     }) async {
-      if (calls++ == 0) throw const HerdrUnreachable('refused');
+      if (calls++ == 0) throw const HostFailure.unreachable('refused');
       return link;
     }
 
@@ -1513,13 +1516,17 @@ void main() {
       await tester.pump();
       show(tester);
       await tester.pump();
-      links.first.frameStreams.last.addError(const HerdrUnreachable('103'));
+      links.first.frameStreams.last.addError(
+        const HostFailure.unreachable('103'),
+      );
       await _settle(tester);
 
       expect(dials, 2);
       expect(links.last.frameStreams.single.hasListener, isTrue);
 
-      links.last.frameStreams.last.addError(const HerdrUnreachable('103'));
+      links.last.frameStreams.last.addError(
+        const HostFailure.unreachable('103'),
+      );
       await _settle(tester);
       expect(dials, 2);
       expect(find.byKey(const ValueKey('device-float-failed')), findsOneWidget);
@@ -1529,7 +1536,9 @@ void main() {
       tester,
     ) async {
       await window(tester);
-      links.first.frameStreams.last.addError(const HerdrUnreachable('103'));
+      links.first.frameStreams.last.addError(
+        const HostFailure.unreachable('103'),
+      );
       await _settle(tester);
       expect(find.byKey(const ValueKey('device-float-failed')), findsOneWidget);
       expect(dials, 1);
@@ -1562,7 +1571,9 @@ void main() {
 
       await _pump(tester, open);
       await _pick(tester, _pixel);
-      links.first.frameStreams.last.addError(const HerdrUnreachable('103'));
+      links.first.frameStreams.last.addError(
+        const HostFailure.unreachable('103'),
+      );
       await _settle(tester);
 
       expect(dials, 1);

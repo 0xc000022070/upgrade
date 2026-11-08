@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:typed_data';
 
+import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/platform/vnc/vnc_failure.dart';
 
 /// RFB is a framed protocol read with a ruler and an ssh channel delivers packets, not
@@ -60,7 +61,9 @@ class ByteReader {
     while (_available < count) {
       if (_error != null) throw _error!;
       if (_done) {
-        throw VncStreamClosed('wanted $count bytes, stream had $_available');
+        throw HostFailure.streamClosed(
+          'wanted $count bytes, stream had $_available',
+        );
       }
       await (_pending ??= Completer<void>()).future;
     }

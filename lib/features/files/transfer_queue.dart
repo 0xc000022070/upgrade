@@ -2,18 +2,16 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 
+import 'package:upgrade/application/files/attach_item.dart';
 import 'package:upgrade/application/formatting.dart';
 import 'package:upgrade/design/components/progress_bar.dart';
 import 'package:upgrade/design/components/status_tag.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/features/shell/input/clip_paste.dart'
-    show AttachItem, AttachStage;
 import 'package:upgrade/platform/ssh/host_files.dart'
     show TransferStop, atMost, smallestFirst, stoppedFailure, uploadWidth;
 
-export 'package:upgrade/features/shell/input/clip_paste.dart'
-    show AttachItem, AttachStage;
+export 'package:upgrade/application/files/attach_item.dart';
 
 typedef QueueTask = Future<String?> Function(
   int index,
@@ -123,7 +121,6 @@ class _QueueCount extends StatelessWidget {
           AttachStage.landed,
           AttachStage.pasting,
           AttachStage.pasted,
-          AttachStage.copied,
           AttachStage.path,
         }),
       ),
@@ -156,7 +153,6 @@ class _QueueRow extends StatelessWidget {
       AttachStage.landed => ('LANDED', tokens.textSecondary),
       AttachStage.pasting => ('PASTING', tokens.accent),
       AttachStage.pasted => ('PASTED', tokens.accent),
-      AttachStage.copied => ('COPIED', tokens.accent),
       AttachStage.path => ('PATH', tokens.accent),
       AttachStage.failed => ('FAILED', tokens.danger),
       AttachStage.stopped => ('STOPPED', tokens.textDisabled),

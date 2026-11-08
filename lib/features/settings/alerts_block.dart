@@ -8,7 +8,7 @@ import 'package:upgrade/application/alerts/alerts.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/platform/herdr/agent_watcher.dart';
+import 'package:upgrade/application/alerts/agent_watcher.dart';
 import 'package:upgrade/platform/notifications/pin_notifications.dart';
 import 'package:upgrade/brand.dart';
 

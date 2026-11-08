@@ -26,7 +26,7 @@ const _shellSheet = 'lib/features/shell/sheets/shell_sheet.dart';
 const _shellSessions = 'lib/features/shell/session/shell_sessions.dart';
 
 const _sshUri = 'package:upgrade/platform/ssh/connection_supervisor.dart';
-const _agentsUri = 'package:upgrade/application/agents/agents.dart';
+const _lifecycleUri = 'package:upgrade/application/app_lifecycle.dart';
 const _widgetsUri = 'package:flutter/src/widgets/framework.dart';
 
 const _seam =
@@ -432,7 +432,7 @@ bool _inSlot(String rel, String wrapper, MethodInvocation call, String entry) {
           identical(arguments.last, call) &&
           provider is GetterElement &&
           _lifecycles.contains(provider.variable.name) &&
-          _uri(provider) == _agentsUri;
+          _uri(provider) == _lifecycleUri;
     case 'onNetwork':
       final listen = parent?.parent;
       return parent is ArgumentList &&
@@ -728,7 +728,7 @@ bool _isReading(DartType? type) =>
     [type, ...type.element.allSupertypes].any(
       (t) =>
           t.element.name == 'AppLifecycleReading' &&
-          _uri(t.element) == _agentsUri,
+          _uri(t.element) == _lifecycleUri,
     );
 
 bool _forgesReading(Expression target) {
@@ -759,7 +759,7 @@ bool _readsLifecycle(Expression target) {
     if (n is SimpleIdentifier &&
         n.element is GetterElement &&
         _lifecycles.contains(n.name) &&
-        _uri(n.element) == _agentsUri) {
+        _uri(n.element) == _lifecycleUri) {
       found = true;
     }
   });
@@ -874,7 +874,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/app_lifecycle.dart';
 import 'package:upgrade/platform/notifications/alert_notifications.dart';
 import 'package:upgrade/platform/device.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
@@ -1021,15 +1021,18 @@ void main() {
           'lib/features/code/diff_sheet.dart': 1,
           'lib/features/code/workspace_page.dart': 1,
           'lib/features/home/agents_panel.dart': 2,
-          'lib/features/hosts/hosts_screen.dart': 5,
+          'lib/features/hosts/host_rows.dart': 3,
+          'lib/features/hosts/hosts_screen.dart': 2,
           'lib/features/settings/host_form_screen.dart': 1,
           'lib/features/shell/sheets/attach_sheet.dart': 3,
-          _shellScreen: 5,
+          _shellScreen: 3,
+          'lib/features/shell/sheets/pin_sheet.dart': 2,
           'lib/features/shell/sheets/launch_picker_sheet.dart': 5,
           'lib/features/shell/parked_shell_bar.dart': 2,
         },
         'onGestureWith': {
-          _shellScreen: 2,
+          _shellScreen: 1,
+          'lib/features/shell/sheets/pin_sheet.dart': 1,
           'lib/features/shell/parked_shell_bar.dart': 1,
           'lib/features/plugins/plugin_card.dart': 1,
           'lib/features/plugins/plugin_page.dart': 1,
@@ -1512,8 +1515,8 @@ PlatformSignal? signal(NetworkChanged change) => change.signal;
 
   test('only the known owners close host links', () {
     expect(_members(_links({'close'}), except: _hostLinks), {
-      'lib/application/agents/agents.dart': 1,
-      'lib/platform/herdr/agent_watcher.dart': 1,
+      'lib/application/hosts/host_providers.dart': 1,
+      'lib/application/alerts/agent_watcher.dart': 1,
       'lib/platform/notifications/alert_actions.dart': 1,
     }, reason: 'a close ends every link in the pool; $_seam');
   });

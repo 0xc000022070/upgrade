@@ -8,8 +8,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/alerts/pin_alerts.dart';
-import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/host_system.dart';
+import 'package:upgrade/platform/notifications/pin_alerts.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/data/repositories/shell_tab_repository.dart';
@@ -18,7 +18,7 @@ import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/features/shell/host_shell_screen.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/links/link_probe.dart';
+import 'package:upgrade/platform/links/host_link_probe.dart';
 import 'package:upgrade/platform/shell/host_system.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
@@ -32,7 +32,7 @@ import '../../../support/reasons.dart';
 import '../../../support/shell_route.dart' show noWorkspaces;
 import '../../../support/themed_app.dart';
 
-Matcher _failure(ShellFailureKind kind, String detail) => isA<ShellFailure>()
+Matcher _failure(HostFailureKind kind, String detail) => isA<HostFailure>()
     .having((failure) => failure.kind, 'kind', kind)
     .having((failure) => failure.detail, 'detail', detail);
 
@@ -138,7 +138,7 @@ Future<void> _spend(
   FakeShellTransport transport,
   ShellSession session,
 ) async {
-  transport.refuse = const ShellFailure(ShellFailureKind.unreachable);
+  transport.refuse = const HostFailure(HostFailureKind.unreachable);
   transport.opened.single.drop();
   await tester.pump();
   for (final delay in shellReconnectDelays) {
@@ -339,7 +339,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     expect(find.byType(DotSpinner), findsOneWidget);
 
-    session.state = const ShellFailed(ShellFailureKind.keyRejected);
+    session.state = const ShellFailed(HostFailureKind.keyRejected);
     session.changed();
     await tester.pump();
     expect(find.byType(DotSpinner), findsNothing);
@@ -457,7 +457,7 @@ void main() {
     await _settle();
 
     final failure = session.state.failure!;
-    expect(failure.kind, ShellFailureKind.unreachable);
+    expect(failure.kind, HostFailureKind.unreachable);
     expect(failure.detail, contains('sshd exited 255'));
     expect(transport.ports, isEmpty);
   });
@@ -1172,15 +1172,15 @@ void main() {
     await _settle();
 
     expect(session.state, isA<ShellFailed>());
-    expect((session.state as ShellFailed).kind, ShellFailureKind.keyRejected);
+    expect((session.state as ShellFailed).kind, HostFailureKind.keyRejected);
     expect(transport.opened, isEmpty);
     expect(transport.sizes, isEmpty);
   });
 
   test('a failure carries the words the transport failed with', () async {
     final transport = FakeShellTransport()
-      ..refuse = const ShellFailure(
-        ShellFailureKind.keyRejected,
+      ..refuse = const HostFailure(
+        HostFailureKind.keyRejected,
         detail: 'SSHAuthFailError: publickey',
       );
     final sessions = fakeShellSessions(transport);
@@ -1189,7 +1189,7 @@ void main() {
     await _settle();
 
     final state = session.state as ShellFailed;
-    expect(state.kind, ShellFailureKind.keyRejected);
+    expect(state.kind, HostFailureKind.keyRejected);
     expect(state.detail, 'SSHAuthFailError: publickey');
   });
 
@@ -1202,8 +1202,8 @@ void main() {
     await _pumpDial(tester);
 
     await _spend(tester, transport, session);
-    transport.refuse = const ShellFailure(
-      ShellFailureKind.unreachable,
+    transport.refuse = const HostFailure(
+      HostFailureKind.unreachable,
       detail: 'connection refused',
     );
     sessions.wakeAll(AppResumed(testSignal()));
@@ -1215,7 +1215,7 @@ void main() {
     }
 
     final state = session.state as ShellWaiting;
-    expect(state.kind, ShellFailureKind.unreachable);
+    expect(state.kind, HostFailureKind.unreachable);
     expect(state.detail, 'alex@100.64.0.1:22 · connection refused');
 
     await sessions.close(intent: testIntent(), _pine.id, session);
@@ -1233,7 +1233,7 @@ void main() {
     await tester.pump();
 
     final state = session.state as ShellFailed;
-    expect(state.kind, ShellFailureKind.streamClosed);
+    expect(state.kind, HostFailureKind.streamClosed);
     expect(state.detail, contains('no route to host'));
 
     await sessions.close(intent: testIntent(), _pine.id, session);
@@ -1251,9 +1251,7 @@ void main() {
     await _pumpDial(tester);
     expect(session.state, isA<ShellLive>());
 
-    transport.opened.last.drop(
-      const ShellFailure(ShellFailureKind.keyRejected),
-    );
+    transport.opened.last.drop(const HostFailure(HostFailureKind.keyRejected));
     await tester.pump();
 
     expect((session.state as ShellFailed).detail, isNull);
@@ -1262,11 +1260,11 @@ void main() {
   });
 
   test('every failure carries the reason line the header draws', () {
-    expect(ShellFailureKind.unreachable.line.on('PINE'), 'pine unreachable');
-    expect(ShellFailureKind.unresolved.line.on('PINE'), 'pine unresolved');
-    expect(ShellFailureKind.keyRejected.line.on('PINE'), 'key rejected');
-    expect(ShellFailureKind.shellRefused.line.on('PINE'), 'shell refused');
-    expect(ShellFailureKind.streamClosed.line.on('PINE'), 'stream closed');
+    expect(HostFailureKind.unreachable.line.on('PINE'), 'pine unreachable');
+    expect(HostFailureKind.unresolved.line.on('PINE'), 'pine unresolved');
+    expect(HostFailureKind.keyRejected.line.on('PINE'), 'key rejected');
+    expect(HostFailureKind.shellRefused.line.on('PINE'), 'shell refused');
+    expect(HostFailureKind.streamClosed.line.on('PINE'), 'stream closed');
   });
 
   testWidgets('the store keeps its sessions across a route dispose', (
@@ -1352,25 +1350,25 @@ void main() {
     await _pumpDial(tester);
 
     transport.opened.single.drop(
-      const ShellFailure(ShellFailureKind.streamClosed, detail: 'pty ended'),
+      const HostFailure(HostFailureKind.streamClosed, detail: 'pty ended'),
     );
     await tester.pump();
 
     expect(session.state, isA<ShellDropped>());
     expect(session.state.failure, (
-      kind: ShellFailureKind.streamClosed,
+      kind: HostFailureKind.streamClosed,
       detail: 'pty ended',
     ));
 
-    transport.refuse = const ShellFailure(
-      ShellFailureKind.unreachable,
+    transport.refuse = const HostFailure(
+      HostFailureKind.unreachable,
       detail: 'connection refused',
     );
     await tester.pump(shellReconnectDelays.first);
     await _pumpDial(tester);
 
     expect((session.state as ShellDropped).attempt, 2);
-    expect(session.state.failure?.kind, ShellFailureKind.unreachable);
+    expect(session.state.failure?.kind, HostFailureKind.unreachable);
     expect(session.state.failure?.detail, contains('connection refused'));
 
     await sessions.close(intent: testIntent(), _pine.id, session);
@@ -1393,7 +1391,7 @@ void main() {
     await _pumpDial(tester);
 
     expect(first.state, isA<ShellFailed>());
-    expect(first.state.failure?.kind, ShellFailureKind.keyRejected);
+    expect(first.state.failure?.kind, HostFailureKind.keyRejected);
     expect(first.state.failure?.detail, contains('keystore locked'));
     expect(transport.opened, isEmpty);
 
@@ -1613,7 +1611,7 @@ void main() {
     tester,
   ) async {
     final transport = FakeShellTransport()
-      ..refuse = const ShellFailure(ShellFailureKind.unreachable);
+      ..refuse = const HostFailure(HostFailureKind.unreachable);
     final sessions = fakeShellSessions(transport);
     final session = sessions.open(intent: testIntent(), _pine)!;
     await _pumpDial(tester);
@@ -1672,7 +1670,7 @@ void main() {
     expect(
       session.controlFailure,
       _failure(
-        ShellFailureKind.unreachable,
+        HostFailureKind.unreachable,
         'alex@100.64.0.1:22 · connection refused',
       ),
     );
@@ -1703,7 +1701,7 @@ void main() {
     expect(
       session.controlFailure,
       _failure(
-        ShellFailureKind.unreachable,
+        HostFailureKind.unreachable,
         'alex@100.64.0.1:22 · connection refused',
       ),
     );
@@ -1734,7 +1732,7 @@ void main() {
     );
     expect(
       session.controlFailure,
-      _failure(ShellFailureKind.streamClosed, 'Bad state: bug'),
+      _failure(HostFailureKind.streamClosed, 'Bad state: bug'),
     );
 
     await sessions.close(intent: testIntent(), _pine.id, session);
@@ -1781,7 +1779,7 @@ void main() {
       );
     await tester.pump();
 
-    expect(session.controlFailure?.kind, ShellFailureKind.hostKeyChanged);
+    expect(session.controlFailure?.kind, HostFailureKind.hostKeyChanged);
 
     await sessions.close(intent: testIntent(), _pine.id, session);
   });
@@ -1820,8 +1818,8 @@ void main() {
     expect(transport.verifiers, hasLength(1 + shellReconnectDelays.length));
     expect(transport.reasons.skip(1), everyElement(isA<Reconnect>()));
     expect(session.state, isA<ShellWaiting>());
-    expect((session.state as ShellWaiting).kind, ShellFailureKind.unreachable);
-    expect(session.state.failure?.kind, ShellFailureKind.unreachable);
+    expect((session.state as ShellWaiting).kind, HostFailureKind.unreachable);
+    expect(session.state.failure?.kind, HostFailureKind.unreachable);
 
     await tester.pump(const Duration(minutes: 5));
     await _pumpDial(tester);
@@ -1992,7 +1990,7 @@ void main() {
     final session = sessions.open(intent: testIntent(), _pine)!;
     await _pumpDial(tester);
 
-    transport.refuse = const ShellFailure(ShellFailureKind.unreachable);
+    transport.refuse = const HostFailure(HostFailureKind.unreachable);
     transport.opened.single.drop();
     await tester.pump();
     for (final delay in shellReconnectDelays.take(5)) {
@@ -2069,7 +2067,7 @@ void main() {
     await _pumpDial(tester);
     final unshow = sessions.show(_pine.id);
 
-    transport.refuse = const ShellFailure(ShellFailureKind.unreachable);
+    transport.refuse = const HostFailure(HostFailureKind.unreachable);
     transport.opened.single.drop();
     await tester.pump();
     for (final step in shellReconnectDelays) {
@@ -2091,7 +2089,7 @@ void main() {
     final session = sessions.open(intent: testIntent(), _pine)!;
     await _pumpDial(tester);
 
-    transport.refuse = const ShellFailure(ShellFailureKind.unreachable);
+    transport.refuse = const HostFailure(HostFailureKind.unreachable);
     transport.opened.single.drop();
     await tester.pump();
     for (final step in shellReconnectDelays.take(4)) {
@@ -2181,7 +2179,7 @@ void main() {
     final live = sessions.open(intent: testIntent(), _pine)!;
     await _pumpDial(tester);
 
-    transport.refuse = const ShellFailure(ShellFailureKind.hostKeyChanged);
+    transport.refuse = const HostFailure(HostFailureKind.hostKeyChanged);
     final refused = sessions.open(intent: testIntent(), _oak)!;
     await _pumpDial(tester);
     transport.refuse = null;
@@ -2243,7 +2241,7 @@ void main() {
     final spent = transport.verifiers.length;
 
     expect(session.state, isA<ShellFailed>());
-    expect((session.state as ShellFailed).kind, ShellFailureKind.unreachable);
+    expect((session.state as ShellFailed).kind, HostFailureKind.unreachable);
 
     sessions.wakeAll(AppResumed(testSignal()));
     await _pumpDial(tester);
@@ -2260,7 +2258,7 @@ void main() {
     final session = sessions.open(intent: testIntent(), _pine)!;
     await _pumpDial(tester);
 
-    transport.refuse = const ShellFailure(ShellFailureKind.hostKeyUnverified);
+    transport.refuse = const HostFailure(HostFailureKind.hostKeyUnverified);
     transport.opened.single.drop();
     await tester.pump();
     await tester.pump(shellReconnectDelays.first);
@@ -2269,7 +2267,7 @@ void main() {
     expect(session.state, isA<ShellFailed>());
     expect(
       (session.state as ShellFailed).kind,
-      ShellFailureKind.hostKeyUnverified,
+      HostFailureKind.hostKeyUnverified,
     );
 
     await sessions.close(intent: testIntent(), _pine.id, session);

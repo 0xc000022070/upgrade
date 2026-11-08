@@ -4,6 +4,7 @@ library;
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/shell/shell_tunnel.dart';
@@ -116,10 +117,10 @@ void main() {
         verifier: trustGuest(),
       ),
       throwsA(
-        isA<ShellFailure>().having(
+        isA<HostFailure>().having(
           (failure) => failure.kind,
           'kind',
-          ShellFailureKind.keyRejected,
+          HostFailureKind.keyRejected,
         ),
       ),
     );
@@ -138,10 +139,10 @@ void main() {
         verifier: trustGuest(),
       ),
       throwsA(
-        isA<ShellFailure>().having(
+        isA<HostFailure>().having(
           (failure) => failure.kind,
           'kind',
-          ShellFailureKind.unreachable,
+          HostFailureKind.unreachable,
         ),
       ),
     );
@@ -160,10 +161,10 @@ void main() {
         verifier: trustGuest(),
       ),
       throwsA(
-        isA<ShellFailure>().having(
+        isA<HostFailure>().having(
           (failure) => failure.kind,
           'kind',
-          ShellFailureKind.unresolved,
+          HostFailureKind.unresolved,
         ),
       ),
     );

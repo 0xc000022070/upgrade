@@ -7,6 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/app/alerts_boot.dart';
 import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/alerts/alerts.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/activity_repository.dart';

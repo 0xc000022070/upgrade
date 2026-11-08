@@ -6,11 +6,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade/app/alerts_boot.dart';
 import 'package:upgrade/app/boot.dart';
 import 'package:upgrade/app/builtin_plugins.dart';
 import 'package:upgrade/app/upgrade_app.dart';
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/drops/clips.dart';
 import 'package:upgrade/application/bundle/bundle.dart';
 import 'package:upgrade/application/pip.dart';
@@ -28,9 +29,8 @@ import 'package:upgrade/data/seed.dart';
 import 'package:upgrade/data/shell_snapshot_store.dart';
 import 'package:upgrade/design/ascii/grid.dart';
 import 'package:upgrade/design/components/ascii_mascot.dart';
-import 'package:upgrade/design/typography.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/features/tasks/image_input.dart';
+import 'package:upgrade/application/files/image_input.dart';
 import 'package:upgrade/platform/device.dart';
 import 'package:upgrade/platform/links/link_metadata.dart';
 import 'package:upgrade/platform/plugins/store.dart';
@@ -77,7 +77,6 @@ Future<void> _boot(PlatformSignal launch) async {
   boot
     ..addAll(lines)
     ..add(BootStep('count projects/tasks', '$projects/$tasks'))
-    ..add(const BootStep('load fonts', '${FontFamilies.count}'))
     ..add(BootStep('load mascot', '${mascotStates.length} states'))
     ..add(const BootStep('mount attachments', 'ok'))
     ..add(const BootStep('clear clips', 'ok'))

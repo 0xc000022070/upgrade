@@ -16,7 +16,7 @@ import 'package:upgrade/design/components/upgrade_field.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/plugins/plugin_management_screen.dart';
-import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/data/plugins/contributions.dart';
 
 String homeLabel(PluginPlacementState placements, int space) =>
     placements.homeNames[space]?.toUpperCase() ?? '$space';

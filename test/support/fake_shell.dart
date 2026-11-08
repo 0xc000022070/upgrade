@@ -2,14 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:upgrade/platform/ssh/host_failure.dart';
+import 'package:upgrade/data/host_system.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/data/repositories/shell_tab_repository.dart';
 import 'package:upgrade/data/shell_snapshot_store.dart';
-import 'package:upgrade/application/alerts/pin_alerts.dart';
-import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/platform/notifications/pin_alerts.dart';
 import 'package:upgrade/data/repositories/host_repository.dart' show Host;
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:dartssh2/dartssh2.dart' show SSHChannelRequestError;
-import 'package:upgrade/platform/links/link_probe.dart';
+import 'package:upgrade/platform/links/host_link_probe.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/ssh/host_files.dart'
     show FileBody, PutProgress, collectBytes, putFile, putLanded;
@@ -35,7 +37,6 @@ class FakeShellConnection implements ShellConnection {
   var terminateRemoteResult = true;
   final terminated = <String>[];
 
-  final terminateActions = <UserAction?>[];
   final closes = <DropReason>[];
   final opens = <UserAction>[];
   var rehomes = 0;
@@ -54,8 +55,6 @@ class FakeShellConnection implements ShellConnection {
 
   final timedProbes = <String>[];
 
-  /// False: the host was dropped, and background reads get null until something opens it.
-  bool hostHeld = true;
   Completer<ExecResult?>? holdTimedProbe;
 
   /// Held to keep [close] from completing, so a test can act inside the window a redial
@@ -137,7 +136,6 @@ class FakeShellConnection implements ShellConnection {
   @override
   Future<bool> terminateRemote(String session, {UserAction? action}) async {
     terminated.add(session);
-    terminateActions.add(action);
     return terminateRemoteResult;
   }
 
@@ -166,7 +164,6 @@ class FakeShellConnection implements ShellConnection {
     if (closed) return null;
     final refused = openRefused;
     if (refused != null) throw refused;
-    hostHeld = true;
     return _opened;
   }
 
@@ -205,8 +202,8 @@ class FakeShellConnection implements ShellConnection {
   /// A link that died: dartssh2 ends the pty cleanly with no exit status, and the SSH
   /// connection reports that as a failed stream before its exit, which stays null.
   void drop([
-    Object error = const ShellFailure(
-      ShellFailureKind.streamClosed,
+    Object error = const HostFailure(
+      HostFailureKind.streamClosed,
       detail: 'link lost',
     ),
   ]) {
@@ -242,7 +239,6 @@ class _FakeChannels implements HostChannels {
     required Duration timeout,
   }) {
     final connection = _connection;
-    if (background && !connection.hostHeld) return Future.value(null);
     if (background && timeout == agentProbeDeadline) {
       connection.timedProbes.add(command);
       final hold = connection.holdTimedProbe;
@@ -258,7 +254,6 @@ class _FakeChannels implements HostChannels {
     required Duration timeout,
     PutProgress? onProgress,
   }) async {
-    if (background && !_connection.hostHeld) return null;
     return putFile(
       sftp: () => throw SSHChannelRequestError('no sftp'),
       exec: (command, stdin) async {

@@ -1,7 +1,7 @@
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade_luau/data_api.dart';
 
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 
 DataOwner pluginDataOwner(InstalledPlugin plugin) =>
     DataOwner(plugin.id, plugin.package.origin);

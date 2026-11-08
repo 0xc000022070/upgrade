@@ -2,8 +2,9 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/app/upgrade_app.dart';
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
@@ -27,6 +28,8 @@ export 'package:flutter/services.dart';
 export 'package:flutter_riverpod/flutter_riverpod.dart';
 export 'package:upgrade/app/upgrade_app.dart';
 export 'package:upgrade/application/agents/agents.dart';
+export 'package:upgrade/application/app_lifecycle.dart';
+export 'package:upgrade/application/hosts/host_providers.dart';
 export 'package:upgrade/application/shell/pane_share.dart';
 export 'package:upgrade/application/providers.dart';
 export 'package:upgrade/data/database.dart';
@@ -151,7 +154,7 @@ class FakeRunner implements WorkspaceRunner {
 
   final Map<String, (String, String)> texts;
 
-  final HerdrFailure? fail;
+  final HostFailure? fail;
 
   final commands = <String>[];
   var closed = false;
@@ -159,7 +162,7 @@ class FakeRunner implements WorkspaceRunner {
   /// Per-command overrides, keyed by a fragment of the command.
   final answers = <String, WorkspaceReply>{};
 
-  final failures = <String, HerdrFailure>{};
+  final failures = <String, HostFailure>{};
 
   @override
   Future<WorkspaceReply> run(String command) async {

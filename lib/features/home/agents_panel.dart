@@ -16,7 +16,6 @@ import 'package:upgrade/features/agents/agent_shell.dart';
 import 'package:upgrade/features/agents/agents_screen.dart';
 import 'package:upgrade/features/agents/pip_action.dart';
 import 'package:upgrade/features/agents/sent_screen.dart';
-import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/features/shell/session/program_status.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
@@ -106,13 +105,13 @@ class AgentsPanel extends ConsumerWidget {
     sends: ref.watch(sendQueueProvider),
     now: now ?? DateTime.now(),
     onConfigureHosts: () =>
-        ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex,
+        ref.read(navIndexProvider.notifier).state = hostsNavIndex,
     onOpen:
         onOpen ??
         (intent, host, agent) =>
             openAgentShell(context, ref, host, agent, intent),
     onOpenTab: (intent, program) {
-      ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex;
+      ref.read(navIndexProvider.notifier).state = hostsNavIndex;
       openHostShell(
         context,
         program.host,

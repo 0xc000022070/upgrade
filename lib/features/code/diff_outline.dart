@@ -216,15 +216,13 @@ Set<int> _owned(List<DiffScope> scopes, Set<int> changed) {
 
 String _whole(List<String> lines, DiffScope scope) => [
   for (var at = scope.line; at <= scope.end && at <= lines.length; at++)
-    lines[at - 1].replaceAll(_space, ''),
+    squash(lines[at - 1]),
 ].join();
 
 String _body(List<String> lines, DiffScope scope) => [
   for (var at = scope.line + 1; at <= scope.end && at <= lines.length; at++)
-    lines[at - 1].replaceAll(_space, ''),
+    squash(lines[at - 1]),
 ].join('\n');
-
-final _space = RegExp(r'\s+');
 
 List<SymbolChange> hunkOutline(List<DiffLine> lines) {
   final seen = <String>{};

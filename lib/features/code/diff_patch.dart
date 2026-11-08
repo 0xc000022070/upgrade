@@ -34,32 +34,19 @@ HunkSpan? hunkHolding(List<DiffLine> lines, int newLine) {
   return null;
 }
 
-String hunkPatch(
-  String path,
-  List<DiffLine> lines,
-  HunkSpan span, {
-  bool Function(DiffLine line)? keep,
-  bool reverse = false,
-  bool created = false,
-}) {
-  final out = StringBuffer()..writeln('diff --git a/$path b/$path');
-  if (created) out.writeln('new file mode 100644');
-  out
-    ..writeln(created ? '--- /dev/null' : '--- a/$path')
+String hunkPatch(String path, List<DiffLine> lines, HunkSpan span) {
+  final out = StringBuffer()
+    ..writeln('diff --git a/$path b/$path')
+    ..writeln('--- a/$path')
     ..writeln('+++ b/$path')
     ..writeln(lines[span.start].text);
   for (var at = span.start + 1; at < span.end; at++) {
     final line = lines[at];
-    final kept = keep == null || keep(line);
     switch (line.kind) {
-      case DiffLineKind.added when kept:
+      case DiffLineKind.added:
         out.writeln('+${line.text}');
-      case DiffLineKind.added when reverse:
-        out.writeln(' ${line.text}');
-      case DiffLineKind.removed when kept:
+      case DiffLineKind.removed:
         out.writeln('-${line.text}');
-      case DiffLineKind.removed when !reverse:
-        out.writeln(' ${line.text}');
       case DiffLineKind.context:
         out.writeln(' ${line.text}');
       case DiffLineKind.meta when line.text.startsWith('\\'):
@@ -69,18 +56,4 @@ String hunkPatch(
     }
   }
   return out.toString();
-}
-
-bool patchChanges(
-  List<DiffLine> lines,
-  HunkSpan span,
-  bool Function(DiffLine line)? keep,
-) {
-  for (var at = span.start + 1; at < span.end; at++) {
-    final line = lines[at];
-    final change =
-        line.kind == DiffLineKind.added || line.kind == DiffLineKind.removed;
-    if (change && (keep == null || keep(line))) return true;
-  }
-  return false;
 }

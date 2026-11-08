@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/host_system.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/features/hosts/host_mark.dart';

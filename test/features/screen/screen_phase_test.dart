@@ -4,10 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/screen/screen_controller.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/vnc/vnc_failure.dart';
 import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
 
 import '../../support/vnc_channel.dart';
+
+import 'package:upgrade/platform/ssh/host_failure.dart';
 
 const _oak = Host(
   id: 'oak',
@@ -26,7 +27,7 @@ Future<VncConnection> _unreachable({
   String? vncUsername,
   String? password,
   HostKeyVerifier? verifier,
-}) async => throw const VncUnreachable();
+}) async => throw const HostFailure(HostFailureKind.unreachable);
 
 void main() {
   test(
@@ -140,7 +141,7 @@ void main() {
               const HostKeyOffer(type: 'ssh-ed25519', fingerprint: 'SHA256:x'),
               null,
             );
-            throw const VncUnreachable();
+            throw const HostFailure(HostFailureKind.unreachable);
           },
     );
     addTearDown(controller.dispose);

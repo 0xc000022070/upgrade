@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/platform/herdr/agent_state.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/features/agents/agent_shell.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
-import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/application/providers.dart';
@@ -17,6 +16,7 @@ import '../../support/fake_shell.dart';
 import '../../support/platform_channels.dart';
 import '../../support/reasons.dart';
 import '../../support/themed_app.dart';
+import '../../support/host_failure_matchers.dart';
 
 const _pine = Host(
   id: 'h1',
@@ -65,11 +65,11 @@ void main() {
     );
     expect(
       () => HerdrCommands.attach((session: 'lab', pane: 'w22:p1; reboot')),
-      throwsA(isA<HerdrProtocolMismatch>()),
+      throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
     );
     expect(
       () => HerdrCommands.attach((session: 'lab; reboot', pane: 'w22:p1')),
-      throwsA(isA<HerdrProtocolMismatch>()),
+      throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
     );
   });
 
@@ -123,7 +123,7 @@ void main() {
     await ready(tester);
 
     expect(header, findsOneWidget);
-    expect(container.read(navIndexProvider), HostsScreen.navIndex);
+    expect(container.read(navIndexProvider), hostsNavIndex);
     final session = sessions.forHost(_pine.id).single;
     expect(session.pane, _pane);
     expect(session.command, _takeoverAttach);

@@ -15,14 +15,9 @@ abstract final class Layout {
 /// 600dp and removed below changes the element tree on the resize, and every [State]
 /// under it is discarded and rebuilt.
 class ContentColumn extends StatelessWidget {
-  const ContentColumn({
-    super.key,
-    required this.child,
-    this.maxWidth = Layout.columnMax,
-  });
+  const ContentColumn({super.key, required this.child});
 
   final Widget child;
-  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +26,7 @@ class ContentColumn extends StatelessWidget {
       // child's own and leaves the width alone.
       heightFactor: 1,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
+        constraints: BoxConstraints(maxWidth: Layout.columnMax),
         child: child,
       ),
     );

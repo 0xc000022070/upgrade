@@ -13,7 +13,7 @@ class ExecTracker {
   bool get closed => _closed;
 
   void ensureOpen() {
-    if (_closed) throw HerdrUnreachable(_closedDetail);
+    if (_closed) throw HostFailure.unreachable(_closedDetail);
   }
 
   Future<SSHSession> open(
@@ -24,11 +24,11 @@ class ExecTracker {
     try {
       session = await opening();
     } on SSHChannelOpenError catch (error) {
-      throw HerdrBusy('$error');
+      throw HostFailure.busy('$error');
     }
     if (_closed) {
       endExec(session);
-      throw HerdrUnreachable(_closedDetail);
+      throw HostFailure.unreachable(_closedDetail);
     }
     _execs[session] = onEnd;
     return session;

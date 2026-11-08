@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-import 'package:upgrade/application/alerts/alerts.dart';
-import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/platform/notifications/alert_target.dart';
+import 'package:upgrade/platform/notifications/pin_alerts.dart';
 import 'package:upgrade/platform/notifications/alert_notifications.dart';
 import 'package:upgrade/platform/notifications/chat_notifications.dart';
 import 'package:upgrade/platform/herdr/engine_agents.dart';
@@ -86,7 +86,9 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
     final privateKey = await const Ed25519Keys(SecurePrivateKeyStore())
         .privateKey(target.keyId);
     if (privateKey == null) {
-      throw HerdrKeyRejected('no private key stored for ${target.keyId}');
+      throw HostFailure.keyRejected(
+        'no private key stored for ${target.keyId}',
+      );
     }
     final shared = alertLinks;
     final links = shared ?? HostLinks();
@@ -124,7 +126,7 @@ Future<void> _answer(AlertTarget target, {required bool yes}) async {
       withActions: false,
     );
     return;
-  } on HerdrFailure catch (error) {
+  } on HostFailure catch (error) {
     debugPrint('$appSlug.herdr ${target.address}: ${error.detail ?? error}');
     await redraw(
       line: alertFailedLine(alertFailureReason(error)),

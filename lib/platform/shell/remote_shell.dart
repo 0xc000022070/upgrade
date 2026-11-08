@@ -20,7 +20,9 @@ String shellCd(String directory) {
 /// The shell is exec'd rather than typed at: a line written at a login shell races
 /// everything that shell reads before its prompt. `$SHELL` is left for the host to
 /// expand, and a `cd` that fails ends the tab where it stands.
-String shellIn(String directory) => '${shellCd(directory)} && exec \$SHELL -l';
+const shellLogin = 'exec \$SHELL -l';
+
+String shellIn(String directory) => '${shellCd(directory)} && $shellLogin';
 
 /// Exported before the `exec`, which is what carries it into the login shell that
 /// replaces it.
@@ -36,10 +38,8 @@ String shellMarked(String mark, {String? command}) {
       '(d="/tmp/upgrade-\$(id -u)"; umask 077; '
       'mkdir -p "\$d" && [ -O "\$d" ] && '
       'tty > "\$d/$mark") 2>/dev/null; fi; '
-      '${command ?? 'exec \$SHELL -l'}';
+      '${command ?? shellLogin}';
 }
-
-final durableShellSession = shellMark;
 
 const moshTabVariable = 'UPGRADE_MOSH_TAB';
 
@@ -51,7 +51,7 @@ String moshServerProbeCommand() {
 }
 
 String moshServerCleanupCommand(String session) {
-  assert(durableShellSession.hasMatch(session));
+  assert(shellMark.hasMatch(session));
   const marked =
       'tr "\\000" "\\n" < "\$p/environ" | grep -qx "'
       '$moshTabVariable=';
@@ -75,7 +75,7 @@ String moshServerCleanupCommand(String session) {
 /// Looks for the tab's server the way the cleanup does, by its environment where `/proc`
 /// has one and by its arguments everywhere, and answers no only when a listing ran.
 String moshServerFindCommand(String session) {
-  assert(durableShellSession.hasMatch(session));
+  assert(shellMark.hasMatch(session));
   return underSh(
     'exec 2>/dev/null; e=; [ -d /proc/self ] && e=1; '
     'for p in /proc/[0-9]*; do '
@@ -170,8 +170,8 @@ String shellForegroundProcessProbe(String mark) {
       r's=$(cat "/proc/$parent/stat") || continue; '
       r's=${s##*) }; set -- $s; '
       r'[ "$3" = "$group" ] && continue; '
-      r'tr "\000" "\n" < "$p/environ" | grep -qx "UPGRADE_TAB='
-      '$mark'
+      r'tr "\000" "\n" < "$p/environ" | grep -qx "'
+      '$shellMarkVariable=$mark'
       r'" || continue; '
       r'a=$(tr "\000" "\n" < "$p/cmdline" | sed -n "1p"); '
       r'b=$(tr "\000" "\n" < "$p/cmdline" | sed -n "2p"); '
@@ -247,7 +247,7 @@ const pinentryGateDirectory =
 /// that let go of the ssh session that started it, so the channel's parent owns no pty
 /// then. The mark is the holder's pid.
 String pinentryMarkCommand(String tab) {
-  assert(durableShellSession.hasMatch(tab));
+  assert(shellMark.hasMatch(tab));
   return underSh(
     'exec 2>/dev/null; '
     'd="$pinentryGateDirectory" && mkdir -p "\$d/tty" && chmod 700 "\$d" '

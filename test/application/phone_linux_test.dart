@@ -4,9 +4,9 @@ import 'dart:math';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/data/host_system.dart';
 import 'package:upgrade/application/phone_linux.dart';
 import 'package:upgrade/data/database.dart';
-import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';

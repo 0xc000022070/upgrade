@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/platform/channels.dart';
 
 /// An [EventChannel] with no handler reports the miss through [FlutterError.onError]
 /// rather than through the stream, so any test that mounts the static background has to
@@ -14,34 +15,33 @@ void stubDeviceChannels({
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   const codec = StandardMethodCodec();
 
-  messenger.setMockMethodCallHandler(
-    const MethodChannel('dev.luisnquin.upgrade/device'),
-    (call) async {
-      switch (call.method) {
-        case 'model':
-          return 'test device';
-        case 'saveDocument':
-          if (!picker) throw MissingPluginException();
-          final args = call.arguments as Map;
-          onSave?.call(args['name'] as String, args['bytes'] as Uint8List);
-          return onSave != null;
-        case 'openDocument':
-          if (!picker) throw MissingPluginException();
-          return document;
-        default:
-          return null;
-      }
-    },
-  );
+  messenger.setMockMethodCallHandler(const MethodChannel(Channels.device), (
+    call,
+  ) async {
+    switch (call.method) {
+      case 'model':
+        return 'test device';
+      case 'saveDocument':
+        if (!picker) throw MissingPluginException();
+        final args = call.arguments as Map;
+        onSave?.call(args['name'] as String, args['bytes'] as Uint8List);
+        return onSave != null;
+      case 'openDocument':
+        if (!picker) throw MissingPluginException();
+        return document;
+      default:
+        return null;
+    }
+  });
 
   messenger.setMockMessageHandler(
-    'dev.luisnquin.upgrade/device/throttle',
+    Channels.deviceThrottle,
     (message) async => codec.encodeSuccessEnvelope(null),
   );
 
   // Answering `listen` is enough: nothing is replayed on subscribe.
   messenger.setMockMessageHandler(
-    'dev.luisnquin.upgrade/device/network',
+    Channels.deviceNetwork,
     (message) async => codec.encodeSuccessEnvelope(null),
   );
 }
@@ -50,7 +50,7 @@ Future<void> pushNetwork(bool up) => TestDefaultBinaryMessengerBinding
     .instance
     .defaultBinaryMessenger
     .handlePlatformMessage(
-      'dev.luisnquin.upgrade/device/network',
+      Channels.deviceNetwork,
       const StandardMethodCodec().encodeSuccessEnvelope(up),
       (_) {},
     );

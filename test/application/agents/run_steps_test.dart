@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/platform/herdr/agent_state.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/agents/run_steps.dart';
 import 'package:upgrade/application/agents/send_states.dart';

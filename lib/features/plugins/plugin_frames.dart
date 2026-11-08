@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:uuid/uuid.dart';
 
@@ -12,9 +13,8 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/features/agents/agent_shell.dart';
 import 'package:upgrade/features/plugins/plugin_page.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
-import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
+import 'package:upgrade/features/plugins/plugin_ui.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 
 mixin PluginFrames<T extends ConsumerStatefulWidget> on ConsumerState<T> {

@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/features/photos/photo_cut.dart';
-import 'package:upgrade/features/photos/photo_pick.dart';
-import 'package:upgrade/features/tasks/image_input.dart';
-import 'package:upgrade/platform/plugins/access.dart';
+import 'package:upgrade/application/files/photo_cut.dart';
+import 'package:upgrade/application/files/photo_pick.dart';
+import 'package:upgrade/application/files/image_input.dart';
+import 'package:upgrade/data/plugins/access.dart';
 import 'package:upgrade/application/providers.dart';
 
 final attachmentFilesProvider = Provider<AttachmentFiles>((ref) {

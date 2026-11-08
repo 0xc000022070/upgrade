@@ -8,6 +8,7 @@ import 'package:upgrade/features/browser/browser_prefs.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/channels.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart'
     show NavigationDecision, NavigationRequest;
 
@@ -41,7 +42,7 @@ void main() {
     final proxy = <Object?>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-          const MethodChannel('dev.luisnquin.upgrade/browser'),
+          const MethodChannel(Channels.browser),
           (call) async => proxy.add(call.arguments),
         );
     final web = FakeWebViewPlatform();

@@ -1,16 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
-
-Map<String, Object?> engineRequest(
-  String service,
-  String op,
-  Map<String, Object?> args, {
-  required String owner,
-}) => {'service': service, 'op': op, 'owner': owner, 'args': args};
+import 'package:upgrade/platform/native_replies.dart';
 
 abstract interface class DaemonLink {
   Future<int> attach({
@@ -41,10 +34,16 @@ final class DaemonFailed implements Exception {
 }
 
 typedef _Callback = Void Function(Pointer<Utf8>);
-typedef _Request =
-    Void Function(Int64, Pointer<Utf8>, Pointer<NativeFunction<_Callback>>);
-typedef _RequestDart =
-    void Function(int, Pointer<Utf8>, Pointer<NativeFunction<_Callback>>);
+typedef _Request = Void Function(
+  Int64,
+  Pointer<Utf8>,
+  Pointer<NativeFunction<_Callback>>,
+);
+typedef _RequestDart = void Function(
+  int,
+  Pointer<Utf8>,
+  Pointer<NativeFunction<_Callback>>,
+);
 typedef _Free = Void Function(Pointer<Utf8>);
 typedef _FreeDart = void Function(Pointer<Utf8>);
 
@@ -62,13 +61,11 @@ class NativeDaemonLink implements DaemonLink {
     'upgrade_quic_free',
   );
   late final _callback = NativeCallable<_Callback>.listener(_receive);
-  final _pending = <int, Completer<Object?>>{};
-  var _next = 0;
+  late final _replies = NativeReplies(_free);
 
   void _receive(Pointer<Utf8> text) {
-    final message = jsonDecode(text.toDartString()) as Map<String, Object?>;
-    _free(text);
-    final pending = _pending.remove(message['reply']);
+    final message = _replies.decode(text);
+    final pending = _replies.take(message['reply']);
     switch (message) {
       case {'ok': final Object answer}:
         pending?.complete(answer);
@@ -79,15 +76,11 @@ class NativeDaemonLink implements DaemonLink {
     }
   }
 
-  Future<Object?> _send(_RequestDart send, Map<String, Object?> request) {
-    final id = _next++;
-    final done = Completer<Object?>();
-    _pending[id] = done;
-    final text = jsonEncode(request).toNativeUtf8();
-    send(id, text, _callback.nativeFunction);
-    malloc.free(text);
-    return done.future;
-  }
+  Future<Object?> _send(_RequestDart send, Map<String, Object?> request) =>
+      _replies.send(
+        request,
+        (id, text) => send(id, text, _callback.nativeFunction),
+      );
 
   @override
   Future<int> attach({
@@ -96,15 +89,13 @@ class NativeDaemonLink implements DaemonLink {
     required String cert,
     required String token,
     required String tab,
-  }) async =>
-      await _send(_attach, {
-            'host': host,
-            'port': port,
-            'cert': cert,
-            'token': token,
-            'tab': tab,
-          })
-          as int;
+  }) async => await _send(_attach, {
+    'host': host,
+    'port': port,
+    'cert': cert,
+    'token': token,
+    'tab': tab,
+  }) as int;
 
   @override
   Future<String> call({
@@ -113,15 +104,13 @@ class NativeDaemonLink implements DaemonLink {
     required String cert,
     required String token,
     required String body,
-  }) async =>
-      await _send(_call, {
-            'host': host,
-            'port': port,
-            'cert': cert,
-            'token': token,
-            'body': body,
-          })
-          as String;
+  }) async => await _send(_call, {
+    'host': host,
+    'port': port,
+    'cert': cert,
+    'token': token,
+    'body': body,
+  }) as String;
 }
 
 typedef _Daemon = ({int port, String cert, String token});

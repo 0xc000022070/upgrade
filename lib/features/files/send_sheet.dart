@@ -5,7 +5,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart' show hostsProvider;
+import 'package:upgrade/application/hosts/host_providers.dart'
+    show hostsProvider;
 import 'package:upgrade/application/files/host_file_link.dart';
 import 'package:upgrade/application/files/phone_inbox.dart';
 import 'package:upgrade/application/formatting.dart';
@@ -152,9 +153,7 @@ class _SendSheetState extends ConsumerState<SendSheet> {
       if (pending == null && failure != null) await discardCopies(sent.keys);
       return;
     }
-    final failed = [
-      ...?job?.items.where((item) => item.stage == AttachStage.failed),
-    ].length;
+    final failed = job?.failedCount ?? 0;
     if (pending != null) {
       return setState(() {
         _busy = false;

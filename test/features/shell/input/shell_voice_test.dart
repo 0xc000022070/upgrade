@@ -5,8 +5,8 @@ import 'package:flterm/flterm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
+import 'package:upgrade/platform/herdr/agent_state.dart';
 import 'package:upgrade/application/whisper.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';
@@ -16,6 +16,7 @@ import 'package:upgrade/features/shell/input/shell_voice.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/voice/speech.dart';
 import 'package:upgrade/platform/voice/whisper.dart';
+import 'package:upgrade/platform/channels.dart';
 
 import '../../../support/themed_app.dart';
 
@@ -28,7 +29,7 @@ const _pine = Host(
   keyId: 'key-1',
 );
 
-const _speech = MethodChannel('dev.luisnquin.upgrade/speech');
+const _speech = MethodChannel(Channels.speech);
 
 ShellSession _session({String? command, String? title, PaneRef? pane}) =>
     ShellSession(number: 1, terminal: TerminalController(), host: _pine)

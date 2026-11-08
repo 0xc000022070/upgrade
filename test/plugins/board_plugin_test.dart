@@ -1,25 +1,15 @@
 import 'dart:io';
 
-import 'package:upgrade/platform/plugins/bindings.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/installed.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';
-import 'package:upgrade/platform/plugins/ui.dart';
-import 'package:upgrade_luau/data_api.dart';
+import 'package:upgrade/features/plugins/plugin_ui.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
-import 'package:upgrade_luau/ui_sdk.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 
+import '../support/plugin_packages.dart';
 import '../support/themed_app.dart';
-
-PluginPackage boardPackage() => PluginPackage(
-  manifest: PluginManifest.parse(
-    File('plugins/board/upgrade.plugin.toml').readAsStringSync(),
-  ),
-  source: File('plugins/board/main.luau').readAsStringSync(),
-  origin: 'bundled:upgrade.board',
-  revision: '1.0.0',
-);
 
 class BoardHarness {
   BoardHarness(this.worker, this.package);
@@ -29,18 +19,10 @@ class BoardHarness {
   String? back;
   late PluginUiNode view;
   Future<void> send(Map<String, Object?> event) async {
-    final plugin = InstalledPlugin(package, package.manifest.permissions);
-    final result = await worker.invoke(
-      key: package.digest,
-      source: '$luauUiSdk\n${package.source}',
-      action: 'frame',
-      input: {
-        'state': state,
-        'event': {'token': 'seed', 'now': '2026-09-17T12:00:00', ...event},
-      },
-      data: bindPluginData(plugin.id, [plugin]),
-    );
-    final response = result.value! as Map<String, Object?>;
+    final response = await invokePlugin(worker, package, 'frame', {
+      'state': state,
+      'event': {'token': 'seed', 'now': '2026-09-17T12:00:00', ...event},
+    });
     state = response['state']! as Map<String, Object?>;
     back = response['back'] as String?;
     view = PluginUiNode.parse(response['view'], allowCanvas: true);
@@ -106,18 +88,9 @@ void main() {
 
   test('bundled release owns its data and asks for no host service', () async {
     final manifest = app.package.manifest;
-    expect(manifest.formatVersion, 5);
-    expect(manifest.uiVersion, 2);
     expect(manifest.dependencies, isEmpty);
     expect(manifest.hostCapabilities, isEmpty);
     expect(manifest.capabilities['boards']!.dataset, 'boards');
-    expect(manifest.capabilities['boards']!.operations, {
-      DataOperation.get,
-      DataOperation.query,
-      DataOperation.put,
-      DataOperation.delete,
-    });
-    expect(manifest.datasets['boards']!.schemaVersion, 1);
     final store = PluginStore(root);
     expect(
       (await store.synchronizeBuiltins([

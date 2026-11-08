@@ -11,6 +11,7 @@ import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 import 'package:upgrade/platform/ssh/ssh_settle.dart';
+import 'package:upgrade/platform/engine_call.dart';
 import 'package:upgrade/platform/shell/daemon_link.dart';
 import 'package:upgrade/platform/shell/engine_channel.dart';
 import 'package:upgrade/platform/shell/liveness_watchdog.dart';
@@ -107,7 +108,7 @@ class ShellTunnel {
       height: rows,
     );
     final tab = tabSession;
-    if (tab != null && durableShellSession.hasMatch(tab)) {
+    if (tab != null && shellMark.hasMatch(tab)) {
       final place = '$user@$address:$port/$tab';
       final earlier = _resumes.remove(place);
       if (udpVerdicts.silent(address)) {
@@ -119,7 +120,7 @@ class ShellTunnel {
           user: user,
           columns: columns,
           rows: rows,
-          command: command ?? 'exec \$SHELL -l',
+          command: command ?? shellLogin,
           tabSession: tab,
           place: place,
           earlier: earlier,
@@ -132,7 +133,7 @@ class ShellTunnel {
                 address: address,
                 columns: columns,
                 rows: rows,
-                command: command ?? 'exec \$SHELL -l',
+                command: command ?? shellLogin,
                 tabSession: tab,
               );
         if (mosh != null) return mosh;
@@ -166,8 +167,7 @@ class ShellTunnel {
     EngineShellConnection? connection;
     try {
       final start = await _engineCall(
-        (command, stdin) =>
-            supervisor.exec(command, stdin: stdin, timeout: timeout),
+        _execOn(supervisor),
         owner: user,
         tab: tabSession,
         op: 'start',
@@ -257,8 +257,7 @@ class ShellTunnel {
           _resumes.remove(place);
           if (!started) return;
           await _engineCall(
-            (command, stdin) =>
-                supervisor.exec(command, stdin: stdin, timeout: timeout),
+            _execOn(supervisor),
             owner: user,
             tab: tabSession,
             op: 'stop',
@@ -270,6 +269,12 @@ class ShellTunnel {
       return null;
     }
   }
+
+  Future<ExecResult?> Function(String, Uint8List) _execOn(
+    ConnectionSupervisor supervisor,
+  ) =>
+      (command, stdin) =>
+          supervisor.exec(command, stdin: stdin, timeout: timeout);
 
   Future<int?> _relay(
     ConnectionSupervisor supervisor, {
@@ -283,14 +288,9 @@ class ShellTunnel {
         user: user,
         tab: tab,
         timeout: timeout,
-        start: () => _engineCall(
-          (command, stdin) =>
-              supervisor.exec(command, stdin: stdin, timeout: timeout),
-          service: 'daemon/1',
-          owner: user,
-          tab: tab,
-          op: 'start',
-          args: const {},
+        start: daemonStart(
+          user,
+          (request) => _engineReply(_execOn(supervisor), tab, request),
         ),
       );
     } catch (error) {
@@ -413,7 +413,7 @@ class ShellTunnel {
     ConnectionSupervisor supervisor,
     Object error,
   ) async {
-    if (!isHostFailure(error) && !isKeyFailure(error)) return false;
+    if (!isHostOrKeyFailure(error)) return false;
     if (error is! TimeoutException || error is ChannelOpenTimeout) return true;
     return !await supervisor.check();
   }
@@ -476,23 +476,28 @@ void _log(String endpoint, Object message) =>
 
 /// Null for anything unexpected: a bug in the layer above reads better as itself than as
 /// a reason line.
-ShellFailure? shellFailureFor(Object error, [HostKeyRefusal? refusal]) =>
-    switch (error) {
-      ShellFailure() => error,
-      _ => switch (classifyHostFailure(error, refusal)) {
-        null => null,
-        final kind => ShellFailure(switch (kind) {
-          HostFailureKind.unresolved => ShellFailureKind.unresolved,
-          HostFailureKind.unreachable => ShellFailureKind.unreachable,
-          HostFailureKind.keyRejected => ShellFailureKind.keyRejected,
-          HostFailureKind.refused => ShellFailureKind.shellRefused,
-          HostFailureKind.streamClosed => ShellFailureKind.streamClosed,
-          HostFailureKind.hostKeyUnverified =>
-            ShellFailureKind.hostKeyUnverified,
-          HostFailureKind.hostKeyChanged => ShellFailureKind.hostKeyChanged,
-        }, detail: _words(error)),
-      },
-    };
+HostFailure? shellFailureFor(Object error, [HostKeyRefusal? refusal]) {
+  final failure = translateHostFailure(
+    error,
+    refusal,
+    remap: const {},
+    words: _words,
+  );
+  return failure != null && shellFailureKinds.contains(failure.kind)
+      ? failure
+      : null;
+}
+
+/// The kinds a dial can end in; anything else is dropped to a closed stream and retried.
+const shellFailureKinds = {
+  HostFailureKind.unresolved,
+  HostFailureKind.unreachable,
+  HostFailureKind.keyRejected,
+  HostFailureKind.shellRefused,
+  HostFailureKind.streamClosed,
+  HostFailureKind.hostKeyUnverified,
+  HostFailureKind.hostKeyChanged,
+};
 
 String _words(Object error) => switch (error) {
   SSHSocketError() => _words(error.error),
@@ -686,8 +691,8 @@ abstract class _ChannelConnection<E> implements ShellConnection {
     _log(_supervisor.endpoint, why);
     if (!_out.isClosed) {
       _out.addError(
-        ShellFailure(
-          ShellFailureKind.streamClosed,
+        HostFailure(
+          HostFailureKind.streamClosed,
           detail: 'the $_name channel stopped answering',
         ),
       );
@@ -779,7 +784,7 @@ class MoshShellConnection extends _ChannelConnection<Uint8List> {
 
   @override
   Future<bool> terminateRemote(String session, {UserAction? action}) async {
-    if (!durableShellSession.hasMatch(session)) return false;
+    if (!shellMark.hasMatch(session)) return false;
     final channels = action == null ? _supervisor : await channelsFor(action);
     return channels != null && await _sweep(channels, session);
   }
@@ -830,35 +835,46 @@ class MoshShellConnection extends _ChannelConnection<Uint8List> {
   }
 }
 
+Future<Object?> _engineReply(
+  Future<ExecResult?> Function(String command, Uint8List stdin) run,
+  String tab,
+  Map<String, Object?> request,
+) async {
+  final result = await run(
+    '$moshTabVariable=${shellQuote(tab)} upgraded',
+    Uint8List.fromList(utf8.encode(jsonEncode(request))),
+  );
+  return result == null ? null : _decodeReply(result.out);
+}
+
 Future<Map<String, Object?>?> _engineCall(
   Future<ExecResult?> Function(String command, Uint8List stdin) run, {
-  String service = 'shell/1',
   required String owner,
   required String tab,
   required String op,
   required Map<String, Object?> args,
-}) async {
-  final result = await run(
-    '$moshTabVariable=${shellQuote(tab)} upgraded',
-    Uint8List.fromList(
-      utf8.encode(jsonEncode(engineRequest(service, op, args, owner: owner))),
-    ),
-  );
-  return result == null ? null : _engineResult(result.out);
-}
+}) async => _resultOf(
+  await _engineReply(
+    run,
+    tab,
+    engineRequest('shell/1', op, args, owner: owner),
+  ),
+);
 
-Map<String, Object?>? _engineResult(String out) {
-  final Object? reply;
+Object? _decodeReply(String out) {
   try {
-    reply = jsonDecode(out);
+    return jsonDecode(out);
   } on FormatException {
     // ignored: an unreadable reply is a failed call, as a refused one is.
     return null;
   }
-  if (reply is! Map<String, Object?> || reply['ok'] != true) return null;
-  final body = reply['result'];
-  return body is Map<String, Object?> ? body : null;
 }
+
+Map<String, Object?>? _resultOf(Object? reply) =>
+    switch (EngineReply.parse(reply)) {
+      EngineOk(:final result) => result,
+      _ => null,
+    };
 
 class EngineShellConnection extends _ChannelConnection<EngineEvent> {
   EngineShellConnection(
@@ -965,7 +981,7 @@ class EngineShellConnection extends _ChannelConnection<EngineEvent> {
 
   @override
   Future<bool> terminateRemote(String session, {UserAction? action}) async {
-    if (!durableShellSession.hasMatch(session)) return false;
+    if (!shellMark.hasMatch(session)) return false;
     if (session == tab) {
       _stopped = true;
       await _engine.close(end: true);
@@ -990,35 +1006,29 @@ class EngineShellConnection extends _ChannelConnection<EngineEvent> {
     String op,
     Map<String, Object?> args,
   ) async {
-    Future<Map<String, Object?>?> overSsh(
-      String service,
-      String op,
-      Map<String, Object?> args,
-    ) => _engineCall(
+    Future<Object?> overSsh(Map<String, Object?> request) => _engineReply(
       (command, stdin) =>
           channels.exec(command, stdin: stdin, timeout: remoteCommandDeadline),
-      service: service,
-      owner: owner,
-      tab: session,
-      op: op,
-      args: args,
+      session,
+      request,
     );
+    final request = engineRequest('shell/1', op, args, owner: owner);
     final String? answer;
     try {
       answer = await daemons.call(
         address: address,
         user: owner,
-        body: jsonEncode(engineRequest('shell/1', op, args, owner: owner)),
+        body: jsonEncode(request),
         timeout: remoteCommandDeadline,
-        start: () => overSsh('daemon/1', 'start', const {}),
+        start: daemonStart(owner, overSsh),
       );
     } catch (error) {
       _log(_supervisor.endpoint, 'engine $op through the daemon: $error');
       return null;
     }
-    return answer == null
-        ? overSsh('shell/1', op, args)
-        : _engineResult(answer);
+    return _resultOf(
+      answer == null ? await overSsh(request) : _decodeReply(answer),
+    );
   }
 
   @override
@@ -1170,8 +1180,7 @@ class SshShellConnection implements ShellConnection {
 
   @override
   Future<bool> terminateRemote(String session, {UserAction? action}) async =>
-      durableShellSession.hasMatch(session) &&
-      await _sweep(_supervisor, session);
+      shellMark.hasMatch(session) && await _sweep(_supervisor, session);
 
   /// Nothing to carry: a link the old network took fails its check and ends, which ends
   /// the pty as a lost stream, and the tab's schedule dials again.
@@ -1242,7 +1251,7 @@ class SshShellConnection implements ShellConnection {
     _failed = true;
     _out.addError(
       shellFailureFor(error) ??
-          ShellFailure(ShellFailureKind.streamClosed, detail: '$error'),
+          HostFailure(HostFailureKind.streamClosed, detail: '$error'),
     );
   }
 
@@ -1254,8 +1263,8 @@ class SshShellConnection implements ShellConnection {
     _stall = null;
     if (!_closed && code == null && signal == null && !_exit.isCompleted) {
       _onStreamError(
-        const ShellFailure(
-          ShellFailureKind.streamClosed,
+        const HostFailure(
+          HostFailureKind.streamClosed,
           detail: 'the link to the host ended',
         ),
       );

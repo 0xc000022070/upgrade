@@ -4,7 +4,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
@@ -120,7 +121,7 @@ class WorkspaceController extends ChangeNotifier {
       }
       _runner = runner;
       await _load(attempt);
-    } on HerdrFailure catch (error) {
+    } on HostFailure catch (error) {
       debugPrint('$appSlug.workspace ${host.name}: ${error.detail ?? error}');
       if (_disposed || attempt != _attempt) return;
       _fail(error.reason(host.name, address: host.address));
@@ -153,9 +154,8 @@ class WorkspaceController extends ChangeNotifier {
       _diffs(WorkspaceCommands.commitDiffAll(_directory, sha));
 
   Future<Map<String, List<DiffLine>>?> _diffs(String command) async {
-    final reply = await _run(command);
-    if (reply == null || !reply.ok) return null;
-    return parseDiffByFile(reply.stdout, complete: _whole(reply.stdout));
+    final out = await _stdout(command);
+    return out == null ? null : parseDiffByFile(out, complete: _whole(out));
   }
 
   /// Null when the command failed, which the sheet words as its own empty line rather than
@@ -167,9 +167,8 @@ class WorkspaceController extends ChangeNotifier {
     final command = file.untracked && against != DiffAgainst.staged
         ? WorkspaceCommands.newFileDiff(_directory, file.path)
         : WorkspaceCommands.fileDiff(_directory, file.path, against: against);
-    final reply = await _run(command);
-    if (reply == null || !reply.ok) return null;
-    return parseDiff(reply.stdout, complete: _whole(reply.stdout));
+    final out = await _stdout(command);
+    return out == null ? null : parseDiff(out, complete: _whole(out));
   }
 
   Future<Map<String, FileTexts>?> texts(
@@ -182,34 +181,29 @@ class WorkspaceController extends ChangeNotifier {
         if (!file.binary) (file.path, file.origin),
     ]);
     if (readable.isEmpty) return const {};
-    final reply = await _run(
+    final out = await _stdout(
       WorkspaceCommands.texts(_directory, readable, sha: sha, against: against),
       quiet: true,
     );
-    if (reply == null || !reply.ok) return null;
-    return parseFileTexts(reply.stdout, [
-      for (final (path, _) in readable) path,
-    ]);
+    if (out == null) return null;
+    return parseFileTexts(out, [for (final (path, _) in readable) path]);
   }
 
   Future<List<Commit>?> commits() async {
-    final reply = await _run(WorkspaceCommands.commits(_directory));
-    if (reply == null || !reply.ok) return null;
-    return parseCommits(reply.stdout);
+    final out = await _stdout(WorkspaceCommands.commits(_directory));
+    return out == null ? null : parseCommits(out);
   }
 
   Future<List<WorkspaceFile>?> commitFiles(String sha) async {
-    final reply = await _run(WorkspaceCommands.commitFiles(_directory, sha));
-    if (reply == null || !reply.ok) return null;
-    return parseCommitFiles(reply.stdout);
+    final out = await _stdout(WorkspaceCommands.commitFiles(_directory, sha));
+    return out == null ? null : parseCommitFiles(out);
   }
 
   Future<List<DiffLine>?> commitDiff(String sha, String path) async {
-    final reply = await _run(
+    final out = await _stdout(
       WorkspaceCommands.commitDiff(_directory, sha, path),
     );
-    if (reply == null || !reply.ok) return null;
-    return parseDiff(reply.stdout, complete: _whole(reply.stdout));
+    return out == null ? null : parseDiff(out, complete: _whole(out));
   }
 
   /// `head` counted bytes, so only the encoded length can be compared with the number it
@@ -220,9 +214,8 @@ class WorkspaceController extends ChangeNotifier {
 
   /// [path] relative to [directory], empty for the root itself.
   Future<List<Commit>?> fileLog(String path) async {
-    final reply = await _run(WorkspaceCommands.fileLog(_directory, path));
-    if (reply == null || !reply.ok) return null;
-    return parseCommits(reply.stdout);
+    final out = await _stdout(WorkspaceCommands.fileLog(_directory, path));
+    return out == null ? null : parseCommits(out);
   }
 
   Future<String?> stage(List<String> paths) =>
@@ -236,29 +229,6 @@ class WorkspaceController extends ChangeNotifier {
 
   Future<String?> push() => _write(WorkspaceCommands.push(_directory));
 
-  Future<String?> discard(List<String> paths, {required bool untracked}) =>
-      _write(
-        WorkspaceCommands.discard(_directory, paths, untracked: untracked),
-      );
-
-  Future<String?> apply(
-    String patch, {
-    required bool cached,
-    required bool reverse,
-  }) {
-    if (utf8.encode(patch).length > workspacePatchBytes) {
-      return Future.value('too large to send');
-    }
-    return _write(
-      WorkspaceCommands.apply(
-        _directory,
-        patch,
-        cached: cached,
-        reverse: reverse,
-      ),
-    );
-  }
-
   Future<String?> _write(String command) async {
     final reply = await _run(command);
     if (_disposed) return null;
@@ -270,16 +240,12 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   Future<List<DirEntry>?> list(String path) async {
-    final reply = await _run(WorkspaceCommands.listing(_directory, path));
-    if (reply == null || !reply.ok) return null;
-    return parseListing(reply.stdout);
+    final out = await _stdout(WorkspaceCommands.listing(_directory, path));
+    return out == null ? null : parseListing(out);
   }
 
-  Future<String?> read(String path) async {
-    final reply = await _run(WorkspaceCommands.file(_directory, path));
-    if (reply == null || !reply.ok) return null;
-    return reply.stdout;
-  }
+  Future<String?> read(String path) =>
+      _stdout(WorkspaceCommands.file(_directory, path));
 
   Future<void> _load(int attempt) async {
     final directory = _directory;
@@ -304,16 +270,21 @@ class WorkspaceController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<String?> _stdout(String command, {bool quiet = false}) async {
+    final reply = await _run(command, quiet: quiet);
+    return reply == null || !reply.ok ? null : reply.stdout;
+  }
+
   /// Null when the connection is gone. The reason is shown on the way past, unless [quiet].
   Future<WorkspaceReply?> _run(String command, {bool quiet = false}) async {
     final runner = _runner;
     if (runner == null) return null;
     try {
       return await runner.run(command);
-    } on HerdrFailure catch (error) {
+    } on HostFailure catch (error) {
       debugPrint('$appSlug.workspace ${host.name}: ${error.detail ?? error}');
       if (_disposed || quiet || !identical(_runner, runner)) return null;
-      if (error is! HerdrBusy) {
+      if (error.kind != HostFailureKind.busy) {
         _runner = null;
         unawaited(runner.close());
       }
@@ -331,7 +302,6 @@ class WorkspaceController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    // Fire and forget: the route is going and nothing is left to await it.
     final runner = _runner;
     _runner = null;
     if (runner != null) unawaited(runner.close());

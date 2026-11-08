@@ -10,8 +10,6 @@ abstract final class FontFamilies {
   static const mono = 'IBM Plex Mono';
 
   static const monoSymbols = 'Symbols Nerd Font Mono';
-
-  static const count = 4;
 }
 
 abstract final class UpgradeText {

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -7,6 +6,7 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:upgrade/platform/channels.dart';
+import 'package:upgrade/platform/native_replies.dart';
 
 abstract interface class ChatLink {
   Future<Object?> call(Map<String, Object?> request);
@@ -36,14 +36,12 @@ typedef _Free = Void Function(Pointer<Utf8>);
 typedef _FreeDart = void Function(Pointer<Utf8>);
 
 class NativeChatLink implements ChatLink {
-  NativeChatLink._(this._call, this._free);
+  NativeChatLink._(this._call, this._replies);
 
   final _CallDart _call;
-  final _FreeDart _free;
-  final _pending = <int, Completer<Object?>>{};
+  final NativeReplies _replies;
   final _events = StreamController<Map<String, Object?>>.broadcast();
   final _started = Completer<void>();
-  var _next = 0;
 
   static Future<NativeChatLink>? _link;
 
@@ -58,7 +56,9 @@ class NativeChatLink implements ChatLink {
     final library = DynamicLibrary.open('libupgrade_chat.so');
     final link = NativeChatLink._(
       library.lookupFunction<_Call, _CallDart>('upgrade_chat_call'),
-      library.lookupFunction<_Free, _FreeDart>('upgrade_chat_free'),
+      NativeReplies(
+        library.lookupFunction<_Free, _FreeDart>('upgrade_chat_free'),
+      ),
     );
     final callback = NativeCallable<_Callback>.listener(link._receive);
     final path = dir!.toNativeUtf8();
@@ -72,10 +72,9 @@ class NativeChatLink implements ChatLink {
   }
 
   void _receive(Pointer<Utf8> text) {
-    final message = jsonDecode(text.toDartString()) as Map<String, Object?>;
-    _free(text);
+    final message = _replies.decode(text);
     if (message['reply'] case final int id) {
-      final pending = _pending.remove(id);
+      final pending = _replies.take(id);
       if (message['error'] case final String error) {
         pending?.completeError(ChatException(error));
       } else {
@@ -96,15 +95,8 @@ class NativeChatLink implements ChatLink {
   }
 
   @override
-  Future<Object?> call(Map<String, Object?> request) {
-    final id = _next++;
-    final done = Completer<Object?>();
-    _pending[id] = done;
-    final text = jsonEncode(request).toNativeUtf8();
-    _call(id, text);
-    malloc.free(text);
-    return done.future;
-  }
+  Future<Object?> call(Map<String, Object?> request) =>
+      _replies.send(request, _call);
 
   @override
   Stream<Map<String, Object?>> get events => _events.stream;

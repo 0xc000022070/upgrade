@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:upgrade/design/effects/glitch.dart';
 
 const navDestinationCount = 4;
+const homeNavIndex = 0;
+const hostsNavIndex = 2;
 
 final navIndexProvider = StateProvider<int>((ref) => 0);
 

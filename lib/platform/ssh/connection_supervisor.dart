@@ -95,6 +95,7 @@ import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/platform/ssh/host_files.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';

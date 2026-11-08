@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/plugins/plugin_placements.dart';
 import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
-import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/data/plugins/contributions.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/repositories/activity_repository.dart';

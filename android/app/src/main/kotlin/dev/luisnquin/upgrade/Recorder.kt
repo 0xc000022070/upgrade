@@ -25,8 +25,6 @@ class Recorder(private val channel: MethodChannel) {
 
     @Volatile private var running = false
 
-    val recording get() = record != null
-
     @SuppressLint("MissingPermission")
     fun start(): Boolean {
         if (record != null) return true

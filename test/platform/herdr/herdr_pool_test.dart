@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/herdr/herdr_pool.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
@@ -8,6 +9,7 @@ import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/ssh/ssh_settle.dart';
 
 import '../../support/host_links.dart';
+import '../../support/host_failure_matchers.dart';
 
 class _Session implements HerdrSession {
   _Session(this.lease);
@@ -21,7 +23,7 @@ class _Session implements HerdrSession {
   Future<List<AgentSnapshot>> list() async {
     final pending = gate;
     if (pending != null) return pending.future;
-    if (broken) throw const HerdrUnreachable('dropped');
+    if (broken) throw const HostFailure.unreachable('dropped');
     return const [];
   }
 
@@ -85,7 +87,7 @@ void main() {
     await pumpEventQueue();
     first
       ..broken = true
-      ..gate!.completeError(const HerdrUnreachable('dropped'));
+      ..gate!.completeError(const HostFailure.unreachable('dropped'));
     await Future.wait([a, b]);
 
     expect(rig.sessions, hasLength(2));
@@ -96,7 +98,10 @@ void main() {
 
   test('a refused dial fails the fetch and nothing else', () async {
     final rig = _Rig(dial: FakeDial(refuse: true));
-    await expectLater(rig.fetch(), throwsA(isA<HerdrUnreachable>()));
+    await expectLater(
+      rig.fetch(),
+      throwsA(isFailureOf(HostFailureKind.unreachable)),
+    );
     await pumpEventQueue();
     rig.close();
   });
@@ -152,13 +157,13 @@ void main() {
     tester,
   ) async {
     final rig = _Rig(dial: FakeDial(slowAuth: true));
-    final failures = <HerdrFailure>[];
+    final failures = <HostFailure>[];
     var polling = true;
     unawaited(() async {
       while (polling) {
         try {
           await rig.fetch();
-        } on HerdrFailure catch (failure) {
+        } on HostFailure catch (failure) {
           failures.add(failure);
         }
         await Future<void>.delayed(const Duration(seconds: 10));
@@ -168,7 +173,10 @@ void main() {
 
     expect(rig.dial.dials, 1);
     expect(failures, isNotEmpty);
-    expect(failures.every((failure) => failure is HerdrUnreachable), isTrue);
+    expect(
+      failures.every((failure) => failure.kind == HostFailureKind.unreachable),
+      isTrue,
+    );
 
     polling = false;
     rig.close();

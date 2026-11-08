@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/static_surface.dart';
 import 'package:upgrade/application/plugins/plugins.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
-import 'package:upgrade/features/settings/plugins_panel.dart';
+import 'package:upgrade/features/plugins/plugins_panel.dart';
 import 'package:upgrade/features/plugins/plugin_catalog.dart';
 import 'package:upgrade/brand.dart';
 

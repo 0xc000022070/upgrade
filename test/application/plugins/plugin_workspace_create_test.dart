@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:upgrade/application/plugins/plugin_development.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/plugin_check.dart';
 import 'package:upgrade/platform/plugins/plugin_template.dart';
 

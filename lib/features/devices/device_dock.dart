@@ -4,7 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/devices/device_link.dart';

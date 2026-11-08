@@ -4,6 +4,8 @@ import 'dart:ui' show Offset, Size;
 
 import 'package:flutter/foundation.dart';
 
+import 'package:upgrade/platform/ssh/host_failure.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/vnc/framebuffer.dart';
@@ -90,7 +92,6 @@ class HostScreenController extends ChangeNotifier {
   bool _resumeAttended = false;
   Framebuffer? _lastFramebuffer;
   Size _framebufferSize = Size.zero;
-  Duration? _lastFrame;
   bool _disposed = false;
 
   static const _summaryEvery = Duration(seconds: 10);
@@ -115,8 +116,6 @@ class HostScreenController extends ChangeNotifier {
   /// The decoded one rather than the newest arrival: a frame that failed to decode was
   /// never on screen.
   Framebuffer? get lastFramebuffer => _lastFramebuffer;
-
-  Duration? get lastFrameTime => _lastFrame;
 
   VncServer get server => VncServer.named(_connection?.serverInit.name ?? '');
 
@@ -157,7 +156,7 @@ class HostScreenController extends ChangeNotifier {
     if (privateKey == null) {
       // The host names a key whose secret is gone from the keystore. There is nothing to offer
       // the host, which from here is a rejected key.
-      _fail(VncKeyRejected('no private key stored for ${host.keyId}'));
+      _fail(HostFailure.keyRejected('no private key stored for ${host.keyId}'));
       return;
     }
 
@@ -246,7 +245,6 @@ class HostScreenController extends ChangeNotifier {
       // the next GC gets to it.
       previous?.dispose();
       _lastFramebuffer = framebuffer;
-      _lastFrame = watch.elapsed;
       _frameCount++;
       _framebufferSize = size;
       if (reshaped) notifyListeners();
@@ -358,14 +356,15 @@ class HostScreenController extends ChangeNotifier {
 
   void _fail(Object error) {
     if (_disposed) return;
-    final failure = asVncFailure(error) ?? VncStreamClosed('$error');
+    final failure = asVncFailure(error) ?? HostFailure.streamClosed('$error');
     _log(failure.detail ?? error);
     _phase = ScreenFailed(
       failure.reason(host.name, address: host.address),
-      editHost:
-          failure is VncPasswordNeeded ||
-          failure is VncUsernameNeeded ||
-          failure is VncAuthRejected,
+      editHost: const {
+        HostFailureKind.passwordNeeded,
+        HostFailureKind.usernameNeeded,
+        HostFailureKind.authRejected,
+      }.contains(failure.kind),
     );
     notifyListeners();
     // The connection is dropped, not kept for the retry: a retry opens a fresh one, and

@@ -1,13 +1,13 @@
 import 'package:flutter/services.dart';
 
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade/builtin_plugins/agents/main.dart';
 import 'package:upgrade/builtin_plugins/chat/main.dart';
 import 'package:upgrade/builtin_plugins/drops/main.dart';
 import 'package:upgrade/builtin_plugins/projects/main.dart';
 import 'package:upgrade/builtin_plugins/prompt/main.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/module.dart';
-import 'package:upgrade/platform/plugins/store.dart';
 
 const builtinModules = <NativePluginModule>[
   agentsPlugin,

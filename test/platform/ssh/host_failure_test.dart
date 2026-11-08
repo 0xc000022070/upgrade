@@ -4,11 +4,12 @@ import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/platform/herdr/herdr_socket.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/shell/shell_tunnel.dart';
 import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/vnc/vnc_failure.dart';
+
+import '../../support/host_failure_matchers.dart';
 
 void main() {
   const lookup = SocketException(
@@ -72,7 +73,7 @@ void main() {
       'channel open',
       SSHChannelOpenError(1, 'administratively prohibited'),
       null,
-      HostFailureKind.refused,
+      HostFailureKind.shellRefused,
     ),
     (
       'refusal wins',
@@ -96,24 +97,64 @@ void main() {
     });
   }
 
-  test('herdr unwraps what the shell unwraps', () {
-    expect(asHerdrFailure(SSHSocketError(lookup)), isA<HerdrUnresolved>());
-    expect(
-      asHerdrFailure(SSHAuthAbortError('x', SSHHostkeyError('x'))),
-      isA<HerdrHostKeyChanged>(),
-    );
-    expect(
-      shellFailureFor(SSHSocketError(lookup))?.kind,
-      ShellFailureKind.unresolved,
-    );
-    expect(asVncFailure(SSHSocketError(lookup)), isA<VncUnresolved>());
-  });
-
   test('a refused channel is worded by the surface that asked for it', () {
     final error = SSHChannelOpenError(1, 'administratively prohibited');
 
-    expect(shellFailureFor(error)?.kind, ShellFailureKind.shellRefused);
+    expect(shellFailureFor(error)?.kind, HostFailureKind.shellRefused);
     expect(asVncFailure(error)!.reason('oak'), 'tunnel refused');
-    expect(asHerdrFailure(error), isA<HerdrUnreachable>());
+    expect(asHostFailure(error), isFailureOf(HostFailureKind.unreachable));
+  });
+
+  group('translated for a surface', () {
+    for (final (name, error, hostKind, vncKind)
+        in <(String, Object, HostFailureKind, HostFailureKind)>[
+          (
+            'lookup',
+            lookup,
+            HostFailureKind.unresolved,
+            HostFailureKind.unresolved,
+          ),
+          (
+            'auth failed',
+            SSHAuthFailError('x'),
+            HostFailureKind.keyRejected,
+            HostFailureKind.keyRejected,
+          ),
+          (
+            'host key',
+            SSHHostkeyError('x'),
+            HostFailureKind.hostKeyChanged,
+            HostFailureKind.hostKeyChanged,
+          ),
+          (
+            'busy',
+            const HostFailure.busy('slots'),
+            HostFailureKind.busy,
+            HostFailureKind.unreachable,
+          ),
+          (
+            'closed',
+            SSHStateError('closed'),
+            HostFailureKind.unreachable,
+            HostFailureKind.streamClosed,
+          ),
+          (
+            'channel open',
+            SSHChannelOpenError(1, 'no'),
+            HostFailureKind.unreachable,
+            HostFailureKind.tunnelRefused,
+          ),
+        ]) {
+      test(name, () {
+        expect(asHostFailure(error), isFailureOf(hostKind));
+        expect(asVncFailure(error), isFailureOf(vncKind));
+      });
+    }
+
+    test('a failure keeps its own detail and a bug stays a bug', () {
+      expect(asVncFailure(const HostFailure.busy('slots'))!.detail, 'slots');
+      expect(asHostFailure(StateError('mine')), isNull);
+      expect(asVncFailure(StateError('mine')), isNull);
+    });
   });
 }

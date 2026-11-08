@@ -155,7 +155,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
 
-        MethodChannel(messenger, "dev.luisnquin.upgrade/device")
+        MethodChannel(messenger, Channels.DEVICE)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "model" -> result.success(Build.MODEL)
@@ -196,13 +196,13 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
-        shared = MethodChannel(messenger, "dev.luisnquin.upgrade/files").also { channel ->
+        shared = MethodChannel(messenger, Channels.FILES).also { channel ->
             channel.setMethodCallHandler(files::handle)
             SharedInbox.listener = { channel.invokeMethod("shared", null) }
             TransferService.listener = { channel.invokeMethod(it, null) }
         }
 
-        launcher = MethodChannel(messenger, LauncherWidget.CHANNEL).also { channel ->
+        launcher = MethodChannel(messenger, Channels.LAUNCHER).also { channel ->
             channel.setMethodCallHandler { call, result ->
                 if (call.method == "take" && !hasWindowFocus()) {
                     result.success(null)
@@ -213,7 +213,7 @@ class MainActivity : FlutterActivity() {
             channel.invokeMethod("app", null)
         }
 
-        MethodChannel(messenger, "dev.luisnquin.upgrade/pip")
+        MethodChannel(messenger, Channels.PIP)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "available" -> result.success(pipAvailable())
@@ -224,15 +224,15 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
-        MethodChannel(messenger, "dev.luisnquin.upgrade/linux")
+        MethodChannel(messenger, Channels.LINUX)
             .setMethodCallHandler { call, result ->
                 PhoneLinux.handle(this, call.method, call.arguments as? Map<*, *>, result)
             }
 
-        MethodChannel(messenger, "dev.luisnquin.upgrade/browser")
+        MethodChannel(messenger, Channels.BROWSER)
             .setMethodCallHandler { call, result -> BrowserProxy.handle(this, call, result) }
 
-        val speech = MethodChannel(messenger, "dev.luisnquin.upgrade/speech")
+        val speech = MethodChannel(messenger, Channels.SPEECH)
         dictation?.destroy()
         dictation = Dictation(this, speech).also { speech.setMethodCallHandler(it::handle) }
 
@@ -243,11 +243,11 @@ class MainActivity : FlutterActivity() {
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         super.cleanUpFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
-        MethodChannel(messenger, "dev.luisnquin.upgrade/device").setMethodCallHandler(null)
-        MethodChannel(messenger, "dev.luisnquin.upgrade/pip").setMethodCallHandler(null)
-        MethodChannel(messenger, "dev.luisnquin.upgrade/speech").setMethodCallHandler(null)
-        MethodChannel(messenger, "dev.luisnquin.upgrade/linux").setMethodCallHandler(null)
-        MethodChannel(messenger, "dev.luisnquin.upgrade/browser").setMethodCallHandler(null)
+        MethodChannel(messenger, Channels.DEVICE).setMethodCallHandler(null)
+        MethodChannel(messenger, Channels.PIP).setMethodCallHandler(null)
+        MethodChannel(messenger, Channels.SPEECH).setMethodCallHandler(null)
+        MethodChannel(messenger, Channels.LINUX).setMethodCallHandler(null)
+        MethodChannel(messenger, Channels.BROWSER).setMethodCallHandler(null)
         shared?.setMethodCallHandler(null)
         shared = null
         SharedInbox.listener = null
@@ -425,7 +425,7 @@ internal object UpgradeEngine {
         if (streamed) return
         streamed = true
 
-        EventChannel(messenger, "dev.luisnquin.upgrade/pip/mode")
+        EventChannel(messenger, Channels.PIP_MODE)
             .setStreamHandler(object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
                     pipEvents = sink
@@ -439,12 +439,12 @@ internal object UpgradeEngine {
                 }
             })
 
-        EventChannel(messenger, "dev.luisnquin.upgrade/device/throttle")
+        EventChannel(messenger, Channels.DEVICE_THROTTLE)
             .setStreamHandler(
                 ThrottleStreamHandler(context, context.getSystemService(Context.POWER_SERVICE) as PowerManager),
             )
 
-        EventChannel(messenger, "dev.luisnquin.upgrade/linux/state")
+        EventChannel(messenger, Channels.LINUX_STATE)
             .setStreamHandler(object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
                     PhoneLinux.sink = sink
@@ -456,7 +456,7 @@ internal object UpgradeEngine {
                 }
             })
 
-        EventChannel(messenger, "dev.luisnquin.upgrade/device/network")
+        EventChannel(messenger, Channels.DEVICE_NETWORK)
             .setStreamHandler(
                 NetworkStreamHandler(
                     context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager,

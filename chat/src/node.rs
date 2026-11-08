@@ -342,7 +342,6 @@ impl Node {
             "open" => self.view(&text("record"), index()).await,
             "close" => self.close(&text("path")),
             "verify" => self.edit(&text("record"), |c| c.verified = true).await,
-            "rename" => self.edit(&text("record"), |c| c.name = text("name")).await,
             "remove" => self.remove(&text("record")).await,
             _ => Err(Error(format!("unknown op {op}"))),
         }

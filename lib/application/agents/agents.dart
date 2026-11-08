@@ -6,33 +6,44 @@ import 'package:flutter_riverpod/legacy.dart';
 
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/platform/herdr/engine_agents.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/herdr/herdr_pool.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
-import 'package:upgrade/platform/ssh/host_key_dial.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
-import 'package:upgrade/application/agents/reason_lines.dart';
-import 'package:upgrade/application/alerts/watcher_backoff.dart';
+import 'package:upgrade/platform/herdr/agent_state.dart';
+import 'package:upgrade/application/app_lifecycle.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
+import 'package:upgrade/platform/reason_lines.dart';
+import 'package:upgrade/platform/herdr/watcher_backoff.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/brand.dart';
 
 enum AgentOutcomeKind {
-  snapshot,
-  unreachable,
-  unresolved,
-  keyRejected,
-  protocolMismatch,
-  noEngine,
-  noHerdr,
+  snapshot(null),
+  unreachable(HostFailureKind.unreachable),
+  unresolved(HostFailureKind.unresolved),
+  keyRejected(HostFailureKind.keyRejected),
+  protocolMismatch(HostFailureKind.protocolMismatch),
+  noEngine(HostFailureKind.noEngine),
+  noHerdr(HostFailureKind.noHerdr),
+  hostKeyUnverified(HostFailureKind.hostKeyUnverified),
+  hostKeyChanged(HostFailureKind.hostKeyChanged),
+  busy(HostFailureKind.busy);
 
-  hostKeyUnverified,
+  const AgentOutcomeKind(this.failure);
 
-  hostKeyChanged,
+  final HostFailureKind? failure;
 
-  busy;
+  static AgentOutcomeKind of(HostFailure failure) => values.firstWhere(
+    (kind) => kind.failure == failure.kind,
+    orElse: () => unreachable,
+  );
+
+  bool get unanswered => switch (this) {
+    unreachable || unresolved || busy => true,
+    _ => false,
+  };
 
   /// sshd counts failed authentications per source and locks the client out for an hour;
   /// a refused credential is never knocked on again.
@@ -64,24 +75,15 @@ class HostOutcome {
 
   bool get ok => kind == AgentOutcomeKind.snapshot;
 
-  ReasonLine? get _line => switch (kind) {
-    AgentOutcomeKind.snapshot => null,
-    AgentOutcomeKind.unreachable => ReasonLine.unreachable,
-    AgentOutcomeKind.unresolved => ReasonLine.unresolved,
-    AgentOutcomeKind.keyRejected => ReasonLine.keyRejected,
-    AgentOutcomeKind.protocolMismatch => ReasonLine.protocolMismatch,
-    AgentOutcomeKind.noEngine => ReasonLine.noEngine,
-    AgentOutcomeKind.noHerdr => ReasonLine.noHerdr,
-    AgentOutcomeKind.hostKeyUnverified => ReasonLine.hostKeyUnverified,
-    AgentOutcomeKind.hostKeyChanged => ReasonLine.hostKeyChanged,
-    AgentOutcomeKind.busy => ReasonLine.hostBusy,
-  };
+  ReasonLine? get _line => kind.failure?.line;
 
   String get reason {
-    if (kind == AgentOutcomeKind.protocolMismatch) {
-      return protocolLine(protocol);
-    }
-    return _line?.on(host.name, address: host.address) ?? '';
+    return _line?.reason(
+          host.name,
+          address: host.address,
+          protocol: protocol,
+        ) ??
+        '';
   }
 
   String get namedReason {
@@ -211,89 +213,6 @@ String agentSnapshotAge(DateTime now, DateTime timestamp) {
   return '${age.inHours}h ago';
 }
 
-final keyRepositoryProvider = Provider<KeyRepository>(
-  (ref) => InMemoryKeyRepository(),
-);
-
-final hostRepositoryProvider = Provider<HostRepository>(
-  (ref) => InMemoryHostRepository(),
-);
-
-final privateKeyStoreProvider = Provider<PrivateKeyStore>(
-  (ref) => CachingPrivateKeyStore(const SecurePrivateKeyStore()),
-);
-
-final ed25519KeysProvider = Provider(
-  (ref) => Ed25519Keys(ref.watch(privateKeyStoreProvider)),
-);
-
-final managedKeysProvider = StreamProvider<List<ManagedKey>>(
-  (ref) => ref.watch(keyRepositoryProvider).watchAll(),
-);
-
-final hostsProvider = StreamProvider<List<Host>>(
-  (ref) => ref.watch(hostRepositoryProvider).watchAll(),
-);
-
-final registeredHostProvider = Provider.family<Host?, String>(
-  (ref, id) => ref
-      .watch(hostsProvider)
-      .value
-      ?.where((host) => host.id == id)
-      .firstOrNull,
-);
-
-final herdrHostsProvider = StreamProvider<List<Host>>(
-  (ref) => ref
-      .watch(hostRepositoryProvider)
-      .watchWithIntegration(IntegrationKind.herdr),
-);
-
-final engineHostsProvider = StreamProvider<List<Host>>(
-  (ref) => ref
-      .watch(hostRepositoryProvider)
-      .watchWithIntegration(IntegrationKind.agents),
-);
-
-final deviceHostsProvider = StreamProvider<List<Host>>(
-  (ref) => ref
-      .watch(hostRepositoryProvider)
-      .watchWithIntegration(IntegrationKind.devices),
-);
-
-final vncHostsProvider = StreamProvider<List<Host>>(
-  (ref) => ref
-      .watch(hostRepositoryProvider)
-      .watchWithIntegration(IntegrationKind.vnc),
-);
-
-class ScreenHost {
-  const ScreenHost(this.host, {required this.desktop, required this.devices});
-
-  final Host host;
-  final bool desktop;
-  final bool devices;
-}
-
-final screenHostsProvider = Provider<List<ScreenHost>?>((ref) {
-  final desktops = ref.watch(vncHostsProvider).value;
-  final devices = ref.watch(deviceHostsProvider).value;
-  if (desktops == null || devices == null) return null;
-  final desktopIds = {for (final host in desktops) host.id};
-  final deviceIds = {for (final host in devices) host.id};
-  final hosts = {
-    for (final host in [...desktops, ...devices]) host.id: host,
-  }.values.toList()..sort((a, b) => a.name.compareTo(b.name));
-  return [
-    for (final host in hosts)
-      ScreenHost(
-        host,
-        desktop: desktopIds.contains(host.id),
-        devices: deviceIds.contains(host.id),
-      ),
-  ];
-});
-
 Stream<List<AgentChannel>> watchAgentChannels(HostRepository repository) {
   late final StreamController<List<AgentChannel>> controller;
   final subscriptions = <StreamSubscription<List<Host>>>[];
@@ -340,53 +259,7 @@ final agentChannelsProvider = StreamProvider<List<AgentChannel>>(
   (ref) => watchAgentChannels(ref.watch(hostRepositoryProvider)),
 );
 
-final hostIntegrationsProvider =
-    StreamProvider.family<Set<IntegrationKind>, String>(
-      (ref, hostId) =>
-          ref.watch(hostRepositoryProvider).watchIntegrations(hostId),
-    );
-
 final homeAgentsVisibleProvider = StateProvider<bool>((ref) => false);
-
-class AppLifecycleReading extends StateNotifier<bool>
-    with WidgetsBindingObserver {
-  AppLifecycleReading(this.reads)
-    : super(reads(WidgetsBinding.instance.lifecycleState ?? _resumed)) {
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  static const _resumed = AppLifecycleState.resumed;
-
-  final bool Function(AppLifecycleState state) reads;
-
-  Stream<bool> get readings async* {
-    yield state;
-    yield* stream;
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    this.state = reads(state);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-}
-
-final appForegroundProvider = StateNotifierProvider<AppLifecycleReading, bool>(
-  (ref) => AppLifecycleReading((state) => state == AppLifecycleState.resumed),
-);
-
-final appVisibleProvider = StateNotifierProvider<AppLifecycleReading, bool>(
-  (ref) => AppLifecycleReading(
-    (state) =>
-        state == AppLifecycleState.resumed ||
-        state == AppLifecycleState.inactive,
-  ),
-);
 
 typedef HerdrFetch = Future<List<AgentSnapshot>> Function({
   required String address,
@@ -394,17 +267,6 @@ typedef HerdrFetch = Future<List<AgentSnapshot>> Function({
   required String user,
   required String privateKey,
   required HostKeyVerifier verifier,
-});
-
-final hostKeyPinsProvider = Provider<HostKeyPins>((ref) {
-  final hosts = ref.watch(hostRepositoryProvider);
-  return HostKeyPins(store: hosts.pinHostKey, forget: hosts.forgetHostKey);
-});
-
-final hostLinksProvider = Provider<HostLinks>((ref) {
-  final links = HostLinks();
-  ref.onDispose(links.close);
-  return links;
 });
 
 final herdrFetchProvider = Provider<HerdrFetch>((ref) {
@@ -448,7 +310,7 @@ final engineOpenProvider = Provider<EngineOpen>((ref) {
   return (host) async {
     final privateKey = await keys.privateKey(host.keyId);
     if (privateKey == null) {
-      throw HerdrKeyRejected('no private key stored for ${host.keyId}');
+      throw HostFailure.keyRejected('no private key stored for ${host.keyId}');
     }
     final session = HerdrSession.borrowed(
       await links.lease(
@@ -463,8 +325,6 @@ final engineOpenProvider = Provider<EngineOpen>((ref) {
     return EngineAgents(session, owner: host.user);
   };
 });
-
-final hostKeyDialProvider = Provider<HostKeyDial>((ref) => HostLinks.probe);
 
 class _AgentSnapshotCache {
   final Map<String, _CachedSnapshot> _hosts = {};
@@ -570,13 +430,7 @@ Stream<AgentPanelState> _pollHosts(
           ]),
         );
         if (!outcome.kind.retryable) return;
-        final unanswered = switch (outcome.kind) {
-          AgentOutcomeKind.unreachable ||
-          AgentOutcomeKind.unresolved ||
-          AgentOutcomeKind.busy => true,
-          _ => false,
-        };
-        if (unanswered) {
+        if (outcome.kind.unanswered) {
           backoff.advance();
           await Future<void>.delayed(backoff.current);
         } else {
@@ -651,22 +505,9 @@ Future<HostOutcome> _poll(
       agents: cache.agents,
       lastGoodAt: cache.receivedAt,
     );
-  } on HerdrFailure catch (error) {
+  } on HostFailure catch (error) {
     log(error.detail ?? error);
-    return switch (error) {
-      HerdrKeyRejected() => failure(AgentOutcomeKind.keyRejected),
-      HerdrProtocolMismatch() => failure(
-        AgentOutcomeKind.protocolMismatch,
-        protocol: error.protocol,
-      ),
-      HerdrUnresolved() => failure(AgentOutcomeKind.unresolved),
-      HerdrUnreachable() => failure(AgentOutcomeKind.unreachable),
-      HerdrBusy() => failure(AgentOutcomeKind.busy),
-      EngineMissing() => failure(AgentOutcomeKind.noEngine),
-      HerdrMissing() => failure(AgentOutcomeKind.noHerdr),
-      HerdrHostKeyUnverified() => failure(AgentOutcomeKind.hostKeyUnverified),
-      HerdrHostKeyChanged() => failure(AgentOutcomeKind.hostKeyChanged),
-    };
+    return failure(AgentOutcomeKind.of(error), protocol: error.protocol);
   } on EngineRefused catch (error) {
     log(error);
     return failure(AgentOutcomeKind.protocolMismatch);
@@ -727,20 +568,9 @@ class AgentStates {
 }
 
 String agentTally(List<HostOutcome> outcomes) {
-  var blocked = 0;
-  var working = 0;
-  for (final outcome in outcomes) {
-    if (!outcome.ok) continue;
-    for (final agent in outcome.agents) {
-      if (agent.state.blocked) {
-        blocked++;
-      } else if (agent.state.active) {
-        working++;
-      }
-    }
-  }
+  final states = AgentStates.of(outcomes);
   return [
-    if (blocked > 0) '$blocked BLOCKED',
-    if (working > 0) '$working WORKING',
+    if (states.blocked > 0) '${states.blocked} BLOCKED',
+    if (states.working > 0) '${states.working} WORKING',
   ].join(' · ');
 }

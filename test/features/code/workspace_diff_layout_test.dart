@@ -454,7 +454,7 @@ new file mode 100644
       await tapFile(tester, 'scratch.txt');
       expect(onSheet(find.text('hello scratch')), findsOneWidget);
 
-      runner.failures['upgraded'] = const HerdrUnreachable('timeout');
+      runner.failures['upgraded'] = const HostFailure.unreachable('timeout');
       final asked = runner.commands.length;
       await tester
           .widget<DiffSheet>(find.byType(DiffSheet))
@@ -479,7 +479,7 @@ new file mode 100644
       await viewer(
         tester,
         runner: withTexts()
-          ..failures['upgraded'] = const HerdrUnreachable('timeout'),
+          ..failures['upgraded'] = const HostFailure.unreachable('timeout'),
       );
 
       expect(

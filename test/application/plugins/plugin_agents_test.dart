@@ -1,15 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/data/plugins/installed.dart';
+import 'package:upgrade/platform/herdr/agent_state.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/plugins/plugin_hosts.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/application/providers.dart';
 
-import '../../plugins/kanban_plugin_test.dart' show kanbanPackage;
+import '../../support/plugin_packages.dart' show kanbanPackage;
 
 const _oak = Host(
   id: 'h1',

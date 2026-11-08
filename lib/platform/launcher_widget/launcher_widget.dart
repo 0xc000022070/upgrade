@@ -110,15 +110,9 @@ abstract final class LauncherWidget {
   static Future<void> settleSends(Iterable<String> running) =>
       _quiet('settle', {'running': running.toList()});
 
-  static Future<List<OpenSend>> openSends() async {
-    try {
-      return parseOpenSends(await _channel.invokeMethod<Object?>('sends'));
-    } on MissingPluginException {
-      return const [];
-    } on PlatformException {
-      return const [];
-    }
-  }
+  static Future<List<OpenSend>> openSends() async => parseOpenSends(
+    await failSoft(() => _channel.invokeMethod<Object?>('sends'), null),
+  );
 
   static Future<void> setLive(Map<String, LauncherLive> live) =>
       _quiet('live', {
@@ -162,18 +156,8 @@ abstract final class LauncherWidget {
           },
   );
 
-  static Future<void> _quiet(
-    String method,
-    Map<String, Object?> arguments,
-  ) async {
-    try {
-      await _channel.invokeMethod<void>(method, arguments);
-    } on MissingPluginException {
-      // ignored: a phone without the bridge has no launcher widget to write to
-    } on PlatformException {
-      // ignored: the shade and the app still say it
-    }
-  }
+  static Future<void> _quiet(String method, Map<String, Object?> arguments) =>
+      failSoft(() => _channel.invokeMethod<void>(method, arguments), null);
 }
 
 typedef LauncherEvents = ({

@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/platform/shell/shell_tunnel.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../support/host_failure_matchers.dart';
 
 void main() {
   test('a refused socket keeps the system words and drops its own report', () {
@@ -16,14 +18,14 @@ void main() {
       ),
     )!;
 
-    expect(failure.kind, ShellFailureKind.unreachable);
+    expect(failure.kind, HostFailureKind.unreachable);
     expect(failure.detail, 'connection refused');
   });
 
   test('a socket with no system error keeps its own message', () {
     final failure = shellFailureFor(const SocketException('Connection reset'))!;
 
-    expect(failure.kind, ShellFailureKind.unreachable);
+    expect(failure.kind, HostFailureKind.unreachable);
     expect(failure.detail, 'connection reset');
   });
 
@@ -32,8 +34,18 @@ void main() {
       TimeoutException('Future not completed', const Duration(seconds: 10)),
     )!;
 
-    expect(failure.kind, ShellFailureKind.unreachable);
+    expect(failure.kind, HostFailureKind.unreachable);
     expect(failure.detail, 'no answer in 10s');
     expect(shellFailureFor(TimeoutException(null))!.detail, 'no answer');
+  });
+
+  test('a kind a dial cannot end in is left to the retry', () {
+    expect(shellFailureFor(const HostFailure.busy()), isNull);
+    expect(shellFailureFor(const HostFailure.noEngine()), isNull);
+    expect(shellFailureFor(StateError('mine')), isNull);
+    expect(
+      shellFailureFor(const HostFailure.unreachable()),
+      isFailureOf(HostFailureKind.unreachable),
+    );
   });
 }

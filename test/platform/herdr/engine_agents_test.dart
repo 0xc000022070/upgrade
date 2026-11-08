@@ -1,13 +1,15 @@
-import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
+import 'package:upgrade/platform/herdr/agent_state.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/alerts/alerts.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/agents/agents_screen.dart';
-import 'package:upgrade/platform/herdr/agent_watcher.dart';
+import 'package:upgrade/application/alerts/agent_watcher.dart';
 import 'package:upgrade/platform/herdr/engine_agents.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../support/host_failure_matchers.dart';
 
 final pinned = PinnedHostKey(
   type: 'ssh-ed25519',
@@ -98,7 +100,7 @@ void main() {
     test('an answer without sessions is a protocol mismatch', () {
       expect(
         () => EngineAgents.parseWatch({'generation': 1}),
-        throwsA(isA<HerdrProtocolMismatch>()),
+        throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
       );
     });
   });
@@ -253,7 +255,7 @@ void main() {
         approval: {'id': 'a1', 'tool': 'Bash', 'summary': 'rm -rf build'},
       ),
     )!;
-    final target = AlertTarget.forHost(
+    final target = alertTargetFor(
       host,
       snapshot,
       channel: channelKey(host.id, AgentSource.engine),
@@ -269,7 +271,7 @@ void main() {
   });
 
   test('a herdr alert keeps the id it had before the engine', () {
-    final target = AlertTarget.forHost(host, herdrRow('p1'));
+    final target = alertTargetFor(host, herdrRow('p1'));
 
     expect(target.engine, isFalse);
     expect(target.channel, host.id);

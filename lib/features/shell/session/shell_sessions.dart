@@ -7,19 +7,19 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flterm/flterm.dart';
 
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agent_input.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/data/host_system.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
+import 'package:upgrade/platform/herdr/agent_input.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
+import 'package:upgrade/platform/notifications/pin_alerts.dart';
 import 'package:upgrade/application/phone_linux.dart';
 import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/shell_tab_repository.dart';
 import 'package:upgrade/data/shell_snapshot_store.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/links/link_probe.dart';
+import 'package:upgrade/platform/links/host_link_probe.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/notifications/pin_notifications.dart';
@@ -90,13 +90,13 @@ final class ShellExited extends ShellState {
 final class ShellDropped extends ShellState {
   const ShellDropped(
     this.attempt, {
-    this.kind = ShellFailureKind.streamClosed,
+    this.kind = HostFailureKind.streamClosed,
     this.detail,
   });
 
   final int attempt;
 
-  final ShellFailureKind kind;
+  final HostFailureKind kind;
 
   final String? detail;
 }
@@ -104,7 +104,7 @@ final class ShellDropped extends ShellState {
 final class ShellFailed extends ShellState {
   const ShellFailed(this.kind, {this.detail});
 
-  final ShellFailureKind kind;
+  final HostFailureKind kind;
 
   /// Null when the failure was the app's own and there is nothing beneath the words.
   final String? detail;
@@ -117,7 +117,7 @@ final class ShellFailed extends ShellState {
 final class ShellWaiting extends ShellState {
   const ShellWaiting(this.kind, {this.detail});
 
-  final ShellFailureKind kind;
+  final HostFailureKind kind;
 
   final String? detail;
 }
@@ -125,7 +125,7 @@ final class ShellWaiting extends ShellState {
 /// A tab waiting reads under the header the same way a tab that failed does: the link is
 /// equally gone, and the only difference is whether anything will dial again.
 extension ShellStateFailure on ShellState {
-  ({ShellFailureKind kind, String? detail})? get failure => switch (this) {
+  ({HostFailureKind kind, String? detail})? get failure => switch (this) {
     ShellFailed(:final kind, :final detail) => (kind: kind, detail: detail),
     ShellWaiting(:final kind, :final detail) => (kind: kind, detail: detail),
     ShellDropped(:final kind, :final detail?) => (kind: kind, detail: detail),
@@ -155,6 +155,7 @@ const shellReconnectDelays = <Duration>[
 /// rehome landing inside this of the first is the same moment asking twice.
 const shellRehomeSettle = Duration(seconds: 1);
 
+const _snapshotCeiling = Duration(minutes: 1);
 const shellWaitingWatch = Duration(seconds: 10);
 
 const shellLookedAtWait = Duration(seconds: 5);
@@ -202,9 +203,8 @@ const shellCleanExit = 0;
 
 /// An exit code is the user's own `exit`; a rejected key, a refused shell and both host
 /// key failures are answers, and dialling again would only get the same one.
-bool shellReconnects(ShellFailureKind kind) =>
-    kind == ShellFailureKind.streamClosed ||
-    kind == ShellFailureKind.unreachable;
+bool shellReconnects(HostFailureKind kind) =>
+    kind == HostFailureKind.streamClosed || kind == HostFailureKind.unreachable;
 
 /// The private OSC a host's `pinentry-gate` asks a terminal through, and tells it the
 /// request was settled elsewhere. Either way the id comes next.
@@ -365,6 +365,12 @@ class ShellSession extends ChangeNotifier {
     changed();
   }
 
+  void quiesce() {
+    voiceSendSuggested = false;
+    clearAgentInput();
+    clearEngineForeground();
+  }
+
   void clearEngineForeground() {
     if (!engineForegroundKnown && engineAgent == null) return;
     engineForegroundKnown = false;
@@ -457,7 +463,7 @@ class ShellSession extends ChangeNotifier {
   /// Live terminal, host not held: background reads are stale and the next gesture dials.
   bool controlStale = false;
 
-  ShellFailure? controlFailure;
+  HostFailure? controlFailure;
 
   bool get redialable {
     final state = this.state;
@@ -581,12 +587,9 @@ class ShellSession extends ChangeNotifier {
   bool _closed = false;
 
   /// Only the claim handed back may write state onto this session, and only until the next
-  /// call.
+  /// call. Dropping the result takes the tab from whatever dial holds it without giving it
+  /// to another, so everything in flight goes quiet.
   _Attempt _claim() => _attempt = _Attempt._(this);
-
-  /// Takes the tab from whatever dial holds it without giving it to another, so everything
-  /// in flight goes quiet and nothing lands until the next dial claims it.
-  void _disown() => _claim();
 
   /// Cancelled by `STOP`, by a retry and by the tab closing, all three of which are the
   /// user deciding what happens next instead of the schedule.
@@ -672,7 +675,6 @@ class ShellSessions extends ChangeNotifier {
     this.tabs,
     this.snapshots,
     this.snapshotQuiet = const Duration(seconds: 5),
-    this.snapshotCeiling = const Duration(minutes: 1),
     this.sleepGrace = const Duration(seconds: 10),
     ShellOpener? open,
     this.pinRecheck = const Duration(seconds: 5),
@@ -683,8 +685,6 @@ class ShellSessions extends ChangeNotifier {
     UdpVerdicts? udpVerdicts,
     this.links,
     Future<LinkResult> Function(String address, int port)? probeHost,
-    this.waitingWatch = shellWaitingWatch,
-    this.lookedAtWatch = shellLookedAtWatch,
   }) : _override = open,
        _probeHost = probeHost ?? probeLink,
        udpVerdicts = udpVerdicts ?? UdpVerdicts();
@@ -692,10 +692,6 @@ class ShellSessions extends ChangeNotifier {
   final HostLinks? links;
 
   final Future<LinkResult> Function(String address, int port) _probeHost;
-
-  final Duration waitingWatch;
-
-  final Duration lookedAtWatch;
 
   Timer? _watch;
   Duration? _watchEvery;
@@ -748,8 +744,6 @@ class ShellSessions extends ChangeNotifier {
   final ShellSnapshotStore? snapshots;
 
   final Duration snapshotQuiet;
-
-  final Duration snapshotCeiling;
 
   final Duration sleepGrace;
 
@@ -823,9 +817,6 @@ class ShellSessions extends ChangeNotifier {
       if (sessions.isNotEmpty)
         (sessions.first.host, List.unmodifiable(sessions)),
   ];
-
-  int get openCount =>
-      _byHost.values.fold(0, (total, sessions) => total + sessions.length);
 
   void syncHosts(List<Host> hosts) {
     _known = {for (final host in hosts) host.id: host};
@@ -969,7 +960,7 @@ class ShellSessions extends ChangeNotifier {
     try {
       top = await _queries(session, connection).repository(directory);
     } catch (error) {
-      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
+      if (!isHostOrKeyFailure(error)) rethrow;
       debugPrint('$appSlug.shell ${session.host.name}: repository: $error');
       return session.repository;
     }
@@ -1250,7 +1241,7 @@ class ShellSessions extends ChangeNotifier {
     final since = session._unsavedSince ??= now();
     session._save?.cancel();
     session._save = Timer(
-      now().difference(since) >= snapshotCeiling
+      now().difference(since) >= _snapshotCeiling
           ? Duration.zero
           : snapshotQuiet,
       () => _saveScreen(session),
@@ -1297,7 +1288,7 @@ class ShellSessions extends ChangeNotifier {
       debugPrint('$appSlug.shell ${host.name}: tab save failed: $error');
       if (!session._closed) {
         session.state = ShellFailed(
-          ShellFailureKind.streamClosed,
+          HostFailureKind.streamClosed,
           detail: 'tab save failed: $error',
         );
         session.changed();
@@ -1353,8 +1344,7 @@ class ShellSessions extends ChangeNotifier {
           ? (session: row.herdrSession!, pane: row.herdrPane!)
           : null;
       final launch = ShellLaunch.parse(row.launch);
-      if ((remoteSession != null &&
-              !durableShellSession.hasMatch(remoteSession)) ||
+      if ((remoteSession != null && !shellMark.hasMatch(remoteSession)) ||
           (hasHerdrIdentity && (pane == null || !HerdrCommands.isPane(pane))) ||
           (row.launch != null && launch == null)) {
         await store.close(row.hostId, row.number);
@@ -1422,7 +1412,7 @@ class ShellSessions extends ChangeNotifier {
     // being closed, nor a dial the reconnect schedule is part way through can write
     // onto a session that is already gone.
     session._closed = true;
-    session._disown();
+    session._claim();
     session._cancelNext();
     session._rehomed?.cancel();
     session._rehomed = null;
@@ -1602,7 +1592,7 @@ class ShellSessions extends ChangeNotifier {
       try {
         system = await probeSystem(connection.channels);
       } catch (error) {
-        if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
+        if (!isHostOrKeyFailure(error)) rethrow;
         debugPrint('$appSlug.shell ${host.name}: system probe: $error');
         _systemAsked.remove(host.id);
         return;
@@ -1638,7 +1628,7 @@ class ShellSessions extends ChangeNotifier {
       answer = await probeClipboard(connection.channels);
     } catch (error) {
       if (session.connection == connection) session._probing = null;
-      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
+      if (!isHostOrKeyFailure(error)) rethrow;
       debugPrint(
         '$appSlug.shell ${session.host.name}: clipboard probe: $error',
       );
@@ -1692,7 +1682,7 @@ class ShellSessions extends ChangeNotifier {
       // a host that went away, so nothing dials until the user asks again.
       _fail(
         session,
-        ShellFailure(ShellFailureKind.keyRejected, detail: '$error'),
+        HostFailure(HostFailureKind.keyRejected, detail: '$error'),
         attempt,
       );
       return;
@@ -1702,7 +1692,7 @@ class ShellSessions extends ChangeNotifier {
       // The host names a key whose secret is gone from the store. There is nothing
       // to offer the remote, so this never dials.
       session.disarm();
-      session.state = const ShellFailed(ShellFailureKind.keyRejected);
+      session.state = const ShellFailed(HostFailureKind.keyRejected);
       session.changed();
       return;
     }
@@ -1715,7 +1705,7 @@ class ShellSessions extends ChangeNotifier {
       } catch (error) {
         _fail(
           session,
-          ShellFailure(ShellFailureKind.unreachable, detail: '$error'),
+          HostFailure(HostFailureKind.unreachable, detail: '$error'),
           attempt,
         );
         return;
@@ -1899,7 +1889,7 @@ class ShellSessions extends ChangeNotifier {
         ]).then(
           (_) {},
           onError: (Object error, StackTrace stack) {
-            if (!isHostFailure(error) && !isKeyFailure(error)) {
+            if (!isHostOrKeyFailure(error)) {
               Error.throwWithStackTrace(error, stack);
             }
             debugPrint('$appSlug.shell ${host.name}: settle: $error');
@@ -1966,9 +1956,7 @@ class ShellSessions extends ChangeNotifier {
       session.disarm();
       session.state = ShellExited(code);
       _programs(session.programs.ended());
-      session.voiceSendSuggested = false;
-      session.clearAgentInput();
-      session.clearEngineForeground();
+      session.quiesce();
       pinsFor(session.host.id)._set(session, null);
       // Every other code is the shell saying something went wrong, so that tab stays
       // for its output to be read.
@@ -2009,7 +1997,7 @@ class ShellSessions extends ChangeNotifier {
     session.changed();
   }
 
-  /// Anything the transport throws that is not a [ShellFailure] is the connection going
+  /// Anything the transport throws that is not a [HostFailure] is the connection going
   /// away without a word for it. The schedule only runs on evidence of an end: the dial
   /// that threw, or the terminal the connection carried ending. Without either the tab
   /// waits for the phone or the user.
@@ -2021,17 +2009,12 @@ class ShellSessions extends ChangeNotifier {
   ]) {
     if (!attempt.isCurrent) return;
     final retry = dialFailed ?? session.connection?.ended?.reconnect;
-    session.voiceSendSuggested = false;
-    session.clearAgentInput();
-    session.clearEngineForeground();
+    session.quiesce();
     session._unwatch();
-    session.pin = null;
-    session._stopAsking();
-    pinsFor(session.host.id)._tellShade(session.host);
-    session.disarm();
-    final kind = error is ShellFailure
+    _releasePin(session);
+    final kind = error is HostFailure && shellFailureKinds.contains(error.kind)
         ? error.kind
-        : ShellFailureKind.streamClosed;
+        : HostFailureKind.streamClosed;
     session._detail = _detailOf(session.host, error);
     final was = session.state;
     final dropped = was is ShellDropped ? was.attempt : 0;
@@ -2057,7 +2040,7 @@ class ShellSessions extends ChangeNotifier {
   /// reader is sent to the port that was dialled. A throw the transport has no reason for
   /// keeps its own words.
   static String? _detailOf(Host host, Object error) {
-    if (error is! ShellFailure) return '$error';
+    if (error is! HostFailure) return '$error';
     final detail = error.detail;
     if (detail == null || !error.kind.line.names) return detail;
     return '${host.user}@${host.address}:${host.port} · $detail';
@@ -2065,10 +2048,10 @@ class ShellSessions extends ChangeNotifier {
 
   /// The control connection's errors come up raw, so they are worded here; a throw the
   /// transport has no reason for reads as a closed stream with its own words under it.
-  static ShellFailure _controlFailureOf(Host host, Object error) {
+  static HostFailure _controlFailureOf(Host host, Object error) {
     final mapped = shellFailureFor(error);
-    return ShellFailure(
-      mapped?.kind ?? ShellFailureKind.streamClosed,
+    return HostFailure(
+      mapped?.kind ?? HostFailureKind.streamClosed,
       detail: _detailOf(host, mapped ?? error),
     );
   }
@@ -2125,8 +2108,8 @@ class ShellSessions extends ChangeNotifier {
     if (_away || _watched.isEmpty) return;
     final looked = _lookedAt;
     final every = looked != null && _watched.contains(looked)
-        ? lookedAtWatch
-        : waitingWatch;
+        ? shellLookedAtWatch
+        : shellWaitingWatch;
     final armed = _watchEvery;
     if (_watch != null && armed != null && armed <= every) return;
     _watch?.cancel();
@@ -2263,7 +2246,7 @@ class ShellSessions extends ChangeNotifier {
     session._cancelNext();
     session.state = ShellDropped(
       1,
-      kind: failure?.kind ?? ShellFailureKind.streamClosed,
+      kind: failure?.kind ?? HostFailureKind.streamClosed,
       detail: failure?.detail,
     );
     session.changed();
@@ -2299,7 +2282,7 @@ class ShellSessions extends ChangeNotifier {
         session.controlFailure = _controlFailureOf(session.host, error);
         session.changed();
       }
-      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
+      if (!isHostOrKeyFailure(error)) rethrow;
     }
   }
 
@@ -2307,12 +2290,12 @@ class ShellSessions extends ChangeNotifier {
     // A tab mid-schedule is stopped on the drop that started it; a tab waiting is
     // stopped on what its last dial actually hit.
     final kind = switch (session.state) {
-      ShellDropped() => ShellFailureKind.streamClosed,
+      ShellDropped() => HostFailureKind.streamClosed,
       ShellWaiting(:final kind) => kind,
       _ => null,
     };
     if (kind == null) return;
-    session._disown();
+    session._claim();
     session._cancelNext();
     session._stopAsking();
     session.disarm();
@@ -2321,11 +2304,18 @@ class ShellSessions extends ChangeNotifier {
     _unwatchIdle();
   }
 
+  void _releasePin(ShellSession session) {
+    session.pin = null;
+    session._stopAsking();
+    pinsFor(session.host.id)._tellShade(session.host);
+    session.disarm();
+  }
+
   void _drop(
     ShellSession session,
     int attempt,
     Reconnect retry,
-    ShellFailureKind kind,
+    HostFailureKind kind,
   ) {
     session.state = ShellDropped(attempt, kind: kind, detail: session._detail);
     session.clearAgentInput();
@@ -2360,7 +2350,7 @@ class ShellSessions extends ChangeNotifier {
     if (previous != null && ended == null) {
       session._waitingOn = null;
       session.state = ShellWaiting(
-        ShellFailureKind.streamClosed,
+        HostFailureKind.streamClosed,
         detail: session._detail,
       );
       session.changed();
@@ -2369,16 +2359,13 @@ class ShellSessions extends ChangeNotifier {
     // Taken before anything closes: closing the old connection completes its exit
     // future, and an exit belonging to the attempt being replaced would otherwise
     // paint `EXITED` over the dial already under way.
-    session._disown();
+    session._claim();
     session._detach();
     session.connection = null;
     // The title belonged to the shell that died. The pane outlives it, because the
     // dial that follows carries the same attach and comes back to the same agent.
     session.title = null;
-    session.pin = null;
-    session._stopAsking();
-    pinsFor(session.host.id)._tellShade(session.host);
-    session.disarm();
+    _releasePin(session);
     session.changed();
     if (ended != null) await previous?.close(ended);
     // No prompt: nothing about a timer firing says the user is looking at the

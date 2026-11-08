@@ -6,7 +6,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'package:upgrade/design/components/meta.dart';
 import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade/features/plugins/plugin_ui.dart';
 
 import 'package:upgrade_widgetbook/frame.dart';
 

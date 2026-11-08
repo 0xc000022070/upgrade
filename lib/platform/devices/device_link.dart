@@ -774,7 +774,7 @@ class DeviceSsh implements DeviceLink {
 
   @override
   Future<List<HostDevice>> list() async {
-    final stdout = await guardHerdr(() => _run(DeviceCommands.list()));
+    final stdout = await guardHost(() => _run(DeviceCommands.list()));
     return parseDeviceList(utf8.decode(stdout, allowMalformed: true));
   }
 
@@ -808,8 +808,8 @@ class DeviceSsh implements DeviceLink {
 
   @override
   Future<String> read(String command, {Duration? limit}) async {
-    final session = await guardHerdr(() => _exec(command, HostUse.devices));
-    final pending = guardHerdr(() => _drain(session));
+    final session = await guardHost(() => _exec(command, HostUse.devices));
+    final pending = guardHost(() => _drain(session));
     try {
       final out = limit == null ? await pending : await pending.timeout(limit);
       return utf8.decode(out, allowMalformed: true);
@@ -830,7 +830,7 @@ class DeviceSsh implements DeviceLink {
     out = StreamController<DeviceFrame>(
       onListen: () async {
         try {
-          final opened = await guardHerdr(
+          final opened = await guardHost(
             () => _exec(DeviceCommands.frames(device), HostUse.deviceDock),
           );
           if (cancelled) {
@@ -868,7 +868,7 @@ class DeviceSsh implements DeviceLink {
 
   @override
   Future<void> run(String command) async {
-    await guardHerdr(() => _run(command));
+    await guardHost(() => _run(command));
   }
 
   @override

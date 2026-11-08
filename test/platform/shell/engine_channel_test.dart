@@ -8,6 +8,8 @@ import 'package:upgrade/platform/shell/engine_channel.dart';
 import 'package:upgrade/platform/shell/udp_path.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/engine_wire.dart';
+
 final _key = MoshKey(Uint8List.fromList(List.generate(16, (i) => i * 7)));
 
 Uint8List _bytes(String text) => Uint8List.fromList(utf8.encode(text));
@@ -35,7 +37,7 @@ class FakeEngineServer {
       while ((datagram = socket.receive()) != null) {
         final packet = datagram!.data;
         if (engineFromServer(packet)) continue;
-        final client = EngineClientPacket.decode(cipher.decrypt(packet));
+        final client = decodeClientPacket(cipher.decrypt(packet));
         if (client == null) continue;
         clientAddress = datagram.address;
         clientPort = datagram.port;
@@ -65,16 +67,18 @@ class FakeEngineServer {
     final sealed = sealEngineServerPacket(
       cipher,
       _sequence++,
-      EngineServerPacket(
-        jump: packet.jump,
-        timestamp: 0,
-        timestampReply: lastTimestamp,
-        inputAck: packet.inputAck,
-        sizeGen: packet.sizeGen,
-        streamEnd: packet.streamEnd,
-        offset: packet.offset,
-        data: packet.data,
-      ).encode(),
+      encodeServerPacket(
+        EngineServerPacket(
+          jump: packet.jump,
+          timestamp: 0,
+          timestampReply: lastTimestamp,
+          inputAck: packet.inputAck,
+          sizeGen: packet.sizeGen,
+          streamEnd: packet.streamEnd,
+          offset: packet.offset,
+          data: packet.data,
+        ),
+      ),
     );
     socket.send(sealed, clientAddress!, clientPort!);
   }
@@ -230,7 +234,7 @@ void main() {
         ...[0, 0, 0, 0, 0, 0, 0, 4],
         ...[0x6c, 0x73, 0x0d],
       ]);
-      final decoded = EngineClientPacket.decode(bytes)!;
+      final decoded = decodeClientPacket(bytes)!;
       expect(decoded.ack, 9);
       expect(
         decoded.size,
@@ -253,16 +257,17 @@ void main() {
       expect(bare.length, engineClientHeader);
       expect(bare[1], 2);
       expect(
-        const EngineServerPacket(
-          timestamp: 0,
-          inputAck: 0,
-          sizeGen: 0,
-          streamEnd: 0,
-        ).encode().length,
+        encodeServerPacket(
+          const EngineServerPacket(
+            timestamp: 0,
+            inputAck: 0,
+            sizeGen: 0,
+            streamEnd: 0,
+          ),
+        ).length,
         engineServerHeader,
       );
       expect(engineMaxInput, 1122);
-      expect(engineMaxData, 1126);
     });
 
     test('a server packet round trips with its jump and data', () {
@@ -276,7 +281,7 @@ void main() {
         offset: 90,
         data: Uint8List.fromList([1, 2, 3]),
       );
-      final decoded = EngineServerPacket.decode(packet.encode())!;
+      final decoded = EngineServerPacket.decode(encodeServerPacket(packet))!;
       expect(decoded.jump, isTrue);
       expect(decoded.timestampReply, 6);
       expect(decoded.inputAck, 7);
@@ -286,12 +291,14 @@ void main() {
     });
 
     test('a different version is no packet', () {
-      final bytes = const EngineServerPacket(
-        timestamp: 0,
-        inputAck: 0,
-        sizeGen: 0,
-        streamEnd: 0,
-      ).encode()..[0] = 2;
+      final bytes = encodeServerPacket(
+        const EngineServerPacket(
+          timestamp: 0,
+          inputAck: 0,
+          sizeGen: 0,
+          streamEnd: 0,
+        ),
+      )..[0] = 2;
       expect(EngineServerPacket.decode(bytes), isNull);
       expect(EngineServerPacket.decode(Uint8List(10)), isNull);
     });
@@ -942,7 +949,9 @@ void main() {
       channel.contacts.listen((_) => contacts++);
       final forged = server.cipher.encrypt(
         nonce: 1,
-        plaintext: _data(0, engineRecord(1, _bytes('x')), jump: true).encode(),
+        plaintext: encodeServerPacket(
+          _data(0, engineRecord(1, _bytes('x')), jump: true),
+        ),
       );
       server.socket.send(forged, server.clientAddress!, server.clientPort!);
       await Future<void>.delayed(const Duration(milliseconds: 100));

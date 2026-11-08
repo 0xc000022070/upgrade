@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:upgrade/application/agents/reason_lines.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 
@@ -28,6 +27,7 @@ export 'package:upgrade/platform/ssh/connection_supervisor.dart'
         UserClosed,
         UserIntent,
         isHostFailure,
+        isHostOrKeyFailure,
         isKeyFailure;
 
 abstract interface class ShellConnection {
@@ -110,46 +110,3 @@ typedef ShellOpener = Future<ShellConnection> Function({
   void Function(Reconnect retry)? failed,
   bool alone,
 });
-
-enum ShellFailureKind {
-  unresolved,
-
-  unreachable,
-
-  keyRejected,
-
-  /// Which is what a key line still reading `restrict` without `pty` gives every time.
-  shellRefused,
-
-  streamClosed,
-
-  hostKeyUnverified,
-
-  hostKeyChanged,
-}
-
-/// The header's word and the reason row's line are both read off it, so the two cannot
-/// say different things about the same failure.
-extension ShellFailureLine on ShellFailureKind {
-  ReasonLine get line => switch (this) {
-    ShellFailureKind.unresolved => ReasonLine.unresolved,
-    ShellFailureKind.unreachable => ReasonLine.unreachable,
-    ShellFailureKind.keyRejected => ReasonLine.keyRejected,
-    ShellFailureKind.shellRefused => ReasonLine.shellRefused,
-    ShellFailureKind.streamClosed => ReasonLine.streamClosed,
-    ShellFailureKind.hostKeyUnverified => ReasonLine.hostKeyUnverified,
-    ShellFailureKind.hostKeyChanged => ReasonLine.hostKeyChanged,
-  };
-}
-
-class ShellFailure implements Exception {
-  const ShellFailure(this.kind, {this.detail});
-
-  final ShellFailureKind kind;
-
-  final String? detail;
-
-  @override
-  String toString() =>
-      'ShellFailure.${kind.name}${detail == null ? '' : ': $detail'}';
-}

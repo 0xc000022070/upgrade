@@ -193,7 +193,7 @@ abstract final class LaunchCommands {
 
   static String workspaces(String session) {
     if (!HerdrCommands.isSessionName(session)) {
-      throw const HerdrProtocolMismatch();
+      throw const HostFailure.protocolMismatch();
     }
     return underSh(
       'exec env HERDR_SESSION=${shellQuote(session)} herdr workspace list',

@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade/features/plugins/plugin_ui.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
 
+import '../test/support/plugin_packages.dart';
 import '../test/plugins/agent_schedules_plugin_test.dart' as schedules;
 import '../test/plugins/board_plugin_test.dart' as board;
 import '../test/plugins/kanban_plugin_test.dart' as kanban;
@@ -65,7 +66,7 @@ void main() {
   });
 
   test('board', () async {
-    final app = board.BoardHarness(worker, board.boardPackage());
+    final app = board.BoardHarness(worker, boardPackage());
     void write(String frame) => _write('board', frame, app.view, canvas: true);
     await app.send({'type': 'mount'});
     write('mounted');
@@ -91,7 +92,7 @@ void main() {
   });
 
   test('kanban', () async {
-    final app = kanban.KanbanHarness(worker, kanban.kanbanPackage());
+    final app = kanban.KanbanHarness(worker, kanbanPackage());
     await app.send({'type': 'mount'});
     _write('kanban', 'waiting', app.view, awake: true, pages: ['main']);
     await app.listed(kanban.feed);
@@ -110,7 +111,7 @@ void main() {
   });
 
   test('agent-schedules', () async {
-    final app = schedules.ScheduleHarness(worker, schedules.schedulePackage());
+    final app = schedules.ScheduleHarness(worker, schedulePackage());
     void write(String frame) =>
         _write('agent-schedules', frame, app.view, canvas: true);
     const info = <String, Object?>{

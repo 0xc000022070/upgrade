@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui' show VoidCallback;
+
 abstract final class Spacing {
   static const xs = 2.0;
   static const sm = 4.0;
@@ -60,6 +63,25 @@ abstract final class Gestures {
   static const repeatDelay = Duration(milliseconds: 400);
 
   static const repeatInterval = Duration(milliseconds: 50);
+}
+
+/// Fires [fire] after [Gestures.repeatDelay] and then every [Gestures.repeatInterval] until
+/// [stop]. The press's own first action belongs to the caller.
+class KeyRepeat {
+  Timer? _timer;
+
+  void start(VoidCallback fire) {
+    stop();
+    _timer = Timer(Gestures.repeatDelay, () {
+      fire();
+      _timer = Timer.periodic(Gestures.repeatInterval, (_) => fire());
+    });
+  }
+
+  void stop() {
+    _timer?.cancel();
+    _timer = null;
+  }
 }
 
 abstract final class TapTargets {

@@ -4,8 +4,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart' show Characters;
 
-import 'package:upgrade/platform/plugins/contributions.dart';
-import 'package:upgrade/platform/plugins/serial.dart';
+import 'package:upgrade/data/plugins/contributions.dart';
+import 'package:upgrade/data/serial.dart';
 
 const agentsCardId = 'upgrade.agents:widget:agents';
 

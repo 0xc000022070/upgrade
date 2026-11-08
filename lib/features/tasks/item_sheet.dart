@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:upgrade/application/agents/send.dart';
 import 'package:upgrade/application/agents/send_queue.dart';
 import 'package:upgrade/application/drops/clipboard_text.dart';
-import 'package:upgrade/application/links/link_preview.dart';
+import 'package:upgrade/platform/links/link_preview.dart';
 import 'package:upgrade/application/formatting.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/application/links/urls.dart';

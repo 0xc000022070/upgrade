@@ -10,8 +10,8 @@ import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/brand.dart';
 
@@ -239,7 +239,7 @@ class Sender {
         ),
         verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
       );
-    } on HerdrFailure catch (error) {
+    } on HostFailure catch (error) {
       log(error.detail ?? error);
       return SendFailed(error.reason(host.name, address: host.address));
     } finally {

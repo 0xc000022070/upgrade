@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/platform/reason_lines.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/design/components/upgrade_field.dart';
 import 'package:upgrade/design/components/inline_confirm.dart';

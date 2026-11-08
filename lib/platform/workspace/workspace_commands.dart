@@ -26,9 +26,6 @@ enum DiffAgainst {
   final String wire;
 }
 
-/// Linux refuses one argument past 128 KiB, and a patch travels as one.
-const workspacePatchBytes = 98304;
-
 /// Every one of them is a single `sh -c`, because the cost of asking a machine on the
 /// other side of a phone's radio is the round trip and not the bytes: a screen that
 /// wants three answers asks for them at once and splits on [workspaceRecord]. Writes
@@ -133,7 +130,7 @@ abstract final class WorkspaceCommands {
 
   static const textBudget = 1048576;
 
-  /// Linux refuses an argument past 128 KiB, and the texts command names every file in
+  /// Linux refuses one argument past 128 KiB, and the texts command names every file in
   /// one: the files past this many bytes of it are left to their hunks.
   static const textsArgument = 98304;
 
@@ -186,6 +183,7 @@ abstract final class WorkspaceCommands {
         sides.write('tree $index ${shellQuote(path)}\n');
       }
     }
+    // Hand-built `engineRequest('git/1', 'diff', ...)`: this runs on the host, with no Dart.
     return underSh(
       '${_enter(directory)}'
       'if command -v upgraded >/dev/null 2>&1 && '
@@ -295,30 +293,6 @@ abstract final class WorkspaceCommands {
       'else exec git rm -q --cached -r -- $quoted; fi\n',
     );
   }
-
-  static String discard(
-    String directory,
-    List<String> paths, {
-    required bool untracked,
-  }) {
-    final quoted = paths.map(shellQuote).join(' ');
-    final command = untracked
-        ? 'exec git clean -f -q -- $quoted'
-        : 'git restore --worktree -- $quoted 2>/dev/null || '
-              'exec git checkout -q -- $quoted';
-    return underSh('${_enter(directory)}$command\n');
-  }
-
-  static String apply(
-    String directory,
-    String patch, {
-    required bool cached,
-    required bool reverse,
-  }) => underSh(
-    '${_enter(directory)}'
-    'printf %s ${shellQuote(patch)} | exec git apply --recount '
-    '--whitespace=nowarn ${cached ? '--cached ' : ''}${reverse ? '-R ' : ''}-\n',
-  );
 
   static String commitDiff(String directory, String sha, String path) =>
       underSh(

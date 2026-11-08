@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/shell/bar_layout.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
 import 'package:upgrade/application/drops/clips.dart';
-import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/platform/notifications/pin_alerts.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/application/shell/path_scan.dart';
 import 'package:upgrade/application/phone_linux.dart';
@@ -21,9 +23,7 @@ import 'package:upgrade/design/effects/glitch.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/action_block.dart';
 import 'package:upgrade/design/components/drag_sheet.dart';
-import 'package:upgrade/design/components/field_panel.dart';
 import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/meta_row.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
@@ -34,11 +34,12 @@ import 'package:upgrade/platform/vnc/keysyms.dart';
 import 'package:upgrade/features/code/diff_sheet.dart';
 import 'package:upgrade/features/files/transfer_bar.dart';
 import 'package:upgrade/features/hosts/host_key_sheet.dart';
-import 'package:upgrade/features/hosts/hosts_screen.dart' show showMachineSheet;
+import 'package:upgrade/features/hosts/machine_sheet.dart';
 import 'package:upgrade/features/shell/sheets/attach_sheet.dart';
 import 'package:upgrade/features/shell/shell_bar.dart';
 import 'package:upgrade/features/shell/shell_header.dart';
 import 'package:upgrade/features/shell/sheets/launch_picker_sheet.dart';
+import 'package:upgrade/features/shell/sheets/pin_sheet.dart';
 import 'package:upgrade/features/shell/input/shell_search.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/shell/shell_terminal.dart';
@@ -136,7 +137,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     // Held rather than read where it is used: `ref` is closed by the time dispose
     // runs, and this is the store the listener has to come off.
     _store = ref.read(shellSessionsProvider);
-    _store.addListener(_onStore);
+    _store.addListener(_rebuild);
     _unshow = _store.show(widget.host.id);
     // Both notifiers: the strip is drawn from the set, and the header, the exit
     // sheet and the pop that follows the last tab are all drawn from what the tabs
@@ -155,11 +156,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       onChange: _onView,
     );
     _clips = ref.read(clipStoreProvider);
-    _clips.addListener(_onClips);
+    _clips.addListener(_rebuild);
     _dictation = ShellDictation(
       onWords: _onWords,
       whisper: ref.read(whisperProvider),
-    )..addListener(_onDictation);
+    )..addListener(_rebuild);
     ref.listenManual(
       whisperLeadingProvider,
       (_, model) => _dictation.model = model,
@@ -209,11 +210,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     _voiceSendSuggestion?.voiceSendSuggested = false;
     _follower.dispose();
     _view.dispose();
-    _store.removeListener(_onStore);
+    _store.removeListener(_rebuild);
     _unshow();
-    _clips.removeListener(_onClips);
+    _clips.removeListener(_rebuild);
     _dictation
-      ..removeListener(_onDictation)
+      ..removeListener(_rebuild)
       ..dispose();
     _voiceLanding.dispose();
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
@@ -252,11 +253,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     unawaited(_askPins());
   }
 
-  void _onClips() {
-    if (mounted) setState(() {});
-  }
-
-  void _onDictation() {
+  void _rebuild() {
     if (mounted) setState(() {});
   }
 
@@ -403,10 +400,6 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     unawaited(sendDraft(session, text, (bytes) => _store.send(session, bytes)));
   }
 
-  void _onStore() {
-    if (mounted) setState(() {});
-  }
-
   void _onView() {
     if (!mounted || _drawnFrom(_store.activeFor(widget.host.id)) == _drawn) {
       return;
@@ -521,9 +514,9 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
     }
   }
 
-  Future<_PinDecision?> _pinSheetFor(ShellSession session, PinRequest request) {
+  Future<PinDecision?> _pinSheetFor(ShellSession session, PinRequest request) {
     const title = 'AUTHORIZATION REQUIRED';
-    return showPanelSheet<_PinDecision>(
+    return showPanelSheet<PinDecision>(
       context,
       title: title,
       builder: (context) {
@@ -538,7 +531,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
             ShellWatcher(
               store: _store,
               watch: (store) => store.forHost(widget.host.id),
-              builder: (_) => _PinSheet(
+              builder: (_) => PinSheet(
                 number: _pins.tabFor(session, request),
                 request: _pins.held(session, request),
               ),
@@ -658,15 +651,6 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
         () => SystemChannels.textInput.invokeMethod<void>('TextInput.show'),
       );
     }
-  }
-
-  void _onSticky(
-    ShellSession session,
-    Set<StickyModifier> sticky,
-    int repeat,
-    bool locked,
-  ) {
-    _store.arm(session, sticky, repeat: repeat, locked: locked);
   }
 
   void _onBytes(ShellSession session, Uint8List bytes) {
@@ -875,17 +859,13 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
   /// handshake.
   Future<bool> _askHostKey(HostKeyOffer offer, PinnedHostKey? pinned) async {
     if (!mounted) return false;
-    final release = _store.hold();
-    try {
-      return await askHostKey(
-        context,
-        host: widget.host,
-        offer: offer,
-        pinned: pinned,
-      );
-    } finally {
-      release();
-    }
+    return askHostKeyHeld(
+      context,
+      hold: _store.hold,
+      host: widget.host,
+      offer: offer,
+      pinned: pinned,
+    );
   }
 
   Future<void> _onClose(UserIntent intent, ShellSession session) async {
@@ -956,7 +936,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                 !linux.running;
             final reasonLine =
                 linuxStopped &&
-                    state?.failure?.kind == ShellFailureKind.unreachable
+                    state?.failure?.kind == HostFailureKind.unreachable
                 ? 'linux stopped · start it from machine'
                 : null;
             final diffTargets = _diffTargets();
@@ -1093,8 +1073,12 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                       sticky: active.sticky,
                       repeat: active.stickyRepeat,
                       locked: active.stickyLocked,
-                      onSticky: (sticky, repeat, locked) =>
-                          _onSticky(active, sticky, repeat, locked),
+                      onSticky: (sticky, repeat, locked) => _store.arm(
+                        active,
+                        sticky,
+                        repeat: repeat,
+                        locked: locked,
+                      ),
                       onBytes: (bytes) => _onBytes(active, bytes),
                       keyboardOpen: _keyboardUp(active),
                       onKeyboard: () => _onKeyboard(active),
@@ -1128,108 +1112,6 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
           },
         ),
       ),
-    );
-  }
-}
-
-typedef _PinDecision = ({String? passphrase, UserIntent intent});
-
-class _PinSheet extends StatefulWidget {
-  const _PinSheet({required this.number, required this.request});
-
-  final int number;
-  final PinRequest request;
-
-  @override
-  State<_PinSheet> createState() => _PinSheetState();
-}
-
-class _PinSheetState extends State<_PinSheet> {
-  final _field = TextEditingController();
-
-  @override
-  void dispose() {
-    _field.dispose();
-    super.dispose();
-  }
-
-  void _decide(UserIntent intent, String? passphrase) =>
-      Navigator.of(context).pop((passphrase: passphrase, intent: intent));
-
-  @override
-  Widget build(BuildContext context) {
-    final request = widget.request;
-    final wantsPin = request.mode == 'pin';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('SHELL ${widget.number}', style: context.tokens.label),
-        if (request.desc.isNotEmpty) ...[
-          const SizedBox(height: Spacing.sm),
-          if (pinFacts(request.desc) case final parsed?) ...[
-            Text(parsed.lead, style: context.tokens.prose),
-            const SizedBox(height: Spacing.sm),
-            for (final (label, value) in parsed.facts)
-              MetaRow(label, value, maxLines: 2),
-          ] else
-            Text(request.desc, style: context.tokens.prose),
-        ],
-        if (request.error.isNotEmpty) ...[
-          const SizedBox(height: Spacing.sm),
-          Text(
-            request.error,
-            style: context.tokens.prose.copyWith(color: context.tokens.danger),
-          ),
-        ],
-        // The host gives up on an ask after a window of its own and never says how
-        // long that is, so an ask this old is drawn as one that may be over rather
-        // than as one that is: it was listed open a moment ago.
-        if (request.stale) ...[
-          const SizedBox(height: Spacing.sm),
-          Text(
-            'MAY HAVE EXPIRED',
-            style: context.tokens.label.copyWith(color: context.tokens.warning),
-          ),
-        ],
-        const SizedBox(height: Spacing.md),
-        if (wantsPin) ...[
-          FieldPanel(
-            label: request.promptLabel,
-            controller: _field,
-            obscureText: true,
-            autofocus: true,
-            textInputAction: TextInputAction.done,
-            onSubmitted: UserIntent.onGestureWith(_decide),
-          ),
-          const SizedBox(height: Spacing.md),
-        ],
-        Row(
-          children: [
-            if (request.mode != 'message') ...[
-              Expanded(
-                child: ActionBlock(
-                  label: request.cancelLabel,
-                  onTap: UserIntent.onGesture(
-                    (intent) => _decide(intent, null),
-                  ),
-                ),
-              ),
-              const SizedBox(width: Spacing.md),
-            ],
-            Expanded(
-              child: ActionBlock(
-                label: request.okLabel,
-                tone: context.tokens.accent,
-                filled: !request.stale,
-                onTap: UserIntent.onGesture(
-                  (intent) => _decide(intent, wantsPin ? _field.text : 'ok'),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

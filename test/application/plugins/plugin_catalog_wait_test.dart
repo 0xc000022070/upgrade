@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/plugins/plugins.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';
 import 'package:upgrade/application/providers.dart';
 

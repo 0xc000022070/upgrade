@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/app/static_surface.dart';
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/static_surface.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_text_action.dart';

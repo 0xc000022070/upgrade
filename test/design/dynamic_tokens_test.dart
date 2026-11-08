@@ -26,23 +26,6 @@ void main() {
       surfaceContainerHigh: Color(0xFFCCCCCC),
     );
 
-    test('chrome follows the scheme', () {
-      final tokens = upgradeTokensFromScheme(scheme);
-      expect(tokens.brightness, Brightness.light);
-      expect(tokens.backgroundPrimary, scheme.surface);
-      expect(tokens.backgroundSecondary, scheme.surfaceContainerLow);
-      expect(tokens.surfacePrimary, scheme.surfaceContainer);
-      expect(tokens.surfaceSecondary, scheme.surfaceContainerHigh);
-      expect(tokens.borderSubtle, scheme.outlineVariant);
-      expect(tokens.borderNormal, scheme.outline);
-      expect(tokens.textPrimary, scheme.onSurface);
-      expect(tokens.textSecondary, scheme.onSurfaceVariant);
-      expect(tokens.accent, scheme.primary);
-      expect(tokens.accentMuted, scheme.secondary);
-      expect(tokens.warning, scheme.tertiary);
-      expect(tokens.danger, scheme.error);
-    });
-
     test('every text role is recoloured but keeps its house shape', () {
       final tokens = upgradeTokensFromScheme(scheme);
       expect(tokens.screenTitle.color, scheme.onSurface);

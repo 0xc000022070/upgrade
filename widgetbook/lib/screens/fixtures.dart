@@ -1,7 +1,8 @@
 import 'dart:async';
 
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/application/agents/agent_usage.dart';
-import 'package:upgrade/application/links/link_preview.dart';
+import 'package:upgrade/platform/links/link_preview.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/devices/device_controllers.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
@@ -177,7 +178,9 @@ class FixtureDeviceLink implements DeviceLink {
       return Future.delayed(const Duration(milliseconds: 600), () => 'OK\n');
     }
     return switch (fixture) {
-      DeviceFixture.failed => Future.error(const HerdrUnreachable('fixture')),
+      DeviceFixture.failed => Future.error(
+        const HostFailure.unreachable('fixture'),
+      ),
       DeviceFixture.loading => Completer<String>().future,
       _ => Future.value(fixture.stopped),
     };

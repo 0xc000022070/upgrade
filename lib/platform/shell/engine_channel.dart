@@ -14,13 +14,15 @@ const engineMaxPlaintext = 1160;
 const engineClientHeader = 30;
 const engineServerHeader = 26;
 const engineMaxInput = engineMaxPlaintext - engineClientHeader - 8;
-const engineMaxData = engineMaxPlaintext - engineServerHeader - 8;
 const engineNoTimestamp = 0xffff;
 
 const _clientInput = 1 << 0;
 const _clientClose = 1 << 1;
 const _serverData = 1 << 0;
 const _serverJump = 1 << 1;
+
+const _ackDelay = Duration(milliseconds: 10);
+const _inFlightLimit = 16;
 
 const _recordPty = 1;
 const _recordSnapshot = 2;
@@ -95,33 +97,6 @@ class EngineClientPacket {
     }
     return bytes;
   }
-
-  static EngineClientPacket? decode(Uint8List bytes) {
-    if (bytes.length < engineClientHeader) return null;
-    final view = ByteData.sublistView(bytes);
-    if (view.getUint8(0) != engineWireVersion) return null;
-    final flags = view.getUint8(1);
-    final carries = flags & _clientInput != 0;
-    if (carries && bytes.length < engineClientHeader + 8) return null;
-    return EngineClientPacket(
-      close: flags & _clientClose != 0,
-      timestamp: view.getUint16(2),
-      timestampReply: view.getUint16(4),
-      ack: view.getUint64(6),
-      keyframe: view.getUint32(14),
-      sizeGen: view.getUint32(18),
-      size: EngineSize(
-        view.getUint16(22),
-        view.getUint16(24),
-        widthPx: view.getUint16(26),
-        heightPx: view.getUint16(28),
-      ),
-      inputOffset: carries ? view.getUint64(engineClientHeader) : null,
-      input: carries
-          ? Uint8List.fromList(bytes.sublist(engineClientHeader + 8))
-          : null,
-    );
-  }
 }
 
 class EngineServerPacket {
@@ -145,27 +120,6 @@ class EngineServerPacket {
   final int? offset;
   final Uint8List? data;
 
-  Uint8List encode() {
-    final data = this.data;
-    final offset = this.offset;
-    final carries = data != null && offset != null;
-    final out = ByteData(engineServerHeader + (carries ? 8 + data.length : 0));
-    out
-      ..setUint8(0, engineWireVersion)
-      ..setUint8(1, (carries ? _serverData : 0) | (jump ? _serverJump : 0))
-      ..setUint16(2, timestamp & 0xffff)
-      ..setUint16(4, timestampReply & 0xffff)
-      ..setUint64(6, inputAck)
-      ..setUint32(14, sizeGen)
-      ..setUint64(18, streamEnd);
-    final bytes = out.buffer.asUint8List();
-    if (carries) {
-      out.setUint64(engineServerHeader, offset);
-      bytes.setAll(engineServerHeader + 8, data);
-    }
-    return bytes;
-  }
-
   static EngineServerPacket? decode(Uint8List bytes) {
     if (bytes.length < engineServerHeader) return null;
     final view = ByteData.sublistView(bytes);
@@ -188,32 +142,8 @@ class EngineServerPacket {
   }
 }
 
-Uint8List sealEngineServerPacket(
-  MoshPacketCipher cipher,
-  int sequence,
-  Uint8List plaintext,
-) {
-  final wire = Uint8List(8);
-  ByteData.sublistView(wire).setUint64(0, sequence);
-  wire[0] |= 0x80;
-  final sealed = cipher.delegate.seal(
-    nonce: MoshNonce.fromWire(wire).aeadBytes,
-    plaintext: plaintext,
-  );
-  return Uint8List(8 + sealed.length)
-    ..setAll(0, wire)
-    ..setAll(8, sealed);
-}
-
 bool engineFromServer(Uint8List packet) =>
     packet.isNotEmpty && packet[0] & 0x80 != 0;
-
-Uint8List engineRecord(int kind, List<int> body) {
-  final out = ByteData(_recordHeader + body.length)
-    ..setUint8(0, kind)
-    ..setUint32(1, body.length);
-  return out.buffer.asUint8List()..setAll(_recordHeader, body);
-}
 
 sealed class EngineEvent {
   const EngineEvent();
@@ -460,11 +390,11 @@ Future<EngineChannel> dialEngine({
   required int rows,
   EngineResume? resume,
   Duration contactWindow = const Duration(seconds: 4),
-  Duration lookupWindow = const Duration(seconds: 10),
 }) async {
   final address =
       InternetAddress.tryParse(host) ??
-      (await InternetAddress.lookup(host).timeout(lookupWindow)).first;
+      (await InternetAddress.lookup(host).timeout(const Duration(seconds: 10)))
+          .first;
   final channel = UdpEngineChannel(
     address: address,
     port: port,
@@ -484,8 +414,6 @@ class UdpEngineChannel implements EngineChannel {
     required this._cipher,
     required this._size,
     this.heartbeat = const Duration(seconds: 3),
-    this.ackDelay = const Duration(milliseconds: 10),
-    this.inFlightLimit = 16,
     this.contactWindow = const Duration(seconds: 4),
     this.contactTries = 2,
     this.firstResend = const Duration(milliseconds: 250),
@@ -504,10 +432,6 @@ class UdpEngineChannel implements EngineChannel {
   final InternetAddress address;
   final int port;
   final Duration heartbeat;
-  final Duration ackDelay;
-
-  final int inFlightLimit;
-
   final Duration contactWindow;
 
   final int contactTries;
@@ -773,7 +697,7 @@ class UdpEngineChannel implements EngineChannel {
       _events.add(event);
     }
     if (_receiver.ack != before) {
-      _ackDue ??= now + ackDelay.inMilliseconds;
+      _ackDue ??= now + _ackDelay.inMilliseconds;
     }
     if (syncing && _outbox.unsent) {
       _transmit();
@@ -786,7 +710,7 @@ class UdpEngineChannel implements EngineChannel {
     if (_closed || _suspended || _socket == null) return;
     var wrote = false;
     if (!bare && _synced) {
-      final window = inFlightLimit * engineMaxInput;
+      final window = _inFlightLimit * engineMaxInput;
       if (!_outbox.inFlight) _progressAt = _now;
       while (_outbox.unsent && _outbox.sent - _outbox.base < window) {
         final (offset, bytes) = _outbox.next()!;

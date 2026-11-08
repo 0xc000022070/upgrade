@@ -1,12 +1,12 @@
 import 'dart:io';
 
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade/data/plugin_emblems.dart';
 import 'package:upgrade/features/plugins/plugin_board.dart';
 import 'package:upgrade/features/plugins/plugin_catalog.dart';
 import 'package:upgrade/features/plugins/plugin_graph.dart';
 import 'package:upgrade/features/plugins/plugin_reach.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/native_plugins.dart';

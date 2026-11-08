@@ -1,6 +1,6 @@
 import 'package:dartssh2/dartssh2.dart';
 import 'package:upgrade/application/shell/launch_scan.dart';
-import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/platform/reason_lines.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/keys.dart';

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/raw_tables.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -12,11 +13,10 @@ import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
 import 'package:upgrade/platform/files/attachment_store.dart';
 import 'package:upgrade/platform/bundle_cipher.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/providers.dart';
-import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/platform/reason_lines.dart';
 import 'package:upgrade/application/phone_linux.dart';
 
 class Bundle {
@@ -257,8 +257,6 @@ class BundleCount {
 
 typedef Atomically = Future<T> Function<T>(Future<T> Function() body);
 
-Future<T> _plain<T>(Future<T> Function() body) => body();
-
 class BundleTransfer {
   const BundleTransfer({
     required this.keys,
@@ -267,7 +265,7 @@ class BundleTransfer {
     required this.store,
     required this.raw,
     required this.attachments,
-    this.atomically = _plain,
+    required this.atomically,
   });
 
   final KeyRepository keys;

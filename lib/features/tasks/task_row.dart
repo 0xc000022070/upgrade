@@ -7,7 +7,7 @@ import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/list_row.dart';
-import 'package:upgrade/design/components/priority_row.dart';
+import 'package:upgrade/features/priority/priority_row.dart';
 import 'package:upgrade/design/effects/glitch.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';

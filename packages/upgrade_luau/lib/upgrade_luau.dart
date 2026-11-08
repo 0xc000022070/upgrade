@@ -49,7 +49,10 @@ external Pointer<Utf8> _error(Pointer<Void> vm);
   symbol: 'upgrade_vm_memory',
 )
 external int _memory(Pointer<Void> vm);
-@Native<Size Function(Pointer<Void>)>(assetId: _asset, symbol: 'upgrade_vm_peak')
+@Native<Size Function(Pointer<Void>)>(
+  assetId: _asset,
+  symbol: 'upgrade_vm_peak',
+)
 external int _peak(Pointer<Void> vm);
 @Native<Int64 Function(Pointer<Void>)>(
   assetId: _asset,
@@ -155,7 +158,7 @@ class LuauWorker {
       return Future.error(const LuauException('Plugin queue is full'));
     }
     if ((!_cached.contains(cacheKey) &&
-            utf8.encode(source).length > 64 * 1024) ||
+            utf8.encode(source).length > DataLimits.sourceBytes) ||
         action.length > 100 ||
         action.contains('\x00')) {
       return Future.error(

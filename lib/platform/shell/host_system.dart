@@ -1,4 +1,4 @@
-import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/host_system.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 

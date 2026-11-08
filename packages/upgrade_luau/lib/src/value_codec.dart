@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-const messageLimit = 256 * 1024;
+import 'package:upgrade_luau/data_api.dart';
+
+const messageLimit = DataLimits.ioBytes;
 
 Uint8List encodeValue(Object? value) {
   final bytes = BytesBuilder(copy: false);

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade/app/builtin_plugins.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/plugins/plugin_hosts.dart';
@@ -12,9 +13,8 @@ import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
 import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/features/plugins/plugin_management_screen.dart';
 import 'package:upgrade/features/plugins/plugin_page.dart';
-import 'package:upgrade/platform/plugins/contributions.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/data/plugins/contributions.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';

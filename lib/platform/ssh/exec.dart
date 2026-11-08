@@ -37,6 +37,9 @@ bool isKeyFailure(Object error) => switch (classifyHostFailure(error)) {
   _ => false,
 };
 
+bool isHostOrKeyFailure(Object error) =>
+    isHostFailure(error) || isKeyFailure(error);
+
 /// A channel that opens after [timeout] is closed unread. [HostLease.execute] has already
 /// moved a channel the host refused for its session limit to the overflow link.
 Future<ExecResult> _run(

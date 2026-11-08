@@ -9,6 +9,15 @@ class DataException implements Exception {
   String toString() => message;
 }
 
+abstract final class DataLimits {
+  static const quotaBytes = 8 * 1024 * 1024;
+  static const quotaRecords = 10000;
+  static const schemaVersion = 1000000;
+  static const ownerReservedBytes = 32 * 1024 * 1024;
+  static const ioBytes = 256 * 1024;
+  static const sourceBytes = 64 * 1024;
+}
+
 enum DataOperation { get, query, put, delete, propose }
 
 class DataOwner {
@@ -23,8 +32,8 @@ class DataSet {
     required this.owner,
     required this.name,
     required this.schemaVersion,
-    this.quotaBytes = 8 * 1024 * 1024,
-    this.quotaRecords = 10000,
+    this.quotaBytes = DataLimits.quotaBytes,
+    this.quotaRecords = DataLimits.quotaRecords,
   }) : identity = _identity([owner.identity, name]);
   final DataOwner owner;
   final String name;

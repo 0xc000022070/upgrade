@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/agents/agent_usage.dart';
 import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/design/colors.dart';
 import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
@@ -410,3 +409,9 @@ String resetIn(DateTime now, DateTime resetsAt) {
   if (left.inHours < 24) return '${left.inHours}H';
   return '${left.inDays}D';
 }
+
+Color? agentBrandColor(String agent) => switch (agent) {
+  'codex' => const Color(0xFF10A37F),
+  'claude' => const Color(0xFFD97757),
+  _ => null,
+};

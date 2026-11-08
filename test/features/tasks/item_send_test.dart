@@ -10,8 +10,8 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/shell/path_scan.dart';
 import 'package:upgrade/application/agents/send.dart';
 import 'package:upgrade/data/database.dart';
@@ -558,7 +558,7 @@ void main() {
         final itemId = await onlyTaskId();
         // The sender answers with a state rather than rethrowing, so each failure is read off
         // the state's line.
-        Future<String> reasonFor(HerdrFailure failure) async {
+        Future<String> reasonFor(HostFailure failure) async {
           final state =
               await sender(
                 ({
@@ -585,10 +585,22 @@ void main() {
           return (state as SendFailed).reason;
         }
 
-        expect(await reasonFor(const HerdrUnreachable()), 'oak unreachable');
-        expect(await reasonFor(const HerdrUnresolved()), 'oak unresolved');
-        expect(await reasonFor(const HerdrKeyRejected()), 'key rejected');
-        expect(await reasonFor(const HerdrProtocolMismatch(22)), 'protocol 22');
+        expect(
+          await reasonFor(const HostFailure.unreachable()),
+          'oak unreachable',
+        );
+        expect(
+          await reasonFor(const HostFailure(HostFailureKind.unresolved)),
+          'oak unresolved',
+        );
+        expect(
+          await reasonFor(const HostFailure.keyRejected()),
+          'key rejected',
+        );
+        expect(
+          await reasonFor(const HostFailure.protocolMismatch(22)),
+          'protocol 22',
+        );
         expect(await dispatches.watchForItem(itemId).first, isEmpty);
       },
     );

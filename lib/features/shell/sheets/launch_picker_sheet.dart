@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vector_graphics/vector_graphics.dart';
 
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/phone_linux.dart';
 import 'package:upgrade/application/shell/launch_scan.dart';
@@ -116,17 +117,13 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
 
   Future<bool> _askHostKey(HostKeyOffer offer, PinnedHostKey? pinned) async {
     if (!mounted) return false;
-    final release = ref.read(shellSessionsProvider).hold();
-    try {
-      return await askHostKey(
-        context,
-        host: widget.host,
-        offer: offer,
-        pinned: pinned,
-      );
-    } finally {
-      release();
-    }
+    return askHostKeyHeld(
+      context,
+      hold: ref.read(shellSessionsProvider).hold,
+      host: widget.host,
+      offer: offer,
+      pinned: pinned,
+    );
   }
 
   void _pick(UserIntent intent, ShellLaunch? launch) {

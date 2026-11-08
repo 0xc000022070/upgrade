@@ -6,6 +6,8 @@ import 'dart:typed_data';
 import 'package:dart_mosh/dart_mosh.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/shell/daemon_link.dart';
@@ -609,10 +611,10 @@ Future<T> pumped<T>(WidgetTester tester, Future<T> future) async {
   return result;
 }
 
-Future<ShellFailureKind> kindOf(Future<void> Function() body) async {
+Future<HostFailureKind> kindOf(Future<void> Function() body) async {
   try {
     await body();
-  } on ShellFailure catch (failure) {
+  } on HostFailure catch (failure) {
     return failure.kind;
   }
   fail('the open was expected to fail');
@@ -838,8 +840,8 @@ void main() {
 
       await until(() => reported != null);
 
-      expect(reported, isA<ShellFailure>());
-      expect((reported! as ShellFailure).kind, ShellFailureKind.streamClosed);
+      expect(reported, isA<HostFailure>());
+      expect((reported! as HostFailure).kind, HostFailureKind.streamClosed);
     });
 
     test('a suspended Mosh tab goes quiet and rehomes on resume', () async {
@@ -1947,11 +1949,8 @@ void main() {
       host.pty.fail(SSHStateError('SSH connection closed'));
       await pumpEventQueue();
 
-      expect(errors.single, isA<ShellFailure>());
-      expect(
-        (errors.single as ShellFailure).kind,
-        ShellFailureKind.streamClosed,
-      );
+      expect(errors.single, isA<HostFailure>());
+      expect((errors.single as HostFailure).kind, HostFailureKind.streamClosed);
     });
 
     test('typed bytes go to stdin as they were given', () async {
@@ -2011,7 +2010,7 @@ void main() {
       await pumpEventQueue();
 
       expect(seen, hasLength(2));
-      expect((seen.first as ShellFailure).kind, ShellFailureKind.streamClosed);
+      expect((seen.first as HostFailure).kind, HostFailureKind.streamClosed);
       expect(seen.last, 'exit null');
       expect(connection.ended, isNotNull);
     });
@@ -2026,7 +2025,7 @@ void main() {
       await pumpEventQueue();
 
       expect(
-        (errors.single as ShellFailure).detail,
+        (errors.single as HostFailure).detail,
         contains('channel torn down'),
       );
       expect(await connection.exitCode, isNull);
@@ -2093,7 +2092,7 @@ void main() {
         dialError: const SocketException('Failed host lookup: oak'),
       );
 
-      expect(await kindOf(() => openOn(tunnel)), ShellFailureKind.unresolved);
+      expect(await kindOf(() => openOn(tunnel)), HostFailureKind.unresolved);
     });
 
     test('a machine that did not answer', () async {
@@ -2108,13 +2107,13 @@ void main() {
             ),
           ),
         ),
-        ShellFailureKind.unreachable,
+        HostFailureKind.unreachable,
       );
       expect(
         await kindOf(
           () => openOn(tunnelTo(host, dialError: TimeoutException('connect'))),
         ),
-        ShellFailureKind.unreachable,
+        HostFailureKind.unreachable,
       );
     });
 
@@ -2125,7 +2124,7 @@ void main() {
             tunnelTo(FakeHost(authError: SSHAuthFailError('no more methods'))),
           ),
         ),
-        ShellFailureKind.keyRejected,
+        HostFailureKind.keyRejected,
       );
       expect(
         await kindOf(
@@ -2133,7 +2132,7 @@ void main() {
             tunnelTo(FakeHost(authError: SSHKeyDecodeError('not a pem'))),
           ),
         ),
-        ShellFailureKind.keyRejected,
+        HostFailureKind.keyRejected,
       );
     });
 
@@ -2183,7 +2182,7 @@ void main() {
             failed: retries.add,
           ),
         ),
-        ShellFailureKind.hostKeyChanged,
+        HostFailureKind.hostKeyChanged,
       );
       expect(retries, isEmpty);
 
@@ -2213,7 +2212,7 @@ void main() {
             ),
           ),
         ),
-        ShellFailureKind.shellRefused,
+        HostFailureKind.shellRefused,
       );
       expect(
         await kindOf(
@@ -2225,7 +2224,7 @@ void main() {
             ),
           ),
         ),
-        ShellFailureKind.shellRefused,
+        HostFailureKind.shellRefused,
       );
     });
 
@@ -2238,7 +2237,7 @@ void main() {
             ),
           ),
         ),
-        ShellFailureKind.streamClosed,
+        HostFailureKind.streamClosed,
       );
       expect(
         await kindOf(
@@ -2252,7 +2251,7 @@ void main() {
             ),
           ),
         ),
-        ShellFailureKind.streamClosed,
+        HostFailureKind.streamClosed,
       );
     });
 
@@ -2270,7 +2269,7 @@ void main() {
             ),
           ),
         ),
-        ShellFailureKind.unreachable,
+        HostFailureKind.unreachable,
       );
     });
 
@@ -2317,7 +2316,7 @@ void main() {
 
     final kind = await kindOf(() => openOn(tunnel));
 
-    expect(kind, ShellFailureKind.unreachable);
+    expect(kind, HostFailureKind.unreachable);
     expect(host.closed, isFalse);
     host.authGate!.complete();
     await pumpEventQueue();
@@ -3161,7 +3160,7 @@ void engineTests() {
     connection.output.listen((_) {}, onError: failure.complete);
 
     final error = await failure.future.timeout(const Duration(seconds: 2));
-    expect(error, isA<ShellFailure>());
+    expect(error, isA<HostFailure>());
     expect(engine.pokes, greaterThan(1));
     expect(health, contains(ShellConnectionHealth.reconnecting));
     expect(health.last, ShellConnectionHealth.disconnected);
@@ -3215,7 +3214,7 @@ void engineTests() {
         '{"ok":true,"result":{"shells":[]}}',
       );
       final error = await failure.future.timeout(const Duration(seconds: 2));
-      expect(error, isA<ShellFailure>());
+      expect(error, isA<HostFailure>());
       expect(connection.ended, isNotNull);
     });
 

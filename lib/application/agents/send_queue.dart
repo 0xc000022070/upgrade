@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
 import 'package:upgrade/application/agents/send.dart';
 import 'package:upgrade/application/alerts/toasts.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
@@ -18,6 +18,7 @@ class PendingSend {
     required this.run,
     this.onDismissed,
     this.state = const SendSending(),
+    this.sent,
   });
 
   final String id;
@@ -31,7 +32,10 @@ class PendingSend {
 
   final SendState state;
 
-  PendingSend _to(SendState state) => PendingSend(
+  /// Where the send landed, set just before the job leaves the queue.
+  final SendSent? sent;
+
+  PendingSend _to(SendState state, {SendSent? sent}) => PendingSend(
     id: id,
     itemId: itemId,
     title: title,
@@ -40,6 +44,7 @@ class PendingSend {
     run: run,
     onDismissed: onDismissed,
     state: state,
+    sent: sent,
   );
 }
 
@@ -117,6 +122,7 @@ class SendQueue extends Notifier<List<PendingSend>> {
     }
     switch (result) {
       case SendSent():
+        _put(send._to(send.state, sent: result));
         state = [...state.where((other) => other.id != send.id)];
         toasts.raise(
           Toast(id: _toastId(send.id), verb: 'SENT', subject: send.title),

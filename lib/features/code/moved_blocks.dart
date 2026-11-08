@@ -53,11 +53,9 @@ List<_Line> _side(List<DiffLine> lines, DiffLineKind kind) => [
                 ? lines[row].newLine
                 : lines[row].oldLine) ??
             0,
-        key: lines[row].text.replaceAll(_space, ''),
+        key: squash(lines[row].text),
       ),
 ];
-
-final _space = RegExp(r'\s+');
 
 void _pair(
   List<_Line> targets,

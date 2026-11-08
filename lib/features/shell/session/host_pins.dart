@@ -76,7 +76,7 @@ class HostPins {
       try {
         channels = await connection.channelsFor(UserAction(intent));
       } catch (error) {
-        if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
+        if (!isHostOrKeyFailure(error)) rethrow;
         debugPrint(
           '$appSlug.shell ${session.host.name}: pinentry dial: $error',
         );

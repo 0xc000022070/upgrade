@@ -7,13 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/platform/phone_linux.dart';
-import 'package:upgrade/platform/plugins/serial.dart';
+import 'package:upgrade/data/serial.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 

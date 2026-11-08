@@ -28,6 +28,8 @@ pub const SERVER_NAME: &str = "upgraded";
 pub const TOKEN_LEN: usize = 32;
 pub const RPC: u8 = b'R';
 pub const ATTACH: u8 = b'S';
+const REFUSED: u32 = 1;
+const UNRUN: u32 = 2;
 const DIR: &str = "daemon";
 const INITIAL_MTU: u16 = 1232;
 const MAX_REQUEST_BYTES: usize = 1024 * 1024;
@@ -213,7 +215,7 @@ async fn serve_connection(
     let mut offered = [0u8; TOKEN_LEN];
     recv.read_exact(&mut offered).await?;
     if !same(&offered, token) {
-        connection.close(1u32.into(), b"token");
+        connection.close(REFUSED.into(), b"token");
         return Ok(());
     }
     send.write_all(&[1]).await?;
@@ -264,13 +266,13 @@ async fn stream(
                 Ok(send.finish()?)
             }
             Err(err) => {
-                let _ = send.reset(2u32.into());
+                let _ = send.reset(UNRUN.into());
                 Err(err)
             }
         },
         ATTACH => attach(connection, channels, state_root, send, recv).await,
         _ => {
-            let _ = send.reset(1u32.into());
+            let _ = send.reset(REFUSED.into());
             Ok(())
         }
     }

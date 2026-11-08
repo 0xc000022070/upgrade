@@ -1,3 +1,17 @@
+import 'package:flutter/services.dart';
+
+/// Runs a channel call that answers [fallback] when the platform has no handler or
+/// refuses the call.
+Future<T> failSoft<T>(Future<T> Function() call, T fallback) async {
+  try {
+    return await call();
+  } on MissingPluginException {
+    return fallback;
+  } on PlatformException {
+    return fallback;
+  }
+}
+
 /// Platform channel names. The Kotlin side registers the same strings, so a value change
 /// here needs the matching change in `android/app/src/main/kotlin`.
 abstract final class Channels {

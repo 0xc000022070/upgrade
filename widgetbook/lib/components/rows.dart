@@ -10,7 +10,7 @@ import 'package:upgrade/design/components/meta.dart';
 import 'package:upgrade/design/components/meta_row.dart';
 import 'package:upgrade/design/components/path_line.dart';
 import 'package:upgrade/design/components/picker_row.dart';
-import 'package:upgrade/design/components/priority_row.dart';
+import 'package:upgrade/features/priority/priority_row.dart';
 import 'package:upgrade/design/components/status_tag.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';

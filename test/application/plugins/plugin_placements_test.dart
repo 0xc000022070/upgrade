@@ -1,14 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade/app/builtin_plugins.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/plugins/plugin_placements.dart';
 import 'package:upgrade/application/plugins/plugins.dart';
 import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
 import 'package:upgrade/application/alerts/toasts.dart';
-import 'package:upgrade/platform/plugins/contributions.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/contributions.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/module.dart';
 import 'package:upgrade/platform/plugins/store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

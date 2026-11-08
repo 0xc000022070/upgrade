@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-import 'package:upgrade/platform/device.dart';
 import 'package:upgrade/design/ascii/atlas.dart';
 import 'package:upgrade/design/ascii/effects.dart';
 import 'package:upgrade/design/ascii/noise.dart';
@@ -284,12 +283,16 @@ class AsciiBackgroundDriver extends StatefulWidget {
     required this.colour,
     this.enabled = true,
     this.wallpaper,
+    this.throttled = const Stream.empty(),
   });
 
   final Widget child;
   final Color colour;
   final bool enabled;
   final Wallpaper? wallpaper;
+
+  /// Pauses the static while it emits true.
+  final Stream<bool> throttled;
 
   @override
   State<AsciiBackgroundDriver> createState() => _AsciiBackgroundDriverState();
@@ -311,7 +314,7 @@ class _AsciiBackgroundDriverState extends State<AsciiBackgroundDriver>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _throttleSub = Device.throttleChanges().listen((value) {
+    _throttleSub = widget.throttled.listen((value) {
       if (!mounted || value == _throttled) return;
       _throttled = value;
       _sync();

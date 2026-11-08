@@ -20,7 +20,7 @@ void main() {
   test('a list with no bundles is returned untouched', () {
     final rows = [item('a'), item('b'), item('c')];
 
-    expect(identical(withBundlesAdjacent(rows), rows), isTrue);
+    expect(ids(withBundlesAdjacent(rows)), ['a', 'b', 'c']);
   });
 
   test('mates are pulled up to the first member, not down to the last', () {

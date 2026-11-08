@@ -3,12 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/shell/session/shell_wake.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/application/providers.dart';
 
 import '../../../support/fake_shell.dart';
@@ -38,7 +39,7 @@ Future<ShellSession> _waiting(
   final session = sessions.open(intent: testIntent(), pine)!;
   await tester.pump();
   await tester.pump();
-  transport.refuse = const ShellFailure(ShellFailureKind.unreachable);
+  transport.refuse = const HostFailure(HostFailureKind.unreachable);
   transport.opened.single.drop();
   await tester.pump();
   for (final delay in shellReconnectDelays) {

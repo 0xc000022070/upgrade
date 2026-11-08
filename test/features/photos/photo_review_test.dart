@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:upgrade/features/photos/photo_cut.dart';
+import 'package:upgrade/application/files/photo_cut.dart';
+import 'package:upgrade/features/photos/photo_trim.dart';
 import 'package:upgrade/features/photos/photo_review.dart';
 import 'package:upgrade/features/screen/screen_preview.dart';
 

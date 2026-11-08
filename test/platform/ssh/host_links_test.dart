@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dartssh2/dartssh2.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
@@ -10,6 +11,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/host_links.dart';
 import '../../support/ssh_exec.dart';
+import '../../support/host_failure_matchers.dart';
+
+import 'package:upgrade/platform/ssh/host_failure.dart';
 
 PinnedHostKey _key(String fingerprint) => PinnedHostKey(
   type: 'ssh-ed25519',
@@ -190,7 +194,14 @@ void main() {
     expect(dial.dials, 1);
     expect(dial.settling, 1);
     expect(failures, isNotEmpty);
-    expect(failures.every((failure) => failure is HerdrUnreachable), isTrue);
+    expect(
+      failures.every(
+        (failure) =>
+            failure is HostFailure &&
+            failure.kind == HostFailureKind.unreachable,
+      ),
+      isTrue,
+    );
 
     await tester.pump(const Duration(seconds: 15));
     expect(dial.settling, 0);
@@ -242,11 +253,14 @@ void main() {
     await pumpEventQueue();
     dial.gate!.complete();
 
-    await expectLater(a, throwsA(isA<HerdrUnreachable>()));
-    await expectLater(b, throwsA(isA<HerdrUnreachable>()));
+    await expectLater(a, throwsA(isFailureOf(HostFailureKind.unreachable)));
+    await expectLater(b, throwsA(isFailureOf(HostFailureKind.unreachable)));
     expect(dial.dials, 1);
 
-    await expectLater(_lease(links), throwsA(isA<HerdrUnreachable>()));
+    await expectLater(
+      _lease(links),
+      throwsA(isFailureOf(HostFailureKind.unreachable)),
+    );
     expect(dial.dials, 2);
     links.close();
   });
@@ -584,7 +598,10 @@ void main() {
         {for (final use in HostUse.values) use: use.lane},
         {
           for (final use in HostUse.values)
-            use: use == HostUse.vnc || use == HostUse.deviceDock || use == HostUse.browser
+            use:
+                use == HostUse.vnc ||
+                    use == HostUse.deviceDock ||
+                    use == HostUse.browser
                 ? HostLane.screen
                 : HostLane.control,
         },
@@ -866,7 +883,7 @@ void main() {
             .execute('true')
             .then<Object?>((_) => null, onError: (Object error) => error);
         await tester.pump(const Duration(seconds: 10));
-        expect(await spilled, isA<HerdrUnreachable>());
+        expect(await spilled, isFailureOf(HostFailureKind.unreachable));
         expect(dial.settling, 1);
 
         dial.slowAuth = false;
@@ -1017,7 +1034,7 @@ void main() {
         final links = HostLinks(dial: dial.call);
         final first = outcome(tab(links));
         await tester.pump(const Duration(seconds: 10));
-        expect(await first, isA<HerdrUnreachable>());
+        expect(await first, isFailureOf(HostFailureKind.unreachable));
 
         final refused = await outcome(tab(links));
         expect(refused, isA<DialSettling>());

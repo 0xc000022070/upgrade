@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/application/files/attach_item.dart';
 import 'package:upgrade/application/drops/clips.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/screen/screen_preview.dart';

@@ -4,8 +4,9 @@ import 'dart:isolate';
 
 import 'package:toml/toml.dart';
 
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/serial.dart';
+import 'package:upgrade/data/plugins/installed.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
+import 'package:upgrade/data/serial.dart';
 
 class PluginIndexEntry {
   const PluginIndexEntry({
@@ -128,7 +129,7 @@ class PluginSourceStore {
 
   Future<List<PluginSource>> list() async {
     if (!await _file.exists()) return [];
-    if (await _file.length() > 64 * 1024) {
+    if (await _file.length() > PluginPackage.maxSourceBytes) {
       throw const PluginException('Plugin source list exceeds its limit');
     }
     final text = await _file.readAsString();
@@ -174,7 +175,7 @@ class PluginSourceStore {
     return _serial.run(() async {
       final sources = change(await list());
       if (sources.length > maxSources) {
-        throw const PluginException('At most 16 sources may be added');
+        throw PluginException('At most $maxSources sources may be added');
       }
       final encoded = jsonEncode({
         'sources_version': 1,

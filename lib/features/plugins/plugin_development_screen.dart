@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/plugins/plugin_development.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -17,11 +17,11 @@ import 'package:upgrade/design/components/upgrade_field.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/plugins/plugin_page.dart';
-import 'package:upgrade/features/settings/plugins_panel.dart';
+import 'package:upgrade/features/plugins/plugins_panel.dart';
 import 'package:upgrade/platform/plugins/plugin_check.dart';
 import 'package:upgrade/platform/plugins/plugin_sdk.dart';
 import 'package:upgrade/platform/plugins/plugin_template.dart';
-import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade/features/plugins/plugin_ui.dart';
 
 void openPluginDevelopment(BuildContext context) => Navigator.of(context).push(
   MaterialPageRoute<void>(builder: (_) => const PluginDevelopmentScreen()),

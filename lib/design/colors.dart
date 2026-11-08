@@ -33,9 +33,3 @@ abstract final class SyntaxColors {
   static const comment = Color(0xFF5B6470);
   static const annotation = Color(0xFF8A93B8);
 }
-
-Color? agentBrandColor(String agent) => switch (agent) {
-  'codex' => const Color(0xFF10A37F),
-  'claude' => const Color(0xFFD97757),
-  _ => null,
-};

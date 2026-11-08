@@ -5,12 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 
 import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
+import 'package:upgrade/application/app_lifecycle.dart';
 import 'package:upgrade/application/alerts/alerts.dart';
-import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/platform/notifications/pin_alerts.dart';
 import 'package:upgrade/features/agents/agents_screen.dart';
 import 'package:upgrade/features/shell/session/shell_hold.dart';
 import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
-import 'package:upgrade/platform/herdr/agent_watcher.dart';
+import 'package:upgrade/application/alerts/agent_watcher.dart';
 import 'package:upgrade/platform/notifications/alert_actions.dart';
 import 'package:upgrade/platform/notifications/alert_notifications.dart';
 import 'package:upgrade/platform/notifications/chat_notifications.dart';

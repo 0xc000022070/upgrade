@@ -925,3 +925,9 @@ List<DiffScope> _scopesOf(Object? scopes) {
         DiffScope(line: line, end: end, name: name, kind: kind),
   ];
 }
+
+/// A line with its whitespace removed, the key two lines are compared by when only
+/// indentation or spacing moved.
+String squash(String text) => text.replaceAll(_whitespace, '');
+
+final _whitespace = RegExp(r'\s+');

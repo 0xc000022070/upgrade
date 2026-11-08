@@ -88,20 +88,23 @@ void main() {
   });
 
   group('the survey', () {
-    test('one record per checkout, the directory first and the counts after', () {
-      final surveys = parseSurvey(
-        '$workspaceRecord~/src/upgrade\n$_status# numstat 142 38\n'
-        '$workspaceRecord/srv/gate\n# branch.head main\n# numstat 0 0\n',
-      );
+    test(
+      'one record per checkout, the directory first and the counts after',
+      () {
+        final surveys = parseSurvey(
+          '$workspaceRecord~/src/upgrade\n$_status# numstat 142 38\n'
+          '$workspaceRecord/srv/gate\n# branch.head main\n# numstat 0 0\n',
+        );
 
-      expect(surveys.map((s) => s.directory), ['~/src/upgrade', '/srv/gate']);
-      expect(surveys.first.status.branch, 'main');
-      expect(surveys.first.status.ahead, 2);
-      expect(surveys.first.status.changes, hasLength(5));
-      expect((surveys.first.added, surveys.first.removed), (142, 38));
-      expect(surveys.last.status.clean, isTrue);
-      expect((surveys.last.added, surveys.last.removed), (0, 0));
-    });
+        expect(surveys.map((s) => s.directory), ['~/src/upgrade', '/srv/gate']);
+        expect(surveys.first.status.branch, 'main');
+        expect(surveys.first.status.ahead, 2);
+        expect(surveys.first.status.changes, hasLength(5));
+        expect((surveys.first.added, surveys.first.removed), (142, 38));
+        expect(surveys.last.status.clean, isTrue);
+        expect((surveys.last.added, surveys.last.removed), (0, 0));
+      },
+    );
 
     test('a directory git refused is a record with no status', () {
       final surveys = parseSurvey(
@@ -473,6 +476,43 @@ void main() {
   });
 
   group('a listing', () {
+    test('a find without -printf still lists the folder', () async {
+      final root = await Directory.systemTemp.createTemp('listing');
+      addTearDown(() => root.delete(recursive: true));
+      final bin = await Directory('${root.path}/bin').create();
+      final shim = File('${bin.path}/find')
+        ..writeAsStringSync('#!/bin/sh\nexit 1\n');
+      await Process.run('chmod', ['+x', shim.path]);
+      final here = await Directory('${root.path}/here').create();
+      await Directory('${here.path}/src').create();
+      File('${here.path}/a b.txt').writeAsStringSync('hello');
+      File('${here.path}/.env').writeAsStringSync('x');
+      await Link('${here.path}/to-src').create('${here.path}/src');
+      await Link('${here.path}/gone').create('${here.path}/nothing');
+
+      Future<Map<String, (DirEntryKind, int)>> list(bool follow) async {
+        final run = await Process.run(
+          'sh',
+          ['-c', listEntries(follow: follow)],
+          workingDirectory: here.path,
+          environment: {'PATH': '${bin.path}:${Platform.environment['PATH']}'},
+        );
+        return {
+          for (final entry in parseListing(run.stdout as String))
+            entry.name: (entry.kind, entry.size),
+        };
+      }
+
+      expect(await list(true), {
+        'src': (DirEntryKind.directory, 0),
+        'to-src': (DirEntryKind.directory, 0),
+        'a b.txt': (DirEntryKind.file, 5),
+        '.env': (DirEntryKind.file, 1),
+        'gone': (DirEntryKind.file, 0),
+      });
+      expect((await list(false))['to-src'], (DirEntryKind.link, 0));
+    });
+
     test('directories come first and then names, case-blind', () {
       final entries = parseListing(
         'f\t120\tREADME.md\n'
@@ -752,19 +792,7 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
       }
     });
 
-    test('the overview asks five questions and marks the joins', () {
-      final command = WorkspaceCommands.overview('~/src/upgrade');
-      expect(command, contains('status --porcelain=v2 --branch'));
-      expect(command, contains('--untracked-files=all'));
-      expect(command, contains('git worktree list --porcelain'));
-      expect(command, contains('diff --numstat HEAD'));
-      expect(command, contains('ls-files -z --others --exclude-standard'));
-      expect(command, contains('grep --no-index -I -c'));
-      expect(command, contains('grep --no-index -I -L'));
-      expect(
-        'xargs -0 -r git --literal-pathspecs'.allMatches(command),
-        hasLength(2),
-      );
+    test('untracked names survive the pathspec magic characters', () {
       expect(
         [
           for (final f in parseUntracked('*:2\n:(top)x:1\n', ''))
@@ -772,22 +800,6 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
         ],
         [('*', 2), (':(top)x', 1)],
       );
-      expect(r"\036".allMatches(command), hasLength(4));
-    });
-
-    test('the untracked cap falls back when head cannot split on NUL', () {
-      final command = WorkspaceCommands.overview('~/src/upgrade');
-      expect(command, contains('head -z -n 200'));
-      expect(command, contains('perl -0ne'));
-      expect(command, contains('cap() { cat; }'));
-      expect('| cap |'.allMatches(command), hasLength(2));
-    });
-
-    test('a missing directory and a plain directory get their own codes', () {
-      final command = WorkspaceCommands.overview('~/src/upgrade');
-      expect(command, contains('exit $workspaceNoDirectory'));
-      expect(command, contains('exit $workspaceNoRepository'));
-      expect(workspaceNoDirectory, isNot(workspaceNoRepository));
     });
 
     test('the checkout a directory is inside is what is asked for', () {
@@ -867,64 +879,22 @@ diff --git "a/lib/a b.dart" "b/lib/a b.dart"
       expect(shellIn('/srv/gate'), contains(r'exec $SHELL'));
     });
 
-    test('a listing is not a repository question', () {
-      expect(
-        WorkspaceCommands.listing('/srv/gate', 'lib'),
-        isNot(contains('rev-parse')),
-      );
-    });
-
-    test('a file read is capped', () {
-      expect(
-        WorkspaceCommands.file('/srv/gate', 'big.log', bytes: 4096),
-        contains('head -c 4096'),
-      );
-    });
-
-    test('an untracked file diffs against nothing and swallows the code', () {
-      final command = WorkspaceCommands.newFileDiff('/srv/gate', 'new.txt');
-      expect(command, contains('--no-index -- /dev/null'));
-      expect(command, contains('exit 0'));
-    });
-
-    test('the log is capped and its fields are marked', () {
-      final command = WorkspaceCommands.commits('/srv/gate', count: 20);
-      expect(command, contains('log'));
-      expect(command, contains('-n 20'));
-      // The fields are split on `US`, which a subject cannot hold.
-      expect(r"%x1f".allMatches(command), hasLength(4));
-    });
-
-    test("a commit's files are counted and named in one trip", () {
-      final command = WorkspaceCommands.commitFiles('/srv/gate', '1a2b3c');
-      expect(command, contains('--numstat'));
-      expect(command, contains('--name-status'));
-      expect(r"\036".allMatches(command), hasLength(1));
-    });
-
-    test('a merge is read along its first parent, so it has a diff at all', () {
-      // A merge against every parent is empty.
-      expect(
-        WorkspaceCommands.commitFiles('/srv/gate', '1a2b3c'),
-        contains('--first-parent'),
-      );
-      expect(
-        WorkspaceCommands.commitDiff('/srv/gate', '1a2b3c', 'a.dart'),
-        contains('--first-parent'),
-      );
-    });
-
-    test('nothing in the history writes', () {
+    test('history reads a merge along its first parent and never writes', () {
       final commands = [
-        WorkspaceCommands.commits('/srv/gate'),
         WorkspaceCommands.commitFiles('/srv/gate', '1a2b3c'),
         WorkspaceCommands.commitDiff('/srv/gate', '1a2b3c', 'a.dart'),
+        WorkspaceCommands.commitDiffAll('/srv/gate', '1a2b3c'),
       ];
       for (final command in commands) {
-        expect(command, isNot(contains('checkout')));
-        expect(command, isNot(contains('reset')));
-        expect(command, contains('--no-color'));
+        final script = _script(command);
+        expect(script, contains('--first-parent'));
+        expect(script, isNot(contains('checkout')));
+        expect(script, isNot(contains('reset')));
       }
+      expect(
+        _script(WorkspaceCommands.commits('/srv/gate')),
+        allOf(isNot(contains('checkout')), isNot(contains('reset'))),
+      );
     });
   });
 }

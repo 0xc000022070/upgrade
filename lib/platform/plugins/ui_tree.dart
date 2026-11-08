@@ -1,4 +1,4 @@
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/plugin_sdk.dart';
 
 class PluginUiNode {

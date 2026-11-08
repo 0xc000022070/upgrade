@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/alerts/alerts.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/herdr/agent_watcher.dart';
+import 'package:upgrade/application/alerts/agent_watcher.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/ssh/keys.dart';

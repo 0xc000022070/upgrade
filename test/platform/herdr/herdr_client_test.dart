@@ -4,8 +4,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/platform/ssh/host_files.dart' show uploadsSharing;
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
+import 'package:upgrade/platform/herdr/agent_state.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/herdr/herdr_socket.dart';
@@ -15,6 +15,7 @@ import 'package:upgrade/platform/ssh/keys.dart';
 import '../../support/herdr_link.dart';
 import '../../support/ssh_exec.dart';
 import '../../support/tarpit.dart';
+import '../../support/host_failure_matchers.dart';
 
 void main() {
   test('parses a local herdr agent list fixture', () {
@@ -70,11 +71,8 @@ void main() {
         ],
       }, session: 'default'),
       throwsA(
-        isA<HerdrProtocolMismatch>().having(
-          (error) => error.detail,
-          'detail',
-          'agent cwd',
-        ),
+        isFailureOf(HostFailureKind.protocolMismatch)
+            .having((error) => error.detail, 'detail', 'agent cwd'),
       ),
     );
   });
@@ -212,7 +210,7 @@ void main() {
         const HerdrRefusal('invalid_request', 'unknown method'),
         session: 'lab',
       ),
-      throwsA(isA<HerdrProtocolMismatch>()),
+      throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
     );
   });
 
@@ -226,7 +224,7 @@ void main() {
       () => HerdrClient.parseSessions(
         '{"sessions":[{"default":true,"name":"default","running":true}]}',
       ),
-      throwsA(isA<HerdrProtocolMismatch>()),
+      throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
     );
   });
 
@@ -284,20 +282,14 @@ void main() {
         'protocol': 22,
       }, session: 'default'),
       throwsA(
-        isA<HerdrProtocolMismatch>().having(
-          (error) => error.protocol,
-          'protocol',
-          22,
-        ),
+        isFailureOf(HostFailureKind.protocolMismatch)
+            .having((error) => error.protocol, 'protocol', 22),
       ),
     );
     expect(
-      asHerdrFailure(const HerdrMalformed('garbage', 20)),
-      isA<HerdrProtocolMismatch>().having(
-        (error) => error.protocol,
-        'protocol',
-        20,
-      ),
+      asHostFailure(const HerdrMalformed('garbage', 20)),
+      isFailureOf(HostFailureKind.protocolMismatch)
+          .having((error) => error.protocol, 'protocol', 20),
     );
   });
 
@@ -314,7 +306,7 @@ void main() {
         'type': 'workspace_created',
         'root_pane': {'pane_id': 'bad pane'},
       }),
-      throwsA(isA<HerdrProtocolMismatch>()),
+      throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
     );
   });
 
@@ -368,29 +360,29 @@ void main() {
     expect(request.params, {'pane_id': 'w1:p2'});
     expect(
       () => HerdrRequests.processInfo((session: 'lab', pane: 'w1:p2; reboot')),
-      throwsA(isA<HerdrProtocolMismatch>()),
+      throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
     );
   });
 
   test('requests reject injected pane ids and keys', () {
     expect(
       () => HerdrRequests.read((session: 'lab', pane: 'wH:p1; reboot')),
-      throwsA(isA<HerdrProtocolMismatch>()),
+      throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
     );
     expect(
       () => HerdrRequests.sendKeys(
         (session: 'lab', pane: 'wH:p1'),
         const ['enter; reboot'],
       ),
-      throwsA(isA<HerdrProtocolMismatch>()),
+      throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
     );
     expect(
       () => HerdrRequests.sendKeys((session: 'lab', pane: 'wH:p1'), const []),
-      throwsA(isA<HerdrProtocolMismatch>()),
+      throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
     );
     expect(
       () => HerdrCommands.attach((session: "lab' reboot '", pane: 'wH:p1')),
-      throwsA(isA<HerdrProtocolMismatch>()),
+      throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
     );
   });
 
@@ -492,7 +484,7 @@ void main() {
         session: 'lab',
         pane: 'w1:p2; reboot',
       ), timeout: Duration.zero),
-      throwsA(isA<HerdrProtocolMismatch>()),
+      throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
     );
   });
 
@@ -637,7 +629,7 @@ void main() {
         privateKey: privateKey,
         verifier: HostKeyVerifier.pinnedOnly(null),
       ),
-      throwsA(isA<HerdrUnreachable>()),
+      throwsA(isFailureOf(HostFailureKind.unreachable)),
     );
     await Future<void>.delayed(const Duration(milliseconds: 200));
 
@@ -719,7 +711,7 @@ void main() {
       }
       expect(went, 0);
 
-      expect(await failed.future, isA<HerdrUnreachable>());
+      expect(await failed.future, isFailureOf(HostFailureKind.unreachable));
       await done.future;
       expect(went, 1);
     });

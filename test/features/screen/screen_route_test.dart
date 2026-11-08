@@ -4,7 +4,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/screen/framebuffer_view.dart';
@@ -13,7 +15,6 @@ import 'package:upgrade/features/screen/screen_rail.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/vnc/keysyms.dart';
 import 'package:upgrade/platform/vnc/rfb_messages.dart';
-import 'package:upgrade/platform/vnc/vnc_failure.dart';
 import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/application/providers.dart';
@@ -138,7 +139,10 @@ void main() {
             }) async {
               attempts++;
               if (attempts == 1) {
-                throw const VncTunnelRefused('administratively prohibited');
+                throw const HostFailure(
+                  HostFailureKind.tunnelRefused,
+                  detail: 'administratively prohibited',
+                );
               }
               connection = await FakeVncConnection.open();
               return connection;
@@ -175,7 +179,7 @@ void main() {
         String? vncUsername,
         String? password,
         HostKeyVerifier? verifier,
-      }) async => throw const VncPasswordNeeded('server offers 2'),
+      }) async => throw const HostFailure.passwordNeeded('server offers 2'),
     );
     await tester.pumpAndSettle();
 

@@ -81,8 +81,10 @@ final class TransferJob {
 
   bool get retrying => _owner._retrying.contains(this);
 
-  bool get failed =>
-      note != null || items.any((item) => item.stage == AttachStage.failed);
+  int get failedCount =>
+      items.where((item) => item.stage == AttachStage.failed).length;
+
+  bool get failed => note != null || failedCount > 0;
 
   void report(int index, AttachItem item) {
     final before = items[index].sent;

@@ -20,7 +20,7 @@ import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/features/tasks/item_sheet.dart';
 import 'package:upgrade/features/plugins/plugin_management_screen.dart';
 import 'package:upgrade/features/plugins/plugin_page.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';
 import 'package:upgrade/platform/plugins/usage.dart';
 import 'package:drift/native.dart';
@@ -31,8 +31,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/native_plugins.dart';
 import '../../support/plugin_board.dart';
 import '../../support/platform_channels.dart';
-import '../../plugins/agent_schedules_plugin_test.dart' show schedulePackage;
-import '../../plugins/board_plugin_test.dart' show boardPackage;
+import '../../support/plugin_packages.dart' show boardPackage, schedulePackage;
 import '../../support/themed_app.dart';
 
 Future<void> drain(WidgetTester tester) async {

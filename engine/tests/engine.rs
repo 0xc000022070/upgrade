@@ -251,9 +251,6 @@ fn probe_answers_without_an_owner_and_names_only_what_is_built() {
             "git/1"
         ]
     );
-    for absent in ["kv/1", "batch/1"] {
-        assert!(!names.contains(&absent), "{absent} is named but not built");
-    }
 }
 
 /// Both streams on one pipe nobody reads, the way a dropped ssh channel leaves them.

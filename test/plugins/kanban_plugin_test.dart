@@ -1,21 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/platform/plugins/bindings.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/installed.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';
-import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade/features/plugins/plugin_ui.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
-import 'package:upgrade_luau/ui_sdk.dart';
 
-PluginPackage kanbanPackage() => PluginPackage(
-  manifest: PluginManifest.parse(
-    File('plugins/kanban/upgrade.plugin.toml').readAsStringSync(),
-  ),
-  source: File('plugins/kanban/main.luau').readAsStringSync(),
-  origin: 'bundled:upgrade.kanban',
-  revision: '1.0.0',
-);
+import '../support/plugin_packages.dart';
 
 class KanbanHarness {
   KanbanHarness(this.worker, this.package);
@@ -27,19 +19,16 @@ class KanbanHarness {
   List<Map<String, Object?>> effects = const [];
 
   Future<void> send(Map<String, Object?> event, {String? widget}) async {
-    final plugin = InstalledPlugin(package, package.manifest.permissions);
-    final result = await worker.invoke(
-      key: package.digest,
-      source: '$luauUiSdk\n${package.source}',
-      action: widget == null ? 'frame' : 'card',
-      input: {
+    final response = await invokePlugin(
+      worker,
+      package,
+      widget == null ? 'frame' : 'card',
+      {
         'state': state,
         'widget': ?widget,
         'event': {'token': 'seed', ...event},
       },
-      data: bindPluginData(plugin.id, [plugin]),
     );
-    final response = result.value! as Map<String, Object?>;
     state = response['state']! as Map<String, Object?>;
     raw = response['view']! as Map<String, Object?>;
     effects = [

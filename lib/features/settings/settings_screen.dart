@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/static_surface.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/design/components/panel.dart';
@@ -64,7 +64,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final engine =
-        ref.watch(searchEngineProvider).value ?? SearchEngine.duckduckgo;
+        ref.watch(searchEngineProvider).value ?? SearchEngine.fallback;
     final bar = ref.watch(browserBarProvider).value ?? BrowserBar.top;
     final enabled = ref.watch(staticEnabledProvider).value ?? true;
     final theme = ref.watch(themeProvider).value ?? ThemeChoice.house;

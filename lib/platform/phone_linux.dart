@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
-import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/host_system.dart';
 import 'package:upgrade/platform/channels.dart';
 
 enum PhoneLinuxPhase { idle, download, unpack, setup, nix, ready, failed }

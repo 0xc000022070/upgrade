@@ -3,7 +3,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 
-import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
+import 'package:upgrade/platform/reason_lines.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/devices/device_link.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
@@ -121,7 +122,7 @@ class DevicesController extends ChangeNotifier {
   Future<T> _onLink<T>(Future<T> Function(DeviceLink link) work) async {
     if (_live() == null) await _connect();
     final share = _live()?.share();
-    if (share == null) throw const HerdrUnreachable('no device link');
+    if (share == null) throw const HostFailure.unreachable('no device link');
     try {
       return await work(share.link);
     } finally {
@@ -252,7 +253,7 @@ class DevicesController extends ChangeNotifier {
 
   String _reason(Object error) {
     debugPrint('$appSlug.devices ${host.name}: $error');
-    return asHerdrFailure(error)?.reason(host.name, address: host.address) ??
+    return asHostFailure(error)?.reason(host.name, address: host.address) ??
         ReasonLine.streamClosed.words;
   }
 
@@ -318,7 +319,7 @@ class DevicesController extends ChangeNotifier {
     final privateKey = await _readPrivateKey(host.keyId);
     if (_disposed) return null;
     if (privateKey == null) {
-      _fail(const HerdrKeyRejected('no private key stored'));
+      _fail(const HostFailure.keyRejected('no private key stored'));
       return null;
     }
     final link = await _open(
@@ -335,14 +336,14 @@ class DevicesController extends ChangeNotifier {
       return null;
     }
     if (link.closed) {
-      _fail(const HerdrUnreachable('device link closed'));
+      _fail(const HostFailure.unreachable('device link closed'));
       return null;
     }
     return (_hold = LinkHold.open(link)).link;
   }
 
   void _fail(Object error) {
-    final failure = asHerdrFailure(error);
+    final failure = asHostFailure(error);
     debugPrint('$appSlug.devices ${host.name}: ${failure?.detail ?? error}');
     _phase = DevicesFailed(
       failure?.reason(host.name, address: host.address) ??
@@ -508,7 +509,7 @@ class DeviceScreenController extends ChangeNotifier {
     }
     if (_disposed) return;
     if (fresh == null) {
-      _fail(const HerdrUnreachable('nothing to reopen'), run);
+      _fail(const HostFailure.unreachable('nothing to reopen'), run);
       return;
     }
     _link = fresh;
@@ -618,8 +619,8 @@ class DeviceScreenController extends ChangeNotifier {
     _frames = null;
     if (_disposed) return;
     debugPrint('$appSlug.devices $hostName ${device.id}: $error');
-    final failure = asHerdrFailure(error);
-    _lost = failure is HerdrUnreachable;
+    final failure = asHostFailure(error);
+    _lost = failure?.kind == HostFailureKind.unreachable;
     if (_lost && _returned && reopen != null) {
       unawaited(_relive());
       return;

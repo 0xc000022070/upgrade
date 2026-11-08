@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/host_links.dart';
 import '../../support/ssh_exec.dart';
+import '../../support/host_failure_matchers.dart';
 
 void main() {
   test('a command given up on is ended on the host', () {
@@ -56,7 +57,10 @@ void main() {
       expect(exec.destroyed, 1);
       expect(lease.closed, isTrue);
       expect(client.closed, isFalse);
-      await expectLater(herdr.paths(), throwsA(isA<HerdrUnreachable>()));
+      await expectLater(
+        herdr.paths(),
+        throwsA(isFailureOf(HostFailureKind.unreachable)),
+      );
     },
   );
 

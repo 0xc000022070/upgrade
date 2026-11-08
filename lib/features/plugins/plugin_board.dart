@@ -1,13 +1,13 @@
 import 'package:flutter/widgets.dart';
 import 'package:vector_graphics/vector_graphics.dart';
 
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade/data/plugin_emblems.dart';
 import 'package:upgrade/design/effects/glitch.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/platform/plugins/store.dart';
 
 String? blockedReason(
   InstalledPlugin plugin,

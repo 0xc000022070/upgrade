@@ -4,16 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 
-import 'package:upgrade/app/static_surface.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/application/static_surface.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
+import 'package:upgrade/platform/herdr/agent_state.dart';
 import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
+import 'package:upgrade/application/app_lifecycle.dart';
 import 'package:upgrade/application/agents/run_steps.dart';
 import 'package:upgrade/application/agents/send.dart';
 import 'package:upgrade/application/agents/send_queue.dart';
 import 'package:upgrade/application/agents/send_states.dart';
 import 'package:upgrade/application/drops/attachment_files.dart';
-import 'package:upgrade/application/launcher/launcher_sends.dart';
 import 'package:upgrade/application/formatting.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/enums.dart';
@@ -88,18 +89,16 @@ Future<void> retrySend(WidgetRef ref, Dispatch send) async {
     title: title,
     target: choice.target,
     kind: choice.kind,
-    run: launcherRun(
-      (id) => sender(
-        sendId: id,
-        target: choice.target,
-        itemId: itemId,
-        title: title,
-        links: const [],
-        kind: choice.kind,
-        message: sentMessage(send.text),
-        imagePaths: imagePaths,
-        model: choice.model,
-      ),
+    run: (id) => sender(
+      sendId: id,
+      target: choice.target,
+      itemId: itemId,
+      title: title,
+      links: const [],
+      kind: choice.kind,
+      message: sentMessage(send.text),
+      imagePaths: imagePaths,
+      model: choice.model,
     ),
   );
 }

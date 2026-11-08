@@ -3,10 +3,10 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade/application/plugins/plugin_hosts.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 
 const _head = '''
 manifest_version = 5

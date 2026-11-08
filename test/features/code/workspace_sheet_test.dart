@@ -148,7 +148,10 @@ void main() {
     testWidgets('an unreachable host says what the path scan says', (
       tester,
     ) async {
-      await open(tester, runner: FakeRunner(fail: const HerdrUnreachable()));
+      await open(
+        tester,
+        runner: FakeRunner(fail: const HostFailure.unreachable()),
+      );
 
       expect(find.text('oak unreachable'), findsOneWidget);
       expect(find.text('RETRY'), findsOneWidget);
@@ -160,7 +163,7 @@ void main() {
       tester,
     ) async {
       final runners = [
-        FakeRunner(fail: const HerdrUnreachable()),
+        FakeRunner(fail: const HostFailure.unreachable()),
         FakeRunner(),
       ];
       var opens = 0;
@@ -209,7 +212,7 @@ void main() {
     ) async {
       final runner = await open(
         tester,
-        runner: FakeRunner(fail: const HerdrBusy()),
+        runner: FakeRunner(fail: const HostFailure.busy()),
       );
 
       expect(find.text('host busy'), findsOneWidget);

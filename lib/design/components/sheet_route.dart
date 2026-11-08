@@ -5,6 +5,22 @@ import 'package:upgrade/design/motion.dart';
 /// Deliberately deeper than `tokens.scrim`.
 const sheetScrim = Color(0xCC000000);
 
+/// What a route's content inherits from the context that opens it: the dialog route sits
+/// under the navigator, outside any scope the opener lives in.
+class SheetScope extends InheritedWidget {
+  const SheetScope({super.key, required this.inherit, required super.child});
+
+  final Widget Function(BuildContext opener, Widget content) inherit;
+
+  static Widget wrap(BuildContext opener, Widget content) {
+    final scope = opener.getInheritedWidgetOfExactType<SheetScope>();
+    return scope == null ? content : scope.inherit(opener, content);
+  }
+
+  @override
+  bool updateShouldNotify(SheetScope old) => inherit != old.inherit;
+}
+
 Future<T?> showSheetRoute<T>(
   BuildContext context, {
   required String title,

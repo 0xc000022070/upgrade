@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/cell_divider.dart';
@@ -16,7 +17,6 @@ import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/motion.dart';
 import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/hosts/host_strip.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/shell/shell_status.dart';
@@ -541,7 +541,7 @@ class ShellReasonRow extends StatefulWidget {
   });
 
   final Host host;
-  final ShellFailureKind kind;
+  final HostFailureKind kind;
   final String? detail;
 
   final String? line;

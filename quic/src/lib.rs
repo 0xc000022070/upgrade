@@ -388,6 +388,7 @@ mod tests {
     use super::*;
 
     const TOKEN: [u8; 32] = [9; 32];
+    const REFUSED: u32 = 1;
 
     fn target(port: u16, cert: &[u8]) -> Target {
         Target {
@@ -440,7 +441,7 @@ mod tests {
                 let mut token = [0u8; 32];
                 recv.read_exact(&mut token).await.unwrap();
                 if token != TOKEN {
-                    connection.close(1u32.into(), b"token");
+                    connection.close(REFUSED.into(), b"token");
                     continue;
                 }
                 send.write_all(&[1]).await.unwrap();

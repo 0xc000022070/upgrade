@@ -2,6 +2,8 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
@@ -105,10 +107,10 @@ void main() {
       await expectLater(
         open(verifier),
         throwsA(
-          isA<ShellFailure>().having(
+          isA<HostFailure>().having(
             (failure) => failure.kind,
             'kind',
-            ShellFailureKind.hostKeyUnverified,
+            HostFailureKind.hostKeyUnverified,
           ),
         ),
       );
@@ -130,10 +132,10 @@ void main() {
       await expectLater(
         open(verifier),
         throwsA(
-          isA<ShellFailure>().having(
+          isA<HostFailure>().having(
             (failure) => failure.kind,
             'kind',
-            ShellFailureKind.hostKeyChanged,
+            HostFailureKind.hostKeyChanged,
           ),
         ),
       );

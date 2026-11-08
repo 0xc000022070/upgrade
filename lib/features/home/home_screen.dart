@@ -25,7 +25,7 @@ import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/data/plugins/contributions.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/tasks/selection_bar.dart';
 import 'package:upgrade/features/plugins/plugin_card.dart';
@@ -42,7 +42,6 @@ String _placementErrorMessage(Object? error) =>
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
-  static const navIndex = 0;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -109,7 +108,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen<int>(navIndexProvider, (previous, next) {
-      if (previous == HomeScreen.navIndex && next != HomeScreen.navIndex) {
+      if (previous == homeNavIndex && next != homeNavIndex) {
         _leave();
       }
     });
@@ -241,13 +240,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final width =
-                    math.min(
-                      constraints.maxWidth -
-                          MediaQuery.paddingOf(context).horizontal,
-                      homeMaxContentWidth,
-                    ) -
-                    2 * Spacing.screenEdge;
+                final width = homeContentWidth(
+                  constraints.maxWidth,
+                  MediaQuery.paddingOf(context).horizontal,
+                );
                 drawn = width;
                 final split = _HomeTiles.splits(width, root);
                 return GestureDetector(

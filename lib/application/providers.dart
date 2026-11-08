@@ -7,7 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/plugin_api.dart';
 import 'package:upgrade/data/plugin_host_api.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/data/repositories/activity_repository.dart';
 import 'package:upgrade/data/repositories/goal_repository.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -24,9 +24,9 @@ import 'package:upgrade/data/repositories/task_repository.dart';
 import 'package:upgrade/data/views.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/links/link_metadata.dart';
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/shell/bar_layout.dart';
-import 'package:upgrade/application/links/link_preview.dart';
+import 'package:upgrade/platform/links/link_preview.dart';
 import 'package:upgrade/application/shell/pane_share.dart';
 import 'package:upgrade/application/shell/shell_font.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
@@ -159,11 +159,6 @@ final nextActionProvider = StreamProvider<NextAction?>(
   dependencies: [taskRepositoryProvider],
 );
 
-final blockedTasksProvider = StreamProvider<List<BlockedTask>>(
-  (ref) => ref.watch(taskRepositoryProvider).watchBlocked(),
-  dependencies: [taskRepositoryProvider],
-);
-
 final dropsProvider = StreamProvider<List<Task>>(
   (ref) => ref.watch(taskRepositoryProvider).watchDrops(),
   dependencies: [taskRepositoryProvider],
@@ -210,10 +205,6 @@ final sendsProvider = StreamProvider<List<Dispatch>>(
 final sendProvider = StreamProvider.family<Dispatch?, String>(
   (ref, id) => ref.watch(dispatchRepositoryProvider).watchOne(id),
   dependencies: [dispatchRepositoryProvider],
-);
-
-final recentActivityProvider = StreamProvider<List<ActivityEntry>>(
-  (ref) => ref.watch(activityRepositoryProvider).watchRecent(),
 );
 
 final projectsProvider = StreamProvider<List<Project>>(
@@ -284,11 +275,6 @@ final projectAncestorsProvider =
       (ref, id) => ref.watch(projectRepositoryProvider).watchAncestors(id),
       dependencies: [projectRepositoryProvider],
     );
-
-final projectTasksProvider = StreamProvider.family<List<Task>, String>(
-  (ref, id) => ref.watch(taskRepositoryProvider).watchByProject(id),
-  dependencies: [taskRepositoryProvider],
-);
 
 final projectNotesProvider = StreamProvider.family<List<Note>, String>(
   (ref, id) => ref.watch(noteRepositoryProvider).watchForProject(id),

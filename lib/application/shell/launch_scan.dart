@@ -7,8 +7,8 @@ import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/shell/shell_launch.dart';
-import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
+import 'package:upgrade/platform/reason_lines.dart';
 import 'package:upgrade/brand.dart';
 
 typedef LaunchFetch = Future<LaunchTargets> Function({
@@ -62,11 +62,14 @@ class LaunchScanner {
           verifier: verifier ?? HostKeyVerifier.pinnedOnly(host.hostKey),
         ),
       );
-    } on HerdrFailure catch (error) {
+    } on HostFailure catch (error) {
       debugPrint('$appSlug.launch ${host.name}: ${error.detail ?? error}');
       return LaunchScanFailed(
         error.reason(host.name, address: host.address),
-        unanswered: error is HerdrUnreachable || error is HerdrUnresolved,
+        unanswered: {
+          HostFailureKind.unreachable,
+          HostFailureKind.unresolved,
+        }.contains(error.kind),
       );
     } catch (error) {
       debugPrint('$appSlug.launch ${host.name}: $error');

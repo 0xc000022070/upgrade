@@ -15,7 +15,7 @@ import 'package:upgrade/design/components/picker_row.dart';
 import 'package:upgrade/design/components/solid_action_bar.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
-import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/static_surface.dart';
 import 'package:upgrade/features/projects/project_icon_picker.dart';
 
 void openProjectForm(

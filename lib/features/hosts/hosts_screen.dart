@@ -1,22 +1,21 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import 'package:upgrade/features/hosts/host_rows.dart';
+import 'package:upgrade/application/plugins/home_layout.dart';
 import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/application/phone_linux.dart';
-import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/static_surface.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/design/tokens.dart';
-import 'package:upgrade/design/components/meta.dart';
 import 'package:upgrade/design/components/panel.dart';
-import 'package:upgrade/design/components/panel_sheet.dart';
-import 'package:upgrade/features/screen/screen_preview.dart';
 import 'package:upgrade/design/components/segment_switch.dart';
 import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/section.dart';
@@ -27,10 +26,7 @@ import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/files/files_sheet.dart';
 import 'package:upgrade/platform/herdr/engine_agents.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/ssh/host_key_dial.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/links/link_probe.dart';
-import 'package:upgrade/platform/phone_linux.dart';
+import 'package:upgrade/platform/links/host_link_probe.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/code/code_list.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
@@ -42,7 +38,6 @@ import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/shell/shell_status.dart';
 import 'package:upgrade/features/shell/session/shell_watcher.dart';
 import 'package:upgrade/features/hosts/hook_sheet.dart';
-import 'package:upgrade/features/hosts/host_key_sheet.dart';
 import 'package:upgrade/features/hosts/keys_screen.dart';
 import 'package:upgrade/features/hosts/host_mark.dart';
 import 'package:upgrade/features/hosts/link_probes.dart';
@@ -52,8 +47,6 @@ import 'package:upgrade/brand.dart';
 
 class HostsScreen extends ConsumerStatefulWidget {
   const HostsScreen({super.key});
-
-  static const navIndex = 2;
 
   @override
   ConsumerState<HostsScreen> createState() => _HostsScreenState();
@@ -98,12 +91,12 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
   /// first.
   void _syncVisible() {
     if (!mounted || !_onStage || _syncQueued) return;
-    if (ref.read(navIndexProvider) != HostsScreen.navIndex) return;
+    if (ref.read(navIndexProvider) != hostsNavIndex) return;
     _syncQueued = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncQueued = false;
       if (!mounted || !_onStage) return;
-      if (ref.read(navIndexProvider) != HostsScreen.navIndex) return;
+      if (ref.read(navIndexProvider) != hostsNavIndex) return;
       _visible.state = true;
       unawaited(
         ref
@@ -125,7 +118,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
 
     return ScreenScaffold(
       title: 'MACHINES',
-      maxContentWidth: 1100,
+      maxContentWidth: homeMaxContentWidth,
       breadcrumbTrailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -370,11 +363,11 @@ class _HostPanel extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _MetaRow('ADDRESS', '${host.address}:${host.port}'),
-          _MetaRow('USER', host.user),
-          _MetaRow('KEY', keyName ?? '—'),
-          _LinkRow(host: host, outcome: herdr ?? engine),
-          _MetaRow(
+          MetaRow('ADDRESS', '${host.address}:${host.port}'),
+          MetaRow('USER', host.user),
+          MetaRow('KEY', keyName ?? '—'),
+          LinkRow(host: host, outcome: herdr ?? engine),
+          MetaRow(
             'INTEGRATIONS',
             on.isEmpty ? 'NONE' : on.join('  '),
             strong: on.isNotEmpty,
@@ -393,7 +386,7 @@ class _HostPanel extends ConsumerWidget {
             ),
             _HookRows(key: ValueKey('hooks-${host.id}'), host: host),
           ],
-          if (ref.isPhoneLinux(host.id)) _PhoneLinuxRow(host: host),
+          if (ref.isPhoneLinux(host.id)) PhoneLinuxRow(host: host),
           _ClipboardRow(host: host),
           _ShellRow(host: host),
           if (integrations.contains(IntegrationKind.vnc)) ...[
@@ -441,7 +434,7 @@ class _AgentStateRowState extends ConsumerState<_AgentStateRow> {
   Widget build(BuildContext context) {
     final outcome = _retried ?? widget.outcome;
     final failed = outcome != null && !outcome.ok;
-    return _MetaRow(
+    return MetaRow(
       switch (widget.source) {
         AgentSource.herdr => 'HERDR STATUS',
         AgentSource.engine => 'AGENTS STATUS',
@@ -509,7 +502,7 @@ class _HookRowsState extends ConsumerState<_HookRows> {
   }
 
   String _failureLine(Object error) => switch (error) {
-    HerdrFailure() => error.line.on(
+    HostFailure() => error.line.on(
       widget.host.name,
       address: widget.host.address,
     ),
@@ -550,7 +543,7 @@ class _HookRowsState extends ConsumerState<_HookRows> {
   Widget build(BuildContext context) {
     final hooks = _hooks;
     if (hooks == null) {
-      return _MetaRow(
+      return MetaRow(
         'HOOKS',
         _failure ?? 'ASKING',
         color: _failure == null ? null : context.tokens.warning,
@@ -560,7 +553,7 @@ class _HookRowsState extends ConsumerState<_HookRows> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final status in hooks)
-          _MetaRow(
+          MetaRow(
             '${status.agent.toUpperCase()} HOOKS',
             status.installed
                 ? 'INSTALLED'
@@ -581,7 +574,7 @@ class _HookRowsState extends ConsumerState<_HookRows> {
                   ),
           ),
         if (_failure != null)
-          _MetaRow('HOOKS', _failure!, color: context.tokens.warning),
+          MetaRow('HOOKS', _failure!, color: context.tokens.warning),
       ],
     );
   }
@@ -671,9 +664,9 @@ class _ClipboardRow extends ConsumerWidget {
           WidgetsBinding.instance.addPostFrameCallback(
             (_) => unawaited(store.clipboardFor(active)),
           );
-          return const _MetaRow('CLIPBOARD', 'PROBING');
+          return const MetaRow('CLIPBOARD', 'PROBING');
         }
-        return _MetaRow(
+        return MetaRow(
           'CLIPBOARD',
           clipboard.line,
           strong: clipboard.usable,
@@ -690,190 +683,6 @@ String _stateLine(HostOutcome? outcome) {
   final blocked = outcome.agents.where((agent) => agent.blocked).length;
   return '${outcome.agents.length} agents · $blocked blocked';
 }
-
-const _labelWidth = 96.0;
-
-double _labelScale(BuildContext context) {
-  final size = context.tokens.label.fontSize!;
-  return MediaQuery.textScalerOf(context).scale(size) / size;
-}
-
-class _MetaRow extends StatelessWidget {
-  const _MetaRow(
-    this.label,
-    this.value, {
-    this.strong = false,
-    this.color,
-    this.trailing,
-  });
-
-  final String label;
-  final String value;
-  final bool strong;
-  final Color? color;
-
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      // A minimum, which is what the metric is called: a row holding words the reader asked to
-      // be bigger is taller than one that is not.
-      constraints: const BoxConstraints(minHeight: RowMetrics.minHeight),
-      child: Row(
-        children: [
-          SizedBox(
-            // Handing the width to the scaler as if it were a font size is not the same number: the
-            // system curve gives a small size much more than a large one, so a 96px "font" barely
-            // moved while the 9px label it was holding nearly doubled and broke mid-word.
-            width: _labelWidth * _labelScale(context),
-            child: Text(label, style: context.tokens.label),
-          ),
-          const SizedBox(width: Spacing.md),
-          Expanded(
-            child: Meta(value, strong: strong, color: color),
-          ),
-          if (trailing != null) ...[
-            const SizedBox(width: Spacing.md),
-            trailing!,
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _LinkRow extends ConsumerStatefulWidget {
-  const _LinkRow({required this.host, required this.outcome});
-
-  final Host host;
-  final HostOutcome? outcome;
-
-  @override
-  ConsumerState<_LinkRow> createState() => _LinkRowState();
-}
-
-class _LinkRowState extends ConsumerState<_LinkRow> {
-  bool _verifying = false;
-
-  /// The row's own answer outranks [_LinkRow.outcome], which is the last word of a poll
-  /// this tap does not re-run: without it a host that is already pinned goes `VERIFYING`
-  /// and straight back to `VERIFY`.
-  bool _verified = false;
-
-  String? _failure;
-
-  @override
-  void didUpdateWidget(_LinkRow oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.host.hostKey == null && oldWidget.host.hostKey != null) {
-      _verified = false;
-    }
-  }
-
-  bool get _unverified =>
-      widget.host.hostKey == null ||
-      widget.outcome?.kind == AgentOutcomeKind.hostKeyUnverified ||
-      widget.outcome?.kind == AgentOutcomeKind.hostKeyChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final probes = ref.watch(linkProbesProvider);
-    return AnimatedBuilder(
-      animation: probes,
-      builder: (context, _) {
-        final result = probes.forHost(widget.host.id);
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => unawaited(probes.probe(widget.host, force: true)),
-          child: _MetaRow(
-            'LINK',
-            linkWord(result),
-            color: linkFailed(result) ? context.tokens.warning : null,
-            trailing: _trailing(),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget? _trailing() {
-    if (_verifying) {
-      return const PanelAffordance('VERIFYING', showIcon: false);
-    }
-    if (_verified || !_unverified) return null;
-    final failure = _failure;
-    return PanelAffordance(
-      failure ?? 'VERIFY',
-      showIcon: false,
-      color: failure == null ? null : context.tokens.warning,
-      onTap: () => unawaited(_verify()),
-    );
-  }
-
-  Future<void> _verify() async {
-    if (_verifying) return;
-    setState(() {
-      _verifying = true;
-      _failure = null;
-      _verified = false;
-    });
-    final host = widget.host;
-    String? failure;
-    var verified = false;
-    try {
-      final privateKey = await ref
-          .read(ed25519KeysProvider)
-          .privateKey(host.keyId);
-      if (privateKey == null) {
-        failure = 'NO KEY';
-      } else {
-        final verifier = HostKeyVerifier(
-          pinned: host.hostKey,
-          prompt: (offer, pinned) async =>
-              mounted &&
-              await askHostKey(
-                context,
-                host: host,
-                offer: offer,
-                pinned: pinned,
-              ),
-          pin: (key) =>
-              ref.read(hostRepositoryProvider).pinHostKey(host.id, key),
-        );
-        await ref.read(hostKeyDialProvider)(
-          address: host.address,
-          port: host.port,
-          user: host.user,
-          privateKey: privateKey,
-          verifier: verifier,
-        );
-        // A user who said no said nothing went wrong. A key that does not match the pin is the
-        // one refusal that has to stay on screen.
-        if (verifier.refusal == HostKeyRefusal.changed) failure = 'KEY CHANGED';
-        verified = verifier.refusal == null;
-      }
-    } catch (error) {
-      debugPrint('$appSlug.verify ${host.name}: $error');
-      failure = _failureWord(error);
-    }
-    if (!mounted) return;
-    setState(() {
-      _verifying = false;
-      _failure = failure;
-      _verified = verified;
-    });
-  }
-}
-
-/// `NO ANSWER` is the one worth naming: a socket that opens and stays silent is a machine
-/// behind a tarpit, not a machine that is down, and the two look identical without it.
-String _failureWord(Object error) => switch (error) {
-  HostKeySilent() => 'NO ANSWER',
-  SocketException() => 'NO ROUTE',
-  TimeoutException() => 'NO ANSWER',
-  _ => 'FAILED',
-};
 
 class _HostActions extends ConsumerWidget {
   const _HostActions({required this.host});
@@ -1041,294 +850,6 @@ class _AddMachinePanelState extends ConsumerState<_AddMachinePanel> {
       if (mounted) setState(() => _failed = true);
     } finally {
       if (mounted) setState(() => _starting = false);
-    }
-  }
-}
-
-Future<void> showMachineSheet(BuildContext context, Host host) =>
-    showPanelSheet<void>(
-      context,
-      title: host.name.toUpperCase(),
-      builder: (context) => PanelSheetBody(
-        title: host.name.toUpperCase(),
-        children: [
-          Consumer(
-            builder: (context, ref, _) => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _MetaRow('ADDRESS', '${host.address}:${host.port}'),
-                _LinkRow(host: host, outcome: null),
-                if (ref.isPhoneLinux(host.id))
-                  _PhoneLinuxRow(host: host, system: false),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-
-class _PhoneLinuxRow extends ConsumerStatefulWidget {
-  const _PhoneLinuxRow({required this.host, this.system = true});
-
-  final Host host;
-
-  final bool system;
-
-  @override
-  ConsumerState<_PhoneLinuxRow> createState() => _PhoneLinuxRowState();
-}
-
-class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
-  String? _busy;
-  String? _failure;
-  String? _toolsFailure;
-
-  @override
-  Widget build(BuildContext context) {
-    final state = ref.phoneLinuxState(widget.host.id);
-    final linux = ref.watch(phoneLinuxHostProvider)!;
-    final warning = context.tokens.warning;
-    final busy = _busy;
-    final (String value, Color? color, String? action) = switch (state) {
-      PhoneLinuxState(phase: PhoneLinuxPhase.download, :final percent) => (
-        percent == null ? 'DOWNLOADING' : 'DOWNLOADING $percent%',
-        null,
-        null,
-      ),
-      PhoneLinuxState(phase: PhoneLinuxPhase.unpack) => (
-        'UNPACKING',
-        null,
-        null,
-      ),
-      PhoneLinuxState(phase: PhoneLinuxPhase.setup) => (
-        'INSTALLING SSH',
-        null,
-        null,
-      ),
-      PhoneLinuxState(phase: PhoneLinuxPhase.nix) => (
-        'INSTALLING NIX',
-        null,
-        null,
-      ),
-      PhoneLinuxState(installed: false, phase: PhoneLinuxPhase.failed) => (
-        state.error ?? 'failed',
-        warning,
-        'RETRY',
-      ),
-      PhoneLinuxState(installed: false) => ('NOT INSTALLED', null, 'INSTALL'),
-      PhoneLinuxState(running: true) => ('RUNNING', null, 'STOP'),
-      _ => ('STOPPED', warning, 'START'),
-    };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _MetaRow(
-          'LINUX',
-          _failure ?? value,
-          strong: state.running,
-          color: _failure == null ? color : warning,
-          trailing: busy != null
-              ? PanelAffordance(busy, showIcon: false)
-              : action == null
-              ? null
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (action == 'STOP') ...[
-                      PanelAffordance(
-                        'RESTART',
-                        key: const ValueKey('phone-linux-restart'),
-                        showIcon: false,
-                        onTap: UserIntent.onGesture(
-                          (intent) => unawaited(
-                            _act(linux, state, 'RESTART', UserAction(intent)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: Spacing.lg),
-                    ],
-                    PanelAffordance(
-                      action,
-                      key: ValueKey('phone-linux-${action.toLowerCase()}'),
-                      showIcon: false,
-                      onTap: action == 'START'
-                          ? UserIntent.onGesture(
-                              (intent) => unawaited(
-                                _act(linux, state, action, UserAction(intent)),
-                              ),
-                            )
-                          : () => unawaited(_act(linux, state, action, null)),
-                    ),
-                  ],
-                ),
-        ),
-        if (widget.system && state.installed && !state.installing)
-          _MetaRow(
-            'SYSTEM',
-            ref
-                    .watch(phoneLinuxCatalogProvider)
-                    .value
-                    ?.distro(state.distro)
-                    ?.label ??
-                state.distro?.toUpperCase() ??
-                'LINUX',
-            trailing: PanelAffordance(
-              busy == 'REMOVING' ? busy! : 'REMOVE',
-              showIcon: false,
-              color: warning,
-              onTap: busy == null ? () => _remove(linux) : null,
-            ),
-          ),
-        if (widget.system && state.installed && !state.installing && state.nix)
-          const _MetaRow('NIX', 'INSTALLED'),
-        if (widget.system && state.installed && !state.installing)
-          _tools(linux, state),
-      ],
-    );
-  }
-
-  Widget _tools(PhoneLinuxHost linux, PhoneLinuxState state) {
-    final warning = context.tokens.warning;
-    final catalog = ref.watch(phoneLinuxCatalogProvider).value;
-    final distro = catalog?.distro(state.distro);
-    final tool = state.tool;
-    final error = _toolsFailure ?? state.toolsError;
-    final missing =
-        distro != null &&
-        catalog!.tools.any(
-          (tool) =>
-              tool.fits(distro, nix: state.nix) &&
-              !state.tools.contains(tool.id),
-        );
-    String label(String id) => catalog?.toolLabel(id) ?? id.toUpperCase();
-    final (String value, Color? color, String? action) = tool != null
-        ? ('INSTALLING ${label(tool)}', null, null)
-        : error != null
-        ? (error, warning, state.pending.isEmpty ? null : 'RETRY')
-        : (
-            state.tools.isEmpty ? 'NONE' : state.tools.map(label).join(' · '),
-            null,
-            missing ? 'ADD' : null,
-          );
-    return _MetaRow(
-      'TOOLS',
-      value,
-      color: color,
-      trailing: action == null
-          ? null
-          : PanelAffordance(
-              action,
-              key: ValueKey('phone-linux-tools-${action.toLowerCase()}'),
-              showIcon: false,
-              onTap: () => unawaited(_addTools(linux, state, action)),
-            ),
-    );
-  }
-
-  Future<void> _addTools(
-    PhoneLinuxHost linux,
-    PhoneLinuxState state,
-    String action,
-  ) async {
-    final catalog = await ref.read(phoneLinuxCatalogProvider.future);
-    final distro = catalog.distro(state.distro);
-    if (distro == null || !mounted) return;
-    final tools = action == 'RETRY'
-        ? state.pending
-        : await pickPhoneLinuxTools(
-            context,
-            catalog: catalog,
-            distro: distro,
-            nix: state.nix,
-            installed: state.tools,
-          );
-    if (tools == null || tools.isEmpty || !mounted) return;
-    setState(() => _toolsFailure = null);
-    try {
-      await linux.addTools(widget.host, tools);
-    } catch (error) {
-      debugPrint('$appSlug.linux tools: $error');
-      if (mounted) setState(() => _toolsFailure = 'install failed');
-    }
-  }
-
-  Future<void> _act(
-    PhoneLinuxHost linux,
-    PhoneLinuxState state,
-    String action,
-    UserAction? reason,
-  ) async {
-    final store = ref.read(shellSessionsProvider);
-    setState(() {
-      _failure = null;
-      _busy = switch (action) {
-        'STOP' => 'STOPPING',
-        'START' => 'STARTING',
-        'RESTART' => 'RESTARTING',
-        _ => 'PREPARING',
-      };
-    });
-    try {
-      switch (action) {
-        case 'STOP':
-          await linux.stop(widget.host);
-        case 'START' || 'RESTART':
-          if (action == 'RESTART') await linux.stop(widget.host);
-          await linux.ensure(widget.host);
-          if (reason != null) store.redialHost(widget.host.id, reason);
-        default:
-          final catalog = await ref.read(phoneLinuxCatalogProvider.future);
-          if (!mounted) return;
-          final setup =
-              (action == 'RETRY' ? state.setup : null) ??
-              await pickPhoneLinuxSetup(
-                context,
-                catalog: catalog,
-                name: widget.host.name,
-              );
-          if (setup == null) return;
-          await linux.install(setup, into: widget.host);
-      }
-    } catch (error) {
-      debugPrint('$appSlug.linux $action: $error');
-      if (mounted) setState(() => _failure = '${action.toLowerCase()} failed');
-    } finally {
-      if (mounted) setState(() => _busy = null);
-    }
-  }
-
-  Future<void> _remove(PhoneLinuxHost linux) async {
-    const title = 'REMOVE LINUX';
-    final host = widget.host;
-    final shells = ref.read(shellSessionsProvider);
-    final go = await showPanelSheet<bool>(
-      context,
-      title: title,
-      builder: (_) => ConfirmSheetBody(
-        title: title,
-        confirmLabel: 'REMOVE',
-        message:
-            'Deletes the system with every file in it, and the '
-            '${host.name} host.',
-        onConfirm: UserIntent.onGesture(
-          (intent) => unawaited(shells.closeHost(host.id, intent)),
-        ),
-      ),
-    );
-    if (go != true || !mounted) return;
-    final previews = ref.read(screenPreviewsProvider.future);
-    setState(() {
-      _failure = null;
-      _busy = 'REMOVING';
-    });
-    try {
-      await linux.remove(host);
-      await deletePreview(previews, host.id);
-    } catch (error) {
-      debugPrint('$appSlug.linux remove: $error');
-      if (mounted) setState(() => _failure = 'remove failed');
-    } finally {
-      if (mounted) setState(() => _busy = null);
     }
   }
 }

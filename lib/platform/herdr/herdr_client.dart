@@ -6,9 +6,9 @@ import 'dart:convert';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
-import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
+import 'package:upgrade/platform/herdr/agent_state.dart';
+import 'package:upgrade/platform/notifications/pin_alerts.dart';
 import 'package:upgrade/platform/herdr/herdr_socket.dart';
 import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/platform/ssh/exec_tracker.dart';
@@ -17,6 +17,7 @@ import 'package:upgrade/platform/ssh/connection_supervisor.dart'
 import 'package:upgrade/platform/ssh/host_files.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/engine_call.dart';
 import 'package:upgrade/platform/shell/daemon_link.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/shell/shell_launch.dart';
@@ -175,19 +176,19 @@ class AgentSnapshot {
   factory AgentSnapshot.fromJson(Map<String, Object?> json) {
     T field<T>(String name) {
       final value = json[name];
-      if (value is! T) throw HerdrProtocolMismatch(null, 'agent $name');
+      if (value is! T) throw HostFailure.protocolMismatch(null, 'agent $name');
       return value;
     }
 
     String text(String name) => switch (json[name]) {
       null => '',
       final String value => value,
-      _ => throw HerdrProtocolMismatch(null, 'agent $name'),
+      _ => throw HostFailure.protocolMismatch(null, 'agent $name'),
     };
 
     final label = json['workspace_label'];
     if (label != null && label is! String) {
-      throw const HerdrProtocolMismatch(null, 'agent workspace_label');
+      throw const HostFailure.protocolMismatch(null, 'agent workspace_label');
     }
     String? optional(String name) =>
         json[name] is String ? json[name]! as String : null;
@@ -234,7 +235,7 @@ abstract final class HerdrCommands {
   /// A name is checked against the shape a session name has before it is quoted into a
   /// line. Never a name of the app's own: every one here was read off the host.
   static String _env(String session) {
-    if (!isSessionName(session)) throw const HerdrProtocolMismatch();
+    if (!isSessionName(session)) throw const HostFailure.protocolMismatch();
     return 'env HERDR_SESSION=${shellQuote(session)}';
   }
 
@@ -290,7 +291,7 @@ done | sed "s|/.git$||; s|^$HOME|~|" | sort -u | head -300
       underSh('exec ${_herdr(session, 'agent list --json')}');
 
   static void requirePane(String pane) {
-    if (!_pane.hasMatch(pane)) throw const HerdrProtocolMismatch();
+    if (!_pane.hasMatch(pane)) throw const HostFailure.protocolMismatch();
   }
 }
 
@@ -365,7 +366,7 @@ abstract final class HerdrRequests {
   static HerdrRequest sendKeys(PaneRef pane, List<String> keys) {
     HerdrCommands.requirePane(pane.pane);
     if (keys.isEmpty || keys.any((key) => !_key.hasMatch(key))) {
-      throw const HerdrProtocolMismatch(null, 'invalid key');
+      throw const HostFailure.protocolMismatch(null, 'invalid key');
     }
     return (
       method: 'agent.send_keys',
@@ -543,20 +544,16 @@ class HerdrSession {
             user: target.user,
             body: jsonEncode(request),
             timeout: within ?? const Duration(seconds: 20),
-            start: () async => switch (await _engineOverSsh(
-              engineRequest('daemon/1', 'start', const {}, owner: target.user),
-              within,
-            )) {
-              {'ok': true, 'result': final Map<String, Object?> result} =>
-                result,
-              _ => null,
-            },
+            start: daemonStart(
+              target.user,
+              (request) => _engineOverSsh(request, within),
+            ),
           );
     if (answer == null) return _engineOverSsh(request, within);
     try {
       return jsonDecode(answer);
     } on FormatException {
-      throw const HerdrProtocolMismatch(null, 'engine said nothing');
+      throw const HostFailure.protocolMismatch(null, 'engine said nothing');
     }
   }
 
@@ -570,13 +567,13 @@ class HerdrSession {
       within: within,
     );
     final said = utf8.decode(result.stderr, allowMalformed: true).trim();
-    if (result.exitCode == 127 || said.endsWith('not found')) {
-      throw EngineMissing(said);
+    if (engineNotInstalled(result.exitCode, said)) {
+      throw HostFailure.noEngine(said);
     }
     try {
       return jsonDecode(utf8.decode(result.stdout));
     } on FormatException {
-      throw HerdrProtocolMismatch(
+      throw HostFailure.protocolMismatch(
         null,
         said.isEmpty ? 'engine said nothing' : said,
       );
@@ -598,7 +595,7 @@ class HerdrSession {
   Future<void> sendKeys(PaneRef pane, List<String> keys) async {
     final reply = await _call(pane.session, HerdrRequests.sendKeys(pane, keys));
     if (reply is HerdrRefusal) {
-      throw HerdrProtocolMismatch(null, _said(reply));
+      throw HostFailure.protocolMismatch(null, _said(reply));
     }
   }
 
@@ -625,7 +622,7 @@ class HerdrSession {
       return await (() async {
         // The session is read off the host, not off a setting: the default when it runs, else
         // the only one running, else a refusal that says which of the two it was.
-        final roster = await guardHerdr(() => _run(HerdrCommands.sessions()));
+        final roster = await guardHost(() => _run(HerdrCommands.sessions()));
         if (roster.exitCode != 0) {
           return SpawnRefused(
             SpawnRefusal.spawnFailed,
@@ -644,7 +641,7 @@ class HerdrSession {
             name = target.name;
         }
         session = name;
-        final resolved = await guardHerdr(
+        final resolved = await guardHost(
           () => _run(HerdrCommands.resolveDirectory(directory)),
         );
         if (resolved.exitCode == 20) {
@@ -753,7 +750,7 @@ class HerdrSession {
     String what,
     Duration within,
     Future<T> Function() body,
-  ) => guardHerdr(
+  ) => guardHost(
     () => body().timeout(
       within,
       onTimeout: () => throw TimeoutException(what, within),
@@ -761,7 +758,7 @@ class HerdrSession {
   );
 
   Future<LaunchTargets> _launchTargets() async {
-    final probe = await guardHerdr(() => _run(LaunchCommands.present()));
+    final probe = await guardHost(() => _run(LaunchCommands.present()));
     final present = LaunchCommands.parsePresent(
       utf8.decode(probe.stdout, allowMalformed: true),
     );
@@ -769,20 +766,21 @@ class HerdrSession {
     final hasTmux = present.contains('tmux');
     var sessions = const <SessionEntry>[];
     if (hasHerdr) {
-      final roster = await guardHerdr(() => _run(HerdrCommands.sessions()));
+      final roster = await guardHost(() => _run(HerdrCommands.sessions()));
       if (roster.exitCode == 0) {
         try {
           sessions = HerdrClient.parseSessions(
             utf8.decode(roster.stdout, allowMalformed: true),
           );
-        } on HerdrProtocolMismatch {
+        } on HostFailure catch (error) {
+          if (error.kind != HostFailureKind.protocolMismatch) rethrow;
           sessions = const [];
         }
       }
     }
     final workspaces = <HerdrWorkspaceEntry>[];
     for (final session in sessions.where((session) => session.running)) {
-      final listed = await guardHerdr(
+      final listed = await guardHost(
         () => _run(LaunchCommands.workspaces(session.name)),
       );
       if (listed.exitCode != 0) continue;
@@ -794,7 +792,7 @@ class HerdrSession {
       );
     }
     final tmux = hasTmux
-        ? await guardHerdr(() => _run(LaunchCommands.tmuxSessions()))
+        ? await guardHost(() => _run(LaunchCommands.tmuxSessions()))
         : null;
     return LaunchTargets(
       herdrSessions: sessions,
@@ -823,7 +821,7 @@ class HerdrSession {
   }
 
   Future<String> openPinRequests({Duration within = pinWatchInterval}) async {
-    final result = await guardHerdr(
+    final result = await guardHost(
       () => _runWithStdin(pinentryOpenCommand(), Uint8List(0), within: within),
     );
     return utf8.decode(result.stdout, allowMalformed: true);
@@ -881,12 +879,14 @@ class HerdrSession {
   bool get _closed => _execs.closed;
 
   void _open() {
-    if (_closed || _gone()) throw const HerdrUnreachable('session closed');
+    if (_closed || _gone()) {
+      throw const HostFailure.unreachable('session closed');
+    }
   }
 
   Future<SSHSession> _exec(String command, {bool upload = false}) async {
     _open();
-    return guardHerdr(
+    return guardHost(
       () => _execs.open(() => (upload ? _bulk : _execute)(command)),
     );
   }
@@ -969,7 +969,7 @@ class HerdrSession {
       if (text is! String) return null;
       final tail = text.trimRight();
       return tail.isEmpty ? null : tail;
-    } on HerdrFailure {
+    } on HostFailure {
       return null;
     }
   }
@@ -997,7 +997,7 @@ class HerdrSession {
     final FileWrite landed;
     try {
       _open();
-      landed = await guardHerdr(
+      landed = await guardHost(
         () => putFile(
           sftp: _sftp,
           exec: (command, stdin) async {
@@ -1020,7 +1020,7 @@ class HerdrSession {
       );
     } on TimeoutException {
       return '${image.name} timed out';
-    } on HerdrFailure catch (error) {
+    } on HostFailure catch (error) {
       return error.detail ?? '$error';
     } catch (error) {
       return '$error';
@@ -1065,12 +1065,15 @@ class HerdrSession {
   }
 
   Future<List<SessionEntry>> _roster() async {
-    final result = await guardHerdr(() => _run(HerdrCommands.sessions()));
+    final result = await guardHost(() => _run(HerdrCommands.sessions()));
     if (result.exitCode == 127) {
-      throw HerdrMissing(utf8.decode(result.output).trim());
+      throw HostFailure.noHerdr(utf8.decode(result.output).trim());
     }
     if (result.exitCode != 0) {
-      throw HerdrProtocolMismatch(null, utf8.decode(result.output).trim());
+      throw HostFailure.protocolMismatch(
+        null,
+        utf8.decode(result.output).trim(),
+      );
     }
     return _remember(HerdrClient.parseSessions(utf8.decode(result.stdout)));
   }
@@ -1093,7 +1096,7 @@ class HerdrSession {
       if (path == null) continue;
       final link = await _linkOrNone(path);
       if (link == null) continue;
-      final reply = await guardHerdr(
+      final reply = await guardHost(
         () => _once(link).call(HerdrRequests.agentList.method),
       );
       final found = HerdrClient.parseSessionAgents(reply, session: session);
@@ -1109,24 +1112,24 @@ class HerdrSession {
     try {
       final link = await _linkOrNone(path);
       if (link == null) return const {};
-      final reply = await guardHerdr(
+      final reply = await guardHost(
         () => _once(link).call(HerdrRequests.workspaceList.method),
       );
       return HerdrClient.parseWorkspaceLabels(reply);
-    } on HerdrFailure {
+    } on HostFailure {
       return const {};
     }
   }
 
   Future<HerdrReply> _call(String session, HerdrRequest request) async {
     if (!_sockets.containsKey(session)) await _roster();
-    return guardHerdr(() => _api(session).call(request.method, request.params));
+    return guardHost(() => _api(session).call(request.method, request.params));
   }
 
   HerdrApi _api(String session) {
     final path = _sockets[session];
     if (path == null) {
-      throw HerdrProtocolMismatch(null, 'no socket for $session');
+      throw HostFailure.protocolMismatch(null, 'no socket for $session');
     }
     return HerdrApi(() => _link(path));
   }
@@ -1146,7 +1149,7 @@ class HerdrSession {
 
   Future<HerdrLink> _link(String path) async {
     _open();
-    final channel = await guardHerdr(() => _client.forwardLocalUnix(path));
+    final channel = await guardHost(() => _client.forwardLocalUnix(path));
     return _wrap(channel);
   }
 
@@ -1160,7 +1163,7 @@ class HerdrSession {
     } on SSHChannelOpenError {
       return null;
     } catch (error) {
-      throw asHerdrFailure(error) ?? error;
+      throw asHostFailure(error) ?? error;
     }
     return _wrap(channel);
   }
@@ -1170,7 +1173,7 @@ class HerdrSession {
   HerdrLink _wrap(SSHForwardChannel channel) {
     if (_closed) {
       channel.destroy();
-      throw const HerdrUnreachable('session closed');
+      throw const HostFailure.unreachable('session closed');
     }
     _forwards.add(channel);
     return HerdrLink(
@@ -1340,7 +1343,7 @@ class _AgentWatch {
   void _fail(Object error, [StackTrace? stack]) {
     if (_closed) return;
     _closed = true;
-    _out.addError(asHerdrFailure(error) ?? error, stack);
+    _out.addError(asHostFailure(error) ?? error, stack);
     unawaited(_out.close());
   }
 }
@@ -1432,7 +1435,9 @@ Stream<String> hostChangeFrames(
           onQuiet?.call();
           sink
             ..addError(
-              HerdrUnreachable('no word from the host in ${quiet.inMinutes}m'),
+              HostFailure.unreachable(
+                'no word from the host in ${quiet.inMinutes}m',
+              ),
             )
             ..close();
         },
@@ -1475,7 +1480,7 @@ class HerdrClient {
   static String parseWorkspacePane(Map<String, Object?> result) {
     final root = result['root_pane'];
     final pane = root is Map<String, Object?> ? root['pane_id'] : null;
-    if (pane is! String) throw const HerdrProtocolMismatch();
+    if (pane is! String) throw const HostFailure.protocolMismatch();
     HerdrCommands.requirePane(pane);
     return pane;
   }
@@ -1583,7 +1588,7 @@ class HerdrClient {
     switch (reply) {
       case HerdrRefusal(:final code, :final message):
         if (code == 'server_not_running') return const [];
-        throw HerdrProtocolMismatch(
+        throw HostFailure.protocolMismatch(
           null,
           message.isEmpty ? code : '$code: $message',
         );
@@ -1599,16 +1604,16 @@ class HerdrClient {
     required String session,
   }) {
     if (result['type'] != 'agent_list') {
-      throw HerdrProtocolMismatch(_protocolOf(result));
+      throw HostFailure.protocolMismatch(_protocolOf(result));
     }
     final agents = result['agents'];
-    if (agents is! List<Object?>) throw const HerdrProtocolMismatch();
+    if (agents is! List<Object?>) throw const HostFailure.protocolMismatch();
     return [
       for (final agent in agents)
         if (agent is Map<String, Object?>)
           AgentSnapshot.fromJson({...agent, 'session': session})
         else
-          throw const HerdrProtocolMismatch(),
+          throw const HostFailure.protocolMismatch(),
     ];
   }
 
@@ -1619,7 +1624,7 @@ class HerdrClient {
     final decoded = jsonDecode(source);
     final result = decoded is Map<String, Object?> ? decoded['result'] : null;
     if (result is! Map<String, Object?>) {
-      throw const HerdrProtocolMismatch();
+      throw const HostFailure.protocolMismatch();
     }
     return parseAgentList(result, session: session);
   }
@@ -1652,15 +1657,17 @@ class HerdrClient {
     try {
       decoded = jsonDecode(source);
     } on FormatException {
-      throw const HerdrProtocolMismatch();
+      throw const HostFailure.protocolMismatch();
     }
     final sessions = decoded is Map<String, Object?>
         ? decoded['sessions']
         : null;
-    if (sessions is! List<Object?>) throw const HerdrProtocolMismatch();
+    if (sessions is! List<Object?>) throw const HostFailure.protocolMismatch();
     final entries = <SessionEntry>[];
     for (final entry in sessions) {
-      if (entry is! Map<String, Object?>) throw const HerdrProtocolMismatch();
+      if (entry is! Map<String, Object?>) {
+        throw const HostFailure.protocolMismatch();
+      }
       final name = entry['name'];
       final running = entry['running'];
       final isDefault = entry['default'];
@@ -1669,7 +1676,7 @@ class HerdrClient {
           running is! bool ||
           isDefault is! bool ||
           socket is! String) {
-        throw const HerdrProtocolMismatch();
+        throw const HostFailure.protocolMismatch();
       }
       if (!HerdrCommands.isSessionName(name)) continue;
       entries.add(
@@ -1740,21 +1747,6 @@ class HerdrClient {
       session.close();
     }
   }
-
-  Future<List<AgentSnapshot>> fetch({
-    required String address,
-    required int port,
-    required String user,
-    required String privateKey,
-    required HostKeyVerifier verifier,
-  }) => _borrow(
-    address: address,
-    port: port,
-    user: user,
-    privateKey: privateKey,
-    verifier: verifier,
-    body: (session) => session.list(),
-  );
 
   Future<List<String>> fetchPaths({
     required String address,

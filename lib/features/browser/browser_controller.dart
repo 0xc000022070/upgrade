@@ -4,7 +4,8 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
+import 'package:upgrade/platform/reason_lines.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/browser/browser_prefs.dart';
 import 'package:upgrade/platform/browser_proxy.dart';
@@ -137,12 +138,14 @@ class BrowserController extends ChangeNotifier {
   void _open(Uri uri) {
     _current = uri;
     address.text = uri.toString();
+    if (!_redial()) unawaited(web.loadRequest(uri));
+  }
+
+  bool _redial() {
     final network = _network;
-    if (_unrouted && network != null) {
-      if (!_dialling) unawaited(use(network));
-    } else {
-      unawaited(web.loadRequest(uri));
-    }
+    if (!_unrouted || network == null) return false;
+    if (!_dialling) unawaited(use(network));
+    return true;
   }
 
   void _reopen() {
@@ -151,10 +154,8 @@ class BrowserController extends ChangeNotifier {
   }
 
   void reload() {
-    final network = _network;
-    if (_unrouted && network != null) {
-      if (!_dialling) unawaited(use(network));
-    } else if (_reason != null || _current == null) {
+    if (_redial()) return;
+    if (_reason != null || _current == null) {
       _reopen();
     } else {
       unawaited(web.reload());
@@ -238,7 +239,7 @@ class BrowserController extends ChangeNotifier {
       _dialling = false;
       notifyListeners();
       _reopen();
-    } on HerdrFailure catch (failure) {
+    } on HostFailure catch (failure) {
       if (!stale()) {
         _fail(failure.reason(name(), address: (_network ?? host).address));
       }

@@ -29,13 +29,7 @@ abstract final class Device {
   static bool? vpn;
 
   static Future<void> refreshVpn() async {
-    try {
-      vpn = await _channel.invokeMethod<bool>('vpn');
-    } on PlatformException {
-      vpn = null;
-    } on MissingPluginException {
-      vpn = null;
-    }
+    vpn = await failSoft(() => _channel.invokeMethod<bool>('vpn'), null);
   }
 
   static final _awake = <Object>{};
@@ -64,39 +58,22 @@ abstract final class Device {
       .invokeMethod<bool>('chatKept')
       .then((kept) => kept ?? false, onError: (Object _) => false);
 
-  static Future<String?> model() async {
-    try {
-      return await _channel.invokeMethod<String>('model');
-    } on PlatformException {
-      return null;
-    } on MissingPluginException {
-      return null;
-    }
-  }
+  static Future<String?> model() =>
+      failSoft(() => _channel.invokeMethod<String>('model'), null);
 
-  static Future<bool?> imeShown() async {
-    try {
-      return await _channel.invokeMethod<bool>('ime');
-    } on PlatformException {
-      return null;
-    } on MissingPluginException {
-      return null;
-    }
-  }
+  static Future<bool?> imeShown() =>
+      failSoft(() => _channel.invokeMethod<bool>('ime'), null);
 
   static Future<BuildInfo?> build() async {
-    try {
-      final info = await _channel.invokeMapMethod<String, Object?>('build');
-      if (info == null) return null;
-      return BuildInfo(
-        version: info['version'] as String? ?? '',
-        code: (info['code'] as num?)?.toInt() ?? 0,
-      );
-    } on PlatformException {
-      return null;
-    } on MissingPluginException {
-      return null;
-    }
+    final info = await failSoft(
+      () => _channel.invokeMapMethod<String, Object?>('build'),
+      null,
+    );
+    if (info == null) return null;
+    return BuildInfo(
+      version: info['version'] as String? ?? '',
+      code: (info['code'] as num?)?.toInt() ?? 0,
+    );
   }
 }
 

@@ -1,6 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-import 'package:upgrade/application/alerts/alerts.dart';
+import 'package:upgrade/platform/notifications/alert_target.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 
 /// Every entry point is static and takes what it needs as an argument: the three

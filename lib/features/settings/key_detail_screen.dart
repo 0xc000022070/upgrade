@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/app/static_surface.dart';
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/static_surface.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/data/repositories/key_repository.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/list_row.dart';

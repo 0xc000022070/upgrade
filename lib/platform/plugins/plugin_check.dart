@@ -1,13 +1,13 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade_luau/ui_sdk.dart';
 import 'package:toml/toml.dart';
 
-import 'package:upgrade/platform/plugins/contributions.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/contributions.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/plugin_sdk.dart';
-import 'package:upgrade/platform/plugins/store.dart';
 import 'package:upgrade/platform/plugins/ui_tree.dart';
 import 'package:upgrade/brand.dart';
 
@@ -342,7 +342,7 @@ Future<PluginCheck> checkPluginWorkspace(
         source: _manifestAt(manifestText, field),
         expected: switch (field) {
           'runtime' => 'runtime kind "luau"',
-          'ui_api' => 'ui_api 1 or 2',
+          'ui_api' => 'ui_api ${supportedUiApis.join(' or ')}',
           'upgrade_api' => 'upgrade_api allowing ${PluginManifest.apiVersion}',
           _ => 'manifest_version <= ${PluginManifest.filesManifestVersion}',
         },

@@ -3,13 +3,14 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
+import 'package:upgrade/platform/herdr/agent_state.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/alerts/alerts.dart';
-import 'package:upgrade/application/alerts/pin_alerts.dart';
-import 'package:upgrade/application/alerts/watcher_backoff.dart';
+import 'package:upgrade/platform/notifications/pin_alerts.dart';
+import 'package:upgrade/platform/herdr/watcher_backoff.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/herdr/agent_watcher.dart';
+import 'package:upgrade/application/alerts/agent_watcher.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/herdr/herdr_socket.dart';
@@ -18,6 +19,7 @@ import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/application/providers.dart';
 
 import '../../support/herdr_link.dart';
+import '../../support/host_failure_matchers.dart';
 
 /// Never dials: it keeps what it was handed to check the host with, and reports the host
 /// as down so the loop backs off instead of looping on it.
@@ -25,7 +27,7 @@ class RecordingHerdrClient extends HerdrClient {
   RecordingHerdrClient({this.failures = const {}})
     : super(links: HostLinks(), use: HostUse.send);
 
-  final Map<String, HerdrFailure> failures;
+  final Map<String, HostFailure> failures;
 
   final verifiers = <HostKeyVerifier?>[];
   final dials = <String>[];
@@ -42,7 +44,7 @@ class RecordingHerdrClient extends HerdrClient {
     verifiers.add(verifier);
     dials.add(address);
     throw failures[address] ??
-        const HerdrUnreachable('no machine behind a test');
+        const HostFailure.unreachable('no machine behind a test');
   }
 }
 
@@ -122,7 +124,7 @@ class _EngineSession extends _NoWatchSession {
   void close() {
     _held.future.ignore();
     if (!_held.isCompleted) {
-      _held.completeError(const HerdrUnreachable('closed'));
+      _held.completeError(const HostFailure.unreachable('closed'));
     }
     super.close();
   }
@@ -385,7 +387,7 @@ void main() {
     });
 
     test('an alert target carries its own id', () {
-      final target = AlertTarget.forHost(host, snapshot());
+      final target = alertTargetFor(host, snapshot());
       expect(target.notificationId, alertNotificationId('h1', 'wQ:p1'));
       expect(
         target.notificationIdFor(AlertKind.done),
@@ -566,7 +568,7 @@ void main() {
       final store = MemoryPrivateKeyStore();
       await store.write('k1', 'PRIVATE KEY');
       final client = RecordingHerdrClient(
-        failures: {host.address: const HerdrKeyRejected('key rejected')},
+        failures: {host.address: const HostFailure.keyRejected('key rejected')},
       );
       final handler = AgentWatcherHandler(
         keys: Ed25519Keys(store),
@@ -673,7 +675,7 @@ void main() {
       );
       expect(
         () => HerdrRequests.paneStatus((session: 'lab', pane: 'wQ:p1; reboot')),
-        throwsA(isA<HerdrProtocolMismatch>()),
+        throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
       );
     });
 
@@ -755,12 +757,18 @@ void main() {
       expect(alertSentLine(yes: true), 'SENT · YES');
       expect(alertSentLine(yes: false), 'SENT · NO');
       expect(alertFailedLine('UNREACHABLE'), 'FAILED · UNREACHABLE');
-      expect(alertFailureReason(const HerdrKeyRejected()), 'KEY REJECTED');
       expect(
-        alertFailureReason(const HerdrProtocolMismatch(20)),
+        alertFailureReason(const HostFailure.keyRejected()),
+        'KEY REJECTED',
+      );
+      expect(
+        alertFailureReason(const HostFailure.protocolMismatch(20)),
         'PROTOCOL 20',
       );
-      expect(alertFailureReason(const HerdrUnreachable()), 'UNREACHABLE');
+      expect(
+        alertFailureReason(const HostFailure.unreachable()),
+        'UNREACHABLE',
+      );
     });
 
     test(
@@ -879,7 +887,7 @@ void main() {
   });
 
   test('an alert target survives the trip through a notification payload', () {
-    final target = AlertTarget.forHost(host, snapshot(session: 'lab'));
+    final target = alertTargetFor(host, snapshot(session: 'lab'));
     final decoded = AlertTarget.decode(target.encode())!;
 
     expect(decoded.address, '100.64.0.1');
@@ -911,7 +919,7 @@ void main() {
         pinnedAt: DateTime.fromMillisecondsSinceEpoch(1750000000000),
       ),
     );
-    final target = AlertTarget.forHost(pinned, snapshot(), channel: host.id);
+    final target = alertTargetFor(pinned, snapshot(), channel: host.id);
     final decoded = AlertTarget.decode(target.encode())!;
 
     expect(decoded.engine, isFalse);

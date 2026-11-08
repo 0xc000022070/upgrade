@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/agents/send.dart';
 import 'package:upgrade/application/agents/send_queue.dart';
-import 'package:upgrade/application/launcher/launcher_sends.dart';
 import 'package:upgrade/application/prompt/prompt_target.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
@@ -51,16 +50,14 @@ String startPromptSend(
         title: title,
         target: target,
         kind: kind,
-        run: launcherRun(
-          (id) => sender(
-            sendId: id,
-            target: target,
-            kind: kind,
-            model: model,
-            title: title,
-            links: const [],
-            message: text,
-          ),
+        run: (id) => sender(
+          sendId: id,
+          target: target,
+          kind: kind,
+          model: model,
+          title: title,
+          links: const [],
+          message: text,
         ),
         onDismissed: onDismissed,
       );

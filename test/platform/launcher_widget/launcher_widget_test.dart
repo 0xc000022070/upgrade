@@ -2,11 +2,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/alerts/alerts.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/herdr/agent_watcher.dart';
+import 'package:upgrade/application/alerts/agent_watcher.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/launcher_widget/launcher_widget.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/platform/channels.dart';
 
 const _pine = Host(
   id: 'h1',
@@ -33,26 +34,25 @@ class _Bridge {
         return null;
       },
     );
-    messenger.setMockMethodCallHandler(
-      const MethodChannel('dev.luisnquin.upgrade/launcher'),
-      (call) async {
-        final arguments = call.arguments as Map?;
-        switch (call.method) {
-          case 'tally':
-            tallies.add(arguments!['blocked'] as int?);
-          case 'bar':
-            bars.add(arguments!['label'] as String?);
-          case 'live':
-            lives.add(arguments!['states'] as Map);
-          case 'sends':
-            asked++;
-            return const <Object?>[];
-          case 'take':
-            return waiting;
-        }
-        return null;
-      },
-    );
+    messenger.setMockMethodCallHandler(const MethodChannel(Channels.launcher), (
+      call,
+    ) async {
+      final arguments = call.arguments as Map?;
+      switch (call.method) {
+        case 'tally':
+          tallies.add(arguments!['blocked'] as int?);
+        case 'bar':
+          bars.add(arguments!['label'] as String?);
+        case 'live':
+          lives.add(arguments!['states'] as Map);
+        case 'sends':
+          asked++;
+          return const <Object?>[];
+        case 'take':
+          return waiting;
+      }
+      return null;
+    });
   }
 
   final shade = <String>[];

@@ -6,9 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/design/components/sheet_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:upgrade/application/agents/agent_input.dart';
+import 'package:upgrade/platform/herdr/agent_input.dart';
 import 'package:upgrade/application/agents/agents.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
 import 'package:upgrade/features/shell/host_shell_screen.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
@@ -450,7 +450,7 @@ void main() {
   testWidgets('a refused shell draws its reason line, and only its readout '
       'dials it again', (tester) async {
     final transport = FakeShellTransport()
-      ..refuse = const ShellFailure(ShellFailureKind.shellRefused);
+      ..refuse = const HostFailure(HostFailureKind.shellRefused);
     await tester.pumpWidget(app(fakeShellSessions(transport)));
     await ready(tester);
 
@@ -481,8 +481,8 @@ void main() {
         });
 
     final transport = FakeShellTransport()
-      ..refuse = const ShellFailure(
-        ShellFailureKind.shellRefused,
+      ..refuse = const HostFailure(
+        HostFailureKind.shellRefused,
         detail: 'SSHChannelRequestError: pty-req denied',
       );
     await tester.pumpWidget(app(fakeShellSessions(transport)));
@@ -513,7 +513,7 @@ void main() {
     tester,
   ) async {
     final transport = FakeShellTransport()
-      ..refuse = const ShellFailure(ShellFailureKind.shellRefused);
+      ..refuse = const HostFailure(HostFailureKind.shellRefused);
     await tester.pumpWidget(app(fakeShellSessions(transport)));
     await ready(tester);
 
@@ -625,7 +625,7 @@ void main() {
 
     expect(find.text('STALE · RECONNECT FAILED'), findsOneWidget);
     expect(
-      find.text(ShellFailureKind.unreachable.line.on(pine.name)),
+      find.text(HostFailureKind.unreachable.line.on(pine.name)),
       findsOneWidget,
     );
     await tester.tap(find.byKey(const ValueKey('shell-reason')));
@@ -649,7 +649,7 @@ void main() {
     await tester.pumpWidget(app(sessions));
     await ready(tester);
 
-    transport.refuse = const ShellFailure(ShellFailureKind.unreachable);
+    transport.refuse = const HostFailure(HostFailureKind.unreachable);
     transport.opened.single.drop();
     await ready(tester);
     for (final delay in shellReconnectDelays) {

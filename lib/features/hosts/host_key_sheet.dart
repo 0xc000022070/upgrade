@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/action_block.dart';
@@ -8,6 +9,23 @@ import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/brand.dart';
+
+/// [hold] is released once the sheet answers, so the session store does not sweep the
+/// dial that is waiting on it.
+Future<bool> askHostKeyHeld(
+  BuildContext context, {
+  required VoidCallback Function() hold,
+  required Host host,
+  required HostKeyOffer offer,
+  PinnedHostKey? pinned,
+}) async {
+  final release = hold();
+  try {
+    return await askHostKey(context, host: host, offer: offer, pinned: pinned);
+  } finally {
+    release();
+  }
+}
 
 Future<bool> askHostKey(
   BuildContext context, {

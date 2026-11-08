@@ -7,12 +7,12 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
+import 'package:upgrade/application/app_lifecycle.dart';
 import 'package:upgrade/application/home/compose_window.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/application/pip.dart';
-import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/design/components/close_target.dart';
 import 'package:upgrade/design/components/inline_confirm.dart';
 import 'package:upgrade/design/components/panel.dart';
@@ -27,6 +27,7 @@ import 'package:upgrade/features/browser/browser_screen.dart';
 import 'package:upgrade/features/hosts/host_mark.dart';
 import 'package:upgrade/features/screen/host_screen.dart';
 import 'package:upgrade/features/screen/screen_controller.dart';
+import 'package:upgrade/application/screens_placement.dart';
 import 'package:upgrade/features/devices/bubble_holds.dart';
 import 'package:upgrade/features/devices/device_controllers.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
@@ -44,54 +45,10 @@ const _decodeStep = 120;
 const deviceListWidth = 280.0;
 const deviceBubbleSize = 56.0;
 const _bubblePulse = Duration(milliseconds: 1400);
-const desktopFloatShare = 0.6;
 const screensHandleWidth = 28.0;
 const screensHandleHeight = deviceBubbleSize;
 const _handleReach = 40.0;
-const browserFloatShare = 0.6;
 const _browserFloatAspect = 0.75;
-
-const browserBesideWidth = 720.0;
-
-final screensHostProvider = StreamProvider<String?>(
-  (ref) => ref
-      .watch(settingsRepositoryProvider)
-      .watchRaw(SettingsRepository.screensHost),
-);
-
-final rememberScreensHostProvider = Provider<Future<void> Function(String)>(
-  (ref) =>
-      (hostId) => ref
-          .read(settingsRepositoryProvider)
-          .setText(SettingsRepository.screensHost, hostId),
-);
-
-typedef ScreensRest = ({bool right, double top});
-
-final screensRestProvider = FutureProvider<ScreensRest?>((ref) async {
-  final raw = await ref
-      .read(settingsRepositoryProvider)
-      .text(SettingsRepository.screensRest, orElse: '');
-  final at = raw.indexOf(':');
-  if (at < 0) return null;
-  final side = raw.substring(0, at);
-  final top = double.tryParse(raw.substring(at + 1));
-  if (top == null || !top.isFinite || (side != 'right' && side != 'left')) {
-    return null;
-  }
-  return (right: side == 'right', top: top);
-});
-
-final rememberScreensRestProvider =
-    Provider<Future<void> Function(ScreensRest)>(
-      (ref) =>
-          (rest) => ref
-              .read(settingsRepositoryProvider)
-              .setText(
-                SettingsRepository.screensRest,
-                '${rest.right ? 'right' : 'left'}:${rest.top}',
-              ),
-    );
 
 class DeviceFloat extends ConsumerStatefulWidget {
   const DeviceFloat({super.key, required this.child});
@@ -767,7 +724,7 @@ class _DesktopWindow extends StatelessWidget {
           aspect: size.isEmpty ? 16 / 10 : size.width / size.height,
           right: right,
           low: false,
-          width: (screen) => screen.width * desktopFloatShare,
+          width: (screen) => screen.width * deviceFloatMaxShare,
           widest: (screen) => screen.width - Spacing.screenEdge * 2,
           live: _Desktop(controller: controller, paused: paused),
           picture: controller.image != null,
@@ -849,7 +806,7 @@ class _BrowserWindow extends StatelessWidget {
       aspect: _browserFloatAspect,
       right: right,
       low: false,
-      width: (screen) => screen.width * browserFloatShare,
+      width: (screen) => screen.width * deviceFloatMaxShare,
       widest: (screen) => screen.width - Spacing.screenEdge * 2,
       liveOf: (toggleOverlay) => BrowserView(
         browser,

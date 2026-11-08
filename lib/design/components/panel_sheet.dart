@@ -2,10 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'package:upgrade/application/plugins/plugin_scope_stub.dart'
-    if (dart.library.ffi) 'package:upgrade/application/plugins/native_plugins.dart'
-    show inheritPluginScope;
-
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/layout.dart';
 import 'package:upgrade/design/spacing.dart';
@@ -19,16 +15,10 @@ Future<T?> showPanelSheet<T>(
   BuildContext context, {
   required String title,
   required WidgetBuilder builder,
-  double maxHeightFraction = 0.86,
-  double maxWidth = Layout.columnMax,
 }) {
-  final content = inheritPluginScope(
+  final content = SheetScope.wrap(
     context,
-    _SheetFrame(
-      maxHeightFraction: maxHeightFraction,
-      maxWidth: maxWidth,
-      child: Builder(builder: builder),
-    ),
+    _SheetFrame(child: Builder(builder: builder)),
   );
   return showSheetRoute<T>(context, title: title, child: content);
 }
@@ -103,16 +93,12 @@ class ConfirmSheetBody extends StatelessWidget {
   }
 }
 
+const _maxHeightFraction = 0.86;
+
 class _SheetFrame extends StatelessWidget {
-  const _SheetFrame({
-    required this.child,
-    required this.maxHeightFraction,
-    required this.maxWidth,
-  });
+  const _SheetFrame({required this.child});
 
   final Widget child;
-  final double maxHeightFraction;
-  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -138,10 +124,10 @@ class _SheetFrame extends StatelessWidget {
             ),
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                maxWidth: maxWidth,
+                maxWidth: Layout.columnMax,
                 maxHeight: math.max(
                   0,
-                  math.min(media.size.height * maxHeightFraction, room),
+                  math.min(media.size.height * _maxHeightFraction, room),
                 ),
               ),
               child: Material(color: const Color(0x00000000), child: child),

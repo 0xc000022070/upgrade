@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/static_surface.dart';
 import 'package:upgrade/application/drops/item_search.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/views.dart';

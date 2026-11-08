@@ -1,10 +1,12 @@
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/installed.dart';
+import 'package:upgrade_luau/data_api.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/ui_tree.dart';
 import 'package:upgrade/brand.dart';
 
 const pluginToolSchemaVersion = 1;
 
-const pluginSdkUiApi = 2;
+const pluginSdkUiApi = latestUiApi;
 
 enum UiPropType { string, number, boolean, list, color, value }
 
@@ -478,11 +480,11 @@ Map<String, Object?> pluginSdkInventory() => {
   'sdk': {
     'upgrade_api': PluginManifest.apiVersion.toString(),
     'manifest_version': PluginManifest.filesManifestVersion,
-    'ui_api': [1, pluginSdkUiApi],
+    'ui_api': supportedUiApis,
     'manifest_file': 'upgrade.plugin.toml',
     'max_manifest_bytes': PluginManifest.maxBytes,
-    'max_source_bytes': 64 * 1024,
-    'max_package_bytes': 512 * 1024,
+    'max_source_bytes': PluginPackage.maxSourceBytes,
+    'max_package_bytes': PluginPackage.maxTotalBytes,
     'max_declared_files': PluginManifest.maxDeclaredFiles,
   },
   'supported': {
@@ -490,7 +492,8 @@ Map<String, Object?> pluginSdkInventory() => {
       '2': 'record actions',
       '3': 'native, bundled with $appName only',
       '4': 'Luau UI; ui_api required',
-      '5': 'Luau with up to 31 extra .luau files; ui_api optional',
+      '5':
+          'Luau with up to ${PluginManifest.maxDeclaredFiles} extra .luau files; ui_api optional',
     },
     'runtime': {
       'kind': 'luau',
@@ -508,8 +511,8 @@ Map<String, Object?> pluginSdkInventory() => {
       },
       'limits': {
         'script_ms': 50,
-        'heap_bytes': 8 * 1024 * 1024,
-        'io_bytes': 256 * 1024,
+        'heap_bytes': DataLimits.quotaBytes,
+        'io_bytes': DataLimits.ioBytes,
         'page_nodes': 2048,
         'card_nodes': 256,
         'depth': 24,

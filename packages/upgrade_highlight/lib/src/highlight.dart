@@ -4,53 +4,19 @@ const int _kNoMatch = -1;
 const int _kMaxKeywordHits = 7;
 
 class Highlight {
-
   final Map<String, Mode> _languages;
   final Map<String, String> _aliases;
-  // safe/production mode - swallows more errors, tries to keep running
-  // even if a single syntax or parse hits a fatal error
-  bool _safeMode;
 
-  Highlight(): _languages = {},
-    _aliases = {},
-    _safeMode = true;
-
-  void debugMode() {
-    _safeMode = false;
-  }
-
-  void safeMode() {
-    _safeMode = true;
-  }
+  Highlight() : _languages = {}, _aliases = {};
 
   HighlightResult highlight({
     required String code,
     required String language,
-    bool ignoreIllegals = true
+    bool ignoreIllegals = true,
   }) {
     return _highlight(language, code, ignoreIllegals);
   }
 
-  /// returns a valid highlight result, without actually doing any actual work,
-  /// auto highlight starts with this and it's possible for small snippets that
-  /// auto-detection may not find a better match
-  HighlightResult justTextHighlightResult(String code) {
-    final HighlightResult result = HighlightResult(
-      code: code,
-      illegal: false,
-      relevance: 0,
-      emitter: _TokenTreeEmitter(),
-      top: Mode(
-        disableAutodetect: true,
-        name: 'Plain text',
-        contains: []
-      )
-    );
-    result._emitter.addText(code);
-    return result;
-  }
-
-  /// Register a language grammar module
   void registerLanguage(String languageName, Mode lang) {
     // give it a temporary name if it doesn't have one in the meta-data
     lang.name ??= languageName;
@@ -58,20 +24,6 @@ class Highlight {
     if (lang.aliases != null) {
       registerAliases(lang.aliases, languageName);
     }
-  }
-
-  /// Remove a language grammar module
-  void unregisterLanguage(String languageName) {
-    _languages.remove(languageName);
-    _aliases.removeWhere((key, value) => value == languageName);
-  }
-
-  void registerLanguages(Map<String, Mode> languages) {
-    languages.forEach(registerLanguage);
-  }
-
-  List<String> listLanguages() {
-    return _languages.keys.toList();
   }
 
   Mode? getLanguage(String name) {
@@ -86,14 +38,13 @@ class Highlight {
     aliasList.forEach((alias) => _aliases[alias.toLowerCase()] = languageName);
   }
 
-  /// Determines if a given language has auto-detection enabled
-  bool autoDetection(String name) {
-    final Mode? lang = getLanguage(name);
-    return lang != null && lang.disableAutodetect != true;
-  }
-
   /// private highlight that's used internally and does not fire callbacks
-  HighlightResult _highlight(String languageName, String codeToHighlight, bool ignoreIllegals, [Mode? continuation]) {
+  HighlightResult _highlight(
+    String languageName,
+    String codeToHighlight,
+    bool ignoreIllegals, [
+    Mode? continuation,
+  ]) {
     final Map<String, int> keywordHits = {};
     final Mode? language = getLanguage(languageName);
     if (language == null) {
@@ -108,6 +59,7 @@ class Highlight {
     int index = 0;
     int iterations = 0;
     bool resumeScanAtSamePosition = false;
+
     /// Return keyword data if a match is a keyword
     _KeywordData? keywordData(Mode mode, String matchText) {
       return mode.keywords[matchText];
@@ -133,7 +85,9 @@ class Highlight {
       while (match != null) {
         buf += modeBuffer.substring(lastIndex, match.start);
         final String match0 = match[0]!;
-        final String word = language.caseInsensitive == true ? match0.toLowerCase() : match0;
+        final String word = language.caseInsensitive == true
+            ? match0.toLowerCase()
+            : match0;
         final _KeywordData? data = keywordData(top, word);
         if (data != null) {
           final String kind = data.scopeName;
@@ -158,8 +112,8 @@ class Highlight {
         }
         lastIndex = match.end;
         match = top.keywordPatternRe!
-          .allMatches(modeBuffer, lastIndex)
-          .firstOrNull;
+            .allMatches(modeBuffer, lastIndex)
+            .firstOrNull;
       }
       buf += modeBuffer.substring(lastIndex);
       emitter.addText(buf);
@@ -175,7 +129,12 @@ class Highlight {
           emitter.addText(modeBuffer);
           return;
         }
-        result = _highlight(top.subLanguage, modeBuffer, true, continuations[top.subLanguage]);
+        result = _highlight(
+          top.subLanguage,
+          modeBuffer,
+          true,
+          continuations[top.subLanguage],
+        );
         continuations[top.subLanguage] = result._top;
       } else if (top.subLanguage is List<String>) {
         // Upgrade: no language detection, so an open-ended sub-language is
@@ -183,7 +142,9 @@ class Highlight {
         emitter.addText(modeBuffer);
         return;
       } else {
-        throw AssertionError('Illegal subLanguage type ${top.subLanguage.runtimeType}');
+        throw AssertionError(
+          'Illegal subLanguage type ${top.subLanguage.runtimeType}',
+        );
       }
 
       // Counting embedded language score towards the host language may be disabled
@@ -228,14 +189,19 @@ class Highlight {
     }
 
     Mode startNewMode(Mode mode, EnhancedMatch match) {
-      if (mode.scope != null && mode.scope is String && mode.scope!.isNotEmpty) {
+      if (mode.scope != null &&
+          mode.scope is String &&
+          mode.scope!.isNotEmpty) {
         emitter.openNode(language.classNameAliases?[mode.scope!] ?? mode.scope);
       }
       if (mode.beginScope != null) {
         final _CompiledScope scope = mode.beginScope;
         // beginScope just wraps the begin match itself in a scope
         if (scope.wrap?.isNotEmpty ?? false) {
-          emitKeyword(modeBuffer, language.classNameAliases?[scope.wrap!] ?? scope.wrap!);
+          emitKeyword(
+            modeBuffer,
+            language.classNameAliases?[scope.wrap!] ?? scope.wrap!,
+          );
           modeBuffer = '';
         } else if (scope.multi == true) {
           // at this point modeBuffer should just be the match
@@ -243,16 +209,13 @@ class Highlight {
           modeBuffer = '';
         }
       }
-      top = mode.copyWith(
-        Mode(
-          parent: top
-        )
-      );
+      top = mode.copyWith(Mode(parent: top));
       return top;
     }
 
     Mode? endOfMode(Mode mode, EnhancedMatch match, String matchPlusRemainder) {
-      bool matched = mode.endRe != null && matchPlusRemainder.startsWith(mode.endRe!);
+      bool matched =
+          mode.endRe != null && matchPlusRemainder.startsWith(mode.endRe!);
       if (matched) {
         if (mode.onEnd != null) {
           final ModeCallbackResponse resp = ModeCallbackResponse(mode);
@@ -301,7 +264,7 @@ class Highlight {
       // first internal before callbacks, then the public ones
       final List<ModeCallback?> beforeCallbacks = [
         newMode.beforeBegin,
-        newMode.onBegin
+        newMode.onBegin,
       ];
       for (final ModeCallback? cb in beforeCallbacks) {
         if (cb == null) {
@@ -373,7 +336,11 @@ class Highlight {
 
     void processContinuations() {
       final List<String> list = [];
-      for (Mode? current = top; current != language; current = current?.parent) {
+      for (
+        Mode? current = top;
+        current != language;
+        current = current?.parent
+      ) {
         if (current?.scope?.isNotEmpty ?? false) {
           list.insert(0, current!.scope);
         }
@@ -400,16 +367,12 @@ class Highlight {
       // this happens when we have badly behaved rules that have optional matchers to the degree that
       // sometimes they can end up matching nothing at all
       // Ref: https://github.com/highlightjs/highlight.js/issues/2140
-      if (lastMatch?.type == "begin" && match?.type == "end" && lastMatch?.index == match!.index && lexeme.isEmpty) {
+      if (lastMatch?.type == "begin" &&
+          match?.type == "end" &&
+          lastMatch?.index == match!.index &&
+          lexeme.isEmpty) {
         // spit the "skipped" character that our regex choked on back into the output sequence
         modeBuffer += codeToHighlight.substring(match.index, match.index + 1);
-        if (!_safeMode) {
-          final AnnotatedError err = AnnotatedError(
-            '0 width match regex ($languageName)',
-            languageName: languageName,
-            badRule: lastMatch!.rule);
-          throw err;
-        }
         return 1;
       }
       lastMatch = match;
@@ -418,8 +381,9 @@ class Highlight {
         return doBeginMatch(match!);
       } else if (match?.type == "illegal" && !ignoreIllegals) {
         // illegal match, we do not continue processing
-        final err =  AnnotatedError('Illegal lexeme "$lexeme" for mode "${top.scope ?? '<unnamed>'}"',
-          mode: top
+        final err = AnnotatedError(
+          'Illegal lexeme "$lexeme" for mode "${top.scope ?? '<unnamed>'}"',
+          mode: top,
         );
         throw err;
       } else if (match?.type == "end") {
@@ -442,7 +406,9 @@ class Highlight {
       // parsing) still 3x behind our index then something is very wrong
       // so we bail
       if (iterations > 100000 && iterations > match!.index * 3) {
-        final AssertionError err = AssertionError('potential infinite loop, way more iterations than matches');
+        final AssertionError err = AssertionError(
+          'potential infinite loop, way more iterations than matches',
+        );
         throw err;
       }
 
@@ -464,7 +430,8 @@ class Highlight {
       (top.matcher! as _ResumableMultiRegex).considerAll();
 
       for (;;) {
-        final _ResumableMultiRegex matcher = top.matcher! as _ResumableMultiRegex;
+        final _ResumableMultiRegex matcher =
+            top.matcher! as _ResumableMultiRegex;
         iterations++;
         if (resumeScanAtSamePosition) {
           // only regexes not matched previously will now be
@@ -480,7 +447,10 @@ class Highlight {
           break;
         }
 
-        final String beforeMatch = codeToHighlight.substring(index, match.index);
+        final String beforeMatch = codeToHighlight.substring(
+          index,
+          match.index,
+        );
         final int processedCount = processLexeme(beforeMatch, match);
         index = match.index + processedCount;
       }
@@ -492,7 +462,7 @@ class Highlight {
         relevance: relevance,
         illegal: false,
         emitter: emitter,
-        top: top
+        top: top,
       );
     } on Error catch (err) {
       if (err is AnnotatedError && err.message.contains('Illegal')) {
@@ -504,12 +474,15 @@ class Highlight {
           illegalBy: IllegalData(
             message: err.message,
             index: index,
-            context: codeToHighlight.substring(max(0, index - 100), min(index + 100, codeToHighlight.length)),
+            context: codeToHighlight.substring(
+              max(0, index - 100),
+              min(index + 100, codeToHighlight.length),
+            ),
             mode: err.mode,
           ),
-          emitter: emitter
+          emitter: emitter,
         );
-      } else if (_safeMode) {
+      } else {
         return HighlightResult(
           code: codeToHighlight,
           language: languageName,
@@ -517,18 +490,14 @@ class Highlight {
           relevance: 0,
           errorRaised: err,
           emitter: emitter,
-          top: top
+          top: top,
         );
-      } else {
-        rethrow;
       }
     }
   }
-
 }
 
 class HighlightResult {
-
   String code;
   double relevance;
   String? language;
@@ -546,10 +515,9 @@ class HighlightResult {
     this.errorRaised,
     this.illegalBy,
     required Emitter emitter,
-    Mode? top
+    Mode? top,
   }) : _emitter = emitter,
-    _top = top;
-
+       _top = top;
 }
 
 class IllegalData {
@@ -562,7 +530,7 @@ class IllegalData {
     required this.message,
     required this.context,
     required this.index,
-    this.mode
+    this.mode,
   });
 }
 
@@ -572,10 +540,5 @@ class AnnotatedError extends Error {
   final String? languageName;
   final Mode? badRule;
 
-  AnnotatedError(this.message, {
-    this.mode,
-    this.languageName,
-    this.badRule
-  });
-
+  AnnotatedError(this.message, {this.mode, this.languageName, this.badRule});
 }

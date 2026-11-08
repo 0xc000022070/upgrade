@@ -1582,7 +1582,7 @@ final langTypescript = Mode(
                 contains: <Mode>[
                   Mode(className: 'params', variants: <Mode>[
                     Mode(begin: "[a-zA-Z_]\\w*", relevance: 0),
-                    Mode(className: 'delete', begin: "\\(\\s*\\)", skip: true),
+                    Mode(begin: "\\(\\s*\\)", skip: true),
                     Mode(
                         begin: "\\(",
                         end: "\\)",

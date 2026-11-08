@@ -17,7 +17,6 @@ import 'package:upgrade/features/agents/sent_screen.dart';
 import 'package:upgrade/features/home/agent_mark.dart';
 import 'package:upgrade/features/home/bar_window.dart';
 import 'package:upgrade/features/home/compose_sheet.dart';
-import 'package:upgrade/features/home/home_screen.dart';
 import 'package:upgrade/features/home/usage_panel.dart';
 import 'package:upgrade/features/plugins/plugin_management_screen.dart';
 import 'package:upgrade/features/settings/settings_screen.dart';
@@ -63,7 +62,7 @@ class _LauncherWidgetHostState extends ConsumerState<LauncherWidgetHost> {
     });
     unawaited(
       LauncherWidget.settleSends(
-        ref.read(sendQueueProvider).map(launcherSendId),
+        ref.read(sendQueueProvider).map((job) => job.id),
       ),
     );
     ref.listenManual<List<HostUsage>>(usageFeedProvider, (_, next) {
@@ -131,7 +130,7 @@ class _LauncherWidgetHostState extends ConsumerState<LauncherWidgetHost> {
     if (guarded) return;
     switch (tap.open) {
       case LauncherOpen.home:
-        ref.read(navIndexProvider.notifier).state = HomeScreen.navIndex;
+        ref.read(navIndexProvider.notifier).state = homeNavIndex;
       case LauncherOpen.agents:
         openAgents(context);
       case LauncherOpen.plugins:
@@ -150,7 +149,7 @@ class _LauncherWidgetHostState extends ConsumerState<LauncherWidgetHost> {
       case LauncherOpen.barSheet:
         break;
       case LauncherOpen.inputBar:
-        ref.read(navIndexProvider.notifier).state = HomeScreen.navIndex;
+        ref.read(navIndexProvider.notifier).state = homeNavIndex;
         await WidgetsBinding.instance.endOfFrame;
         if (!mounted) return;
         ref.read(composerFocusRequestProvider.notifier).request();

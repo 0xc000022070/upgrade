@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
 
 import 'package:upgrade/application/plugins/native_plugins.dart';
@@ -13,9 +14,8 @@ import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/components/panel_text_action.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/platform/device.dart';
-import 'package:upgrade/platform/plugins/contributions.dart';
-import 'package:upgrade/platform/plugins/store.dart';
-import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade/data/plugins/contributions.dart';
+import 'package:upgrade/features/plugins/plugin_ui.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/plugins/plugin_frames.dart';
@@ -304,10 +304,7 @@ class _NativePluginRoute extends ConsumerWidget {
                 padding: EdgeInsets.symmetric(
                   horizontal:
                       Spacing.screenEdge +
-                      Layout.gutterFor(
-                        constraints.maxWidth,
-                        maxWidth: Layout.columnMax,
-                      ),
+                      Layout.gutterFor(constraints.maxWidth),
                 ),
                 child: PanelTextAction(
                   label: 'BACK · TOOLS',

@@ -203,7 +203,7 @@ List<AlignedLine> _align(
   var fresh = -1;
   int key(String line, List<IntralineSpan> runs) => runs.isNotEmpty
       ? fresh--
-      : keys.putIfAbsent(line.replaceAll(_space, ''), () => keys.length);
+      : keys.putIfAbsent(squash(line), () => keys.length);
   final matched = _matches(
     [for (var i = 0; i < oldLines.length; i++) key(oldLines[i], oldRuns[i])],
     [for (var i = 0; i < newLines.length; i++) key(newLines[i], newRuns[i])],
@@ -244,8 +244,6 @@ List<AlignedLine> _align(
   gap(oldLines.length, newLines.length);
   return rows;
 }
-
-final _space = RegExp(r'\s+');
 
 List<(int, int)> _matches(List<int> a, List<int> b, {required int budget}) {
   final out = <(int, int)>[];

@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:dartssh2/dartssh2.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
 import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/plugins/plugin_hosts.dart';
-import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/platform/reason_lines.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/devices/device_link.dart';
@@ -12,7 +14,7 @@ import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
 import 'package:upgrade/platform/workspace/workspace_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +24,7 @@ import 'package:upgrade/application/providers.dart';
 import '../../support/host_links.dart';
 import '../../support/ssh_exec.dart';
 import '../../support/vnc_channel.dart';
+import '../../support/host_failure_matchers.dart';
 
 final _pin = PinnedHostKey(
   type: 'ssh-ed25519',
@@ -172,7 +175,7 @@ void main() {
         await tester.pump();
 
         final client = dial.clients.single;
-        expect(failure, isA<HerdrUnreachable>());
+        expect(failure, isFailureOf(HostFailureKind.unreachable));
         expect(client.pings, 0);
         session.close();
         _ended(client);
@@ -216,7 +219,7 @@ void main() {
       await session.err.close();
       session.exited.complete();
       await tester.pump();
-      expect(failure, isA<HerdrUnreachable>());
+      expect(failure, isFailureOf(HostFailureKind.unreachable));
       expect(client.closes, 0);
       await tester.pump(links.linger);
       expect(client.isClosed, isTrue);
@@ -237,7 +240,7 @@ void main() {
       await tester.pump();
 
       final client = dial.clients.single;
-      expect(failure, isA<HerdrUnreachable>());
+      expect(failure, isFailureOf(HostFailureKind.unreachable));
       expect(client.pings, 0);
 
       gate.complete();
@@ -262,7 +265,7 @@ void main() {
       await tester.pump();
 
       final client = dial.clients.single;
-      expect(failure, isA<HerdrUnreachable>());
+      expect(failure, isFailureOf(HostFailureKind.unreachable));
       expect(client.pings, 0);
       _ended(client);
       await runner.close();
@@ -275,7 +278,10 @@ void main() {
       final runner = WorkspaceSsh.borrowed(await _lease(links));
       await dial.clients.single.close();
 
-      await expectLater(runner.run('ls'), throwsA(isA<HerdrUnreachable>()));
+      await expectLater(
+        runner.run('ls'),
+        throwsA(isFailureOf(HostFailureKind.unreachable)),
+      );
       await runner.close();
       links.close();
     });
@@ -401,15 +407,24 @@ void main() {
         final client = dial.clients.first;
 
         final herdr = HerdrSession.borrowed(await _lease(links));
-        await expectLater(herdr.paths(), throwsA(isA<HerdrBusy>()));
+        await expectLater(
+          herdr.paths(),
+          throwsA(isFailureOf(HostFailureKind.busy)),
+        );
         herdr.close();
 
         final devices = DeviceSsh.leasing((_) => _lease(links));
-        await expectLater(devices.list(), throwsA(isA<HerdrBusy>()));
+        await expectLater(
+          devices.list(),
+          throwsA(isFailureOf(HostFailureKind.busy)),
+        );
         await devices.close();
 
         final workspace = WorkspaceSsh.borrowed(await _lease(links));
-        await expectLater(workspace.run('ls'), throwsA(isA<HerdrBusy>()));
+        await expectLater(
+          workspace.run('ls'),
+          throwsA(isFailureOf(HostFailureKind.busy)),
+        );
         await workspace.close();
 
         await expectLater(

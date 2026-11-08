@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/application/bundle/bundle.dart';
 import 'package:upgrade/application/phone_linux.dart';
 import 'package:upgrade/data/database.dart';
@@ -12,7 +13,6 @@ import 'package:upgrade/data/repositories/path_repository.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
 import 'package:upgrade/platform/files/attachment_store.dart';
 import 'package:upgrade/platform/bundle_cipher.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 
 ManagedKey _key(String id) => ManagedKey(

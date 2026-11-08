@@ -9,8 +9,6 @@ const _aspect = 2.0;
 abstract class AsciiEffect {
   const AsciiEffect();
 
-  String get name;
-
   void render(double tick, int width, int height, Float64List out);
 }
 
@@ -27,9 +25,6 @@ class LatticeEffect extends AsciiEffect {
   static const _gainSurge = 0.55;
 
   static const _peak = 0.62;
-
-  @override
-  String get name => 'lattice';
 
   @override
   void render(double tick, int width, int height, Float64List out) {
@@ -68,9 +63,6 @@ class FlowEffect extends AsciiEffect {
   static const _maxCover = 0.055;
   static const _widenSurge = 0.45;
   static const _octaves = 3;
-
-  @override
-  String get name => 'flow';
 
   double _field(double x, double y) => fbm(x, y, _octaves) * _contours;
 
@@ -119,9 +111,6 @@ class RingsEffect extends AsciiEffect {
   static const _spin = 0.035;
   static const _spinSurge = 1.6;
   static const _coreDepth = 6.6;
-
-  @override
-  String get name => 'rings';
 
   @override
   void render(double tick, int width, int height, Float64List out) {

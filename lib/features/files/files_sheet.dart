@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart'
+import 'package:upgrade/application/hosts/host_providers.dart'
     show hostsProvider, registeredHostProvider;
 import 'package:upgrade/application/files/host_file_link.dart';
 import 'package:upgrade/application/files/phone_inbox.dart';
@@ -151,12 +151,7 @@ class _FilesSheetState extends ConsumerState<FilesSheet> {
   Future<void> _read(String directory) async {
     final files = await _live();
     if (files == null) return;
-    List<DirEntry>? entries;
-    try {
-      entries = await files.list(directory);
-    } catch (_) {
-      // ignored: a folder that cannot be listed is drawn as unreadable, whatever the cause.
-    }
+    final entries = await files.list(directory);
     if (!mounted) return;
     setState(() {
       if (entries == null) {

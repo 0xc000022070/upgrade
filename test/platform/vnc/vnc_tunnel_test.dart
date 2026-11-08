@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:dartssh2/dartssh2.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
@@ -12,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/host_links.dart';
 import '../../support/tarpit.dart';
 import '../../support/vnc_channel.dart';
+import '../../support/host_failure_matchers.dart';
 
 final _pin = PinnedHostKey(
   type: 'ssh-ed25519',
@@ -50,7 +53,7 @@ void main() {
         privateKey: privateKey,
         verifier: HostKeyVerifier.pinnedOnly(null),
       ),
-      throwsA(isA<VncUnreachable>()),
+      throwsA(isFailureOf(HostFailureKind.unreachable)),
     );
     await Future<void>.delayed(const Duration(milliseconds: 200));
 
@@ -61,7 +64,10 @@ void main() {
   test('a refused dial reads as unreachable', () async {
     final links = HostLinks(dial: FakeDial(refuse: true).call);
 
-    await expectLater(_open(VncTunnel(links)), throwsA(isA<VncUnreachable>()));
+    await expectLater(
+      _open(VncTunnel(links)),
+      throwsA(isFailureOf(HostFailureKind.unreachable)),
+    );
     links.close();
   });
 
@@ -126,7 +132,7 @@ void main() {
     final client = dial.clients.single;
     unawaited(client.forwards.single.wire.endStream());
 
-    await expectLater(opening, throwsA(isA<VncFailure>()));
+    await expectLater(opening, throwsA(isA<HostFailure>()));
     expect(client.forwards.single.destroyed, 1);
     expect(client.closes, 0);
     links.close();
@@ -149,7 +155,7 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       await tester.pump();
 
-      expect(failure, isA<VncUnreachable>());
+      expect(failure, isFailureOf(HostFailureKind.unreachable));
       expect(client.pings, 0);
       expect(client.isClosed, isFalse);
       await tester.pump(links.screenLinger);
@@ -176,7 +182,7 @@ void main() {
 
       await expectLater(
         _open(VncTunnel(links)),
-        throwsA(isA<VncTunnelRefused>()),
+        throwsA(isFailureOf(HostFailureKind.tunnelRefused)),
       );
       expect(dial.clients.single.pings, 0);
       expect(dial.clients.single.closes, 0);
@@ -190,7 +196,10 @@ void main() {
     final links = HostLinks(dial: dial.call);
     final tunnel = VncTunnel(links, timeout: const Duration(milliseconds: 50));
 
-    await expectLater(_open(tunnel), throwsA(isA<VncUnreachable>()));
+    await expectLater(
+      _open(tunnel),
+      throwsA(isFailureOf(HostFailureKind.unreachable)),
+    );
     final client = dial.clients.single;
     expect(client.forwards, isEmpty);
     gate.complete();
@@ -200,18 +209,10 @@ void main() {
     links.close();
   });
 
-  test('host failures keep their own reason on the screen', () {
-    expect(asVncFailure(const HerdrUnresolved('x')), isA<VncUnresolved>());
-    expect(asVncFailure(const HerdrKeyRejected('x')), isA<VncKeyRejected>());
+  test('a busy host reads as unreachable on the screen', () {
     expect(
-      asVncFailure(const HerdrHostKeyUnverified('x')),
-      isA<VncHostKeyUnverified>(),
+      asVncFailure(const HostFailure.busy('x')),
+      isFailureOf(HostFailureKind.unreachable),
     );
-    expect(
-      asVncFailure(const HerdrHostKeyChanged('x')),
-      isA<VncHostKeyChanged>(),
-    );
-    expect(asVncFailure(const HerdrBusy('x')), isA<VncUnreachable>());
-    expect(asVncFailure(const HerdrUnreachable('x'))?.detail, 'x');
   });
 }

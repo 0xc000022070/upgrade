@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import 'package:upgrade/design/components/flash_block.dart';
+import 'package:upgrade/design/components/inline_confirm.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 
@@ -10,7 +12,7 @@ const _byName = {
   'interactive': 'Tap it: this one works.',
 };
 
-const notes = {
+final notes = {
   'foundations/colors': 'Every color the app paints with, and its hex value.',
   'foundations/colors/chrome':
       'Backgrounds, text, borders and accents of the app\'s own screens.',
@@ -35,10 +37,10 @@ const notes = {
       'Full-width filled button at the bottom of a form, like SAVE.',
   'components/actions/inlineconfirmblock':
       'A button that asks twice: the first tap arms it, a second tap within '
-      '3 s does it. Used for deleting things.',
+      '${inlineConfirmWindow.inSeconds} s does it. Used for deleting things.',
   'components/actions/flashactionblock':
-      'A button whose label changes for 2 s after it worked, like '
-      'COPY becoming COPIED.',
+      'A button whose label changes for ${flashWindow.inSeconds} s after it '
+      'worked, like COPY becoming COPIED.',
   'components/actions/paneltextaction':
       'Small text-only action at the edge of a panel, like RETRY or EDIT.',
   'components/actions/toolbariconaction':

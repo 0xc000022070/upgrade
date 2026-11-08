@@ -81,23 +81,19 @@ widgetbook-serve port="8096": widgetbook-build
     python3 -m http.server {{port}} --bind 127.0.0.1 --directory widgetbook/build/web
 
 [group('dev')]
-engine-gate: pub-build
-    cargo fmt --manifest-path engine/Cargo.toml --check
-    cargo clippy --manifest-path engine/Cargo.toml --all-targets -- -D warnings
-    cargo test --manifest-path engine/Cargo.toml
+engine-gate: pub-build (_crate-gate "engine")
     bin=$(cargo build --manifest-path engine/Cargo.toml --message-format=json-render-diagnostics | grep -o '"executable":"[^"]*/upgraded"' | cut -d'"' -f4) && test -x "$bin" && UPGRADED_BIN=$bin tool/test.sh local test/platform/shell/engine_channel_live_test.dart
 
 [group('dev')]
-chat-gate:
-    cargo fmt --manifest-path chat/Cargo.toml --check
-    cargo clippy --manifest-path chat/Cargo.toml --all-targets -- -D warnings
-    cargo test --manifest-path chat/Cargo.toml
+chat-gate: (_crate-gate "chat")
 
 [group('dev')]
-quic-gate:
-    cargo fmt --manifest-path quic/Cargo.toml --check
-    cargo clippy --manifest-path quic/Cargo.toml --all-targets -- -D warnings
-    cargo test --manifest-path quic/Cargo.toml
+quic-gate: (_crate-gate "quic")
+
+_crate-gate dir:
+    cargo fmt --manifest-path {{dir}}/Cargo.toml --check
+    cargo clippy --manifest-path {{dir}}/Cargo.toml --all-targets -- -D warnings
+    cargo test --manifest-path {{dir}}/Cargo.toml
 
 [group('dev')]
 pub-build: (pub "dart_mosh") (pub "dartssh2") (pub "flterm") (pub "pointycastle") _libghostty

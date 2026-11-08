@@ -10,7 +10,10 @@ typedef CompilerExt = void Function(Mode mode, Mode? parent);
 /// `bob.keyword.do()`. The mode compiler automatically wires this up as a
 /// special _internal_ 'on:begin' callback for modes with `beginKeywords`
 ///
-void _skipIfHasPrecedingDot(EnhancedMatch match, ModeCallbackResponse response) {
+void _skipIfHasPrecedingDot(
+  EnhancedMatch match,
+  ModeCallbackResponse response,
+) {
   final String? before = match.start > 0 ? match.input[match.start - 1] : null;
   if (before == '.') {
     response.ignoreMatch();
@@ -18,11 +21,6 @@ void _skipIfHasPrecedingDot(EnhancedMatch match, ModeCallbackResponse response) 
 }
 
 void _scopeClassName(Mode mode, Mode? parent) {
-  // Added by reqable, delete className value before using.
-  if (mode.className == 'delete') {
-    mode.className = null;
-  }
-  // eslint-disable-next-line no-undefined
   if (mode.className != null) {
     mode.scope = mode.className;
     mode.className = null;
@@ -43,13 +41,13 @@ void _beginKeywords(Mode mode, Mode? parent) {
   // or whitespace - this does no harm in any case since our keyword engine
   // doesn't allow spaces in keywords anyways and we still check for the boundary
   // first
-  mode.begin = '\\b(${mode.beginKeywords!.split(' ').join('|')})(?!\\.)(?=\\b|\\s)';
+  mode.begin =
+      '\\b(${mode.beginKeywords!.split(' ').join('|')})(?!\\.)(?=\\b|\\s)';
   mode.beforeBegin = _skipIfHasPrecedingDot;
   mode.keywords = mode.keywords ?? mode.beginKeywords;
   mode.beginKeywords = null;
   // prevents double relevance, the keywords themselves provide
   // relevance, the mode doesn't need to double it
-  // eslint-disable-next-line no-undefined
   mode.relevance ??= 0;
 }
 
@@ -73,6 +71,5 @@ void _compileMatch(Mode mode, Mode? parent) {
 }
 
 void _compileRelevance(Mode mode, Mode? parent) {
-  // eslint-disable-next-line no-undefined
   mode.relevance ??= 1;
 }

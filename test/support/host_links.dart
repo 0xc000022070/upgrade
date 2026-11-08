@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
@@ -161,14 +163,14 @@ class FakeDial {
   }) async {
     dials++;
     await gate?.future;
-    if (refuse) throw const HerdrUnreachable('refused');
+    if (refuse) throw const HostFailure.unreachable('refused');
     if (slowAuth) {
       await Future<void>.delayed(const Duration(seconds: 10));
       settling++;
       onSettling?.call(
         Future<void>.delayed(sshLoginGrace).whenComplete(() => settling--),
       );
-      throw const HerdrUnreachable('no answer in 10s');
+      throw const HostFailure.unreachable('no answer in 10s');
     }
     final offered = accept;
     if (verifier != null && offered != null) {

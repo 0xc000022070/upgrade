@@ -3,8 +3,8 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:upgrade/application/drops/clips.dart';
-import 'package:upgrade/features/photos/photo_cut.dart';
-import 'package:upgrade/features/photos/photo_pick.dart';
+import 'package:upgrade/application/files/photo_cut.dart';
+import 'package:upgrade/application/files/photo_pick.dart';
 
 /// The picker's own resize is used on the way in; what comes back is then made a PNG
 /// here, because that is the one type the clipboard readers on the host ask for.

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:upgrade_luau/data_api.dart';
 import 'package:upgrade_luau/ui_sdk.dart';
@@ -10,7 +11,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:upgrade/platform/plugins/bindings.dart';
 import 'package:upgrade/platform/plugins/index.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/plugins/plugin_hosts.dart';

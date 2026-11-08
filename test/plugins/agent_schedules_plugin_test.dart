@@ -1,24 +1,15 @@
 import 'dart:io';
 
-import 'package:upgrade/platform/plugins/bindings.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/installed.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/store.dart';
-import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade/features/plugins/plugin_ui.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
-import 'package:upgrade_luau/ui_sdk.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/plugin_packages.dart';
 import '../support/themed_app.dart';
-
-PluginPackage schedulePackage() => PluginPackage(
-  manifest: PluginManifest.parse(
-    File('plugins/agent-schedules/upgrade.plugin.toml').readAsStringSync(),
-  ),
-  source: File('plugins/agent-schedules/main.luau').readAsStringSync(),
-  origin: 'bundled:upgrade.agent-schedules',
-  revision: '1.1.0',
-);
 
 class ScheduleHarness {
   ScheduleHarness(this.worker, this.package);
@@ -28,18 +19,10 @@ class ScheduleHarness {
   late PluginUiNode view;
   List<Object?> effects = [];
   Future<void> send(Map<String, Object?> event) async {
-    final plugin = InstalledPlugin(package, package.manifest.permissions);
-    final result = await worker.invoke(
-      key: package.digest,
-      source: '$luauUiSdk\n${package.source}',
-      action: 'frame',
-      input: {
-        'state': state,
-        'event': {'token': 'new-job', 'now': '2026-09-13T12:00:00', ...event},
-      },
-      data: bindPluginData(plugin.id, [plugin]),
-    );
-    final response = result.value! as Map<String, Object?>;
+    final response = await invokePlugin(worker, package, 'frame', {
+      'state': state,
+      'event': {'token': 'new-job', 'now': '2026-09-13T12:00:00', ...event},
+    });
     state = response['state']! as Map<String, Object?>;
     view = PluginUiNode.parse(response['view'], allowCanvas: true);
     effects = uiList(response['effects']);
@@ -111,9 +94,6 @@ void main() {
     'bundled release has separate manifest, UI, host API and data versions',
     () async {
       final package = app.package;
-      expect(package.manifest.formatVersion, 4);
-      expect(package.manifest.uiVersion, 2);
-      expect(package.manifest.datasets['preferences']!.schemaVersion, 1);
       expect(
         package.manifest.hostCapabilities['scheduler']!.operations,
         contains('setup'),

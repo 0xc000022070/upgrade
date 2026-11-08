@@ -4,10 +4,11 @@ import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:upgrade/features/photos/photo_cut.dart';
-import 'package:upgrade/features/photos/photo_pick.dart';
+import 'package:upgrade/application/files/photo_cut.dart';
+import 'package:upgrade/application/files/photo_pick.dart';
+import 'package:upgrade/platform/files/photo_picker.dart';
 import 'package:upgrade/features/screen/screen_preview.dart';
-import 'package:upgrade/features/tasks/image_input.dart';
+import 'package:upgrade/application/files/image_input.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

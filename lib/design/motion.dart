@@ -17,9 +17,12 @@ abstract final class Motion {
 /// discrete flipbook.
 abstract final class Effects {
   static const glitchFrames = 5;
-  static const glitchStep = Duration(milliseconds: 45);
+  static const _glitchStepMs = 45;
+  static const glitchStep = Duration(milliseconds: _glitchStepMs);
 
-  static const glitchDuration = Duration(milliseconds: 45 * glitchFrames);
+  static const glitchDuration = Duration(
+    milliseconds: _glitchStepMs * glitchFrames,
+  );
 
   static const decodeSteps = 4;
   static const decodeStep = Duration(milliseconds: 40);

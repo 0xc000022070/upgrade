@@ -19,6 +19,8 @@ enum SearchEngine {
 
   const SearchEngine(this.label, this.home, this._search);
 
+  static const fallback = duckduckgo;
+
   final String label;
   final String home;
   final String _search;
@@ -69,11 +71,9 @@ final searchEngineProvider = StreamProvider<SearchEngine>(
       .watch(settingsRepositoryProvider)
       .watchText(
         SettingsRepository.browserEngine,
-        orElse: SearchEngine.duckduckgo.name,
+        orElse: SearchEngine.fallback.name,
       )
-      .map(
-        (name) => _named(SearchEngine.values, name, SearchEngine.duckduckgo),
-      ),
+      .map((name) => _named(SearchEngine.values, name, SearchEngine.fallback)),
 );
 
 final browserBarProvider = StreamProvider<BrowserBar>(

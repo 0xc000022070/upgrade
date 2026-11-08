@@ -54,7 +54,7 @@ class ComposeActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
-        launcher = MethodChannel(messenger, LauncherWidget.CHANNEL).also { channel ->
+        launcher = MethodChannel(messenger, Channels.LAUNCHER).also { channel ->
             channel.setMethodCallHandler { call, result ->
                 when (call.method) {
                     "take" -> if (hasWindowFocus()) {

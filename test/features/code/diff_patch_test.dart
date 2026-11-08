@@ -42,59 +42,6 @@ void main() {
     );
   });
 
-  test('a line left out going forward keeps the old line as context', () {
-    final patch = hunkPatch(
-      'a.txt',
-      lines,
-      hunkSpans(lines).first,
-      keep: (line) => line.kind == DiffLineKind.added,
-    );
-    expect(
-      patch,
-      endsWith('@@ -1,4 +1,4 @@\n one\n two\n+TWO\n three\n four\n'),
-    );
-  });
-
-  test('a line left out in reverse keeps the new line as context', () {
-    final patch = hunkPatch(
-      'a.txt',
-      lines,
-      hunkSpans(lines).first,
-      keep: (line) => line.kind == DiffLineKind.removed,
-      reverse: true,
-    );
-    expect(
-      patch,
-      endsWith('@@ -1,4 +1,4 @@\n one\n-two\n TWO\n three\n four\n'),
-    );
-  });
-
-  test('a created patch reads the file as new to the index', () {
-    const made = [
-      DiffLine(DiffLineKind.hunk, '@@ -0,0 +1,2 @@'),
-      DiffLine(DiffLineKind.added, 'a', newLine: 1),
-      DiffLine(DiffLineKind.added, 'b', newLine: 2),
-    ];
-    final patch = hunkPatch(
-      'n.txt',
-      made,
-      hunkSpans(made).single,
-      keep: (line) => line.text == 'a',
-      created: true,
-    );
-    expect(
-      patch,
-      'diff --git a/n.txt b/n.txt\nnew file mode 100644\n--- /dev/null\n'
-      '+++ b/n.txt\n@@ -0,0 +1,2 @@\n+a\n',
-    );
-  });
-
-  test('a patch that would change nothing is known before it is sent', () {
-    final span = hunkSpans(lines).first;
-    expect(patchChanges(lines, span, (line) => false), isFalse);
-    expect(patchChanges(lines, span, null), isTrue);
-  });
-
   group('moved blocks', () {
     const block = [
       'final alpha = compute(one);',

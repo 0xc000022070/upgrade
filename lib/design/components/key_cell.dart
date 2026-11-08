@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
@@ -57,12 +55,12 @@ class KeyCell extends StatefulWidget {
 class _KeyCellState extends State<KeyCell> {
   bool _down = false;
   double _travel = 0;
-  Timer? _repeat;
+  final _repeat = KeyRepeat();
   bool _repeated = false;
 
   @override
   void dispose() {
-    _repeat?.cancel();
+    _repeat.stop();
     super.dispose();
   }
 
@@ -72,16 +70,14 @@ class _KeyCellState extends State<KeyCell> {
     setState(() => _down = true);
     if (!widget.repeats) return;
     _repeated = false;
-    _repeat = Timer(Gestures.repeatDelay, () {
+    _repeat.start(() {
       _repeated = true;
       widget.onTap();
-      _repeat = Timer.periodic(Gestures.repeatInterval, (_) => widget.onTap());
     });
   }
 
   void _release() {
-    _repeat?.cancel();
-    _repeat = null;
+    _repeat.stop();
     setState(() => _down = false);
   }
 

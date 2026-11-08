@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/platform/vnc/apple_auth.dart';
 import 'package:upgrade/platform/vnc/framebuffer.dart';
 import 'package:upgrade/platform/vnc/keysyms.dart';
@@ -9,9 +10,9 @@ import 'package:upgrade/platform/vnc/rect_encoding.dart';
 import 'package:upgrade/platform/vnc/rfb_client.dart';
 import 'package:upgrade/platform/vnc/rfb_messages.dart';
 import 'package:upgrade/platform/vnc/vnc_auth.dart';
-import 'package:upgrade/platform/vnc/vnc_failure.dart';
 
 import '../../support/vnc_channel.dart';
+import '../../support/host_failure_matchers.dart';
 
 Uint8List expectedClientHandshake() {
   final out = <int>[
@@ -135,7 +136,10 @@ void main() {
       addTearDown(client.close);
 
       channel.feed(serverHandshake(securityTypes: const [30]));
-      await expectLater(client.handshake(), throwsA(isA<VncUsernameNeeded>()));
+      await expectLater(
+        client.handshake(),
+        throwsA(isFailureOf(HostFailureKind.usernameNeeded)),
+      );
     });
 
     test(
@@ -197,9 +201,9 @@ void main() {
         onError: (Object error) => error,
       );
 
-      expect(failure, isA<VncPasswordNeeded>());
-      expect((failure! as VncFailure).reason('pine'), 'VNC password missing');
-      expect((failure as VncFailure).detail, 'server offers 2');
+      expect(failure, isFailureOf(HostFailureKind.passwordNeeded));
+      expect((failure! as HostFailure).reason('pine'), 'VNC password missing');
+      expect((failure as HostFailure).detail, 'server offers 2');
     });
 
     test(
@@ -227,12 +231,12 @@ void main() {
           onError: (Object error) => error,
         );
 
-        expect(failure, isA<VncAuthRejected>());
+        expect(failure, isFailureOf(HostFailureKind.authRejected));
         expect(
-          (failure! as VncFailure).reason('pine'),
+          (failure! as HostFailure).reason('pine'),
           'VNC credentials rejected',
         );
-        expect((failure as VncFailure).detail, 'Authentication failed');
+        expect((failure as HostFailure).detail, 'Authentication failed');
       },
     );
 
@@ -326,8 +330,8 @@ void main() {
         (_) => null,
         onError: (Object error) => error,
       );
-      expect(failure, isA<VncAuthUnsupported>());
-      expect((failure! as VncFailure).reason('oak'), 'auth unsupported');
+      expect(failure, isFailureOf(HostFailureKind.authUnsupported));
+      expect((failure! as HostFailure).reason('oak'), 'auth unsupported');
     });
 
     test(
@@ -355,8 +359,8 @@ void main() {
           (_) => null,
           onError: (Object error) => error,
         );
-        expect(failure, isA<VncAuthUnsupported>());
-        expect((failure! as VncFailure).detail, 'too many!');
+        expect(failure, isFailureOf(HostFailureKind.authUnsupported));
+        expect((failure! as HostFailure).detail, 'too many!');
       },
     );
 
@@ -371,7 +375,10 @@ void main() {
       channel.feed('RFB 003.0'.codeUnits);
       await channel.endStream();
 
-      await expectLater(client.handshake(), throwsA(isA<VncStreamClosed>()));
+      await expectLater(
+        client.handshake(),
+        throwsA(isFailureOf(HostFailureKind.streamClosed)),
+      );
       await channel.dispose();
     });
   });
@@ -539,7 +546,7 @@ void main() {
       channel.feed([200]);
       unawaitedRun(client);
 
-      expect(await error, isA<VncStreamClosed>());
+      expect(await error, isFailureOf(HostFailureKind.streamClosed));
     });
   });
 

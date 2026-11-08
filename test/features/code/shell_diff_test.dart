@@ -163,7 +163,7 @@ void main() {
       tester,
     ) async {
       final transport = FakeShellTransport()
-        ..refuse = const ShellFailure(ShellFailureKind.unreachable);
+        ..refuse = const HostFailure(HostFailureKind.unreachable);
       final sessions = fakeShellSessions(transport);
       await tester.pumpWidget(app(sessions));
       await ready(tester);

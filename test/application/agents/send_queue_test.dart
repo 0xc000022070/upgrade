@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
 import 'package:upgrade/application/agents/send.dart';
 import 'package:upgrade/application/agents/send_queue.dart';
 import 'package:upgrade/application/alerts/toasts.dart';
@@ -45,6 +45,11 @@ void main() {
 
   test('a send that lands leaves the queue and says so once', () async {
     final answer = Completer<SendState>();
+    final seen = <PendingSend>[];
+    container.listen(
+      sendQueueProvider,
+      (previous, _) => seen.addAll(previous ?? const []),
+    );
     start(() => answer.future);
     expect(container.read(sendQueueProvider).single.state, isA<SendSending>());
     final sending = container.read(toastQueueProvider).single;
@@ -53,9 +58,13 @@ void main() {
       ('SENDING', 'CLAUDE · a drop', true),
     );
 
-    answer.complete(const SendSent('wQ:p1'));
+    answer.complete(const SendSent('wQ:p1', 'default'));
     await pumpEventQueue();
     expect(container.read(sendQueueProvider), isEmpty);
+    expect(
+      (seen.last.sent?.paneId, seen.last.sent?.session),
+      ('wQ:p1', 'default'),
+    );
     final toast = container.read(toastQueueProvider).single;
     expect(
       (toast.id, toast.verb, toast.subject, toast.busy),

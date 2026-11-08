@@ -54,7 +54,7 @@ class LauncherWidget : AppWidgetProvider() {
 
         override fun onEngineCreate(flutterEngine: FlutterEngine?) {
             val messenger = flutterEngine?.dartExecutor?.binaryMessenger ?: return
-            channel = MethodChannel(messenger, CHANNEL).also {
+            channel = MethodChannel(messenger, Channels.LAUNCHER).also {
                 it.setMethodCallHandler { call, result -> handle(context, call, result) }
             }
         }
@@ -72,8 +72,6 @@ class LauncherWidget : AppWidgetProvider() {
     }
 
     companion object {
-        const val CHANNEL = "dev.luisnquin.upgrade/launcher"
-
         const val OPEN = "dev.luisnquin.upgrade.LAUNCHER"
         const val TARGET = "target"
         private const val SEND = "send"

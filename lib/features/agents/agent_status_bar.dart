@@ -6,8 +6,6 @@ import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/layout.dart';
 import 'package:upgrade/design/spacing.dart';
-import 'package:upgrade/features/home/home_screen.dart';
-import 'package:upgrade/features/hosts/hosts_screen.dart';
 
 const agentStatusBarHeight = 36.0;
 
@@ -19,7 +17,7 @@ class AgentStatusBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tab = ref.watch(navIndexProvider);
-    if (tab == HomeScreen.navIndex || tab == HostsScreen.navIndex) {
+    if (tab == homeNavIndex || tab == hostsNavIndex) {
       return const SizedBox.shrink();
     }
 

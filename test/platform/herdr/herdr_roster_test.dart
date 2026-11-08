@@ -2,6 +2,7 @@ import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/ssh_exec.dart';
+import '../../support/host_failure_matchers.dart';
 
 FakeRunClient _exiting(int exitCode, String said) =>
     FakeRunClient((_) => (exitCode: exitCode, stdout: '', stderr: said));
@@ -12,7 +13,10 @@ void main() {
       FakeExecSocket(),
       _exiting(127, 'zsh:1: command not found: herdr'),
     );
-    await expectLater(session.list(), throwsA(isA<HerdrMissing>()));
+    await expectLater(
+      session.list(),
+      throwsA(isFailureOf(HostFailureKind.noHerdr)),
+    );
   });
 
   test('a herdr that fails in its own words is still a protocol', () async {
@@ -20,7 +24,10 @@ void main() {
       FakeExecSocket(),
       _exiting(2, 'herdr: unknown flag'),
     );
-    await expectLater(session.list(), throwsA(isA<HerdrProtocolMismatch>()));
+    await expectLater(
+      session.list(),
+      throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
+    );
   });
 
   test('a fresh session reads the roster before its first send', () async {
@@ -28,7 +35,7 @@ void main() {
     final session = HerdrSession.over(FakeExecSocket(), client);
     await expectLater(
       session.sendKeys((session: 'development', pane: 'w4:p1'), const ['n']),
-      throwsA(isA<HerdrMissing>()),
+      throwsA(isFailureOf(HostFailureKind.noHerdr)),
     );
     expect(client.commands.single, contains('herdr session list --json'));
   });
@@ -46,7 +53,7 @@ void main() {
     final session = HerdrSession.over(FakeExecSocket(), client);
     await expectLater(
       session.sendKeys((session: 'development', pane: 'w4:p1'), const ['n']),
-      throwsA(isA<HerdrProtocolMismatch>()),
+      throwsA(isFailureOf(HostFailureKind.protocolMismatch)),
     );
     expect(client.commands, hasLength(1));
   });

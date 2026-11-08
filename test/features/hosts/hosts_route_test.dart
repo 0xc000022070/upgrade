@@ -9,7 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/design/colors.dart';
@@ -28,9 +30,7 @@ import 'package:upgrade/features/settings/settings_screen.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/ssh/host_key_dial.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
-import 'package:upgrade/platform/links/link_probe.dart';
-import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/platform/links/host_link_probe.dart';
 import 'package:upgrade/platform/vnc/framebuffer.dart';
 import 'package:flterm/flterm.dart';
 import 'package:upgrade/application/providers.dart';
@@ -367,9 +367,7 @@ void main() {
 
     // The probes go out when HOSTS is the tab in front, not when the widget happens to be
     // built.
-    await tester.pumpWidget(
-      app(const HostsScreen(), index: HostsScreen.navIndex),
-    );
+    await tester.pumpWidget(app(const HostsScreen(), index: hostsNavIndex));
     await ready(tester);
 
     expect(find.text('OPENSSH_9.9 · 120 MS'), findsOneWidget);
@@ -413,7 +411,7 @@ void main() {
     await tester.pumpWidget(
       app(
         const HostsScreen(),
-        index: HostsScreen.navIndex,
+        index: hostsNavIndex,
         extra: [
           agentsFeedProvider.overrideWith((ref) => Stream.value(failed)),
           agentRetryProvider.overrideWithValue((
@@ -799,7 +797,7 @@ void main() {
         number: 3,
         terminal: TerminalController(),
         host: _pine,
-      )..state = const ShellFailed(ShellFailureKind.streamClosed);
+      )..state = const ShellFailed(HostFailureKind.streamClosed);
 
       expect(worstShellState([]), isNull);
       expect(worstShellState([connecting]), isA<ShellConnecting>());

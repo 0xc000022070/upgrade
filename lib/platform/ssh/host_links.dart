@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/platform/ssh/host_files.dart';
 import 'package:upgrade/platform/ssh/host_key_dial.dart';
@@ -308,7 +309,7 @@ class HostLinks {
         use: use,
       );
     } catch (error) {
-      throw asHerdrFailure(error, verifier.refusal) ?? error;
+      throw asHostFailure(error, verifier.refusal) ?? error;
     }
   }
 

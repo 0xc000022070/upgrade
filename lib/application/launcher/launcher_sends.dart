@@ -2,22 +2,6 @@ import 'package:upgrade/application/agents/send.dart';
 import 'package:upgrade/application/agents/send_queue.dart';
 import 'package:upgrade/platform/launcher_widget/launcher_widget.dart';
 
-String launcherSendId(PendingSend job) => job.id;
-
-final _sent = Expando<SendSent>('launcher sent');
-
-Future<SendState> Function(String id) launcherRun(
-  Future<SendState> Function(String id) run,
-) {
-  late final Future<SendState> Function(String id) noted;
-  noted = (id) async {
-    final state = await run(id);
-    if (state is SendSent) _sent[noted] = state;
-    return state;
-  };
-  return noted;
-}
-
 String launcherSendTarget(PendingSend job) =>
     [job.target.host.name, job.target.path.label, job.kind.name].join(' · ');
 
@@ -26,7 +10,7 @@ LauncherSend launcherRow(
   LauncherSendState state,
   DateTime at,
 ) => LauncherSend(
-  id: launcherSendId(job),
+  id: job.id,
   state: state,
   title: job.title,
   target: launcherSendTarget(job),
@@ -37,8 +21,8 @@ LauncherSend launcherRow(
     _ => null,
   },
   host: job.target.host.id,
-  session: state == LauncherSendState.sent ? _sent[job.run]?.session : null,
-  pane: state == LauncherSendState.sent ? _sent[job.run]?.paneId : null,
+  session: state == LauncherSendState.sent ? job.sent?.session : null,
+  pane: state == LauncherSendState.sent ? job.sent?.paneId : null,
 );
 
 List<LauncherSend> launcherRowsMoved(

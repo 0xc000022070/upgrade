@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import 'package:upgrade/app/static_surface.dart';
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/static_surface.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/components/list_row.dart';
 import 'package:upgrade/design/components/upgrade_field.dart';
@@ -49,7 +49,7 @@ class _BrowserViewState extends ConsumerState<BrowserView> {
     unawaited(
       ref
           .read(searchEngineProvider.future)
-          .catchError((Object _) => SearchEngine.duckduckgo)
+          .catchError((Object _) => SearchEngine.fallback)
           .then((engine) => controller.start(Uri.parse(engine.home))),
     );
   }
@@ -71,7 +71,7 @@ class _BrowserViewState extends ConsumerState<BrowserView> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final engine =
-        ref.watch(searchEngineProvider).value ?? SearchEngine.duckduckgo;
+        ref.watch(searchEngineProvider).value ?? SearchEngine.fallback;
     final top =
         (ref.watch(browserBarProvider).value ?? BrowserBar.top) ==
         BrowserBar.top;

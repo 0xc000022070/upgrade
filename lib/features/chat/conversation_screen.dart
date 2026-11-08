@@ -7,7 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:video_player/video_player.dart';
 
-import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/static_surface.dart';
 import 'package:upgrade/application/chat/chat.dart';
 import 'package:upgrade/application/formatting.dart';
 import 'package:upgrade/design/components/dot_spinner.dart';

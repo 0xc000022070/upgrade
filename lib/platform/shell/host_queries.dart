@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:upgrade/application/agents/agent_input.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/platform/herdr/agent_input.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
+import 'package:upgrade/platform/notifications/pin_alerts.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart';
@@ -56,7 +56,7 @@ class HostQueries {
       }
       return null;
     } catch (error) {
-      if (error is! HerdrFailure && error is! FormatException) rethrow;
+      if (error is! HostFailure && error is! FormatException) rethrow;
       _log('pane agents', error);
       return null;
     }
@@ -105,7 +105,7 @@ class HostQueries {
       // nobody is reading it: the request behind it is gone.
       return PinAnswer.expired;
     } catch (error) {
-      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
+      if (!isHostOrKeyFailure(error)) rethrow;
       _log('pinentry answer', error);
       return PinAnswer.lost;
     }
@@ -120,7 +120,7 @@ class HostQueries {
       final result = await _channels.exec(command, timeout: timeout);
       return result != null && result.ok ? result.out : null;
     } catch (error) {
-      if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
+      if (!isHostOrKeyFailure(error)) rethrow;
       _log(what, error);
       return null;
     }

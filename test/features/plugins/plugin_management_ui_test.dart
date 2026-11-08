@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade/app/builtin_plugins.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/plugins/plugin_placements.dart';
@@ -17,10 +18,9 @@ import 'package:upgrade/features/home/prompt_bar.dart';
 import 'package:upgrade/features/plugins/plugin_board.dart';
 import 'package:upgrade/features/plugins/plugin_management_screen.dart';
 import 'package:upgrade/features/plugins/plugin_page.dart';
-import 'package:upgrade/features/settings/plugins_panel.dart';
+import 'package:upgrade/features/plugins/plugins_panel.dart';
 import 'package:upgrade/platform/plugins/index.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,6 +30,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/native_plugins.dart';
 import '../../support/plugin_board.dart';
 import '../../support/platform_channels.dart';
+import '../../support/plugin_packages.dart';
 import '../../support/themed_app.dart';
 
 Future<void> _drain(WidgetTester tester) async {
@@ -39,14 +40,7 @@ Future<void> _drain(WidgetTester tester) async {
   }
 }
 
-PluginPackage _schedules() => PluginPackage(
-  manifest: PluginManifest.parse(
-    File('plugins/agent-schedules/upgrade.plugin.toml').readAsStringSync(),
-  ),
-  source: File('plugins/agent-schedules/main.luau').readAsStringSync(),
-  origin: 'bundled:upgrade.agent-schedules',
-  revision: '1.0.0',
-);
+PluginPackage _schedules() => bundledPlugin('agent-schedules');
 
 PluginPackage _projectsPageTitled(String title) {
   final toml = File('lib/builtin_plugins/projects/upgrade.plugin.toml')

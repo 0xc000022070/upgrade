@@ -1,6 +1,6 @@
 import 'package:upgrade_luau/data_api.dart';
 
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 
 typedef PluginReach = ({
   String line,

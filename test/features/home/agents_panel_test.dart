@@ -6,9 +6,10 @@ import 'dart:async';
 
 import 'package:vector_graphics/vector_graphics.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
+import 'package:upgrade/platform/herdr/agent_state.dart';
 import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/agents/send.dart';
 import 'package:upgrade/application/agents/send_queue.dart';
 import 'package:upgrade/application/alerts/toasts.dart';
@@ -20,7 +21,6 @@ import 'package:upgrade/design/components/dot_spinner.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/home/agent_mark.dart';
 import 'package:upgrade/features/home/agents_panel.dart';
-import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
@@ -293,7 +293,7 @@ void main() {
           HostKeyVerifier? verifier,
         }) async {
           addresses.add('$address:$port');
-          if (address == hostB.address) throw const HerdrUnreachable();
+          if (address == hostB.address) throw const HostFailure.unreachable();
           return [
             agent(
               pane: 'wQ:p1',
@@ -420,7 +420,7 @@ void main() {
         }) async {
           if (address == hostB.address) {
             await Future<void>.delayed(const Duration(seconds: 10));
-            throw const HerdrUnreachable('no answer in 10s');
+            throw const HostFailure.unreachable('no answer in 10s');
           }
           return [
             agent(
@@ -468,7 +468,7 @@ void main() {
     (tester) async {
       final poll = await _pollFailing(
         tester,
-        const HerdrUnreachable('connection refused'),
+        const HostFailure.unreachable('connection refused'),
       );
 
       var elapsed = 0;
@@ -486,16 +486,19 @@ void main() {
   testWidgets('a host that answers without herdr keeps the ten second beat', (
     tester,
   ) async {
-    final poll = await _pollFailing(tester, const HerdrMissing('no herdr'));
+    final poll = await _pollFailing(
+      tester,
+      const HostFailure.noHerdr('no herdr'),
+    );
 
     await tester.pump(const Duration(seconds: 60));
     expect(poll.dials(), 7);
     await poll.stop();
   });
 
-  for (final refusal in const <HerdrFailure>[
-    HerdrHostKeyChanged('offered another key'),
-    HerdrKeyRejected('publickey'),
+  for (final refusal in const <HostFailure>[
+    HostFailure(HostFailureKind.hostKeyChanged, detail: 'offered another key'),
+    HostFailure.keyRejected('publickey'),
   ]) {
     testWidgets(
       '${refusal.runtimeType} is not dialled again until the app wakes',
@@ -536,7 +539,10 @@ void main() {
           required String privateKey,
           HostKeyVerifier? verifier,
         }) async {
-          throw const HerdrUnresolved("Failed host lookup: 'nope.invalid'");
+          throw const HostFailure(
+            HostFailureKind.unresolved,
+            detail: "Failed host lookup: 'nope.invalid'",
+          );
         }),
       ],
     );
@@ -941,7 +947,7 @@ void main() {
     await tester.tap(action);
     await tester.pump();
 
-    expect(container.read(navIndexProvider), HostsScreen.navIndex);
+    expect(container.read(navIndexProvider), hostsNavIndex);
   });
 
   testWidgets('a claude row renders the claude mark and no C', (tester) async {
@@ -1091,7 +1097,7 @@ Future<
     Future<void> Function() stop,
   })
 >
-_pollFailing(WidgetTester tester, HerdrFailure failure) async {
+_pollFailing(WidgetTester tester, HostFailure failure) async {
   final hosts = InMemoryHostRepository();
   await hosts.save(hostA);
   await hosts.setIntegration(hostA.id, IntegrationKind.herdr, true);

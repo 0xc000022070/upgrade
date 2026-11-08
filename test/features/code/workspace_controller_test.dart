@@ -149,7 +149,7 @@ void main() {
     await controller.connect();
     expect(controller.phase, WorkspacePhase.ready);
 
-    old.dropped.completeError(const HerdrUnreachable());
+    old.dropped.completeError(const HostFailure.unreachable());
     expect(await history, isNull);
 
     expect(controller.phase, WorkspacePhase.ready);

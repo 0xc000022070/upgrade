@@ -75,44 +75,25 @@ abstract final class Speech {
 
   static Future<SpeechStart> record() => _start('record');
 
-  static Future<Uint8List?> finish() async {
-    try {
-      return await _channel.invokeMethod<Uint8List>('finish');
-    } on MissingPluginException {
-      // ignored: no recording reads as RECORDING FAILED to the caller.
-      return null;
-    } on PlatformException {
-      // ignored: no recording reads as RECORDING FAILED to the caller.
-      return null;
-    }
-  }
+  /// No recording reads as RECORDING FAILED to the caller.
+  static Future<Uint8List?> finish() =>
+      failSoft(() => _channel.invokeMethod<Uint8List>('finish'), null);
 
   static Future<void> discard() => _quietly('discard');
 
   static Future<SpeechStart> _start(String method) async {
-    try {
-      final answer = await _channel.invokeMethod<String>(method);
-      return SpeechStart.values.asNameMap()[answer] ?? SpeechStart.unavailable;
-    } on MissingPluginException {
-      return SpeechStart.unavailable;
-    } on PlatformException {
-      return SpeechStart.unavailable;
-    }
+    final answer = await failSoft(
+      () => _channel.invokeMethod<String>(method),
+      null,
+    );
+    return SpeechStart.values.asNameMap()[answer] ?? SpeechStart.unavailable;
   }
 
   static Future<void> stop() => _quietly('stop');
 
   static Future<void> cancel() => _quietly('cancel');
 
-  static Future<void> _quietly(String method) async {
-    try {
-      await _channel.invokeMethod<void>(method);
-    } on MissingPluginException {
-      // ignored: a platform with no recognizer has nothing to stop.
-      return;
-    } on PlatformException {
-      // ignored: no caller can act on it, and the row's × still resets a stuck one.
-      return;
-    }
-  }
+  /// No caller can act on a failure, and the row's × still resets a stuck one.
+  static Future<void> _quietly(String method) =>
+      failSoft(() => _channel.invokeMethod<void>(method), null);
 }

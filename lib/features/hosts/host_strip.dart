@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:upgrade/data/enums.dart';
+import 'package:upgrade/data/host_system.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';

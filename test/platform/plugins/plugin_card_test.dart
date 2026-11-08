@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/platform/plugins/contributions.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade/data/plugins/contributions.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
+import 'package:upgrade/features/plugins/plugin_ui.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:upgrade_luau/ui_sdk.dart';
 

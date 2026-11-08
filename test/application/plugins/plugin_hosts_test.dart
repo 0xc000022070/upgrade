@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade/application/plugins/plugin_hosts.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../plugins/agent_schedules_plugin_test.dart' show schedulePackage;
+import '../../support/plugin_packages.dart' show schedulePackage;
 
 void main() {
   late Directory root;

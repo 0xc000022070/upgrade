@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart'
+import 'package:upgrade/application/hosts/host_providers.dart'
     show registeredHostProvider;
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/application/alerts/toasts.dart';
@@ -14,7 +14,7 @@ import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/browser/browser_screen.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
-import 'package:upgrade/features/devices/device_float.dart';
+import 'package:upgrade/application/screens_placement.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/shell/shell_launch.dart';

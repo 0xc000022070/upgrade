@@ -14,6 +14,7 @@ import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/dynamic_tokens.dart';
 import 'package:upgrade/design/effects/screen_entry.dart';
 import 'package:upgrade/design/theme.dart';
+import 'package:upgrade/design/components/sheet_route.dart';
 import 'package:upgrade/features/chat/chat_alerts.dart';
 import 'package:upgrade/features/agents/agent_status_bar.dart';
 import 'package:upgrade/features/devices/device_float.dart';
@@ -32,7 +33,7 @@ import 'package:upgrade/app/launcher_widget_host.dart';
 import 'package:upgrade/app/legible_scale.dart';
 import 'package:upgrade/app/nav_shell.dart';
 import 'package:upgrade/app/pip_host.dart';
-import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/static_surface.dart';
 import 'package:upgrade/app/toast_host.dart';
 import 'package:upgrade/brand.dart';
 
@@ -89,12 +90,15 @@ class UpgradeApp extends ConsumerWidget {
           // wherever the user was.
           navigatorKey: rootNavigatorKey,
           navigatorObservers: [rootRoutes],
-          builder: (context, child) => KeyboardRelease(
-            child: LegibleScale(
-              child: houseText(
-                context,
-                PipHost(
-                  child: DeviceFloat(child: ChatAlerts(child: child!)),
+          builder: (context, child) => SheetScope(
+            inherit: inheritPluginScope,
+            child: KeyboardRelease(
+              child: LegibleScale(
+                child: houseText(
+                  context,
+                  PipHost(
+                    child: DeviceFloat(child: ChatAlerts(child: child!)),
+                  ),
                 ),
               ),
             ),

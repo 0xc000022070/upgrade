@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/platform/vnc/framebuffer.dart';
-import 'package:upgrade/platform/vnc/vnc_failure.dart';
 
 /// One zlib stream for the whole session: the server's deflate window spans every rect
 /// it has ever sent, so the inflater is opened once and fed for as long as the
@@ -93,7 +93,7 @@ class ZrleDecoder {
     }
     // 17..127 and 129 are unused by the encoding and mean the stream is no longer where
     // this decoder thinks it is.
-    throw VncStreamClosed('zrle subencoding $subencoding');
+    throw HostFailure.streamClosed('zrle subencoding $subencoding');
   }
 
   void _packedPalette(
@@ -189,14 +189,18 @@ class _Cursor {
 
   int u8() {
     if (_at >= _data.length) {
-      throw VncStreamClosed('zrle rect ended after ${_data.length} bytes');
+      throw HostFailure.streamClosed(
+        'zrle rect ended after ${_data.length} bytes',
+      );
     }
     return _data[_at++];
   }
 
   int cpixel() {
     if (_at + ZrleDecoder.cpixelBytes > _data.length) {
-      throw VncStreamClosed('zrle rect ended after ${_data.length} bytes');
+      throw HostFailure.streamClosed(
+        'zrle rect ended after ${_data.length} bytes',
+      );
     }
     final pixel = Framebuffer.word(_data[_at], _data[_at + 1], _data[_at + 2]);
     _at += ZrleDecoder.cpixelBytes;
@@ -241,7 +245,7 @@ class _TileWriter {
 
   void one(int pixel) {
     if (_row >= _height) {
-      throw VncStreamClosed('zrle run past the tile');
+      throw HostFailure.streamClosed('zrle run past the tile');
     }
     _words[_at + _column] = pixel;
     if (++_column == _width) {
@@ -255,7 +259,7 @@ class _TileWriter {
     var left = count;
     while (left > 0) {
       if (_row >= _height) {
-        throw VncStreamClosed('zrle run past the tile');
+        throw HostFailure.streamClosed('zrle run past the tile');
       }
       final span = (_width - _column).clamp(0, left);
       final from = _at + _column;

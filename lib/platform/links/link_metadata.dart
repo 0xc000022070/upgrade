@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import 'package:upgrade/application/links/link_preview.dart';
+import 'package:upgrade/platform/links/link_preview.dart';
 import 'package:upgrade/brand.dart';
 
 class LinkMetadataFetcher {

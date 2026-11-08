@@ -1,3 +1,4 @@
+import 'package:upgrade/data/pinned_host_key.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/shell/launch_scan.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -43,8 +44,12 @@ Future<LaunchTargets> _fetch({
 }) async {
   if (!await verifier!.verifyFingerprint('ssh-ed25519', _offered)) {
     throw switch (verifier.refusal!) {
-      HostKeyRefusal.unverified => const HerdrHostKeyUnverified(),
-      HostKeyRefusal.changed => const HerdrHostKeyChanged(),
+      HostKeyRefusal.unverified => const HostFailure(
+        HostFailureKind.hostKeyUnverified,
+      ),
+      HostKeyRefusal.changed => const HostFailure(
+        HostFailureKind.hostKeyChanged,
+      ),
     };
   }
   return _targets;
@@ -182,7 +187,7 @@ void main() {
       required String privateKey,
       HostKeyVerifier? verifier,
     }) async {
-      if (down) throw const HerdrUnreachable('no answer in 10s');
+      if (down) throw const HostFailure.unreachable('no answer in 10s');
       return _targets;
     }
 

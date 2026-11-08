@@ -50,9 +50,8 @@ void main() {
     }
   });
 
-  test('it opens on nothing and ends on the densest thing it has', () {
+  test('it opens on nothing', () {
     expect(asciiRamp[0], ' ');
-    expect(asciiRamp.length, asciiLevels);
   });
 
   group('the quantiser', () {

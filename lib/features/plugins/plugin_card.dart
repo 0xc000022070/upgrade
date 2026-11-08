@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
 
 import 'package:upgrade/application/plugins/native_plugins.dart';
@@ -12,8 +13,7 @@ import 'package:upgrade/design/components/panel_text_action.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/features/plugins/plugin_frames.dart';
 import 'package:upgrade/features/plugins/plugin_page.dart';
-import 'package:upgrade/platform/plugins/store.dart';
-import 'package:upgrade/platform/plugins/ui.dart';
+import 'package:upgrade/features/plugins/plugin_ui.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 
 typedef _Drawn = ({

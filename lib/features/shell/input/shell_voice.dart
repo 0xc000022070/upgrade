@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'package:upgrade/application/agents/agent_kind.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
 import 'package:upgrade/application/whisper.dart';
 import 'package:upgrade/design/components/cell_divider.dart';
 import 'package:upgrade/design/components/close_target.dart';

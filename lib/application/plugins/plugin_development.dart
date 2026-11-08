@@ -6,7 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
 
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/files/host_file_link.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/plugins/plugin_check.dart';
@@ -418,7 +418,7 @@ final class _CreateFailure implements Exception {
 
 String _failureLine(Object error) => switch (error) {
   _CreateFailure(:final line) => line,
-  HerdrFailure(:final line) => line.words,
+  HostFailure(:final line) => line.words,
   _ when filesFailureLine(error) == '$error' => 'failed',
   _ => filesFailureLine(error),
 };

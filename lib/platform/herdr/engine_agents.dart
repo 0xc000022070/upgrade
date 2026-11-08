@@ -1,8 +1,8 @@
 import 'dart:convert';
 
-import 'package:upgrade/application/agents/agent_state.dart';
+import 'package:upgrade/platform/herdr/agent_state.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/shell/daemon_link.dart';
+import 'package:upgrade/platform/engine_call.dart';
 
 const agentsService = 'agents/1';
 
@@ -141,28 +141,17 @@ class EngineAgents {
       engineRequest(agentsService, op, args, owner: owner),
       within: within,
     );
-    if (reply is! Map<String, Object?>) {
-      throw const HerdrProtocolMismatch(null, 'engine reply is not an object');
-    }
-    if (reply['ok'] != true) {
-      final error = reply['error'];
-      final failure = error is Map<String, Object?>
-          ? error
-          : const <String, Object?>{};
-      final kind = failure['kind'] is String
-          ? failure['kind']! as String
-          : 'failed';
-      final message = failure['message'] is String
-          ? failure['message']! as String
-          : '';
-      if (kind == 'unsupported' && op == 'watch') throw EngineMissing(message);
-      throw EngineRefused(kind, message);
-    }
-    final result = reply['result'];
-    if (result is! Map<String, Object?>) {
-      throw const HerdrProtocolMismatch(null, 'engine result is not an object');
-    }
-    return result;
+    return switch (EngineReply.parse(reply)) {
+      EngineOk(:final result) => result,
+      EngineMalformed(:final part) => throw HostFailure.protocolMismatch(
+        null,
+        'engine ${part.name} is not an object',
+      ),
+      EngineErr(:final kind, :final message) =>
+        kind == 'unsupported' && op == 'watch'
+            ? throw HostFailure.noEngine(message ?? '')
+            : throw EngineRefused(kind ?? 'failed', message ?? ''),
+    };
   }
 
   Future<EngineWatch> watch({
@@ -196,7 +185,10 @@ class EngineAgents {
     final generation = result['generation'];
     final sessions = result['sessions'];
     if (generation is! int || sessions is! List<Object?>) {
-      throw const HerdrProtocolMismatch(null, 'engine watch has no sessions');
+      throw const HostFailure.protocolMismatch(
+        null,
+        'engine watch has no sessions',
+      );
     }
     return (
       generation: generation,

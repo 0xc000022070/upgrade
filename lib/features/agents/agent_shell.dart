@@ -10,7 +10,6 @@ import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/features/shell/sheets/shell_sheet.dart';
-import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/features/agents/agent_chat_screen.dart';
 
 typedef AgentOpen = void Function(
@@ -49,7 +48,7 @@ void openAgentPane(
 ) {
   final held = ref.read(shellSessionsProvider).holding(host.id, pane);
   if (held != null) {
-    ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex;
+    ref.read(navIndexProvider.notifier).state = hostsNavIndex;
     openHostShell(context, host, intent: intent, session: held);
     return;
   }
@@ -72,7 +71,7 @@ Future<void> _confirmAndOpenAgentShell(
     confirmLabel: 'OPEN HERE',
     onConfirm: UserIntent.onGesture((intent) {
       if (!context.mounted) return;
-      ref.read(navIndexProvider.notifier).state = HostsScreen.navIndex;
+      ref.read(navIndexProvider.notifier).state = hostsNavIndex;
       openHostShell(
         context,
         host,

@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/plugins/home_layout.dart';
 import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
-import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/data/plugins/contributions.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/plugins/plugins.dart';
 

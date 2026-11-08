@@ -6,7 +6,6 @@ import 'package:upgrade/application/agents/agent_usage.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/features/home/agents_panel.dart';
-import 'package:upgrade/features/home/home_screen.dart';
 import 'package:upgrade/features/home/usage_panel.dart';
 
 class AgentsCard extends ConsumerStatefulWidget {
@@ -43,7 +42,7 @@ class _AgentsCardState extends ConsumerState<AgentsCard> {
   void _sync() {
     if (mounted) {
       _visible.state = _usageVisible.state =
-          _onStage && ref.read(navIndexProvider) == HomeScreen.navIndex;
+          _onStage && ref.read(navIndexProvider) == homeNavIndex;
     }
   }
 

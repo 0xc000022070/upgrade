@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:upgrade/platform/ssh/host_failure.dart';
 import 'package:upgrade/platform/vnc/byte_reader.dart';
 import 'package:upgrade/platform/vnc/apple_auth.dart';
 import 'package:upgrade/platform/vnc/framebuffer.dart';
@@ -70,7 +71,7 @@ class RfbClient {
       // negotiation. Type 0 is a refusal, with the reason after it.
       final type = await _reader.readU32();
       if (type == Rfb.securityInvalid) {
-        throw VncAuthUnsupported(await _readReason());
+        throw HostFailure.authUnsupported(await _readReason());
       }
       await _authenticate(version, _choose([type]));
       return;
@@ -78,7 +79,7 @@ class RfbClient {
     final count = await _reader.readU8();
     if (count == 0) {
       // A refusal, not an empty list: the reason string follows.
-      throw VncAuthUnsupported(await _readReason());
+      throw HostFailure.authUnsupported(await _readReason());
     }
     final type = _choose(await _reader.read(count));
     _send(RfbClientMessages.securityChoice(type));
@@ -91,18 +92,18 @@ class RfbClient {
     if (types.contains(Rfb.securityNone)) return Rfb.securityNone;
     final offered = 'server offers ${types.join(',')}';
     if (types.contains(Rfb.securityAppleDh) && _username != null) {
-      if (_password == null) throw VncPasswordNeeded(offered);
+      if (_password == null) throw HostFailure.passwordNeeded(offered);
       return Rfb.securityAppleDh;
     }
     if (types.contains(Rfb.securityVncAuth)) {
-      if (_password == null) throw VncPasswordNeeded(offered);
+      if (_password == null) throw HostFailure.passwordNeeded(offered);
       return Rfb.securityVncAuth;
     }
     if (types.contains(Rfb.securityAppleDh)) {
-      if (_password == null) throw VncPasswordNeeded(offered);
-      throw VncUsernameNeeded(offered);
+      if (_password == null) throw HostFailure.passwordNeeded(offered);
+      throw HostFailure.usernameNeeded(offered);
     }
-    throw VncAuthUnsupported(offered);
+    throw HostFailure.authUnsupported(offered);
   }
 
   /// The `SecurityResult` follows `None` only under 3.8, and a password under every
@@ -116,7 +117,7 @@ class RfbClient {
       final generator = await _reader.readU16();
       final keyLength = await _reader.readU16();
       if (keyLength < 16 || keyLength > 512) {
-        throw VncAuthUnsupported('Apple DH key length $keyLength');
+        throw HostFailure.authUnsupported('Apple DH key length $keyLength');
       }
       final modulus = await _reader.read(keyLength);
       final serverPublic = await _reader.read(keyLength);
@@ -131,7 +132,7 @@ class RfbClient {
           ),
         );
       } on FormatException catch (error) {
-        throw VncAuthUnsupported(error.message);
+        throw HostFailure.authUnsupported(error.message);
       }
     }
     final result = await _reader.readU32();
@@ -140,9 +141,9 @@ class RfbClient {
         ? await _readReason()
         : 'security result $result';
     if (type == Rfb.securityVncAuth || type == Rfb.securityAppleDh) {
-      throw VncAuthRejected(reason);
+      throw HostFailure.authRejected(reason);
     }
-    throw VncAuthUnsupported(reason);
+    throw HostFailure.authUnsupported(reason);
   }
 
   Future<String> _readReason() async {
@@ -202,7 +203,7 @@ class RfbClient {
       default:
         // Anything else means the reader is no longer message-aligned, and every byte after it
         // would be read as garbage.
-        throw VncStreamClosed('server message type $type');
+        throw HostFailure.streamClosed('server message type $type');
     }
   }
 
@@ -223,7 +224,9 @@ class RfbClient {
       final encoding = RectEncoding.of(code);
       // The bytes behind an encoding this client never offered are of an unknown length: the
       // reader cannot be skipped past the rect and is no longer aligned to the next one.
-      if (encoding == null) throw VncStreamClosed('rect encoding $code');
+      if (encoding == null) {
+        throw HostFailure.streamClosed('rect encoding $code');
+      }
       await encoding.read(
         RfbRect(x: x, y: y, width: width, height: height),
         target,

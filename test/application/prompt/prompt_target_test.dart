@@ -1,8 +1,8 @@
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/agents/send.dart';
 import 'package:upgrade/application/prompt/prompt_target.dart';
 import 'package:upgrade/application/providers.dart';

@@ -5,10 +5,10 @@ import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
-import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/platform/reason_lines.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
-import 'package:upgrade/application/agents/agent_kind.dart';
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/platform/herdr/agent_kind.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/platform/workspace/workspace_model.dart';
 import 'package:upgrade/brand.dart';
@@ -115,7 +115,7 @@ class PathScanner {
         directories: directories,
       );
       return parseSurvey(output);
-    } on HerdrFailure catch (error) {
+    } on HostFailure catch (error) {
       debugPrint('$appSlug.survey ${host.name}: ${error.detail ?? error}');
       return const [];
     }
@@ -135,7 +135,7 @@ class PathScanner {
       final result = await run(privateKey);
       checkActive?.call();
       return PathScanFound(result);
-    } on HerdrFailure catch (error) {
+    } on HostFailure catch (error) {
       debugPrint('$appSlug.paths ${host.name}: ${error.detail ?? error}');
       return PathScanFailed(error.reason(host.name, address: host.address));
     }

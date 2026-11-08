@@ -188,7 +188,7 @@ final geometryUseCases = [
             note:
                 'The only BoxShadows in the app are offset lips drawn inline, '
                 'not tokens: lib/features/plugins/plugin_board.dart and '
-                'lib/features/settings/plugins_panel.dart. Both screens run on '
+                'lib/features/plugins/plugins_panel.dart. Both screens run on '
                 'the Luau runtime and are not previewable on web.',
             child: const SizedBox.shrink(),
           ),

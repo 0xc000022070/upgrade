@@ -15,6 +15,7 @@ import 'package:upgrade/features/shell/session/shell_sessions.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:flterm/flterm.dart';
 
+import '../../support/active_rows.dart';
 import '../../support/fake_shell.dart';
 import '../../support/platform_channels.dart';
 import '../../support/reasons.dart';

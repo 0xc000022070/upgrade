@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart' show Value;
 
-import 'package:upgrade/platform/plugins/access.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/access.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/data/database.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/views.dart';

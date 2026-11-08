@@ -2,8 +2,7 @@ use crate::paths;
 use crate::policy::Policy;
 use crate::protocol::{EngineError, EngineResult, ENGINE_VERSION, PROTOCOL_VERSION};
 use crate::services::{
-    agents as agents_service, fs as fs_service, git as git_service, run as run_service,
-    schedule as schedule_service,
+    agents as agents_service, run as run_service, schedule as schedule_service, Service, SERVICES,
 };
 use nix::sys::signal::{killpg, Signal};
 use nix::unistd::Pid;
@@ -37,30 +36,21 @@ pub fn version() -> Value {
 /// A caller that reads only `ops` would believe a denied op is available, so a service
 /// denied one op at a time says so here rather than at the call.
 fn probe(state_root: &Path, owner: &str, policy: &Policy) -> Value {
-    let services: Vec<Value> = [
-        (SERVICE, OPS),
-        (fs_service::SERVICE, fs_service::OPS),
-        (run_service::SERVICE, run_service::OPS),
-        (schedule_service::SERVICE, schedule_service::OPS),
-        (agents_service::SERVICE, agents_service::OPS),
-        (crate::shell::SERVICE, crate::shell::OPS),
-        (crate::shell::daemon::SERVICE, crate::shell::daemon::OPS),
-        (git_service::SERVICE, git_service::OPS),
-    ]
-    .iter()
-    .map(|(name, ops)| {
-        let denied_ops: Vec<&&str> = ops
-            .iter()
-            .filter(|op| policy.is_op_denied(name, op))
-            .collect();
-        json!({
-            "name": name,
-            "ops": ops,
-            "denied": policy.is_service_denied(name),
-            "denied_ops": denied_ops,
+    let services: Vec<Value> = SERVICES
+        .iter()
+        .map(|Service { name, ops, .. }| {
+            let denied_ops: Vec<&&str> = ops
+                .iter()
+                .filter(|op| policy.is_op_denied(name, op))
+                .collect();
+            json!({
+                "name": name,
+                "ops": ops,
+                "denied": policy.is_service_denied(name),
+                "denied_ops": denied_ops,
+            })
         })
-    })
-    .collect();
+        .collect();
 
     json!({
         "engine": ENGINE_VERSION,
@@ -87,24 +77,16 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
     let shells_stopped = crate::shell::stop_all(state_root);
     let daemon_stopped = crate::shell::daemon::stop(state_root).unwrap_or(false);
 
-    if !state_root.exists() {
-        return Ok(json!({
-            "state_root": paths::display(state_root),
-            "existed": false,
-            "jobs_removed": 0,
-            "jobs_signalled": 0,
-            "timers_removed": timers_removed,
-            "hooks_removed": hooks_removed,
-            "shells_stopped": shells_stopped,
-            "daemon_stopped": daemon_stopped,
-        }));
-    }
-
-    let (jobs_removed, jobs_signalled) = signal_jobs(state_root);
-    fs::remove_dir_all(state_root)?;
+    let (existed, jobs_removed, jobs_signalled) = if state_root.exists() {
+        let (removed, signalled) = signal_jobs(state_root);
+        fs::remove_dir_all(state_root)?;
+        (true, removed, signalled)
+    } else {
+        (false, 0, 0)
+    };
     Ok(json!({
         "state_root": paths::display(state_root),
-        "existed": true,
+        "existed": existed,
         "jobs_removed": jobs_removed,
         "jobs_signalled": jobs_signalled,
         "timers_removed": timers_removed,

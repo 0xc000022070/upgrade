@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/drops/drop_selection.dart';
 import 'package:upgrade/application/formatting.dart';
 import 'package:upgrade/application/navigation.dart';
@@ -30,7 +30,6 @@ import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/code/workspace_page.dart';
 import 'package:upgrade/features/hosts/path_picker_sheet.dart';
 import 'package:upgrade/features/home/capture_bar.dart';
-import 'package:upgrade/features/hosts/hosts_screen.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/tasks/drops_panel.dart';
 import 'package:upgrade/features/tasks/selection_bar.dart';
@@ -39,7 +38,7 @@ import 'package:upgrade/features/projects/project_form_screen.dart';
 import 'package:upgrade/features/projects/project_row.dart';
 import 'package:upgrade/features/projects/project_icon.dart';
 import 'package:upgrade/features/projects/project_task_filter.dart';
-import 'package:upgrade/app/static_surface.dart';
+import 'package:upgrade/application/static_surface.dart';
 
 void openProjectDetail(BuildContext context, String projectId) {
   Navigator.of(context, rootNavigator: true).push(
@@ -526,8 +525,7 @@ class _CodePanel extends ConsumerWidget {
                         context,
                         rootNavigator: true,
                       ).popUntil((route) => route.isFirst);
-                      ref.read(navIndexProvider.notifier).state =
-                          HostsScreen.navIndex;
+                      ref.read(navIndexProvider.notifier).state = hostsNavIndex;
                     },
                   ),
                 for (final host in hosts)

@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/navigation.dart';
 import 'package:upgrade/application/shell/path_scan.dart';
 import 'package:upgrade/data/database.dart';
@@ -23,7 +23,7 @@ import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/workspace/workspace_commands.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_failure.dart';
-import 'package:upgrade/platform/links/link_probe.dart';
+import 'package:upgrade/platform/links/host_link_probe.dart';
 import 'package:upgrade/application/providers.dart';
 
 import '../../support/fake_shell.dart';
@@ -31,7 +31,7 @@ import '../../support/platform_channels.dart';
 import '../../support/themed_app.dart';
 
 final _scanned = <String, List<String>>{};
-HerdrFailure? _refused;
+HostFailure? _refused;
 var _walks = 0;
 
 const _found = ['~/src/upgrade', '/srv/gate', '~/src/monolith'];
@@ -119,7 +119,7 @@ void main() {
 
   List<Override> overrides({bool projects = true}) => [
     ...featureTestOverrides(db, enabled: projects),
-    navIndexProvider.overrideWith((ref) => HostsScreen.navIndex),
+    navIndexProvider.overrideWith((ref) => hostsNavIndex),
     keyRepositoryProvider.overrideWithValue(keys),
     hostRepositoryProvider.overrideWithValue(hosts),
     privateKeyStoreProvider.overrideWithValue(privateKeys),
@@ -334,7 +334,7 @@ void main() {
   testWidgets('a host that cannot be reached says so and keeps what it knew', (
     tester,
   ) async {
-    _refused = const HerdrUnreachable();
+    _refused = const HostFailure.unreachable();
     await hosts.save(_host('1', 'oak'));
     await paths.add(hostId: '1', directory: '~/src/upgrade');
     await open(tester);
@@ -351,7 +351,7 @@ void main() {
   testWidgets('an unreachable host with nothing registered says why', (
     tester,
   ) async {
-    _refused = const HerdrUnreachable();
+    _refused = const HostFailure.unreachable();
     await hosts.save(_host('1', 'oak'));
     await open(tester);
     await toCode(tester);
@@ -362,7 +362,7 @@ void main() {
   });
 
   testWidgets('RESCAN walks the host again', (tester) async {
-    _refused = const HerdrUnreachable();
+    _refused = const HostFailure.unreachable();
     await hosts.save(_host('1', 'oak'));
     await open(tester);
     await toCode(tester);

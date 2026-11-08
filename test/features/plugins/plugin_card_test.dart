@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:upgrade/data/plugins/installed.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/application/plugins/plugins.dart';
 import 'package:upgrade/features/plugins/plugin_card.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:upgrade/application/providers.dart';
 

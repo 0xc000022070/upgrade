@@ -4,10 +4,11 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:upgrade/application/plugins/plugin_hosts.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/ssh_exec.dart';
+import '../../support/host_failure_matchers.dart';
 
 void main() {
   group('a host watch the app stops listening to', () {
@@ -88,7 +89,7 @@ void main() {
 
     await expectLater(
       herdr.openPinRequests(within: const Duration(milliseconds: 20)),
-      throwsA(isA<HerdrUnreachable>()),
+      throwsA(isFailureOf(HostFailureKind.unreachable)),
     );
 
     expect(session.signals, [SSHSignal.TERM]);
@@ -98,12 +99,12 @@ void main() {
   test('an engine answer over its limit ends the command', () async {
     final session = FakeExecSession();
     session.input.stream.listen(null);
-    final answer = scheduleOver(
+    final answer = engineOver(
       FakeExecClient(session).execute,
+      'schedule/1',
       'dev',
-      'host',
       'list',
-      const {},
+      const {'scope': 'host'},
     );
     await pumpEventQueue();
 

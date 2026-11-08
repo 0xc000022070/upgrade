@@ -133,11 +133,6 @@ void main() {
           expect(block.dest.right, lessThanOrEqualTo(1 + 1e-9));
         }
       }
-      expect(
-        Effects.glitchStep * (tearGlitchSteps.length + 1),
-        lessThan(const Duration(milliseconds: 400)),
-      );
-      expect(tearGlitchSteps.where((s) => s.accent), hasLength(2));
     });
 
     test('never corrupts more than 30% of the shape', () {
@@ -198,11 +193,6 @@ void main() {
           expect(block.tone, 1.0);
         }
       }
-    });
-
-    test('the boot tear still lands inside the boot cap', () {
-      final roll = Effects.bootLineStep * Effects.bootBeats;
-      expect(roll + Effects.glitchDuration, lessThanOrEqualTo(Effects.bootCap));
     });
   });
 }

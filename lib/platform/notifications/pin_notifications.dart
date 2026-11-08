@@ -1,7 +1,7 @@
 import 'package:upgrade_shade/upgrade_shade.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/platform/notifications/pin_alerts.dart';
 import 'package:upgrade/brand.dart';
 
 /// A channel of its own so the user can keep a blocked agent quiet and still hear a key

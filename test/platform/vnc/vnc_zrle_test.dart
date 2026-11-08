@@ -3,8 +3,11 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/platform/vnc/framebuffer.dart';
-import 'package:upgrade/platform/vnc/vnc_failure.dart';
 import 'package:upgrade/platform/vnc/zrle.dart';
+
+import '../../support/host_failure_matchers.dart';
+
+import 'package:upgrade/platform/ssh/host_failure.dart';
 
 /// A CPIXEL in this session's format: the three low bytes of BGRX, in wire order. RFC
 /// 6143 drops the byte the pixel format never reads.
@@ -218,16 +221,19 @@ void main() {
   test('an unused subencoding is a reason line, not a wrong pixel', () {
     expect(
       () => decodeTile([17, ...wire(_a)]),
-      throwsA(isA<VncStreamClosed>()),
+      throwsA(isFailureOf(HostFailureKind.streamClosed)),
     );
     expect(
       () => decodeTile([129, ...wire(_a)]),
-      throwsA(isA<VncStreamClosed>()),
+      throwsA(isFailureOf(HostFailureKind.streamClosed)),
     );
   });
 
   test('a rect that ends mid-CPIXEL is a reason line', () {
-    expect(() => decodeTile([0, 0x11, 0x22]), throwsA(isA<VncStreamClosed>()));
+    expect(
+      () => decodeTile([0, 0x11, 0x22]),
+      throwsA(isFailureOf(HostFailureKind.streamClosed)),
+    );
   });
 
   group('the session zlib stream', () {

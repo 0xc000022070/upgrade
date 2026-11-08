@@ -1,8 +1,15 @@
+import 'dart:math' as math;
+
 import 'package:upgrade/application/plugins/native_plugins.dart';
 import 'package:upgrade/data/repositories/plugin_placement_repository.dart';
-import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/data/plugins/contributions.dart';
 
 const homeMaxContentWidth = 1100.0;
+
+double homeContentWidth(double available, double horizontalInset) =>
+    math.min(available - horizontalInset, homeMaxContentWidth) -
+    2 * Spacing.screenEdge;
 
 class HomeLayout {
   const HomeLayout(this.state, this.catalog);

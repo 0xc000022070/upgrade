@@ -8,11 +8,8 @@ import 'package:upgrade/platform/workspace/workspace_commands.dart';
 import 'package:upgrade/platform/workspace/workspace_model.dart';
 
 import 'package:upgrade/features/code/diff_outline.dart';
-import 'package:upgrade/features/code/diff_patch.dart';
 import 'package:upgrade/features/code/diff_read.dart';
 import 'package:upgrade/features/code/workspace_controller.dart';
-
-enum HunkWrite { stage, unstage, discard }
 
 class DiffSession extends ChangeNotifier {
   DiffSession(this.controller, {this.settings}) {
@@ -371,106 +368,6 @@ class DiffSession extends ChangeNotifier {
       _wrote(controller.commit(subject, body));
 
   Future<String?> push() => _wrote(controller.push());
-
-  Future<String?> discard(List<WorkspaceFile> files) async {
-    final untracked = [
-      for (final file in files)
-        if (file.untracked) file.path,
-    ];
-    final tracked = [
-      for (final file in files)
-        if (!file.untracked) file.path,
-    ];
-    String? failed;
-    if (untracked.isNotEmpty) {
-      failed = await _wrote(controller.discard(untracked, untracked: true));
-    }
-    if (tracked.isNotEmpty && failed == null) {
-      failed = await _wrote(controller.discard(tracked, untracked: false));
-    }
-    return failed;
-  }
-
-  Future<String?> writeHunk(
-    WorkspaceFile file,
-    HunkWrite write,
-    int newLine, {
-    DiffLine? only,
-    DiffLine? held,
-  }) => _wrote(_hunk(file, write, newLine, only: only, held: held));
-
-  Future<String?> _hunk(
-    WorkspaceFile file,
-    HunkWrite write,
-    int newLine, {
-    DiffLine? only,
-    DiffLine? held,
-  }) async {
-    final side = write == HunkWrite.unstage
-        ? DiffAgainst.staged
-        : DiffAgainst.unstaged;
-    final lines = await controller.diff(file, against: side);
-    if (lines == null) return 'could not read it';
-    final span = hunkHolding(lines, newLine);
-    if (span == null) {
-      return write == HunkWrite.unstage ? 'not in the index' : 'nothing here';
-    }
-    if (held != null && !_holds(lines, span, held)) {
-      return write == HunkWrite.unstage
-          ? 'not in the index'
-          : 'already in the index';
-    }
-    final twin = only == null ? null : _twin(lines, span, only);
-    bool keep(DiffLine line) =>
-        line.kind == only!.kind &&
-        line.text == only.text &&
-        (line.kind != DiffLineKind.added || line.newLine == only.newLine) &&
-        (line.kind != DiffLineKind.removed || identical(line, twin));
-    final filter = only == null ? null : keep;
-    if (!patchChanges(lines, span, filter)) return 'nothing to write';
-    if (write == HunkWrite.discard && file.untracked && only == null) {
-      return controller.discard([file.path], untracked: true);
-    }
-    final created = switch (write) {
-      HunkWrite.stage => file.untracked,
-      HunkWrite.unstage => file.staged == 'A' && only == null,
-      HunkWrite.discard => false,
-    };
-    final patch = hunkPatch(
-      file.path,
-      lines,
-      span,
-      keep: filter,
-      reverse: write != HunkWrite.stage,
-      created: created,
-    );
-    return controller.apply(
-      patch,
-      cached: write != HunkWrite.discard,
-      reverse: write != HunkWrite.stage,
-    );
-  }
-
-  bool _holds(List<DiffLine> lines, HunkSpan span, DiffLine held) {
-    if (held.kind != DiffLineKind.added && held.kind != DiffLineKind.removed) {
-      return true;
-    }
-    return lines
-        .sublist(span.start + 1, span.end)
-        .any((line) => line.kind == held.kind && line.text == held.text);
-  }
-
-  DiffLine? _twin(List<DiffLine> lines, HunkSpan span, DiffLine held) {
-    final copies = [
-      for (final line in lines.sublist(span.start + 1, span.end))
-        if (line.kind == DiffLineKind.removed && line.text == held.text) line,
-    ];
-    if (copies.isEmpty) return null;
-    return copies.firstWhere(
-      (line) => line.oldLine == held.oldLine,
-      orElse: () => copies.first,
-    );
-  }
 
   Future<String?> _wrote(Future<String?> write) async {
     writing = true;

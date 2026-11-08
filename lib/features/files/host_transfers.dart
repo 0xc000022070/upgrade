@@ -1,7 +1,7 @@
 import 'dart:io';
 
+import 'package:upgrade/application/files/attach_item.dart';
 import 'package:upgrade/application/files/host_file_link.dart';
-import 'package:upgrade/features/files/transfer_queue.dart';
 
 String joinPath(String directory, String name) =>
     directory == '/' ? '/$name' : '$directory/$name';

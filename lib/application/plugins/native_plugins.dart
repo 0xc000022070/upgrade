@@ -6,11 +6,11 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
-import 'package:upgrade/platform/plugins/access.dart';
-import 'package:upgrade/platform/plugins/contributions.dart';
-import 'package:upgrade/platform/plugins/manifest.dart';
+import 'package:upgrade/data/plugins/installed.dart';
+import 'package:upgrade/data/plugins/access.dart';
+import 'package:upgrade/data/plugins/contributions.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/module.dart';
-import 'package:upgrade/platform/plugins/store.dart';
 import 'package:upgrade/platform/plugins/usage.dart';
 import 'package:upgrade/data/plugin_inventory.dart';
 import 'package:upgrade/application/providers.dart';
@@ -147,13 +147,6 @@ class PluginContributionCatalog {
       widgets.where((entry) => entry.stableId == stableId).firstOrNull;
   PluginPageRegistration? page(String stableId) =>
       pages.where((entry) => entry.stableId == stableId).firstOrNull;
-  List<PluginWidgetRegistration> enabledWidgets(
-    PluginPlacementLocation location,
-  ) => [
-    for (final entry in widgets)
-      if (entry.enabled && entry.contribution.locations.contains(location))
-        entry,
-  ];
   List<PluginPageRegistration> get enabledPages => [
     for (final entry in pages)
       if (entry.enabled) entry,
@@ -223,29 +216,6 @@ final nativeSurfaceOwnerProvider = Provider.family<InstalledPlugin?, String>((
   return matches.firstOrNull;
 });
 
-class NativeSurface extends ConsumerWidget {
-  const NativeSurface(
-    this.surface, {
-    super.key,
-    this.fallback = const SizedBox.shrink(),
-  });
-  final String surface;
-  final Widget fallback;
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final plugin = ref.watch(nativeSurfaceOwnerProvider(surface));
-    if (plugin == null) return fallback;
-    final module = ref
-        .watch(nativeModulesProvider)
-        .singleWhere((m) => m.id == plugin.id);
-    return NativeContributionSurface(
-      owner: plugin,
-      stableId: '${plugin.id}:legacy:$surface',
-      builder: module.surfaces[surface]!,
-    );
-  }
-}
-
 class NativeContributionSurface extends ConsumerWidget {
   const NativeContributionSurface({
     super.key,
@@ -259,49 +229,39 @@ class NativeContributionSurface extends ConsumerWidget {
     PluginWidgetRegistration registration, {
     Key? key,
     Widget fallback = const SizedBox.shrink(),
-  }) {
-    final builder = registration.builder;
-    if (builder == null) {
-      return NativeContributionSurface(
-        key: key,
-        owner: registration.owner,
-        stableId: registration.stableId,
-        builder: (_) => fallback,
-        fallback: fallback,
-      );
-    }
-    return NativeContributionSurface(
-      key: key,
-      owner: registration.owner,
-      stableId: registration.stableId,
-      builder: builder,
-      fallback: fallback,
-    );
-  }
+  }) => NativeContributionSurface._registered(
+    registration.owner,
+    registration.stableId,
+    registration.builder,
+    key,
+    fallback,
+  );
 
   factory NativeContributionSurface.page(
     PluginPageRegistration registration, {
     Key? key,
     Widget fallback = const SizedBox.shrink(),
-  }) {
-    final builder = registration.builder;
-    if (builder == null) {
-      return NativeContributionSurface(
-        key: key,
-        owner: registration.owner,
-        stableId: registration.stableId,
-        builder: (_) => fallback,
-        fallback: fallback,
-      );
-    }
-    return NativeContributionSurface(
-      key: key,
-      owner: registration.owner,
-      stableId: registration.stableId,
-      builder: builder,
-      fallback: fallback,
-    );
-  }
+  }) => NativeContributionSurface._registered(
+    registration.owner,
+    registration.stableId,
+    registration.builder,
+    key,
+    fallback,
+  );
+
+  factory NativeContributionSurface._registered(
+    InstalledPlugin owner,
+    String stableId,
+    WidgetBuilder? builder,
+    Key? key,
+    Widget fallback,
+  ) => NativeContributionSurface(
+    key: key,
+    owner: owner,
+    stableId: stableId,
+    builder: builder ?? (_) => fallback,
+    fallback: fallback,
+  );
 
   final InstalledPlugin owner;
   final String stableId;

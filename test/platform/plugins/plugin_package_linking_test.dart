@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:upgrade/platform/plugins/manifest.dart';
-import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/data/plugins/installed.dart';
+import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade_luau/upgrade_luau.dart';
 import 'package:flutter_test/flutter_test.dart';
 
