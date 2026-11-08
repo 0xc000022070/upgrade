@@ -6,6 +6,7 @@ import 'package:upgrade/design/motion.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/typography.dart';
+import 'package:upgrade/brand.dart';
 
 /// Material is a substrate only. Everything that would leak a Material look — ripples,
 /// elevation tints, shadows, rounded defaults, overscroll glow, the zoom transition — is
@@ -143,7 +144,7 @@ final class _SignalPageTransition extends PageTransitionsBuilder {
 }
 
 enum ThemeChoice {
-  house('Upgrade dark'),
+  house('$appName dark'),
   system('System'),
   sunburst('Sunburst', Sunburst()),
   cloudDrift('Cloud drift', CloudDrift()),

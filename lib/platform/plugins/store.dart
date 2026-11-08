@@ -8,6 +8,7 @@ import 'package:crypto/crypto.dart';
 import 'package:upgrade/platform/plugins/index.dart';
 import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/serial.dart';
+import 'package:upgrade/brand.dart';
 
 class PluginPackage {
   PluginPackage({
@@ -361,7 +362,7 @@ class PluginStore {
     Set<PluginPermission> grants,
   ) => _change((entries) {
     if (package.manifest.native || package.packageOriginIsBuiltin) {
-      throw const PluginException('Built-in plugins are updated with Upgrade');
+      throw const PluginException('Built-in plugins are updated with $appName');
     }
     final previous = entries.where((p) => p.id == package.manifest.id);
     if (previous.isNotEmpty &&

@@ -23,6 +23,7 @@ import 'package:upgrade/features/screen/screen_controller.dart';
 import 'package:upgrade/features/screen/screen_preview.dart';
 import 'package:upgrade/features/screen/screen_rail.dart';
 import 'package:upgrade/features/screen/screen_transform.dart';
+import 'package:upgrade/brand.dart';
 
 void openHostScreen(BuildContext context, Host host) {
   final dock = ProviderScope.containerOf(context).read(deviceDockProvider);
@@ -145,7 +146,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
       _previews = previews;
       _previewEvery();
     } catch (error) {
-      debugPrint('upgrade.vnc ${widget.host.name}: no preview store: $error');
+      debugPrint('$appSlug.vnc ${widget.host.name}: no preview store: $error');
     }
   }
 

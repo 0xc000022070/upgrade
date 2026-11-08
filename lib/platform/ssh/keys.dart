@@ -6,6 +6,7 @@ import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pinenacl/ed25519.dart' as ed25519;
 import 'package:pointycastle/digests/sha256.dart';
+import 'package:upgrade/brand.dart';
 
 abstract interface class PrivateKeyStore {
   Future<void> write(String id, String privateKey);
@@ -116,7 +117,7 @@ class Ed25519Keys {
     try {
       return await _store.read(id);
     } on PlatformException catch (error) {
-      debugPrint('upgrade.keys $id: $error');
+      debugPrint('$appSlug.keys $id: $error');
       return null;
     }
   }

@@ -7,6 +7,7 @@ import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/herdr/engine_agents.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/brand.dart';
 
 typedef SessionKeyResolver = Future<String?> Function(
   EngineAgents engine,
@@ -169,7 +170,7 @@ class AgentSessionFeed extends ChangeNotifier {
       _changed();
     } catch (error) {
       final name = host?.name ?? 'host';
-      debugPrint('upgrade.engine $name $tag: $error');
+      debugPrint('$appSlug.engine $name $tag: $error');
       _drop();
       if (_disposed) return;
       _failure = switch (error) {
@@ -242,7 +243,7 @@ class AgentSessionFeed extends ChangeNotifier {
     } on EngineRefused catch (error) {
       _answerLine = error.notFound ? 'ALREADY ANSWERED' : 'REFUSED';
     } catch (error) {
-      debugPrint('upgrade.engine ${host.name} answer: $error');
+      debugPrint('$appSlug.engine ${host.name} answer: $error');
       _answerLine = 'FAILED';
     } finally {
       _answering = null;

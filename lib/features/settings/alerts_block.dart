@@ -10,6 +10,7 @@ import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/platform/herdr/agent_watcher.dart';
 import 'package:upgrade/platform/notifications/pin_notifications.dart';
+import 'package:upgrade/brand.dart';
 
 class AlertsSettingsBlock extends ConsumerWidget {
   const AlertsSettingsBlock({super.key, this.requestPermission});
@@ -120,7 +121,7 @@ class _DndRowState extends State<_DndRow> with WidgetsBindingObserver {
     try {
       return await call();
     } on Object catch (error) {
-      debugPrint('upgrade.dnd: $error');
+      debugPrint('$appSlug.dnd: $error');
       return null;
     }
   }

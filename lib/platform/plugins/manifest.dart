@@ -5,6 +5,7 @@ import 'package:pub_semver/pub_semver.dart';
 import 'package:toml/toml.dart';
 
 import 'package:upgrade/platform/plugins/contributions.dart';
+import 'package:upgrade/brand.dart';
 
 class PluginException implements Exception {
   const PluginException(this.message);
@@ -310,9 +311,9 @@ class PluginManifest {
           format != manifestVersion && !native && !uiRuntime && !filesRuntime
           ? 'Unsupported manifest version $format'
           : !api.allows(apiVersion)
-          ? 'Plugin requires Upgrade API $api'
+          ? 'Plugin requires $appName API $api'
           : native && !allowNative
-          ? 'Native plugins must be bundled with Upgrade'
+          ? 'Native plugins must be bundled with $appName'
           : runtime['kind'] != 'luau' && !native
           ? 'Unsupported plugin runtime'
           : invalidUiApi

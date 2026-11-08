@@ -16,6 +16,7 @@ import 'package:upgrade/features/settings/alerts_block.dart';
 import 'package:upgrade/features/settings/bundle_panel.dart';
 import 'package:upgrade/features/settings/key_bar_block.dart';
 import 'package:upgrade/features/settings/voice_block.dart';
+import 'package:upgrade/brand.dart';
 
 void openSettings(BuildContext context) {
   Navigator.of(
@@ -73,7 +74,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'SETTINGS',
-          breadcrumb: '/ UPGRADE / SYS',
+          breadcrumb: '/ $appNameCaps / SYS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(

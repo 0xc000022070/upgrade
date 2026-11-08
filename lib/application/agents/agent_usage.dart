@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/herdr/engine_agents.dart';
+import 'package:upgrade/brand.dart';
 
 typedef HostUsage = ({Host host, AgentUsage usage});
 
@@ -91,11 +92,11 @@ class UsageFeed extends Notifier<List<HostUsage>> {
         _unreached.remove(host.id);
         _unsupported.add(host.id);
       } else {
-        debugPrint('upgrade.usage ${host.name}: $error');
+        debugPrint('$appSlug.usage ${host.name}: $error');
         _unreached[host.id] = error.message;
       }
     } catch (error) {
-      debugPrint('upgrade.usage ${host.name}: $error');
+      debugPrint('$appSlug.usage ${host.name}: $error');
       _unreached[host.id] = 'NOT REACHED';
       final misses = (_misses[host.id] ?? 0) + 1;
       _misses[host.id] = misses;

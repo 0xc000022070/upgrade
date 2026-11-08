@@ -9,6 +9,7 @@ import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/shell/shell_launch.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/agents/reason_lines.dart';
+import 'package:upgrade/brand.dart';
 
 typedef LaunchFetch = Future<LaunchTargets> Function({
   required String address,
@@ -62,13 +63,13 @@ class LaunchScanner {
         ),
       );
     } on HerdrFailure catch (error) {
-      debugPrint('upgrade.launch ${host.name}: ${error.detail ?? error}');
+      debugPrint('$appSlug.launch ${host.name}: ${error.detail ?? error}');
       return LaunchScanFailed(
         error.reason(host.name, address: host.address),
         unanswered: error is HerdrUnreachable || error is HerdrUnresolved,
       );
     } catch (error) {
-      debugPrint('upgrade.launch ${host.name}: $error');
+      debugPrint('$appSlug.launch ${host.name}: $error');
       return LaunchScanFailed(ReasonLine.protocolMismatch.words);
     }
   }

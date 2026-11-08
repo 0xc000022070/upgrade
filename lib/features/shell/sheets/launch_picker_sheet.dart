@@ -21,6 +21,7 @@ import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/shell/shell_launch.dart';
 import 'package:upgrade/features/hosts/host_key_sheet.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/brand.dart';
 
 typedef LaunchPicked = void Function(
   UserIntent intent,
@@ -100,7 +101,7 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
           await ref.read(phoneLinuxHostProvider)?.ensure(widget.host) ??
           widget.host;
     } catch (error) {
-      debugPrint('upgrade.launch ${widget.host.name}: $error');
+      debugPrint('$appSlug.launch ${widget.host.name}: $error');
       if (mounted) {
         setState(() => _scan = const LaunchScanFailed('linux did not start'));
       }

@@ -9,6 +9,7 @@ import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/plugin_sdk.dart';
 import 'package:upgrade/platform/plugins/store.dart';
 import 'package:upgrade/platform/plugins/ui_tree.dart';
+import 'package:upgrade/brand.dart';
 
 const pluginManifestFile = 'upgrade.plugin.toml';
 const pluginPreviewResult = '.upgrade/preview/latest.json';
@@ -210,7 +211,7 @@ final class PluginDevSource {
 const _manifestFields = {
   'manifest version': 'manifest_version',
   'identifier': 'id',
-  'Upgrade API': 'upgrade_api',
+  '$appName API': 'upgrade_api',
   'default widget size': 'default_size',
   'widget size': 'sizes',
   'default widget location': 'default_location',

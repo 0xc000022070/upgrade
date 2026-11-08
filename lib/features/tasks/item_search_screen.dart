@@ -13,6 +13,7 @@ import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/tasks/task_row.dart';
+import 'package:upgrade/brand.dart';
 
 void openItemSearch(BuildContext context) {
   Navigator.of(
@@ -52,7 +53,7 @@ class _ItemSearchScreenState extends ConsumerState<ItemSearchScreen> {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'SEARCH',
-          breadcrumb: '/ UPGRADE / SEARCH',
+          breadcrumb: '/ $appNameCaps / SEARCH',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(

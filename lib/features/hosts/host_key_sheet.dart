@@ -7,6 +7,7 @@ import 'package:upgrade/design/components/meta.dart';
 import 'package:upgrade/design/components/panel_sheet.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/brand.dart';
 
 Future<bool> askHostKey(
   BuildContext context, {
@@ -40,7 +41,7 @@ Future<bool> askHostKey(
           Meta(offer.fingerprint, strong: true, maxLines: 3),
           const SizedBox(height: Spacing.md),
           Text(
-            'VERIFY THE OFFERED FINGERPRINT OUTSIDE UPGRADE BEFORE REPLACING.',
+            'VERIFY THE OFFERED FINGERPRINT OUTSIDE $appNameCaps BEFORE REPLACING.',
             style: context.tokens.label.copyWith(color: context.tokens.warning),
           ),
         ] else ...[

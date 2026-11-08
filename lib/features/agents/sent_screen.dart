@@ -38,6 +38,7 @@ import 'package:upgrade/features/home/compose_sheet.dart';
 import 'package:upgrade/platform/herdr/engine_agents.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
+import 'package:upgrade/brand.dart';
 
 void openSent(BuildContext context) {
   Navigator.of(
@@ -138,7 +139,7 @@ class SentScreen extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'SENT',
-          breadcrumb: '/ UPGRADE / AGENTS / SENT',
+          breadcrumb: '/ $appNameCaps / AGENTS / SENT',
           onBack: () => Navigator.of(context).pop(),
           children: [
             Panel(
@@ -225,7 +226,7 @@ class _SentRow extends ConsumerWidget {
                   .read(dispatchRepositoryProvider)
                   .delete(send.id)
                   .catchError(
-                    (Object error) => debugPrint('upgrade.sent: $error'),
+                    (Object error) => debugPrint('$appSlug.sent: $error'),
                   ),
             ),
             danger: true,
@@ -305,7 +306,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
         ref
             .read(dispatchRepositoryProvider)
             .linkSession(send.id, key)
-            .catchError((Object error) => debugPrint('upgrade.sent: $error')),
+            .catchError((Object error) => debugPrint('$appSlug.sent: $error')),
       );
     }
     return key;
@@ -341,7 +342,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
         body: StaticSurface(
           child: ScreenScaffold(
             title: 'RUN',
-            breadcrumb: '/ UPGRADE / AGENTS / SENT',
+            breadcrumb: '/ $appNameCaps / AGENTS / SENT',
             onBack: () => Navigator.of(context).pop(),
             children: const [Panel(child: EmptyState('no such send'))],
           ),
@@ -372,7 +373,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
       body: StaticSurface(
         child: ScreenScaffold(
           title: send.firstLine.isEmpty ? 'RUN' : send.firstLine,
-          breadcrumb: '/ UPGRADE / AGENTS / SENT / ${send.firstLine}',
+          breadcrumb: '/ $appNameCaps / AGENTS / SENT / ${send.firstLine}',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(

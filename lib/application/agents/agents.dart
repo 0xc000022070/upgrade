@@ -17,6 +17,7 @@ import 'package:upgrade/application/agents/agent_state.dart';
 import 'package:upgrade/application/agents/reason_lines.dart';
 import 'package:upgrade/application/alerts/watcher_backoff.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
+import 'package:upgrade/brand.dart';
 
 enum AgentOutcomeKind {
   snapshot,
@@ -621,7 +622,7 @@ Future<HostOutcome> _poll(
   );
 
   // debugPrint rather than dart:developer: only the former reaches logcat.
-  void log(Object error) => debugPrint('upgrade.herdr ${host.name}: $error');
+  void log(Object error) => debugPrint('$appSlug.herdr ${host.name}: $error');
 
   final privateKey = await keys.privateKey(host.keyId);
   if (privateKey == null) {

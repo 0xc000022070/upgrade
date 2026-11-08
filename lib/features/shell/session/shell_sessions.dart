@@ -37,6 +37,7 @@ import 'package:upgrade/features/shell/session/host_copy.dart';
 import 'package:upgrade/features/shell/session/private_osc.dart';
 import 'package:upgrade/features/shell/session/program_status.dart';
 import 'package:upgrade/features/shell/session/shell_engine.dart';
+import 'package:upgrade/brand.dart';
 
 export 'package:upgrade/platform/shell/host_queries.dart'
     show PinAnswer, agentProbeDeadline;
@@ -969,7 +970,7 @@ class ShellSessions extends ChangeNotifier {
       top = await _queries(session, connection).repository(directory);
     } catch (error) {
       if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-      debugPrint('upgrade.shell ${session.host.name}: repository: $error');
+      debugPrint('$appSlug.shell ${session.host.name}: repository: $error');
       return session.repository;
     }
     return _repository(session, top);
@@ -1089,14 +1090,14 @@ class ShellSessions extends ChangeNotifier {
             (_) {},
             onError: (Object error) {
               if (terminal.restoration != RestorationState.failed) return;
-              debugPrint('upgrade.shell snapshot $hostId/$number: $error');
+              debugPrint('$appSlug.shell snapshot $hostId/$number: $error');
               unawaited(snapshots?.drop(hostId, number));
             },
           ),
         );
         return terminal;
       } catch (error) {
-        debugPrint('upgrade.shell snapshot $hostId/$number: $error');
+        debugPrint('$appSlug.shell snapshot $hostId/$number: $error');
         unawaited(snapshots?.drop(hostId, number));
       }
     }
@@ -1117,14 +1118,14 @@ class ShellSessions extends ChangeNotifier {
         preserveSnapshotColors: false,
       );
     } catch (error) {
-      debugPrint('upgrade.shell ${session.host.name}: host snapshot: $error');
+      debugPrint('$appSlug.shell ${session.host.name}: host snapshot: $error');
       return;
     }
     unawaited(
       next.restored.then(
         (_) {},
         onError: (Object error) => debugPrint(
-          'upgrade.shell ${session.host.name}: host snapshot: $error',
+          '$appSlug.shell ${session.host.name}: host snapshot: $error',
         ),
       ),
     );
@@ -1218,7 +1219,7 @@ class ShellSessions extends ChangeNotifier {
     session._stopAsking();
     unawaited(
       connection.suspend(suspended).catchError((Object error) {
-        debugPrint('upgrade.shell ${session.host.name}: suspend: $error');
+        debugPrint('$appSlug.shell ${session.host.name}: suspend: $error');
       }),
     );
   }
@@ -1238,7 +1239,7 @@ class ShellSessions extends ChangeNotifier {
       connection
           .resume(reason)
           .catchError((Object error) {
-            debugPrint('upgrade.shell ${session.host.name}: resume: $error');
+            debugPrint('$appSlug.shell ${session.host.name}: resume: $error');
           })
           .then((_) => pinsFor(session.host.id)._ask(session)),
     );
@@ -1267,7 +1268,7 @@ class ShellSessions extends ChangeNotifier {
     try {
       bytes = session.terminal.snapshot();
     } catch (error) {
-      debugPrint('upgrade.shell ${session.host.name}: snapshot: $error');
+      debugPrint('$appSlug.shell ${session.host.name}: snapshot: $error');
       return;
     }
     session._unsavedSince = null;
@@ -1277,7 +1278,7 @@ class ShellSessions extends ChangeNotifier {
       try {
         await store.write(hostId, session.number, bytes);
       } catch (error) {
-        debugPrint('upgrade.shell ${session.host.name}: snapshot: $error');
+        debugPrint('$appSlug.shell ${session.host.name}: snapshot: $error');
       }
     });
   }
@@ -1293,7 +1294,7 @@ class ShellSessions extends ChangeNotifier {
     try {
       await persistence;
     } catch (error) {
-      debugPrint('upgrade.shell ${host.name}: tab save failed: $error');
+      debugPrint('$appSlug.shell ${host.name}: tab save failed: $error');
       if (!session._closed) {
         session.state = ShellFailed(
           ShellFailureKind.streamClosed,
@@ -1464,7 +1465,7 @@ class ShellSessions extends ChangeNotifier {
           await connection?.terminateRemote(remoteSession, action: action) ??
           false;
     } catch (error) {
-      debugPrint('upgrade.shell ${session.host.name}: cleanup failed: $error');
+      debugPrint('$appSlug.shell ${session.host.name}: cleanup failed: $error');
     } finally {
       await connection?.close(reason);
     }
@@ -1602,7 +1603,7 @@ class ShellSessions extends ChangeNotifier {
         system = await probeSystem(connection.channels);
       } catch (error) {
         if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-        debugPrint('upgrade.shell ${host.name}: system probe: $error');
+        debugPrint('$appSlug.shell ${host.name}: system probe: $error');
         _systemAsked.remove(host.id);
         return;
       }
@@ -1638,7 +1639,9 @@ class ShellSessions extends ChangeNotifier {
     } catch (error) {
       if (session.connection == connection) session._probing = null;
       if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-      debugPrint('upgrade.shell ${session.host.name}: clipboard probe: $error');
+      debugPrint(
+        '$appSlug.shell ${session.host.name}: clipboard probe: $error',
+      );
       return const HostClipboard(ClipboardBackend.none, reason: 'exec refused');
     }
     if (answer == null) {
@@ -1767,7 +1770,7 @@ class ShellSessions extends ChangeNotifier {
           await connection.terminateRemote(session.tab);
         }
       } catch (error) {
-        debugPrint('upgrade.shell ${host.name}: cleanup failed: $error');
+        debugPrint('$appSlug.shell ${host.name}: cleanup failed: $error');
       } finally {
         await connection.discard();
       }
@@ -1857,7 +1860,7 @@ class ShellSessions extends ChangeNotifier {
           }
         },
         onError: (Object error) =>
-            debugPrint('upgrade.shell ${host.name}: snapshots: $error'),
+            debugPrint('$appSlug.shell ${host.name}: snapshots: $error'),
       );
       session._foregroundProcesses = connection.foregroundProcesses.listen(
         (processes) {
@@ -1899,7 +1902,7 @@ class ShellSessions extends ChangeNotifier {
             if (!isHostFailure(error) && !isKeyFailure(error)) {
               Error.throwWithStackTrace(error, stack);
             }
-            debugPrint('upgrade.shell ${host.name}: settle: $error');
+            debugPrint('$appSlug.shell ${host.name}: settle: $error');
           },
         );
     if (_sleeping) {
@@ -1943,7 +1946,7 @@ class ShellSessions extends ChangeNotifier {
         }
       }
     } catch (error) {
-      debugPrint('upgrade.shell $hostId: cleanup failed: $error');
+      debugPrint('$appSlug.shell $hostId: cleanup failed: $error');
     }
   }
 
@@ -2222,7 +2225,7 @@ class ShellSessions extends ChangeNotifier {
           .rehome(network: network)
           .catchError((Object error) {
             debugPrint(
-              'upgrade.shell ${session.host.name}: rehome failed: $error',
+              '$appSlug.shell ${session.host.name}: rehome failed: $error',
             );
           })
           .whenComplete(() {

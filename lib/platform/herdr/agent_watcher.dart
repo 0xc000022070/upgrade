@@ -21,6 +21,7 @@ import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/notifications/pin_notifications.dart';
 import 'package:upgrade/platform/plugins/serial.dart';
+import 'package:upgrade/brand.dart';
 
 /// The service runs its own isolate. Nothing in this file may reach for a provider, the
 /// database or a widget: what it needs travels through
@@ -32,7 +33,7 @@ const watcherLivenessPeriod = Duration(seconds: 10);
 
 const watcherChannelId = 'watcher';
 const watcherChannelName = 'Agent watcher';
-const watcherNotificationTitle = 'UPGRADE';
+const watcherNotificationTitle = appNameCaps;
 
 const _hostsKey = 'upgrade.watcher.hosts';
 const _kindsKey = 'upgrade.watcher.kinds';
@@ -268,7 +269,7 @@ class AgentWatcher {
   static Future<void> _serial(Future<void> Function() step) {
     final next = _turn.then((_) => step());
     _turn = next.catchError((Object error) {
-      debugPrint('upgrade.herdr watcher: $error');
+      debugPrint('$appSlug.herdr watcher: $error');
     });
     return next;
   }
@@ -297,7 +298,7 @@ class AgentWatcher {
       callback: agentWatcherEntry,
     );
     if (result is ServiceRequestFailure) {
-      debugPrint('upgrade.herdr watcher: ${result.error}');
+      debugPrint('$appSlug.herdr watcher: ${result.error}');
     }
   }
 

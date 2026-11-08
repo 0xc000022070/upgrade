@@ -2,6 +2,7 @@ import 'package:upgrade_shade/upgrade_shade.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:upgrade/application/alerts/pin_alerts.dart';
+import 'package:upgrade/brand.dart';
 
 /// A channel of its own so the user can keep a blocked agent quiet and still hear a key
 /// being asked for. Posted natively: flutter_local_notifications can neither keep the
@@ -22,7 +23,7 @@ class PinNotifications implements PinNotifier {
         retired: _retired,
       );
     } catch (error) {
-      debugPrint('upgrade.pin channel: $error');
+      debugPrint('$appSlug.pin channel: $error');
     }
   }
 
@@ -42,7 +43,7 @@ class PinNotifications implements PinNotifier {
         ask: askId,
       );
     } catch (error) {
-      debugPrint('upgrade.pin notification: $error');
+      debugPrint('$appSlug.pin notification: $error');
     }
   }
 
@@ -51,7 +52,7 @@ class PinNotifications implements PinNotifier {
     try {
       await UpgradeShade.cancel(pinNotificationId(hostId));
     } catch (error) {
-      debugPrint('upgrade.pin notification: $error');
+      debugPrint('$appSlug.pin notification: $error');
     }
   }
 }

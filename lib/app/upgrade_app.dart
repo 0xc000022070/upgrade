@@ -34,6 +34,7 @@ import 'package:upgrade/app/nav_shell.dart';
 import 'package:upgrade/app/pip_host.dart';
 import 'package:upgrade/app/static_surface.dart';
 import 'package:upgrade/app/toast_host.dart';
+import 'package:upgrade/brand.dart';
 
 Widget _pluginPage(PluginPageRegistration page) => page.native
     ? NativeContributionSurface.page(page)
@@ -80,7 +81,7 @@ class UpgradeApp extends ConsumerWidget {
           _ => choice.wallpaper?.tokens ?? UpgradeTokens.house,
         };
         return MaterialApp(
-          title: 'Upgrade',
+          title: appName,
           debugShowCheckedModeBanner: false,
           theme: UpgradeTheme.build(tokens),
           scrollBehavior: const UpgradeScrollBehavior(),

@@ -6,6 +6,7 @@ import 'package:upgrade/application/agents/agent_kind.dart';
 import 'package:upgrade/application/agents/send.dart';
 import 'package:upgrade/application/alerts/toasts.dart';
 import 'package:upgrade/data/repositories/path_repository.dart';
+import 'package:upgrade/brand.dart';
 
 class PendingSend {
   const PendingSend({
@@ -106,7 +107,7 @@ class SendQueue extends Notifier<List<PendingSend>> {
     try {
       result = await send.run(send.id);
     } catch (error) {
-      debugPrint('upgrade.spawn ${send.target.host.name}: $error');
+      debugPrint('$appSlug.spawn ${send.target.host.name}: $error');
       result = const SendFailed('send failed');
     }
     final toasts = ref.read(toastQueueProvider.notifier);

@@ -33,6 +33,7 @@ import 'package:upgrade/features/hosts/host_key_sheet.dart';
 import 'package:upgrade/features/settings/key_form_screen.dart';
 import 'package:upgrade/features/screen/screen_preview.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
+import 'package:upgrade/brand.dart';
 
 void openHostForm(BuildContext context, {Host? host}) {
   Navigator.of(
@@ -283,7 +284,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         ),
       );
     } catch (error) {
-      debugPrint('upgrade.verify ${host.name}: $error');
+      debugPrint('$appSlug.verify ${host.name}: $error');
     }
     if (mounted) setState(() => _verifying = false);
   }
@@ -394,7 +395,7 @@ class _HostFormScreenState extends ConsumerState<HostFormScreen> {
         body: StaticSurface(
           child: ScreenScaffold(
             title: widget.host == null ? 'NEW HOST' : 'HOST',
-            breadcrumb: '/ UPGRADE / MACHINES',
+            breadcrumb: '/ $appNameCaps / MACHINES',
             onBack: _handleBack,
             children: [
               PanelStack(

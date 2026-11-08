@@ -18,6 +18,7 @@ import 'package:upgrade/platform/shell/mosh_channel.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/shell/udp_path.dart';
+import 'package:upgrade/brand.dart';
 
 /// A tab with a launch command is an exec request rather than a shell request,
 /// because typing a line at a login shell is a race against everything that shell reads
@@ -471,7 +472,7 @@ Future<void> _reopen(
 }
 
 void _log(String endpoint, Object message) =>
-    debugPrint('upgrade.shell $endpoint: $message');
+    debugPrint('$appSlug.shell $endpoint: $message');
 
 /// Null for anything unexpected: a bug in the layer above reads better as itself than as
 /// a reason line.

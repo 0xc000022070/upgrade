@@ -1,5 +1,6 @@
 import 'package:upgrade/platform/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/ui_tree.dart';
+import 'package:upgrade/brand.dart';
 
 const pluginToolSchemaVersion = 1;
 
@@ -487,7 +488,7 @@ Map<String, Object?> pluginSdkInventory() => {
   'supported': {
     'manifest_formats': {
       '2': 'record actions',
-      '3': 'native, bundled with Upgrade only',
+      '3': 'native, bundled with $appName only',
       '4': 'Luau UI; ui_api required',
       '5': 'Luau with up to 31 extra .luau files; ui_api optional',
     },

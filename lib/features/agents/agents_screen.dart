@@ -20,6 +20,7 @@ import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/agents/agent_shell.dart';
 import 'package:upgrade/features/agents/pip_action.dart';
 import 'package:upgrade/features/agents/sent_screen.dart';
+import 'package:upgrade/brand.dart';
 
 void openAgents(BuildContext context) {
   Navigator.of(
@@ -40,7 +41,7 @@ class AgentsScreen extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'AGENTS',
-          breadcrumb: '/ UPGRADE / AGENTS',
+          breadcrumb: '/ $appNameCaps / AGENTS',
           titleTrailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

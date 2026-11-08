@@ -12,6 +12,7 @@ import 'package:upgrade/platform/vnc/rfb_messages.dart';
 import 'package:upgrade/platform/vnc/vnc_failure.dart';
 import 'package:upgrade/platform/vnc/vnc_server.dart';
 import 'package:upgrade/platform/vnc/vnc_tunnel.dart';
+import 'package:upgrade/brand.dart';
 
 sealed class ScreenPhase {
   const ScreenPhase();
@@ -400,7 +401,8 @@ class HostScreenController extends ChangeNotifier {
     _summaryMaxMicros = 0;
   }
 
-  void _log(Object message) => debugPrint('upgrade.vnc ${host.name}: $message');
+  void _log(Object message) =>
+      debugPrint('$appSlug.vnc ${host.name}: $message');
 
   @override
   void dispose() {

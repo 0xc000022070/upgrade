@@ -7,6 +7,7 @@ import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/settings/plugins_panel.dart';
 import 'package:upgrade/features/plugins/plugin_catalog.dart';
+import 'package:upgrade/brand.dart';
 
 void openPluginManagement(BuildContext context) {
   Navigator.of(context, rootNavigator: true).push(
@@ -24,7 +25,7 @@ class PluginManagementScreen extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'PLUGINS',
-          breadcrumb: '/ UPGRADE / PLUGINS',
+          breadcrumb: '/ $appNameCaps / PLUGINS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PluginCatalogView(
@@ -52,7 +53,7 @@ class PluginBrowseScreen extends StatelessWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'BROWSE',
-          breadcrumb: '/ UPGRADE / PLUGINS / BROWSE',
+          breadcrumb: '/ $appNameCaps / PLUGINS / BROWSE',
           onBack: () => Navigator.of(context).pop(),
           children: const [
             PluginBrowseView(),

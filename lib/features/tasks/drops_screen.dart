@@ -9,6 +9,7 @@ import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/home/home_feedback.dart';
 import 'package:upgrade/features/tasks/drops_panel.dart';
 import 'package:upgrade/features/tasks/selection_bar.dart';
+import 'package:upgrade/brand.dart';
 
 void openDrops(BuildContext context) {
   Navigator.of(
@@ -32,7 +33,7 @@ class DropsScreen extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: 'DROPS',
-          breadcrumb: '/ UPGRADE / DROPS',
+          breadcrumb: '/ $appNameCaps / DROPS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             DropsPanel(

@@ -6,6 +6,7 @@ import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/enums.dart';
 import 'package:upgrade/data/repositories/dispatch_repository.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/brand.dart';
 
 const endedState = 'ended';
 
@@ -45,7 +46,7 @@ final sendStatesProvider = Provider<void>((ref) {
       if (state == null || state == last) continue;
       dispatches
           .seen(send.id, state)
-          .catchError((Object error) => debugPrint('upgrade.sent: $error'));
+          .catchError((Object error) => debugPrint('$appSlug.sent: $error'));
     }
   }
 

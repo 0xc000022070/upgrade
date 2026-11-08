@@ -39,6 +39,7 @@ import 'package:upgrade/features/home/prompt_bar.dart';
 import 'package:upgrade/features/plugins/plugin_card.dart';
 import 'package:upgrade/features/plugins/plugin_page.dart';
 import 'package:upgrade/features/plugins/plugin_reach.dart';
+import 'package:upgrade/brand.dart';
 
 void openPluginSheet(
   BuildContext context, {
@@ -491,9 +492,9 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
       if (_diagnostics) ...[
         _fact('PLUGIN', '${manifest.id} ${manifest.version}'),
         if (package.packageOriginIsBuiltin)
-          _fact('DISTRIBUTION', 'Built-in · updated with Upgrade'),
+          _fact('DISTRIBUTION', 'Built-in · updated with $appName'),
         _fact('MANIFEST', '${manifest.formatVersion}'),
-        _fact('UPGRADE API', '${manifest.api}'),
+        _fact('$appNameCaps API', '${manifest.api}'),
         if (manifest.uiVersion != null)
           _fact('UI API', '${manifest.uiVersion}'),
         if (!manifest.supported) _fact('DISABLED', manifest.incompatibility!),

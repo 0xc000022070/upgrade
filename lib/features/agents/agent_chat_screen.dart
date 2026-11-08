@@ -19,6 +19,7 @@ import 'package:upgrade/features/home/agent_mark.dart';
 import 'package:upgrade/design/components/screen_scaffold.dart';
 import 'package:upgrade/features/agents/agent_session_feed.dart';
 import 'package:upgrade/features/agents/agent_shell.dart';
+import 'package:upgrade/brand.dart';
 
 void openAgentChat(BuildContext context, Host host, AgentSnapshot agent) {
   Navigator.of(context, rootNavigator: true).push(
@@ -105,7 +106,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
       body: StaticSurface(
         child: ScreenScaffold(
           title: agentMarkName(widget.agent.agent),
-          breadcrumb: '/ UPGRADE / AGENTS',
+          breadcrumb: '/ $appNameCaps / AGENTS',
           onBack: () => Navigator.of(context).pop(),
           children: [
             PanelStack(

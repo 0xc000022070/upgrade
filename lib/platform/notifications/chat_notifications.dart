@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'package:upgrade/platform/notifications/alert_notifications.dart';
+import 'package:upgrade/brand.dart';
 
 class ChatNotifications {
   static const channelId = 'chat_messages';
@@ -78,7 +79,7 @@ class ChatNotifications {
     try {
       await call();
     } catch (error) {
-      debugPrint('upgrade.chat notification: $error');
+      debugPrint('$appSlug.chat notification: $error');
     }
   }
 }

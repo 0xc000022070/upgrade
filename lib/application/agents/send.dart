@@ -13,6 +13,7 @@ import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/application/agents/agent_kind.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/providers.dart';
+import 'package:upgrade/brand.dart';
 
 typedef HerdrSend = Future<SpawnResult> Function({
   required String address,
@@ -198,7 +199,7 @@ class Sender {
     String? model,
   }) async {
     final host = target.host;
-    void log(Object error) => debugPrint('upgrade.spawn ${host.name}: $error');
+    void log(Object error) => debugPrint('$appSlug.spawn ${host.name}: $error');
 
     final privateKey = await keys.privateKey(host.keyId);
     checkActive?.call();

@@ -10,6 +10,7 @@ import 'package:upgrade/platform/ssh/host_files.dart';
 import 'package:upgrade/platform/ssh/host_key_dial.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/ssh_settle.dart';
+import 'package:upgrade/brand.dart';
 
 typedef SshLink = ({
   SSHSocket socket,
@@ -871,7 +872,7 @@ Future<SshLink> authenticatedLink(
 }
 
 void _log(String name, String message) =>
-    debugPrint('upgrade.ssh $name: $message');
+    debugPrint('$appSlug.ssh $name: $message');
 
 SSHClient _client(
   SSHSocket socket,

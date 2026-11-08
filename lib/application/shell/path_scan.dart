@@ -11,6 +11,7 @@ import 'package:upgrade/application/agents/agent_kind.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/platform/workspace/workspace_model.dart';
+import 'package:upgrade/brand.dart';
 
 typedef HerdrPaths = Future<List<String>> Function({
   required String address,
@@ -115,7 +116,7 @@ class PathScanner {
       );
       return parseSurvey(output);
     } on HerdrFailure catch (error) {
-      debugPrint('upgrade.survey ${host.name}: ${error.detail ?? error}');
+      debugPrint('$appSlug.survey ${host.name}: ${error.detail ?? error}');
       return const [];
     }
   }
@@ -135,7 +136,7 @@ class PathScanner {
       checkActive?.call();
       return PathScanFound(result);
     } on HerdrFailure catch (error) {
-      debugPrint('upgrade.paths ${host.name}: ${error.detail ?? error}');
+      debugPrint('$appSlug.paths ${host.name}: ${error.detail ?? error}');
       return PathScanFailed(error.reason(host.name, address: host.address));
     }
   }

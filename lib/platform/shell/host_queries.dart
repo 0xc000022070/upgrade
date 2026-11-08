@@ -9,6 +9,7 @@ import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 import 'package:upgrade/platform/workspace/workspace_commands.dart';
+import 'package:upgrade/brand.dart';
 
 const agentProbeDeadline = Duration(seconds: 3);
 
@@ -126,5 +127,5 @@ class HostQueries {
   }
 
   void _log(String what, Object error) =>
-      debugPrint('upgrade.shell $host: $what: $error');
+      debugPrint('$appSlug.shell $host: $what: $error');
 }

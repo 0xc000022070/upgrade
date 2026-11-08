@@ -48,6 +48,7 @@ import 'package:upgrade/features/hosts/host_mark.dart';
 import 'package:upgrade/features/hosts/link_probes.dart';
 import 'package:upgrade/features/hosts/phone_linux_picker.dart';
 import 'package:upgrade/features/hosts/preview_tile.dart';
+import 'package:upgrade/brand.dart';
 
 class HostsScreen extends ConsumerStatefulWidget {
   const HostsScreen({super.key});
@@ -296,7 +297,7 @@ class _HostDetail extends ConsumerWidget {
       body: StaticSurface(
         child: ScreenScaffold(
           title: host?.name.toUpperCase() ?? 'HOST',
-          breadcrumb: '/ UPGRADE / MACHINES',
+          breadcrumb: '/ $appNameCaps / MACHINES',
           onBack: () => Navigator.of(context).pop(),
           children: [
             if (host != null)
@@ -526,7 +527,7 @@ class _HookRowsState extends ConsumerState<_HookRows> {
         });
       }
     } catch (error) {
-      debugPrint('upgrade.engine ${widget.host.name} hooks: $error');
+      debugPrint('$appSlug.engine ${widget.host.name} hooks: $error');
       if (mounted) setState(() => _failure = _failureLine(error));
     }
   }
@@ -538,7 +539,7 @@ class _HookRowsState extends ConsumerState<_HookRows> {
       await _withEngine((engine) => engine.install(status.agent));
       await _load();
     } catch (error) {
-      debugPrint('upgrade.engine ${widget.host.name} install: $error');
+      debugPrint('$appSlug.engine ${widget.host.name} install: $error');
       if (mounted) setState(() => _failure = _failureLine(error));
     } finally {
       if (mounted) setState(() => _installing = null);
@@ -853,7 +854,7 @@ class _LinkRowState extends ConsumerState<_LinkRow> {
         verified = verifier.refusal == null;
       }
     } catch (error) {
-      debugPrint('upgrade.verify ${host.name}: $error');
+      debugPrint('$appSlug.verify ${host.name}: $error');
       failure = _failureWord(error);
     }
     if (!mounted) return;
@@ -1036,7 +1037,7 @@ class _AddMachinePanelState extends ConsumerState<_AddMachinePanel> {
     try {
       await linux.install(setup);
     } catch (error) {
-      debugPrint('upgrade.linux install: $error');
+      debugPrint('$appSlug.linux install: $error');
       if (mounted) setState(() => _failed = true);
     } finally {
       if (mounted) setState(() => _starting = false);
@@ -1246,7 +1247,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
     try {
       await linux.addTools(widget.host, tools);
     } catch (error) {
-      debugPrint('upgrade.linux tools: $error');
+      debugPrint('$appSlug.linux tools: $error');
       if (mounted) setState(() => _toolsFailure = 'install failed');
     }
   }
@@ -1289,7 +1290,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
           await linux.install(setup, into: widget.host);
       }
     } catch (error) {
-      debugPrint('upgrade.linux $action: $error');
+      debugPrint('$appSlug.linux $action: $error');
       if (mounted) setState(() => _failure = '${action.toLowerCase()} failed');
     } finally {
       if (mounted) setState(() => _busy = null);
@@ -1324,7 +1325,7 @@ class _PhoneLinuxRowState extends ConsumerState<_PhoneLinuxRow> {
       await linux.remove(host);
       await deletePreview(previews, host.id);
     } catch (error) {
-      debugPrint('upgrade.linux remove: $error');
+      debugPrint('$appSlug.linux remove: $error');
       if (mounted) setState(() => _failure = 'remove failed');
     } finally {
       if (mounted) setState(() => _busy = null);

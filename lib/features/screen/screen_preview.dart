@@ -13,6 +13,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:upgrade/platform/vnc/framebuffer.dart';
 import 'package:upgrade/platform/vnc/rfb_messages.dart';
 import 'package:upgrade/features/screen/screen_transform.dart';
+import 'package:upgrade/brand.dart';
 
 /// Small enough that a blur of sigma 2 over it destroys the text and leaves the layout,
 /// and that one file per host stays a few tens of kilobytes.
@@ -286,7 +287,7 @@ Future<void> deletePreview(
   try {
     await (await previews).delete(hostId);
   } catch (error) {
-    debugPrint('upgrade.vnc $hostId: preview not removed: $error');
+    debugPrint('$appSlug.vnc $hostId: preview not removed: $error');
   }
 }
 

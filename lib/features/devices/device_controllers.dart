@@ -9,6 +9,7 @@ import 'package:upgrade/platform/devices/device_link.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/features/devices/device_dock.dart';
+import 'package:upgrade/brand.dart';
 
 sealed class DevicesPhase {
   const DevicesPhase();
@@ -250,7 +251,7 @@ class DevicesController extends ChangeNotifier {
   String reasonFor(Object error) => _reason(error);
 
   String _reason(Object error) {
-    debugPrint('upgrade.devices ${host.name}: $error');
+    debugPrint('$appSlug.devices ${host.name}: $error');
     return asHerdrFailure(error)?.reason(host.name, address: host.address) ??
         ReasonLine.streamClosed.words;
   }
@@ -342,7 +343,7 @@ class DevicesController extends ChangeNotifier {
 
   void _fail(Object error) {
     final failure = asHerdrFailure(error);
-    debugPrint('upgrade.devices ${host.name}: ${failure?.detail ?? error}');
+    debugPrint('$appSlug.devices ${host.name}: ${failure?.detail ?? error}');
     _phase = DevicesFailed(
       failure?.reason(host.name, address: host.address) ??
           ReasonLine.streamClosed.words,
@@ -558,7 +559,7 @@ class DeviceScreenController extends ChangeNotifier {
       codec.dispose();
     } catch (error) {
       debugPrint(
-        'upgrade.devices $hostName ${device.id}: decode failed: $error',
+        '$appSlug.devices $hostName ${device.id}: decode failed: $error',
       );
       return;
     }
@@ -605,7 +606,7 @@ class DeviceScreenController extends ChangeNotifier {
     if (!device.pressable || _phase is! DeviceLive) return;
     unawaited(
       _link.run(command).catchError((Object error) {
-        debugPrint('upgrade.devices $hostName ${device.id}: input: $error');
+        debugPrint('$appSlug.devices $hostName ${device.id}: input: $error');
       }),
     );
   }
@@ -616,7 +617,7 @@ class DeviceScreenController extends ChangeNotifier {
     if (run != _run) return;
     _frames = null;
     if (_disposed) return;
-    debugPrint('upgrade.devices $hostName ${device.id}: $error');
+    debugPrint('$appSlug.devices $hostName ${device.id}: $error');
     final failure = asHerdrFailure(error);
     _lost = failure is HerdrUnreachable;
     if (_lost && _returned && reopen != null) {

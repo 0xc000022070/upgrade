@@ -100,6 +100,7 @@ import 'package:upgrade/platform/ssh/host_files.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/ssh/ssh_settle.dart';
+import 'package:upgrade/brand.dart';
 
 part 'exec.dart';
 part 'reasons.dart';
@@ -412,7 +413,7 @@ final class ConnectionSupervisor implements HostChannels {
         _use,
       );
     } catch (error) {
-      debugPrint('upgrade.shell $endpoint: redial: $error');
+      debugPrint('$appSlug.shell $endpoint: redial: $error');
       rethrow;
     }
     final cause = switch (reason) {
@@ -446,7 +447,7 @@ final class ConnectionSupervisor implements HostChannels {
   }
 
   void _log(String message) => debugPrint(
-    'upgrade.shell $endpoint supervisor ${identityHashCode(this)}: '
+    '$appSlug.shell $endpoint supervisor ${identityHashCode(this)}: '
     '$message',
   );
 }

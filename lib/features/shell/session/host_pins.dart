@@ -77,7 +77,9 @@ class HostPins {
         channels = await connection.channelsFor(UserAction(intent));
       } catch (error) {
         if (!isHostFailure(error) && !isKeyFailure(error)) rethrow;
-        debugPrint('upgrade.shell ${session.host.name}: pinentry dial: $error');
+        debugPrint(
+          '$appSlug.shell ${session.host.name}: pinentry dial: $error',
+        );
         return unsent();
       }
       if (channels == null) return unsent();

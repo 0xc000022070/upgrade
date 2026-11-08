@@ -12,6 +12,7 @@ import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/workspace/workspace_client.dart';
 import 'package:upgrade/platform/workspace/workspace_commands.dart';
 import 'package:upgrade/platform/workspace/workspace_model.dart';
+import 'package:upgrade/brand.dart';
 
 enum WorkspacePhase { connecting, ready, failed }
 
@@ -120,7 +121,7 @@ class WorkspaceController extends ChangeNotifier {
       _runner = runner;
       await _load(attempt);
     } on HerdrFailure catch (error) {
-      debugPrint('upgrade.workspace ${host.name}: ${error.detail ?? error}');
+      debugPrint('$appSlug.workspace ${host.name}: ${error.detail ?? error}');
       if (_disposed || attempt != _attempt) return;
       _fail(error.reason(host.name, address: host.address));
     }
@@ -310,7 +311,7 @@ class WorkspaceController extends ChangeNotifier {
     try {
       return await runner.run(command);
     } on HerdrFailure catch (error) {
-      debugPrint('upgrade.workspace ${host.name}: ${error.detail ?? error}');
+      debugPrint('$appSlug.workspace ${host.name}: ${error.detail ?? error}');
       if (_disposed || quiet || !identical(_runner, runner)) return null;
       if (error is! HerdrBusy) {
         _runner = null;
