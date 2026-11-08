@@ -5,6 +5,7 @@ import 'package:upgrade/design/components/panel.dart';
 import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
+import 'package:upgrade/platform/device.dart';
 
 /// Small on purpose: the framework's own touch slop is the gate on whether this was a
 /// deliberate horizontal pull at all, and only what comes after it is counted here. The
@@ -80,8 +81,42 @@ class _ScreenRailState extends State<ScreenRail> {
     }
   }
 
+  final _handleKey = GlobalKey();
+  final _panelKey = GlobalKey();
+
+  /// Read from the alignment rather than the painted box, so a slide in flight already
+  /// reports where it lands.
+  void _exclude(bool current) {
+    if (!mounted) return;
+    final parent = context.findRenderObject() as RenderBox?;
+    final child =
+        (widget.hidden ? _handleKey : _panelKey).currentContext
+                ?.findRenderObject()
+            as RenderBox?;
+    final shown =
+        current &&
+        parent != null &&
+        parent.hasSize &&
+        child != null &&
+        child.hasSize;
+    Device.excludeGestures(this, [
+      if (shown)
+        Alignment(-1, _along)
+            .inscribe(child.size, Offset.zero & parent.size)
+            .shift(parent.localToGlobal(Offset.zero)),
+    ], MediaQuery.devicePixelRatioOf(context));
+  }
+
+  @override
+  void dispose() {
+    Device.excludeGestures(this, const [], 1);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final current = ModalRoute.of(context)?.isCurrent ?? true;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _exclude(current));
     return LayoutBuilder(
       builder: (context, constraints) => Align(
         alignment: Alignment(-1, _along),
@@ -122,6 +157,7 @@ class _ScreenRailState extends State<ScreenRail> {
         button: true,
         onTap: widget.onShow,
         child: SizedBox(
+          key: _handleKey,
           width: _footprintWidth,
           height: TapTargets.minHeight,
           child: Align(
@@ -156,6 +192,7 @@ class _ScreenRailState extends State<ScreenRail> {
       onHorizontalDragUpdate: (details) => _dragged += details.delta.dx,
       onHorizontalDragEnd: (_) => _onDragEnd(false),
       child: Padding(
+        key: _panelKey,
         padding: const EdgeInsets.only(left: Spacing.md),
         // [Panel] stretches its body to the width it is offered, so an unbounded one here is a
         // full-width bar with the toggles centred in it.

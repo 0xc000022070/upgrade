@@ -15,6 +15,7 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -180,6 +181,14 @@ class MainActivity : FlutterActivity() {
                             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                         } else {
                             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        }
+                        result.success(null)
+                    }
+                    "gestureExclusion" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            val edges = (call.arguments as? List<*>)?.map { (it as Number).toInt() } ?: emptyList()
+                            window.decorView.systemGestureExclusionRects =
+                                edges.chunked(4).filter { it.size == 4 }.map { Rect(it[0], it[1], it[2], it[3]) }
                         }
                         result.success(null)
                     }

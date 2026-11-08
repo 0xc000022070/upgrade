@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart' hide ColorScheme;
 import 'package:material_ui/material_ui.dart' show ColorScheme;
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/platform/ssh/host_failure.dart';
@@ -28,6 +28,7 @@ import 'package:upgrade/features/devices/device_float.dart';
 import 'package:upgrade/features/devices/screens_action.dart';
 import 'package:upgrade/features/screen/screen_controller.dart';
 import 'package:upgrade/features/screen/screen_preview.dart';
+import 'package:upgrade/platform/channels.dart';
 import 'package:upgrade/platform/devices/device_link.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
@@ -2516,6 +2517,53 @@ void main() {
       expect(find.byKey(_floatKey), findsOneWidget);
       expect(link.frameStreams.last.hasListener, isTrue);
     });
+
+    testWidgets(
+      'the tab and the resting bubble are kept from the back gesture',
+      (tester) async {
+        await _pump(tester, _opener(FakeDeviceLink(const [_pixel])));
+        final excluded = <List<int>>[];
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(
+          const MethodChannel(Channels.device),
+          (call) async {
+            if (call.method == 'gestureExclusion') {
+              excluded.add((call.arguments as List).cast<int>());
+            }
+            return null;
+          },
+        );
+        addTearDown(
+          () => messenger.setMockMethodCallHandler(
+            const MethodChannel(Channels.device),
+            null,
+          ),
+        );
+        final ratio = tester.view.devicePixelRatio;
+        List<int> physical(Finder finder) {
+          final rect = tester.getRect(finder);
+          return [
+            (rect.left * ratio).floor(),
+            (rect.top * ratio).floor(),
+            (rect.right * ratio).ceil(),
+            (rect.bottom * ratio).ceil(),
+          ];
+        }
+
+        await tuck(tester);
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(excluded.last, physical(find.byKey(handle)));
+
+        await _tapKey(tester, handle);
+        expect(find.byKey(_barKey), findsOneWidget);
+        expect(excluded.last, isEmpty);
+
+        await _tapKey(tester, const ValueKey('device-list-outside'));
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(excluded.last, physical(find.byKey(_bubbleKey)));
+      },
+    );
 
     testWidgets('keeps the side a bubble was let go past', (tester) async {
       await _pump(tester, _opener(FakeDeviceLink(const [_pixel])));

@@ -21,6 +21,7 @@ import 'package:upgrade/design/icons/upgrade_icon.dart';
 import 'package:upgrade/design/icons/upgrade_icons.dart';
 import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/design/tokens.dart';
+import 'package:upgrade/platform/device.dart';
 import 'package:upgrade/platform/devices/device_link.dart';
 import 'package:upgrade/features/browser/browser_controller.dart';
 import 'package:upgrade/features/browser/browser_screen.dart';
@@ -165,7 +166,15 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     rootRoutes.edge.removeListener(_onRoute);
     rootRoutes.sheet.removeListener(_onRoute);
     _dock.removeListener(_onAsk);
+    Device.excludeGestures(this, const [], 1);
     super.dispose();
+  }
+
+  void _exclude(BuildContext context, Rect? rect) {
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+    SchedulerBinding.instance.addPostFrameCallback(
+      (_) => Device.excludeGestures(this, [?rect], ratio),
+    );
   }
 
   /// The navigator reports a push from inside its own build.
@@ -301,7 +310,12 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
     return ListenableBuilder(
       listenable: _dock,
       builder: (context, _) {
-        if (_sheet || holds == BubbleHolds.off) return const SizedBox.shrink();
+        final media = MediaQuery.of(context);
+        final top = _clampTop(media, deviceBubbleSize);
+        if (_sheet || holds == BubbleHolds.off) {
+          _exclude(context, null);
+          return const SizedBox.shrink();
+        }
         if (!_dock.floating) {
           _menu = false;
           final reachable =
@@ -309,10 +323,33 @@ class _FloatLayerState extends ConsumerState<_FloatLayer> {
               _dock.holdingScreens ||
               (hosts?.isNotEmpty ?? false);
           if (_dock.expanded != null || !_edge || !reachable) {
+            _exclude(context, null);
             return const SizedBox.shrink();
           }
+          _exclude(
+            context,
+            Rect.fromLTWH(
+              _right ? media.size.width - _handleReach : 0,
+              top,
+              _handleReach,
+              deviceBubbleSize,
+            ),
+          );
           return _placeHandle(context, holds);
         }
+        _exclude(
+          context,
+          _menu || _dragAt != null
+              ? null
+              : Rect.fromLTWH(
+                  _right
+                      ? media.size.width - Spacing.screenEdge - deviceBubbleSize
+                      : Spacing.screenEdge,
+                  top,
+                  deviceBubbleSize,
+                  deviceBubbleSize,
+                ),
+        );
         final session = _dock.session;
         final desktop = _dock.desktop;
         final browser = _dock.browser;

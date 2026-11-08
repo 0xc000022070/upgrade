@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:upgrade/platform/channels.dart';
 
@@ -47,6 +48,25 @@ abstract final class Device {
     if (before == owners.isNotEmpty) return;
     _channel
         .invokeMethod<void>(method, owners.isNotEmpty)
+        .then((_) {}, onError: (Object _) {});
+  }
+
+  static final _excluded = <Object, List<Rect>>{};
+
+  /// Android keeps one list per window, so every owner's rects go in each call. It
+  /// honours at most 200dp of each edge, and nothing before API 29.
+  static void excludeGestures(Object owner, List<Rect> rects, double ratio) {
+    if (listEquals(_excluded[owner] ?? const [], rects)) return;
+    rects.isEmpty ? _excluded.remove(owner) : _excluded[owner] = rects;
+    _channel
+        .invokeMethod<void>('gestureExclusion', [
+          for (final rect in _excluded.values.expand((rects) => rects)) ...[
+            (rect.left * ratio).floor(),
+            (rect.top * ratio).floor(),
+            (rect.right * ratio).ceil(),
+            (rect.bottom * ratio).ceil(),
+          ],
+        ])
         .then((_) {}, onError: (Object _) {});
   }
 

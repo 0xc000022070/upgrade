@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/platform/ssh/host_failure.dart';
@@ -12,6 +12,7 @@ import 'package:upgrade/design/spacing.dart';
 import 'package:upgrade/features/screen/framebuffer_view.dart';
 import 'package:upgrade/features/screen/host_screen.dart';
 import 'package:upgrade/features/screen/screen_rail.dart';
+import 'package:upgrade/platform/channels.dart';
 import 'package:upgrade/platform/ssh/keys.dart';
 import 'package:upgrade/platform/vnc/keysyms.dart';
 import 'package:upgrade/platform/vnc/rfb_messages.dart';
@@ -297,6 +298,49 @@ void main() {
     expect(after, hasLength(10));
     expect(after.first, Rfb.messageFramebufferUpdateRequest);
   });
+
+  testWidgets(
+    'the rail takes its own patch of the edge from the back gesture',
+    (tester) async {
+      final excluded = <List<int>>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(const MethodChannel(Channels.device), (
+            call,
+          ) async {
+            if (call.method == 'gestureExclusion') {
+              excluded.add((call.arguments as List).cast<int>());
+            }
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              const MethodChannel(Channels.device),
+              null,
+            ),
+      );
+      final ratio = tester.view.devicePixelRatio;
+      List<int> physical(Rect rect) => [
+        (rect.left * ratio).floor(),
+        (rect.top * ratio).floor(),
+        (rect.right * ratio).ceil(),
+        (rect.bottom * ratio).ceil(),
+      ];
+
+      await pumpRoute(tester, open: _liveOpen((_) {}));
+      await tester.pumpAndSettle();
+      final panel = find.byKey(const ValueKey('rail-panel'));
+      expect(excluded.last, physical(tester.getRect(panel)));
+
+      await tester.drag(panel, const Offset(-26, 0));
+      await tester.pumpAndSettle();
+      final handle = tester.getRect(find.byKey(const ValueKey('rail-handle')));
+      expect(excluded.last, physical(handle));
+
+      await tester.pumpWidget(const SizedBox());
+      expect(excluded.last, isEmpty);
+    },
+  );
 
   testWidgets('a left drag hides the rail and the handle brings it back', (
     tester,

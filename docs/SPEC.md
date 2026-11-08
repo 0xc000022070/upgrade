@@ -1733,6 +1733,8 @@ The reason lines are `unreachable`, `unresolved`, `key rejected`, `tunnel refuse
 
 **The rail hides on a drag to the left over it.** It slides off the edge and leaves an 8×44 handle at its vertical centre, `--fg-dim` fill with a 1dp keyline so it separates from a light picture behind it. The hidden rail keeps the footprint the shown rail had as its hit region, transparent except for the handle: a drag to the right starting anywhere in it brings it back. That region reaches past the system's own back-gesture edge zone, which would otherwise swallow a drag starting on the handle itself. Drags starting inside that patch belong to the rail; a tap or a long press there is the host's, so whatever the host draws under the handle stays clickable. A vertical drag in the patch moves the handle along the edge, and the rail comes back at that height. It is shown on every route entry, the hidden state and the height live with the route and are not persisted, and there is no timed auto-hide.
 
+**The rail takes its patch of the edge from the system back gesture.** Shown, the panel's footprint; hidden, the handle's. While the route is in front, a drag starting there belongs to the rail and the host, never to back; the rest of the edge still goes back. The patch follows the rail along the edge and is given back when the route is covered or left.
+
 ### The key strip is the shell's key bar, one row of 36
 
 It is the shell's bar, cell for cell: one row of 36, cells sized to their label plus 10 px each side and never narrower than 36, the row scrolling when it is wider than the phone and fading at whichever end has cells behind it. `SUPER`, `CTRL`, `ALT`, `SHIFT`, then `ESC`, `TAB`, `←`, `↑`, `↓`, `→` and `END`. Nothing is pinned: the strip's own toggles are not repeated in it, the rail carries them. It sits above the keyboard when the keyboard is up and at the bottom edge when it is not.
@@ -1826,6 +1828,8 @@ On Android a tap is `input tap`, a long press is a swipe that does not move for 
 **Struck:** `END` in the list's footer. It repeated the drop on the target, sat beside the harmless minimize dash, ended every stream and connection in one tap, and read as the key bar's `END` key.
 
 **The bubble tucks into the edge.** Dropped more than half past a side edge, the bubble leaves for the handle, folding every window and keeping every stream held and paused, so the handle stays in accent. A tap on the handle brings the bubble back with the list open, a held row in accent, one tap from its window.
+
+**The edge tab and the resting bubble take their patch of the edge from the system back gesture**, the way the screen's rail does: a drag starting on either is theirs, never back. A bubble being dragged or opened into the list takes none, and neither does a tab that is not showing.
 
 **The loop runs only while someone can see it.** `PAUSE` on the crumb or the window's controls cancels the exec, so the host stops capturing, not only stops sending; the last frame stays, dimmed, under `RESUME`, and the route takes no input. The app going to the background, or into the agents window or the other screen's, pauses it the same way and brings it back on return, unless the user had paused it first. Back from the background, a window or list whose connection died dials once again by itself; a second failure shows its reason, and `RETRY`, or for the list a tap on the host's label, dials anew. A tab that moves the stream to another device ends the one before it.
 
