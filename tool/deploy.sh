@@ -6,8 +6,10 @@ usage() {
 deploy.sh <command> [args]
 
 A release build of HEAD on the handsets in reach. The build number is the
-commit count at HEAD, so every commit is a release and every handset that
-holds a commit holds it under the same number. HEAD is exported on its own
+commit count at HEAD plus 10, so every commit is a release and every handset
+that holds a commit holds it under the same number. The 10 lifts it past
+builds installed before a squash shrank the count; a downgrade would mean an
+uninstall. HEAD is exported on its own
 under build/deploy/tree, so nothing another session left in the working tree
 can ride along; the export keeps .dart_tool and build/ between runs for the
 caches. The apk must be signed by the debug keystore Gradle signs with, found
@@ -91,7 +93,7 @@ stamp() {
   local rev=$1 name code sha
   name=$(git -C "$ROOT" show "$rev:pubspec.yaml" | sed -n 's/^version:[[:space:]]*\([^+[:space:]]\{1,\}\).*$/\1/p')
   [[ -n $name ]] || die "pubspec.yaml at $rev has no 'version:' line"
-  code=$(git -C "$ROOT" rev-list --count "$rev")
+  code=$(($(git -C "$ROOT" rev-list --count "$rev") + 10))
   sha=$(git -C "$ROOT" rev-parse --short "$rev")
   echo "$name $code $sha"
 }
