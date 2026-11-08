@@ -57,13 +57,16 @@ pub fn dispatch(op: &str, args: &Value, state_root: &Path, policy: &Policy) -> E
     }
 }
 
-fn tab(args: &Value) -> EngineResult<&str> {
-    let tab = arg_str(args, "tab")?;
-    let valid = !tab.is_empty()
+fn valid_tab(tab: &str) -> bool {
+    !tab.is_empty()
         && tab.len() <= 64
         && tab.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
-        && !tab.starts_with('-');
-    if valid {
+        && !tab.starts_with('-')
+}
+
+fn tab(args: &Value) -> EngineResult<&str> {
+    let tab = arg_str(args, "tab")?;
+    if valid_tab(tab) {
         Ok(tab)
     } else {
         Err(EngineError::bad_request(

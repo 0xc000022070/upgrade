@@ -118,6 +118,17 @@ pub fn launch(dir: &Path, spec: &Spec, ports: RangeInclusive<u16>) -> io::Result
     fs::write(dir.join("spec.json"), serde_json::to_vec(spec)?)?;
     let key: [u8; KEY_LEN] = random_bytes()?;
     write_private(&dir.join("key"), &key)?;
+    let (port, pid) = spawn_ready(dir, ports, "__shell")?;
+    Ok(Started { port, key, pid })
+}
+
+/// Binds a UDP port in `ports`, hands it to `upgraded <mode> <dir>` in a session of
+/// its own, and waits until that process says it is ready.
+pub(crate) fn spawn_ready(
+    dir: &Path,
+    ports: RangeInclusive<u16>,
+    mode: &str,
+) -> io::Result<(u16, i32)> {
     let socket = bind(ports)?;
     let port = socket.local_addr()?.port();
     let (mut ready_read, ready_write) = pipe()?;
@@ -126,16 +137,12 @@ pub fn launch(dir: &Path, spec: &Spec, ports: RangeInclusive<u16>) -> io::Result
     drop(ready_write);
     drop(socket);
 
-    let child = spawn_server(dir, socket_fd.as_raw_fd(), ready_fd.as_raw_fd())?;
+    let child = spawn_server(dir, mode, socket_fd.as_raw_fd(), ready_fd.as_raw_fd())?;
     drop(socket_fd);
     drop(ready_fd);
 
     match read_readiness(&mut ready_read) {
-        Ok(Readiness { ok: true, .. }) => Ok(Started {
-            port,
-            key,
-            pid: child.id() as i32,
-        }),
+        Ok(Readiness { ok: true, .. }) => Ok((port, child.id() as i32)),
         Ok(Readiness { error, .. }) => Err(io::Error::other(
             error.unwrap_or_else(|| "the server did not start".into()),
         )),
@@ -146,7 +153,35 @@ pub fn launch(dir: &Path, spec: &Spec, ports: RangeInclusive<u16>) -> io::Result
     }
 }
 
-fn spawn_server(dir: &Path, raw_socket: RawFd, raw_ready: RawFd) -> io::Result<Child> {
+/// The socket and readiness pipe `spawn_ready` left on fds 3 and 4.
+pub(crate) fn inherited() -> (File, UdpSocket) {
+    let _ = set_cloexec(SOCKET_FD, true);
+    let _ = set_cloexec(READY_FD, true);
+    // SAFETY: spawn_server dup2'd the socket and the pipe's write end onto fds 3 and
+    // 4 before exec, and only this call, once per process, takes ownership of them.
+    unsafe {
+        (
+            File::from_raw_fd(READY_FD),
+            UdpSocket::from_raw_fd(SOCKET_FD),
+        )
+    }
+}
+
+pub(crate) fn say_ready(ready: &mut File, outcome: Result<(), String>) {
+    let answer = match outcome {
+        Ok(()) => Readiness {
+            ok: true,
+            error: None,
+        },
+        Err(error) => Readiness {
+            ok: false,
+            error: Some(error),
+        },
+    };
+    let _ = ready.write_all(&serde_json::to_vec(&answer).unwrap_or_default());
+}
+
+fn spawn_server(dir: &Path, mode: &str, raw_socket: RawFd, raw_ready: RawFd) -> io::Result<Child> {
     let executable = std::env::current_exe()?;
     let log = OpenOptions::new()
         .append(true)
@@ -155,7 +190,7 @@ fn spawn_server(dir: &Path, raw_socket: RawFd, raw_ready: RawFd) -> io::Result<C
         .open(dir.join("log"))?;
     let mut command = Command::new(executable);
     command
-        .arg("__shell")
+        .arg(mode)
         .arg(dir)
         .current_dir("/")
         .stdin(Stdio::null())
@@ -223,28 +258,15 @@ pub fn rekey(dir: &Path, record: &Record) -> io::Result<Option<[u8; KEY_LEN]>> {
 }
 
 pub fn serve(dir: &Path) -> i32 {
-    let _ = set_cloexec(SOCKET_FD, true);
-    let _ = set_cloexec(READY_FD, true);
-    let mut ready = unsafe { File::from_raw_fd(READY_FD) };
-    let socket = unsafe { UdpSocket::from_raw_fd(SOCKET_FD) };
+    let (mut ready, socket) = inherited();
     let (server, signals, held) = match prepare(dir, socket) {
         Ok(prepared) => prepared,
         Err(err) => {
-            let answer = Readiness {
-                ok: false,
-                error: Some(err.to_string()),
-            };
-            let _ = ready.write_all(&serde_json::to_vec(&answer).unwrap_or_default());
+            say_ready(&mut ready, Err(err.to_string()));
             return 1;
         }
     };
-    let _ = ready.write_all(
-        &serde_json::to_vec(&Readiness {
-            ok: true,
-            error: None,
-        })
-        .unwrap_or_default(),
-    );
+    say_ready(&mut ready, Ok(()));
     drop(ready);
     let ending = server.run(signals);
     crate::util::warn(format!("shell server ended: {ending:?}"));

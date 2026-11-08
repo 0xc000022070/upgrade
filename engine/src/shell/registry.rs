@@ -58,7 +58,11 @@ fn open_private(path: &Path) -> io::Result<File> {
 }
 
 pub fn start_lock(state_root: &Path, tab: &str) -> io::Result<File> {
-    let file = open_private(&root(state_root).join(format!("{tab}.lock")))?;
+    lock_at(&root(state_root).join(format!("{tab}.lock")))
+}
+
+pub fn lock_at(path: &Path) -> io::Result<File> {
+    let file = open_private(path)?;
     lock(&file)?;
     Ok(file)
 }
