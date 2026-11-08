@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:upgrade/platform/channels.dart';
 
 enum SpeechStart { listening, granted, denied, unavailable }
 
@@ -56,7 +57,7 @@ final class SpeechCut extends SpeechEvent {
 }
 
 abstract final class Speech {
-  static const _channel = MethodChannel('dev.luisnquin.upgrade/speech');
+  static const _channel = MethodChannel(Channels.speech);
 
   static final _events = StreamController<SpeechEvent>.broadcast(
     onListen: () => _channel.setMethodCallHandler(_onCall),

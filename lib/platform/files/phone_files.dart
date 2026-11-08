@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
+import 'package:upgrade/platform/channels.dart';
 
 abstract interface class TransferStatus {
   void moving(String title, String text, int percent);
@@ -59,7 +60,7 @@ List<SharedItem> parseSharedItems(Object? raw) => [
 
 class PhoneFiles implements TransferStatus {
   PhoneFiles({MethodChannel? channel})
-    : _channel = channel ?? const MethodChannel('dev.luisnquin.upgrade/files') {
+    : _channel = channel ?? const MethodChannel(Channels.files) {
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
         case 'shared':

@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:upgrade/platform/channels.dart';
 
 abstract interface class ChatLink {
   Future<Object?> call(Map<String, Object?> request);
@@ -52,7 +53,7 @@ class NativeChatLink implements ChatLink {
     if (!Platform.isAndroid) {
       throw const ChatException('Chat runs on Android only');
     }
-    final dir = await const MethodChannel('dev.luisnquin.upgrade/device')
+    final dir = await const MethodChannel(Channels.device)
         .invokeMethod<String>('chat');
     final library = DynamicLibrary.open('libupgrade_chat.so');
     final link = NativeChatLink._(

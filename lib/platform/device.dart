@@ -1,14 +1,11 @@
 import 'package:flutter/services.dart';
+import 'package:upgrade/platform/channels.dart';
 
 /// All fail soft: on desktop and in tests the channels are simply absent.
 abstract final class Device {
-  static const _channel = MethodChannel('dev.luisnquin.upgrade/device');
-  static const _throttleEvents = EventChannel(
-    'dev.luisnquin.upgrade/device/throttle',
-  );
-  static const _networkEvents = EventChannel(
-    'dev.luisnquin.upgrade/device/network',
-  );
+  static const _channel = MethodChannel(Channels.device);
+  static const _throttleEvents = EventChannel(Channels.deviceThrottle);
+  static const _networkEvents = EventChannel(Channels.deviceNetwork);
 
   /// Emits the current value immediately on subscribe, then again on every change: both
   /// signals can arrive with the app in front, and the static has to stop at that moment

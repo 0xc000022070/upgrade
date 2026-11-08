@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:upgrade/platform/channels.dart';
 
 enum LauncherOpen {
   home,
@@ -92,7 +93,7 @@ List<OpenSend> parseOpenSends(Object? raw) => [
 typedef LauncherLive = ({String state, String? line, bool dim});
 
 abstract final class LauncherWidget {
-  static const _channel = MethodChannel('dev.luisnquin.upgrade/launcher');
+  static const _channel = MethodChannel(Channels.launcher);
 
   static Future<void> setTally(LauncherTally? tally) =>
       _quiet('tally', {'blocked': ?tally?.blocked, 'working': ?tally?.working});
