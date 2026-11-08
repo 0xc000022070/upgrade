@@ -21,6 +21,7 @@ class FramebufferView extends StatefulWidget {
     required this.onDrag,
     required this.onWheel,
     this.cropping = false,
+    this.scrolling = false,
     this.onCrop,
   });
 
@@ -29,6 +30,9 @@ class FramebufferView extends StatefulWidget {
   final Size framebufferSize;
 
   final bool cropping;
+
+  /// One finger turns the wheel instead of doing nothing; a tap still clicks.
+  final bool scrolling;
 
   final void Function(CropRect rect, CropTarget target)? onCrop;
 
@@ -66,7 +70,6 @@ class _FramebufferViewState extends State<FramebufferView> {
 
   static const _wheelStep = 40.0;
   double _wheelTravel = 0.0;
-  Offset _wheelAt = Offset.zero;
 
   Offset? _cropStart;
   Offset? _cropEnd;
@@ -148,7 +151,13 @@ class _FramebufferViewState extends State<FramebufferView> {
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
     // One finger is a tap, a long press or a long-press drag — never a pan.
-    if (details.pointerCount < 2) return;
+    if (details.pointerCount < 2) {
+      if (widget.scrolling) {
+        _wheelTravel += details.focalPointDelta.dy;
+        _wheel(details.localFocalPoint);
+      }
+      return;
+    }
     // Accumulated before the gesture is decided, so the travel the deadband spent is still
     // counted once it is.
     _wheelTravel += details.focalPointDelta.dy;
@@ -182,16 +191,20 @@ class _FramebufferViewState extends State<FramebufferView> {
       next = next.pannedBy(details.focalPointDelta);
       _wheelTravel = 0.0;
     } else {
-      // At fit, where nothing pans, the drag is a wheel. Dragging the content down is scrolling
-      // up, which is button 4.
-      _wheelAt = next.toFramebuffer(details.localFocalPoint);
-      while (_wheelTravel.abs() >= _wheelStep) {
-        final up = _wheelTravel > 0;
-        widget.onWheel(_wheelAt, up: up);
-        _wheelTravel -= up ? _wheelStep : -_wheelStep;
-      }
+      // At fit, where nothing pans, the drag is a wheel.
+      _wheel(details.localFocalPoint);
     }
     if (next != _transform) setState(() => _transform = next);
+  }
+
+  /// Dragging the content down is scrolling up, which is button 4.
+  void _wheel(Offset focal) {
+    final at = _transform.toFramebuffer(focal);
+    while (_wheelTravel.abs() >= _wheelStep) {
+      final up = _wheelTravel > 0;
+      widget.onWheel(at, up: up);
+      _wheelTravel -= up ? _wheelStep : -_wheelStep;
+    }
   }
 
   @override

@@ -46,6 +46,7 @@ enum UpgradeIcons {
   reload('reload'),
   resume('resume'),
   screens('screens'),
+  scroll('scroll'),
   search('search'),
   settings('settings'),
   shapeArrow('shape-arrow'),

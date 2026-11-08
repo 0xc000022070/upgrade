@@ -28,10 +28,12 @@ class ScreenRail extends StatefulWidget {
     required this.keyboardOpen,
     required this.stripOpen,
     required this.cropArmed,
+    required this.scrollArmed,
     required this.hidden,
     required this.onKeyboard,
     required this.onStrip,
     required this.onCrop,
+    required this.onScroll,
     required this.onHide,
     required this.onShow,
   });
@@ -40,12 +42,14 @@ class ScreenRail extends StatefulWidget {
   final bool stripOpen;
 
   final bool cropArmed;
+  final bool scrollArmed;
 
   final bool hidden;
 
   final VoidCallback onKeyboard;
   final VoidCallback onStrip;
   final VoidCallback onCrop;
+  final VoidCallback onScroll;
   final VoidCallback onHide;
   final VoidCallback onShow;
 
@@ -182,6 +186,13 @@ class _ScreenRailState extends State<ScreenRail> {
                   label: 'CROP',
                   active: widget.cropArmed,
                   onTap: widget.onCrop,
+                ),
+                _RailToggle(
+                  key: const ValueKey('rail-scroll'),
+                  icon: UpgradeIcons.scroll,
+                  label: 'SCROLL',
+                  active: widget.scrollArmed,
+                  onTap: widget.onScroll,
                 ),
               ],
             ),

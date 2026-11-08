@@ -17,7 +17,7 @@ class Recorder {
   final List<(Offset, bool)> wheels = [];
 }
 
-Future<Recorder> pumpView(WidgetTester tester) async {
+Future<Recorder> pumpView(WidgetTester tester, {bool scrolling = false}) async {
   final recorder = Recorder();
   await tester.pumpWidget(
     Theme(
@@ -32,6 +32,7 @@ Future<Recorder> pumpView(WidgetTester tester) async {
               // A real [ui.Image] in a widget test needs the engine's decoder.
               image: null,
               framebufferSize: _framebuffer,
+              scrolling: scrolling,
               onClick: recorder.clicks.add,
               onRightClick: recorder.rightClicks.add,
               onDrag: (at, {required down}) => recorder.drags.add((at, down)),
@@ -228,5 +229,48 @@ void main() {
 
     expect(recorder.wheels, isNotEmpty, reason: 'at fit the drag is the wheel');
     expect(recorder.wheels.every((wheel) => wheel.$2), isTrue);
+  });
+
+  testWidgets(
+    'with scroll armed one finger is the wheel and a tap still clicks',
+    (tester) async {
+      final recorder = await pumpView(tester, scrolling: true);
+
+      final finger = await tester.startGesture(
+        inView(const Offset(200, _top + 20)),
+      );
+      for (var step = 0; step < 5; step++) {
+        await finger.moveBy(const Offset(0, 25));
+        await tester.pump();
+      }
+      await finger.up();
+      await tester.pumpAndSettle();
+
+      expect(recorder.wheels, isNotEmpty);
+      expect(recorder.wheels.every((wheel) => wheel.$2), isTrue);
+      expect(recorder.clicks, isEmpty);
+
+      await tester.tapAt(inView(const Offset(200, _top + 112.5)));
+      await tester.pumpAndSettle();
+      expect(recorder.clicks, hasLength(1));
+    },
+  );
+
+  testWidgets('without scroll armed a one-finger drag sends nothing', (
+    tester,
+  ) async {
+    final recorder = await pumpView(tester);
+
+    final finger = await tester.startGesture(
+      inView(const Offset(200, _top + 20)),
+    );
+    for (var step = 0; step < 5; step++) {
+      await finger.moveBy(const Offset(0, 25));
+      await tester.pump();
+    }
+    await finger.up();
+    await tester.pumpAndSettle();
+
+    expect(recorder.wheels, isEmpty);
   });
 }

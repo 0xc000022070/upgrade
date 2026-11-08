@@ -91,6 +91,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
   bool _keyboardOpen = false;
 
   bool _cropArmed = false;
+  bool _scrollArmed = false;
 
   String? _notice;
   Timer? _noticeTimer;
@@ -260,6 +261,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
                       child: _Body(
                         controller: _controller,
                         cropping: _cropArmed,
+                        scrolling: _scrollArmed,
                         onCrop: _onCrop,
                         onEdit: _editHost,
                       ),
@@ -272,6 +274,7 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
                           keyboardOpen: _keyboardOpen,
                           stripOpen: _stripOpen,
                           cropArmed: _cropArmed,
+                          scrollArmed: _scrollArmed,
                           hidden: _railHidden,
                           onKeyboard: () {
                             if (_cropArmed) return;
@@ -283,6 +286,10 @@ class _HostScreenRouteState extends ConsumerState<HostScreenRoute> {
                           },
                           onCrop: () =>
                               setState(() => _cropArmed = !_cropArmed),
+                          onScroll: () {
+                            if (_cropArmed) return;
+                            setState(() => _scrollArmed = !_scrollArmed);
+                          },
                           onHide: () => setState(() => _railHidden = true),
                           onShow: () => setState(() => _railHidden = false),
                         ),
@@ -407,12 +414,14 @@ class _Body extends StatelessWidget {
   const _Body({
     required this.controller,
     required this.cropping,
+    required this.scrolling,
     required this.onCrop,
     required this.onEdit,
   });
 
   final HostScreenController controller;
   final bool cropping;
+  final bool scrolling;
   final void Function(CropRect rect, CropTarget target) onCrop;
   final VoidCallback onEdit;
 
@@ -446,6 +455,7 @@ class _Body extends StatelessWidget {
       onDrag: controller.drag,
       onWheel: controller.wheel,
       cropping: cropping,
+      scrolling: scrolling,
       onCrop: onCrop,
     );
   }
