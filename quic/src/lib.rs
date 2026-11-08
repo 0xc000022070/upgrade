@@ -27,6 +27,7 @@ type Fallible<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 static LINKS: tokio::sync::Mutex<Option<HashMap<String, Arc<Link>>>> =
     tokio::sync::Mutex::const_new(None);
+static TABS: Mutex<Option<HashMap<String, AbortHandle>>> = Mutex::new(None);
 
 fn runtime() -> &'static Runtime {
     RUNTIME.get_or_init(|| Runtime::new().expect("tokio runtime"))
@@ -43,7 +44,6 @@ struct Link {
     _endpoint: quinn::Endpoint,
     connection: quinn::Connection,
     relays: Arc<Mutex<HashMap<u8, Arc<Relay>>>>,
-    tabs: Mutex<HashMap<String, AbortHandle>>,
 }
 
 struct Relay {
@@ -121,7 +121,6 @@ async fn connect(host: &str, port: u16, cert: &[u8], token: &[u8]) -> Fallible<L
         _endpoint: endpoint,
         connection,
         relays,
-        tabs: Mutex::default(),
     })
 }
 
@@ -154,7 +153,16 @@ async fn link(host: &str, port: u16, cert: &[u8], token: &[u8]) -> Fallible<Arc<
     Ok(link)
 }
 
-async fn attach(link: &Link, tab: &str) -> Fallible<u16> {
+struct Target {
+    host: String,
+    port: u16,
+    cert: Vec<u8>,
+    token: Vec<u8>,
+}
+
+type Attached = (u8, quinn::SendStream, quinn::RecvStream);
+
+async fn open(link: &Link, tab: &str) -> Fallible<Option<Attached>> {
     let name = u8::try_from(tab.len())
         .ok()
         .filter(|len| *len > 0)
@@ -166,43 +174,107 @@ async fn attach(link: &Link, tab: &str) -> Fallible<u16> {
     let mut answer = [0u8; 1];
     recv.read_exact(&mut answer).await?;
     if answer != [1] {
-        return Err("the daemon has no server for this tab".into());
+        return Ok(None);
     }
     recv.read_exact(&mut answer).await?;
-    let channel = answer[0];
+    Ok(Some((answer[0], send, recv)))
+}
 
+async fn relink(target: &Target, tab: &str) -> Fallible<Option<(Arc<Link>, Attached)>> {
+    let link = link(&target.host, target.port, &target.cert, &target.token).await?;
+    Ok(open(&link, tab).await?.map(|attached| (link, attached)))
+}
+
+async fn attach(target: Target, link: Arc<Link>, tab: &str) -> Fallible<u16> {
+    let attached = open(&link, tab)
+        .await?
+        .ok_or("the daemon has no server for this tab")?;
     let relay = Arc::new(Relay {
         socket: UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await?,
         peer: Mutex::new(None),
     });
     let port = relay.socket.local_addr()?.port();
+    let task = tokio::spawn(forward(target, tab.to_owned(), relay, link, attached));
+    if let Some(earlier) = lock(&TABS)
+        .get_or_insert_with(HashMap::new)
+        .insert(tab.to_owned(), task.abort_handle())
+    {
+        earlier.abort();
+    }
+    Ok(port)
+}
+
+/// Keeps the loopback port across links: a link that died, say idled out while the app was
+/// away, is redialed on the next packet the tab sends and the tab attached again.
+async fn forward(
+    target: Target,
+    tab: String,
+    relay: Arc<Relay>,
+    link: Arc<Link>,
+    attached: Attached,
+) {
+    let mut buf = vec![0u8; 2048];
+    let mut current = (link, attached);
+    loop {
+        let mut unsent = carry(&relay, current.0, current.1, &mut buf).await;
+        current = loop {
+            let n = match unsent.take() {
+                Some(n) => n,
+                None => match relay.socket.recv_from(&mut buf[1..]).await {
+                    Ok((n, from)) => {
+                        *lock(&relay.peer) = Some(from);
+                        n
+                    }
+                    Err(_) => return,
+                },
+            };
+            match relink(&target, &tab).await {
+                Ok(Some((link, attached))) => {
+                    buf[0] = attached.0;
+                    let _ = link
+                        .connection
+                        .send_datagram(Bytes::copy_from_slice(&buf[..=n]));
+                    break (link, attached);
+                }
+                Ok(None) => return,
+                Err(_) => {}
+            }
+        };
+    }
+}
+
+/// Answers the length of a packet the dead link refused, left in `buf`.
+async fn carry(
+    relay: &Arc<Relay>,
+    link: Arc<Link>,
+    attached: Attached,
+    buf: &mut [u8],
+) -> Option<usize> {
+    let (channel, _send, mut recv) = attached;
     lock(&link.relays).insert(channel, relay.clone());
-    let release = Release {
+    let _release = Release {
         relays: link.relays.clone(),
         channel,
         relay: relay.clone(),
     };
-    let connection = link.connection.clone();
-    let task = tokio::spawn(async move {
-        let _release = release;
-        let _send = send;
-        let outbound = async {
-            let mut buf = vec![0u8; 2048];
-            buf[0] = channel;
-            while let Ok((n, from)) = relay.socket.recv_from(&mut buf[1..]).await {
-                *lock(&relay.peer) = Some(from);
-                let _ = connection.send_datagram(Bytes::copy_from_slice(&buf[..=n]));
+    buf[0] = channel;
+    let outbound = async {
+        while let Ok((n, from)) = relay.socket.recv_from(&mut buf[1..]).await {
+            *lock(&relay.peer) = Some(from);
+            if link
+                .connection
+                .send_datagram(Bytes::copy_from_slice(&buf[..=n]))
+                .is_err()
+            {
+                return Some(n);
             }
-        };
-        tokio::select! {
-            () = outbound => {}
-            _ = recv.read_to_end(0) => {}
         }
-    });
-    if let Some(earlier) = lock(&link.tabs).insert(tab.to_owned(), task.abort_handle()) {
-        earlier.abort();
+        None
+    };
+    tokio::select! {
+        unsent = outbound => unsent,
+        _ = recv.read_to_end(0) => None,
     }
-    Ok(port)
 }
 
 enum Failure {
@@ -250,11 +322,17 @@ async fn run(op: Op, request: &str) -> Result<Value, Failure> {
         .as_u64()
         .and_then(|port| u16::try_from(port).ok())
         .ok_or_else(|| unsent("port is missing"))?;
-    let link = link(text("host")?, port, &decode("cert")?, &decode("token")?)
+    let target = Target {
+        host: text("host")?.to_owned(),
+        port,
+        cert: decode("cert")?,
+        token: decode("token")?,
+    };
+    let link = link(&target.host, port, &target.cert, &target.token)
         .await
         .map_err(unsent)?;
     match op {
-        Op::Attach => match attach(&link, text("tab")?).await {
+        Op::Attach => match attach(target, link, text("tab")?).await {
             Ok(port) => Ok(json!(port)),
             Err(error) => Err(Failure::Sent(error.to_string())),
         },
@@ -310,6 +388,29 @@ mod tests {
     use super::*;
 
     const TOKEN: [u8; 32] = [9; 32];
+
+    fn target(port: u16, cert: &[u8]) -> Target {
+        Target {
+            host: "127.0.0.1".to_owned(),
+            port,
+            cert: cert.to_vec(),
+            token: TOKEN.to_vec(),
+        }
+    }
+
+    async fn echoed(client: &UdpSocket, relay: u16, packet: &[u8]) -> Vec<u8> {
+        client
+            .send_to(packet, (Ipv4Addr::LOCALHOST, relay))
+            .await
+            .unwrap();
+        let mut buf = [0u8; 2048];
+        let (n, from) = tokio::time::timeout(Duration::from_secs(5), client.recv_from(&mut buf))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(from.port(), relay);
+        buf[..n].to_vec()
+    }
 
     async fn daemon() -> (u16, Vec<u8>) {
         let key = rcgen::generate_simple_self_signed(vec![SERVER_NAME.to_owned()]).unwrap();
@@ -387,19 +488,25 @@ mod tests {
     async fn a_full_packet_crosses_the_relay_and_comes_back_whole() {
         let (port, cert) = daemon().await;
         let link = link("127.0.0.1", port, &cert, &TOKEN).await.unwrap();
-        let relay = attach(&link, "tab-1").await.unwrap();
+        let relay = attach(target(port, &cert), link, "tab-1").await.unwrap();
         let client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
         let packet: Vec<u8> = (0..8 + 1160 + 16).map(|i| i as u8).collect();
-        client
-            .send_to(&packet, (Ipv4Addr::LOCALHOST, relay))
+        assert_eq!(echoed(&client, relay, &packet).await, packet);
+    }
+
+    #[tokio::test]
+    async fn a_relay_outlives_its_link_and_attaches_again_on_the_next_packet() {
+        let (port, cert) = daemon().await;
+        let first = link("127.0.0.1", port, &cert, &TOKEN).await.unwrap();
+        let relay = attach(target(port, &cert), first.clone(), "tab-2")
             .await
             .unwrap();
-        let mut buf = [0u8; 2048];
-        let (n, from) = tokio::time::timeout(Duration::from_secs(5), client.recv_from(&mut buf))
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!((&buf[..n], from.port()), (&packet[..], relay));
+        let client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        assert_eq!(echoed(&client, relay, b"before").await, b"before");
+        first.connection.close(0u32.into(), b"idle");
+        assert_eq!(echoed(&client, relay, b"after").await, b"after");
+        let second = link("127.0.0.1", port, &cert, &TOKEN).await.unwrap();
+        assert!(!Arc::ptr_eq(&first, &second));
     }
 
     #[tokio::test]
@@ -407,7 +514,7 @@ mod tests {
         let (port, cert) = daemon().await;
         assert!(connect("127.0.0.1", port, &cert, &[0; 32]).await.is_err());
         let link = link("127.0.0.1", port, &cert, &TOKEN).await.unwrap();
-        assert!(attach(&link, "gone").await.is_err());
+        assert!(attach(target(port, &cert), link, "gone").await.is_err());
     }
 
     #[tokio::test]
