@@ -581,7 +581,11 @@ class _ShellReasonRowState extends State<ShellReasonRow> {
                 children: [
                   Expanded(
                     child: Text(
-                      widget.line ?? widget.kind.line.on(widget.host.name),
+                      widget.line ??
+                          widget.kind.line.on(
+                            widget.host.name,
+                            address: widget.host.address,
+                          ),
                       style: context.tokens.panelHeader.copyWith(
                         color: context.tokens.warning,
                       ),

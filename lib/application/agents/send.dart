@@ -240,7 +240,7 @@ class Sender {
       );
     } on HerdrFailure catch (error) {
       log(error.detail ?? error);
-      return SendFailed(error.reason(host.name));
+      return SendFailed(error.reason(host.name, address: host.address));
     } finally {
       await Future.wait(panes);
     }

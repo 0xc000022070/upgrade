@@ -173,7 +173,7 @@ class AgentSessionFeed extends ChangeNotifier {
       _drop();
       if (_disposed) return;
       _failure = switch (error) {
-        HerdrFailure() => error.line.on(name),
+        HerdrFailure() => error.line.on(name, address: host?.address),
         EngineRefused() => _refusal(error),
         _ => 'failed',
       };

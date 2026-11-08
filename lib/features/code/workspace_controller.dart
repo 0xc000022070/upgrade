@@ -122,7 +122,7 @@ class WorkspaceController extends ChangeNotifier {
     } on HerdrFailure catch (error) {
       debugPrint('upgrade.workspace ${host.name}: ${error.detail ?? error}');
       if (_disposed || attempt != _attempt) return;
-      _fail(error.reason(host.name));
+      _fail(error.reason(host.name, address: host.address));
     }
   }
 
@@ -316,7 +316,7 @@ class WorkspaceController extends ChangeNotifier {
         _runner = null;
         unawaited(runner.close());
       }
-      _fail(error.reason(host.name));
+      _fail(error.reason(host.name, address: host.address));
       return null;
     }
   }

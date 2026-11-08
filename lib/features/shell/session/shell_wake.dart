@@ -33,6 +33,7 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
   void initState() {
     super.initState();
     _hold.refresh();
+    unawaited(Device.refreshVpn());
     _network = Device.networkChanges().listen(
       PlatformSignal.onNetwork((signal, up) {
         // Only an arrival. A network going is what put these tabs where they are, and
@@ -69,6 +70,7 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
       appForegroundProvider,
       PlatformSignal.onLifecycle((signal, was, now) {
         if (!now || was == true) return;
+        unawaited(Device.refreshVpn());
         final resumed = AppResumed(signal);
         ref.read(shellSessionsProvider)
           ..returned(resumed)

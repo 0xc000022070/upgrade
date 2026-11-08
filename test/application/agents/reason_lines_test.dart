@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/agents/reason_lines.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
+import 'package:upgrade/platform/device.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
@@ -17,6 +18,63 @@ const oak = Host(
 );
 
 void main() {
+  group('a tailnet machine on a phone with no vpn', () {
+    tearDown(() => Device.vpn = null);
+
+    test('the tailnet ranges and MagicDNS names are tailnet addresses', () {
+      for (final address in [
+        '100.64.0.1',
+        '100.118.60.77',
+        '100.127.255.255',
+        'fd7a:115c:a1e0::1',
+        'nyx.tail1234.ts.net',
+        'NYX.TAIL1234.TS.NET.',
+      ]) {
+        expect(isTailnetAddress(address), isTrue, reason: address);
+      }
+      for (final address in [
+        '100.63.255.255',
+        '100.128.0.1',
+        '198.51.100.77',
+        'fd7a:115c:a1e1::1',
+        'nyx.local',
+        'ts.net.example.com',
+      ]) {
+        expect(isTailnetAddress(address), isFalse, reason: address);
+      }
+    });
+
+    test('says vpn off only when the phone is known to have none', () {
+      const tailnet = '100.118.60.77';
+      expect(
+        ReasonLine.unreachable.on('NYX', address: tailnet),
+        'nyx unreachable',
+      );
+      Device.vpn = true;
+      expect(
+        ReasonLine.unreachable.on('NYX', address: tailnet),
+        'nyx unreachable',
+      );
+      Device.vpn = false;
+      expect(
+        ReasonLine.unreachable.on('NYX', address: tailnet),
+        'nyx unreachable · vpn off',
+      );
+      expect(
+        const HerdrUnresolved().reason('NYX', address: 'nyx.tail1.ts.net'),
+        'nyx unresolved · vpn off',
+      );
+      expect(
+        ReasonLine.unreachable.on('OAK', address: oak.address),
+        'oak unreachable',
+      );
+      expect(
+        ReasonLine.keyRejected.on('NYX', address: tailnet),
+        'key rejected',
+      );
+    });
+  });
+
   group('the vocabulary', () {
     test('only the two lines about reaching a machine name one', () {
       expect(ReasonLine.unreachable.on('OAK'), 'oak unreachable');

@@ -360,7 +360,7 @@ class HostScreenController extends ChangeNotifier {
     final failure = asVncFailure(error) ?? VncStreamClosed('$error');
     _log(failure.detail ?? error);
     _phase = ScreenFailed(
-      failure.reason(host.name),
+      failure.reason(host.name, address: host.address),
       editHost:
           failure is VncPasswordNeeded ||
           failure is VncUsernameNeeded ||

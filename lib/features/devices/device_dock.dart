@@ -481,6 +481,7 @@ class DeviceDock extends ChangeNotifier {
     late final DeviceScreenController controller;
     controller = DeviceScreenController(
       hostName: host.name,
+      hostAddress: host.address,
       link: link,
       device: device,
       reopen: (dead) => _reopen(host, controller, dead),

@@ -23,7 +23,23 @@ abstract final class Device {
   static Stream<bool> networkChanges() => _networkEvents
       .receiveBroadcastStream()
       .map((event) => event as bool? ?? false)
+      .asyncMap((up) async {
+        await refreshVpn();
+        return up;
+      })
       .handleError((Object _) {});
+
+  static bool? vpn;
+
+  static Future<void> refreshVpn() async {
+    try {
+      vpn = await _channel.invokeMethod<bool>('vpn');
+    } on PlatformException {
+      vpn = null;
+    } on MissingPluginException {
+      vpn = null;
+    }
+  }
 
   static final _awake = <Object>{};
   static final _secured = <Object>{};

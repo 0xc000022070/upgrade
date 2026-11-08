@@ -508,7 +508,10 @@ class _HookRowsState extends ConsumerState<_HookRows> {
   }
 
   String _failureLine(Object error) => switch (error) {
-    HerdrFailure() => error.line.on(widget.host.name),
+    HerdrFailure() => error.line.on(
+      widget.host.name,
+      address: widget.host.address,
+    ),
     EngineRefused() => error.kind.replaceAll('_', ' '),
     _ => 'failed',
   };

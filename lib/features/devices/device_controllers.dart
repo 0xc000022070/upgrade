@@ -251,7 +251,7 @@ class DevicesController extends ChangeNotifier {
 
   String _reason(Object error) {
     debugPrint('upgrade.devices ${host.name}: $error');
-    return asHerdrFailure(error)?.reason(host.name) ??
+    return asHerdrFailure(error)?.reason(host.name, address: host.address) ??
         ReasonLine.streamClosed.words;
   }
 
@@ -344,7 +344,8 @@ class DevicesController extends ChangeNotifier {
     final failure = asHerdrFailure(error);
     debugPrint('upgrade.devices ${host.name}: ${failure?.detail ?? error}');
     _phase = DevicesFailed(
-      failure?.reason(host.name) ?? ReasonLine.streamClosed.words,
+      failure?.reason(host.name, address: host.address) ??
+          ReasonLine.streamClosed.words,
     );
     notifyListeners();
     _hold?.release();
@@ -397,6 +398,7 @@ enum DeviceKey {
 class DeviceScreenController extends ChangeNotifier {
   DeviceScreenController({
     required this.hostName,
+    this.hostAddress,
     required this._link,
     required this.device,
     this.reopen,
@@ -407,6 +409,7 @@ class DeviceScreenController extends ChangeNotifier {
   static const longestDrag = Duration(seconds: 2);
 
   final String hostName;
+  final String? hostAddress;
   final HostDevice device;
   final Future<DeviceLink?> Function(DeviceLink dead)? reopen;
 
@@ -621,7 +624,8 @@ class DeviceScreenController extends ChangeNotifier {
       return;
     }
     _phase = DeviceFailed(
-      failure?.reason(hostName) ?? ReasonLine.streamClosed.words,
+      failure?.reason(hostName, address: hostAddress) ??
+          ReasonLine.streamClosed.words,
     );
     notifyListeners();
   }

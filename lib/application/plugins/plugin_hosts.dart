@@ -296,7 +296,7 @@ final pluginEngineProvider = Provider<PluginEngineCall>((ref) {
         use: HostUse.pluginScheduler,
       );
     } on HerdrFailure catch (error) {
-      throw PluginException(error.reason(host.name));
+      throw PluginException(error.reason(host.name, address: host.address));
     }
     try {
       return await engineOver(

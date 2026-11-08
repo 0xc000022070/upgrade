@@ -239,7 +239,9 @@ class BrowserController extends ChangeNotifier {
       notifyListeners();
       _reopen();
     } on HerdrFailure catch (failure) {
-      if (!stale()) _fail(failure.reason(name()));
+      if (!stale()) {
+        _fail(failure.reason(name(), address: (_network ?? host).address));
+      }
     } catch (error) {
       if (!stale()) _fail(error.toString().toLowerCase());
     } finally {

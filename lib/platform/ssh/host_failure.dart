@@ -16,7 +16,8 @@ sealed class HerdrFailure implements Exception {
 
   ReasonLine get line;
 
-  String reason(String host) => line.on(host);
+  String reason(String host, {String? address}) =>
+      line.on(host, address: address);
 
   @override
   String toString() => '$runtimeType(${detail ?? ''})';
@@ -91,7 +92,7 @@ final class HerdrProtocolMismatch extends HerdrFailure {
   ReasonLine get line => ReasonLine.protocolMismatch;
 
   @override
-  String reason(String host) => protocolLine(protocol);
+  String reason(String host, {String? address}) => protocolLine(protocol);
 }
 
 /// Dart words a name that did not resolve in the exception's own message; the errno

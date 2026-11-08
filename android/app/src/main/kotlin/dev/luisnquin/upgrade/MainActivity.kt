@@ -11,6 +11,7 @@ import android.content.res.Configuration
 import android.util.Rational
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -167,6 +168,7 @@ class MainActivity : FlutterActivity() {
                         result)
                     "openDocument" -> openDocument(result)
                     "ime" -> result.success(imeShown())
+                    "vpn" -> result.success(vpnUp())
                     "chat" -> result.success(ChatNative.prepare(applicationContext))
                     "chatKept" -> result.success(ChatService.kept(applicationContext))
                     "keepChat" -> {
@@ -269,6 +271,14 @@ class MainActivity : FlutterActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode != RECORD_AUDIO_REQUEST) return
         dictation?.onPermission(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
+    }
+
+    // Per app: a VPN that excludes this app reads as none, which is what its dials get.
+    private fun vpnUp(): Boolean? {
+        val connectivity = getSystemService(ConnectivityManager::class.java) ?: return null
+        val network = connectivity.activeNetwork ?: return null
+        val caps = connectivity.getNetworkCapabilities(network) ?: return null
+        return caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
     }
 
     // The embedding swallows insets while it thinks an IME animation runs, and one cut short

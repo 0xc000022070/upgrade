@@ -80,13 +80,13 @@ class HostOutcome {
     if (kind == AgentOutcomeKind.protocolMismatch) {
       return protocolLine(protocol);
     }
-    return _line?.on(host.name) ?? '';
+    return _line?.on(host.name, address: host.address) ?? '';
   }
 
   String get namedReason {
     final line = _line;
     if (line == null) return '';
-    if (line.names) return line.on(host.name);
+    if (line.names) return line.on(host.name, address: host.address);
     return '${host.name.toLowerCase()} · $reason';
   }
 

@@ -1681,6 +1681,12 @@ The reason row's detail is the app's own sentence when the failure is about reac
 
 `key rejected`, `shell refused`, `stream closed` and the two host key lines keep the transport's sentence as it came, because for those the ssh error is the one thing that says which of the several ways this failure happens it was. A throw nobody mapped still keeps its own words. The row still opens on a tap, still copies what is open, and still carries nothing forward across a reconnect.
 
+### A tailnet machine that did not answer says the phone has no VPN up
+
+A machine whose address is a tailnet's — inside `100.64.0.0/10`, inside `fd7a:115c:a1e0::/48`, or a name ending `.ts.net` — cannot be reached from a phone whose network carries no VPN, whatever the machine is doing. When such a host is `unreachable` or `unresolved` and the phone's network for the app is not a VPN, the line reads `<name> unreachable · vpn off` wherever the line is drawn: the reason row, the shell's sheet, AGENTS, HOSTS, the launch picker, the code view, the browser and the screen. It says `vpn off` and not the name of any one VPN, because Headscale and NetBird hand out the same range. Nothing is checked before a dial and nothing is refused: a subnet router or a split tunnel can still carry it, so the words only explain a dial that already failed. A phone running some other VPN shows the plain line, since the app cannot tell whose tunnel it is.
+
+**The launch picker tries again when the network changes.** A picker showing a host that did not answer — `unreachable` or `unresolved` — scans the host again when the phone gets a new network — a VPN coming up is one — and when the app comes back in front, so turning the VPN on under the open picker fills it without `RETRY`. Any other failure waits for `RETRY`: a host key kept old would otherwise ask again on every return to the app.
+
 ### A program that asks what the terminal is drawn in is answered
 
 A program that paints a whole screen asks the terminal for its colours before it paints one: `10` for the foreground, `11` for the background, `12` for the cursor, each asked with a question mark, and a question can chain — every mark after the first asks for the next colour in turn. Each is answered `rgb:` and three channels, the eight bits of a colour written across the sixteen the format carries, and the answer ends the way the question did, a bell for a bell and a terminator for a terminator, because a program reading until a bell never sees an answer that finished any other way.

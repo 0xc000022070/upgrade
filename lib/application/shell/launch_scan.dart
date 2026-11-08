@@ -33,9 +33,11 @@ final class LaunchScanFound extends LaunchScan {
 }
 
 final class LaunchScanFailed extends LaunchScan {
-  const LaunchScanFailed(this.reason);
+  const LaunchScanFailed(this.reason, {this.unanswered = false});
 
   final String reason;
+
+  final bool unanswered;
 }
 
 class LaunchScanner {
@@ -61,7 +63,10 @@ class LaunchScanner {
       );
     } on HerdrFailure catch (error) {
       debugPrint('upgrade.launch ${host.name}: ${error.detail ?? error}');
-      return LaunchScanFailed(error.reason(host.name));
+      return LaunchScanFailed(
+        error.reason(host.name, address: host.address),
+        unanswered: error is HerdrUnreachable || error is HerdrUnresolved,
+      );
     } catch (error) {
       debugPrint('upgrade.launch ${host.name}: $error');
       return LaunchScanFailed(ReasonLine.protocolMismatch.words);

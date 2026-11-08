@@ -11,7 +11,8 @@ sealed class VncFailure implements Exception {
 
   ReasonLine get line;
 
-  String reason(String host) => line.on(host);
+  String reason(String host, {String? address}) =>
+      line.on(host, address: address);
 
   @override
   String toString() => '$runtimeType(${detail ?? ''})';

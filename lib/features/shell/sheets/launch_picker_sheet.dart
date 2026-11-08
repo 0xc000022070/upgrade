@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vector_graphics/vector_graphics.dart';
 
+import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/phone_linux.dart';
 import 'package:upgrade/application/shell/launch_scan.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
@@ -134,6 +135,11 @@ class _LaunchPickerBodyState extends ConsumerState<_LaunchPickerBody> {
 
   @override
   Widget build(BuildContext context) {
+    // Network arrival or resume. Only a host that did not answer is asked again: a host
+    // key kept old would otherwise prompt on every return.
+    ref.listen(agentsWakeProvider, (_, _) {
+      if (_scan case LaunchScanFailed(unanswered: true)) _load();
+    });
     return PopScope(
       canPop: !_advanced,
       onPopInvokedWithResult: (popped, _) {

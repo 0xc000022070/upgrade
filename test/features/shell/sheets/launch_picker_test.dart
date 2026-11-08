@@ -1,3 +1,4 @@
+import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/shell/launch_scan.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
@@ -49,7 +50,11 @@ Future<LaunchTargets> _fetch({
   return _targets;
 }
 
-Future<ProviderScope> _app(ShellSessions sessions, Host host) async {
+Future<ProviderScope> _app(
+  ShellSessions sessions,
+  Host host, {
+  LaunchFetch fetch = _fetch,
+}) async {
   final store = MemoryPrivateKeyStore();
   await store.write(host.keyId, 'PRIVATE KEY');
   return ProviderScope(
@@ -58,7 +63,7 @@ Future<ProviderScope> _app(ShellSessions sessions, Host host) async {
       shellSessionsProvider.overrideWithValue(sessions),
       noWorkspaces,
       launchScannerProvider.overrideWithValue(
-        LaunchScanner(fetch: _fetch, keys: Ed25519Keys(store)),
+        LaunchScanner(fetch: fetch, keys: Ed25519Keys(store)),
       ),
     ],
     child: MaterialApp(
@@ -149,12 +154,51 @@ void main() {
     expect(pinned, isEmpty);
     expect(find.text('RETRY'), findsOneWidget);
 
+    ProviderScope.containerOf(tester.element(find.text('RETRY')))
+        .read(agentsWakeProvider.notifier)
+        .state++;
+    await ready(tester);
+    expect(find.text('KEEP OLD'), findsNothing);
+
     await tester.tap(find.text('RETRY'));
     await ready(tester);
     await tester.tap(find.text('REPLACE'));
     await ready(tester);
 
     expect(pinned.single.fingerprint, _offered);
+    expect(find.byKey(const ValueKey('launch-herdr-default')), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('a failed picker scans again when the network changes', (
+    tester,
+  ) async {
+    var down = true;
+    Future<LaunchTargets> fetch({
+      required String address,
+      required int port,
+      required String user,
+      required String privateKey,
+      HostKeyVerifier? verifier,
+    }) async {
+      if (down) throw const HerdrUnreachable('no answer in 10s');
+      return _targets;
+    }
+
+    final sessions = fakeShellSessions(FakeShellTransport());
+    await tester.pumpWidget(await _app(sessions, pine, fetch: fetch));
+
+    await tester.tap(find.text('OPEN'));
+    await ready(tester);
+    expect(find.text('PINE UNREACHABLE'), findsOneWidget);
+
+    down = false;
+    ProviderScope.containerOf(tester.element(find.text('RETRY')))
+        .read(agentsWakeProvider.notifier)
+        .state++;
+    await ready(tester);
+
     expect(find.byKey(const ValueKey('launch-herdr-default')), findsOneWidget);
 
     await unmount(tester);

@@ -136,7 +136,7 @@ class PathScanner {
       return PathScanFound(result);
     } on HerdrFailure catch (error) {
       debugPrint('upgrade.paths ${host.name}: ${error.detail ?? error}');
-      return PathScanFailed(error.reason(host.name));
+      return PathScanFailed(error.reason(host.name, address: host.address));
     }
   }
 }
