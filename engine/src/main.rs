@@ -12,7 +12,7 @@ mod util;
 
 use protocol::{EngineError, EngineResult, Request, Response};
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::Path;
 
 const MAX_REQUEST_BYTES: u64 = 1024 * 1024;
 
@@ -59,31 +59,31 @@ fn answer() -> EngineResult<serde_json::Value> {
     services::dispatch(&request, &policy)
 }
 
+type Internal = (&'static str, &'static str, fn(&str) -> i32);
+
+const INTERNAL: [Internal; 3] = [
+    ("__supervise", "a job directory", |dir| {
+        services::run::supervise(Path::new(dir))
+    }),
+    ("__shell", "a tab directory", |dir| {
+        shell::serve(Path::new(dir))
+    }),
+    ("__tick", "a scope", services::schedule::tick),
+];
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
+    let first = args.first().map(String::as_str);
+    if let Some((mode, wants, run)) = INTERNAL.iter().find(|(mode, ..)| first == Some(mode)) {
+        let Some(arg) = args.get(1) else {
+            util::warn(format!("{mode} wants {wants}"));
+            std::process::exit(2);
+        };
+        std::process::exit(run(arg));
+    }
+
     match args.first().map(String::as_str) {
-        Some("__supervise") => {
-            let Some(dir) = args.get(1) else {
-                util::warn("__supervise wants a job directory");
-                std::process::exit(2);
-            };
-            std::process::exit(services::run::supervise(&PathBuf::from(dir)));
-        }
-        Some("__shell") => {
-            let Some(dir) = args.get(1) else {
-                util::warn("__shell wants a tab directory");
-                std::process::exit(2);
-            };
-            std::process::exit(shell::serve(&PathBuf::from(dir)));
-        }
-        Some("__tick") => {
-            let Some(scope) = args.get(1) else {
-                util::warn("__tick wants a scope");
-                std::process::exit(2);
-            };
-            std::process::exit(services::schedule::tick(scope));
-        }
         Some("hook") => {
             let Some(agent) = args.get(1) else {
                 util::warn("hook wants an agent kind");

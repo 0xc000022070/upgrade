@@ -11,16 +11,18 @@ use crate::policy::Policy;
 use crate::protocol::{EngineError, EngineResult, Request};
 use serde_json::Value;
 
-pub fn dispatch(request: &Request, policy: &Policy) -> EngineResult<Value> {
-    // probe and version answer before an owner is known: a phone has to be able to
-    // ask a machine who it runs as before it can name that owner in a call.
-    let anonymous =
-        request.service == lifecycle::SERVICE && matches!(request.op.as_str(), "probe" | "version");
-    let account = if anonymous {
-        owner::account()?
+/// probe and version answer before an owner is known: a phone has to be able to
+/// ask a machine who it runs as before it can name that owner in a call.
+fn caller(request: &Request) -> EngineResult<String> {
+    if request.service == lifecycle::SERVICE && matches!(request.op.as_str(), "probe" | "version") {
+        owner::account()
     } else {
-        owner::verify(request.owner.as_deref())?
-    };
+        owner::verify(request.owner.as_deref())
+    }
+}
+
+pub fn dispatch(request: &Request, policy: &Policy) -> EngineResult<Value> {
+    let account = caller(request)?;
 
     policy.check_capability(&request.service, &request.op)?;
     let state_root = paths::state_root(&account)?;
