@@ -1,4 +1,5 @@
 mod control;
+pub mod daemon;
 mod endpoint;
 mod input;
 mod kitty;

@@ -247,6 +247,7 @@ fn probe_answers_without_an_owner_and_names_only_what_is_built() {
             "schedule/1",
             "agents/1",
             "shell/1",
+            "daemon/1",
             "git/1"
         ]
     );

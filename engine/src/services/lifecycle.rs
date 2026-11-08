@@ -44,6 +44,7 @@ fn probe(state_root: &Path, owner: &str, policy: &Policy) -> Value {
         (schedule_service::SERVICE, schedule_service::OPS),
         (agents_service::SERVICE, agents_service::OPS),
         (crate::shell::SERVICE, crate::shell::OPS),
+        (crate::shell::daemon::SERVICE, crate::shell::daemon::OPS),
         (git_service::SERVICE, git_service::OPS),
     ]
     .iter()
@@ -84,6 +85,7 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
     let timers_removed = schedule_service::remove_timers();
     let hooks_removed = agents_service::remove_hooks();
     let shells_stopped = crate::shell::stop_all(state_root);
+    let daemon_stopped = crate::shell::daemon::stop(state_root).unwrap_or(false);
 
     if !state_root.exists() {
         return Ok(json!({
@@ -94,6 +96,7 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
             "timers_removed": timers_removed,
             "hooks_removed": hooks_removed,
             "shells_stopped": shells_stopped,
+            "daemon_stopped": daemon_stopped,
         }));
     }
 
@@ -107,6 +110,7 @@ fn teardown(state_root: &Path) -> EngineResult<Value> {
         "timers_removed": timers_removed,
         "hooks_removed": hooks_removed,
         "shells_stopped": shells_stopped,
+        "daemon_stopped": daemon_stopped,
     }))
 }
 

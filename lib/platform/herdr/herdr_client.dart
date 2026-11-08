@@ -17,6 +17,7 @@ import 'package:upgrade/platform/ssh/connection_supervisor.dart'
 import 'package:upgrade/platform/ssh/host_files.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
+import 'package:upgrade/platform/shell/daemon_link.dart';
 import 'package:upgrade/platform/shell/remote_shell.dart';
 import 'package:upgrade/platform/shell/shell_launch.dart';
 import 'package:upgrade/platform/ssh/ssh_settle.dart';
@@ -496,7 +497,8 @@ final class SpawnRefused extends SpawnResult {
 class HerdrSession {
   @visibleForTesting
   HerdrSession.over(SSHSocket socket, this._client)
-    : _letGo = (() => unawaited(closeSsh(_client, socket))),
+    : _target = null,
+      _letGo = (() => unawaited(closeSsh(_client, socket))),
       _execute = ((command) => _client.execute(command)),
       _bulk = ((command) => _client.execute(command)),
       _sftp = (() async => HostSftp(await _client.sftp())),
@@ -504,6 +506,7 @@ class HerdrSession {
 
   HerdrSession.borrowed(HostLease lease)
     : _client = lease.client,
+      _target = lease.target,
       _letGo = lease.release,
       _execute = ((command) => lease.execute(command)),
       _bulk = lease.upload,
@@ -511,6 +514,7 @@ class HerdrSession {
       _gone = (() => lease.closed);
 
   final SSHClient _client;
+  final HostTarget? _target;
   final void Function() _letGo;
   final Future<SSHSession> Function(String command) _execute;
   final Future<SSHSession> Function(String command) _bulk;
@@ -531,6 +535,35 @@ class HerdrSession {
     Map<String, Object?> request, {
     Duration? within,
   }) async {
+    final target = _target;
+    final answer = target == null
+        ? null
+        : await EngineDaemons.shared.call(
+            address: target.address,
+            user: target.user,
+            body: jsonEncode(request),
+            timeout: within ?? const Duration(seconds: 20),
+            start: () async => switch (await _engineOverSsh(
+              engineRequest('daemon/1', 'start', const {}, owner: target.user),
+              within,
+            )) {
+              {'ok': true, 'result': final Map<String, Object?> result} =>
+                result,
+              _ => null,
+            },
+          );
+    if (answer == null) return _engineOverSsh(request, within);
+    try {
+      return jsonDecode(answer);
+    } on FormatException {
+      throw const HerdrProtocolMismatch(null, 'engine said nothing');
+    }
+  }
+
+  Future<Object?> _engineOverSsh(
+    Map<String, Object?> request,
+    Duration? within,
+  ) async {
     final result = await _runWithStdin(
       'upgraded',
       Uint8List.fromList(utf8.encode(jsonEncode(request))),

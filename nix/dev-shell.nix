@@ -10,6 +10,7 @@ let
   prootAndroid = pkgs.callPackage ./proot-android.nix { };
   engineAndroid = pkgs.callPackage ./engine/android.nix { };
   chatAndroid = pkgs.callPackage ./chat/android.nix { };
+  quicAndroid = pkgs.callPackage ./quic/android.nix { };
 
   ghosttySrc = pkgs.callPackage ./ghostty-src.nix { };
   ghosttyVt = pkgs.callPackage ./engine/libghostty-vt.nix { };
@@ -78,6 +79,7 @@ pkgs.mkShell {
   PROOT_ANDROID_LIBS = prootAndroid;
   ENGINE_ANDROID_LIBS = engineAndroid;
   CHAT_ANDROID_LIBS = chatAndroid;
+  QUIC_ANDROID_LIBS = quicAndroid;
   DEPLOY_ZSTD_ANDROID = "${pkgs.pkgsCross.aarch64-multiplatform-musl.pkgsStatic.zstd.bin}/bin/zstd";
 
   shellHook = ''

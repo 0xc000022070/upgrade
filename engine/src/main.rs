@@ -20,8 +20,10 @@ const USAGE: &str = "\
 upgraded — the host side of a Upgrade plugin.
 
 It is exec'd per call: it reads one JSON request on stdin, writes one JSON
-response on stdout, and exits. The one thing that stays is a shell/1 server:
-it listens on UDP for its own tab until the shell ends or is stopped.
+response on stdout, and exits. Two things stay: a shell/1 server listens on UDP
+for its own tab until the shell ends or is stopped, and once daemon/1 start
+asks for it, one QUIC daemon per user answers the same requests and carries
+the tabs' packets on a single port until it is stopped.
 
     echo '{\"service\":\"lifecycle\",\"op\":\"probe\"}' | upgraded
 
@@ -61,12 +63,15 @@ fn answer() -> EngineResult<serde_json::Value> {
 
 type Internal = (&'static str, &'static str, fn(&str) -> i32);
 
-const INTERNAL: [Internal; 3] = [
+const INTERNAL: [Internal; 4] = [
     ("__supervise", "a job directory", |dir| {
         services::run::supervise(Path::new(dir))
     }),
     ("__shell", "a tab directory", |dir| {
         shell::serve(Path::new(dir))
+    }),
+    ("__daemon", "its directory", |dir| {
+        shell::daemon::serve(Path::new(dir))
     }),
     ("__tick", "a scope", services::schedule::tick),
 ];

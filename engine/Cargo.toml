@@ -53,6 +53,11 @@ tree-sitter-toml-ng = "0.7"
 tree-sitter-typescript = { version = "0.23", optional = true }
 tree-sitter-xml = "0.7"
 tree-sitter-yaml = "0.7"
+tokio = { version = "1.54.1", features = ["rt", "net", "time", "sync", "macros", "io-util", "process", "fs"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
+bytes = "1"
+quinn = { version = "0.11.9", default-features = false, features = ["runtime-tokio", "rustls-ring"] }
 
 # The phone's own engine leaves these out: their parse tables are half the binary.
 [features]

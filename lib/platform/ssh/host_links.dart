@@ -112,6 +112,8 @@ class HostLease {
 
   SSHClient get client => _link.client;
 
+  HostTarget get target => _link.target;
+
   bool get closed => _released || _link.ended || _link.client.isClosed;
 
   Future<void> get ended => _link.over.future;

@@ -6,7 +6,7 @@ pub const VERSION: u8 = 1;
 pub const KEY_LEN: usize = 16;
 pub const NONCE_LEN: usize = 8;
 pub const TAG_LEN: usize = 16;
-pub const MAX_PLAINTEXT: usize = 1200;
+pub const MAX_PLAINTEXT: usize = 1160;
 // Mosh sets bit 63 on server nonces, so a phone that speaks Mosh opens these unchanged.
 pub const TO_CLIENT: u64 = 1 << 63;
 pub const NO_TIMESTAMP: u16 = 0xffff;

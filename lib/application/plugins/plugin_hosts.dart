@@ -15,6 +15,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/platform/herdr/engine_agents.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/shell/daemon_link.dart';
 import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/plugins/manifest.dart';
@@ -285,34 +286,81 @@ final pluginEngineProvider = Provider<PluginEngineCall>((ref) {
     if (privateKey == null) {
       throw const PluginException('Host private key is unavailable');
     }
-    final HostLease lease;
+    Future<Map<String, Object?>> overSsh(
+      String service,
+      String operation,
+      Map<String, Object?> args,
+    ) async {
+      final HostLease lease;
+      try {
+        lease = await links.lease(
+          address: host.address,
+          port: host.port,
+          user: host.user,
+          privateKey: privateKey,
+          verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
+          use: HostUse.pluginScheduler,
+        );
+      } on HerdrFailure catch (error) {
+        throw PluginException(error.reason(host.name, address: host.address));
+      }
+      try {
+        return await engineOver(
+          (command) => lease.execute(command),
+          service,
+          host.user,
+          operation,
+          args,
+        );
+      } on SSHChannelOpenError {
+        throw const PluginException('Host busy');
+      } finally {
+        lease.release();
+      }
+    }
+
+    final String? answer;
     try {
-      lease = await links.lease(
+      answer = await EngineDaemons.shared.call(
         address: host.address,
-        port: host.port,
         user: host.user,
-        privateKey: privateKey,
-        verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
-        use: HostUse.pluginScheduler,
+        body: _engineBody(service, host.user, operation, args),
+        timeout: _engineDeadline,
+        start: () => overSsh('daemon/1', 'start', const {}),
       );
-    } on HerdrFailure catch (error) {
-      throw PluginException(error.reason(host.name, address: host.address));
+    } on DaemonFailed catch (error) {
+      throw PluginException('Host engine did not answer. ${error.message}');
     }
+    if (answer == null) return overSsh(service, operation, args);
+    if (answer.length > _engineAnswerLimit) {
+      throw const PluginException('Host response exceeds its limit');
+    }
+    final Object? response;
     try {
-      return await engineOver(
-        (command) => lease.execute(command),
-        service,
-        host.user,
-        operation,
-        args,
-      );
-    } on SSHChannelOpenError {
-      throw const PluginException('Host busy');
-    } finally {
-      lease.release();
+      response = jsonDecode(answer);
+    } on FormatException {
+      throw const PluginException('Host engine did not answer.');
     }
+    return _engineResult(response, service);
   };
 });
+
+const _engineDeadline = Duration(seconds: 45);
+const _engineAnswerLimit = 512 * 1024;
+
+String _engineBody(
+  String service,
+  String owner,
+  String operation,
+  Map<String, Object?> args,
+) => jsonEncode(
+  engineRequest(
+    service,
+    operation,
+    wholeNumbers(args) as Map<String, Object?>,
+    owner: owner,
+  ),
+);
 
 @visibleForTesting
 Future<Map<String, Object?>> scheduleOver(
@@ -350,23 +398,18 @@ Future<Map<String, Object?>> engineOver(
     }
 
     final exchange = Future.wait<void>([
-      session.stdout.forEach((bytes) => append(output, bytes, 512 * 1024)),
+      session.stdout.forEach(
+        (bytes) => append(output, bytes, _engineAnswerLimit),
+      ),
       session.stderr.forEach((bytes) => append(errors, bytes, 16 * 1024)),
     ]);
     session.stdin.add(
       Uint8List.fromList(
-        utf8.encode(
-          jsonEncode({
-            'service': service,
-            'op': operation,
-            'owner': owner,
-            'args': wholeNumbers(args),
-          }),
-        ),
+        utf8.encode(_engineBody(service, owner, operation, args)),
       ),
     );
     await session.stdin.close();
-    await exchange.timeout(const Duration(seconds: 45));
+    await exchange.timeout(_engineDeadline);
     await session.done.timeout(const Duration(seconds: 5));
     final raw = utf8.decode(output.takeBytes());
     final Object? response;
@@ -382,31 +425,35 @@ Future<Map<String, Object?>> engineOver(
       }
       throw PluginException('Host engine did not answer. $complaint');
     }
-    if (response is! Map<String, Object?>) {
-      throw const PluginException('Invalid engine response');
-    }
-    if (response['ok'] != true) {
-      final error = response['error'];
-      final failure = error is Map<String, Object?>
-          ? error
-          : const <String, Object?>{};
-      final message = failure['message'] is String
-          ? failure['message']! as String
-          : 'Host engine failed';
-      throw PluginException(
-        failure['kind'] == 'unsupported'
-            ? "This host's engine does not carry $service. $message"
-            : message,
-      );
-    }
-    final result = response['result'];
-    if (result is! Map<String, Object?>) {
-      throw const PluginException('Invalid engine result');
-    }
-    return result;
+    return _engineResult(response, service);
   } finally {
     endExec(session);
   }
+}
+
+Map<String, Object?> _engineResult(Object? response, String service) {
+  if (response is! Map<String, Object?>) {
+    throw const PluginException('Invalid engine response');
+  }
+  if (response['ok'] != true) {
+    final error = response['error'];
+    final failure = error is Map<String, Object?>
+        ? error
+        : const <String, Object?>{};
+    final message = failure['message'] is String
+        ? failure['message']! as String
+        : 'Host engine failed';
+    throw PluginException(
+      failure['kind'] == 'unsupported'
+          ? "This host's engine does not carry $service. $message"
+          : message,
+    );
+  }
+  final result = response['result'];
+  if (result is! Map<String, Object?>) {
+    throw const PluginException('Invalid engine result');
+  }
+  return result;
 }
 
 class SchedulerBinding {

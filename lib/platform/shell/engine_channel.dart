@@ -10,7 +10,7 @@ import 'package:dart_mosh/dart_mosh.dart';
 import 'package:upgrade/platform/shell/udp_path.dart';
 
 const engineWireVersion = 1;
-const engineMaxPlaintext = 1200;
+const engineMaxPlaintext = 1160;
 const engineClientHeader = 30;
 const engineServerHeader = 26;
 const engineMaxInput = engineMaxPlaintext - engineClientHeader - 8;

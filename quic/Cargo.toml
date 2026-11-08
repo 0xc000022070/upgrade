@@ -1,0 +1,27 @@
+[package]
+name = "upgrade_quic"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+description = "The phone side of the engine's daemon/1: QUIC to the host, a loopback relay per tab."
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+base64 = "0.22"
+bytes = "1"
+quinn = { version = "0.11.9", default-features = false, features = ["runtime-tokio", "rustls-ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "time", "macros"] }
+
+[dev-dependencies]
+rcgen = { version = "0.13", default-features = false, features = ["ring"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

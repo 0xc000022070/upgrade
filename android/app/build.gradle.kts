@@ -32,6 +32,8 @@ android {
             ?: error("ENGINE_ANDROID_LIBS is unset; build from the nix dev shell"),
         System.getenv("CHAT_ANDROID_LIBS")
             ?: error("CHAT_ANDROID_LIBS is unset; build from the nix dev shell"),
+        System.getenv("QUIC_ANDROID_LIBS")
+            ?: error("QUIC_ANDROID_LIBS is unset; build from the nix dev shell"),
     )
     // Plugins bring every locale's strings; the app ships English only.
     androidResources {

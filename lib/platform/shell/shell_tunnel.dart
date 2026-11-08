@@ -11,6 +11,7 @@ import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/platform/ssh/connection_supervisor.dart';
 import 'package:upgrade/platform/ssh/ssh_settle.dart';
+import 'package:upgrade/platform/shell/daemon_link.dart';
 import 'package:upgrade/platform/shell/engine_channel.dart';
 import 'package:upgrade/platform/shell/liveness_watchdog.dart';
 import 'package:upgrade/platform/shell/mosh_channel.dart';
@@ -30,8 +31,10 @@ class ShellTunnel {
     HostLinks? links,
     this.moshDialer = dialMosh,
     this.engineDialer = dialEngine,
+    EngineDaemons? daemons,
     UdpVerdicts? udpVerdicts,
-  }) : udpVerdicts = udpVerdicts ?? UdpVerdicts(),
+  }) : _daemons = daemons ?? EngineDaemons.shared,
+       udpVerdicts = udpVerdicts ?? UdpVerdicts(),
        _connector = SshConnector(links: links, timeout: timeout);
 
   static const terminalType = 'xterm-256color';
@@ -41,6 +44,7 @@ class ShellTunnel {
   final Duration moshGiveUp;
   final MoshDialer moshDialer;
   final EngineDialer engineDialer;
+  final EngineDaemons _daemons;
   final SshConnector _connector;
 
   final UdpVerdicts udpVerdicts;
@@ -192,10 +196,16 @@ class ShellTunnel {
       final carried = resumed && epoch is String && earlier?.epoch == epoch
           ? earlier?.state
           : null;
+      final relay = await _relay(
+        supervisor,
+        address: address,
+        user: user,
+        tab: tabSession,
+      );
       overUdp = true;
       final channel = await engineDialer(
-        host: address,
-        port: udpPort,
+        host: relay == null ? address : InternetAddress.loopbackIPv4.address,
+        port: relay ?? udpPort,
         key: key,
         columns: columns,
         rows: rows,
@@ -208,6 +218,7 @@ class ShellTunnel {
         owner: user,
         tab: tabSession,
         port: udpPort,
+        daemons: _daemons,
         columns: columns,
         rows: rows,
         continuity: resumed ? ShellContinuity.resumed : ShellContinuity.plain,
@@ -223,7 +234,8 @@ class ShellTunnel {
       udpVerdicts.clear(address);
       _log(
         supervisor.endpoint,
-        'engine $udpPort on ${columns}x$rows'
+        'engine $udpPort${relay == null ? '' : ' through the daemon'}'
+        ' on ${columns}x$rows'
         '${carried != null
             ? ', carried on'
             : resumed
@@ -254,6 +266,34 @@ class ShellTunnel {
         },
       );
       if (fatal) rethrow;
+      return null;
+    }
+  }
+
+  Future<int?> _relay(
+    ConnectionSupervisor supervisor, {
+    required String address,
+    required String user,
+    required String tab,
+  }) async {
+    try {
+      return await _daemons.attach(
+        address: address,
+        user: user,
+        tab: tab,
+        timeout: timeout,
+        start: () => _engineCall(
+          (command, stdin) =>
+              supervisor.exec(command, stdin: stdin, timeout: timeout),
+          service: 'daemon/1',
+          owner: user,
+          tab: tab,
+          op: 'start',
+          args: const {},
+        ),
+      );
+    } catch (error) {
+      _log(supervisor.endpoint, 'daemon fallback: $error');
       return null;
     }
   }
@@ -791,6 +831,7 @@ class MoshShellConnection extends _ChannelConnection<Uint8List> {
 
 Future<Map<String, Object?>?> _engineCall(
   Future<ExecResult?> Function(String command, Uint8List stdin) run, {
+  String service = 'shell/1',
   required String owner,
   required String tab,
   required String op,
@@ -799,21 +840,18 @@ Future<Map<String, Object?>?> _engineCall(
   final result = await run(
     '$moshTabVariable=${shellQuote(tab)} upgraded',
     Uint8List.fromList(
-      utf8.encode(
-        jsonEncode({
-          'service': 'shell/1',
-          'op': op,
-          'owner': owner,
-          'args': args,
-        }),
-      ),
+      utf8.encode(jsonEncode(engineRequest(service, op, args, owner: owner))),
     ),
   );
-  if (result == null) return null;
+  return result == null ? null : _engineResult(result.out);
+}
+
+Map<String, Object?>? _engineResult(String out) {
   final Object? reply;
   try {
-    reply = jsonDecode(result.out);
+    reply = jsonDecode(out);
   } on FormatException {
+    // ignored: an unreadable reply is a failed call, as a refused one is.
     return null;
   }
   if (reply is! Map<String, Object?> || reply['ok'] != true) return null;
@@ -834,6 +872,7 @@ class EngineShellConnection extends _ChannelConnection<EngineEvent> {
     required this.continuity,
     this.seamless = false,
     this.onLeave,
+    required this.daemons,
     super.healthInterval = const Duration(seconds: 3),
     super.giveUp = const Duration(seconds: 30),
   }) {
@@ -856,6 +895,7 @@ class EngineShellConnection extends _ChannelConnection<EngineEvent> {
   final String tab;
   final int port;
   final EngineChannel _engine;
+  final EngineDaemons daemons;
 
   final bool seamless;
 
@@ -931,14 +971,7 @@ class EngineShellConnection extends _ChannelConnection<EngineEvent> {
     }
     final channels = action == null ? _supervisor : await channelsFor(action);
     if (channels == null) return false;
-    final stopped = await _engineCall(
-      (command, stdin) =>
-          channels.exec(command, stdin: stdin, timeout: remoteCommandDeadline),
-      owner: owner,
-      tab: session,
-      op: 'stop',
-      args: {'tab': session},
-    );
+    final stopped = await _call(channels, session, 'stop', {'tab': session});
     final swept = await channels.exec(
       moshServerCleanupCommand(session),
       timeout: remoteCommandDeadline,
@@ -950,19 +983,46 @@ class EngineShellConnection extends _ChannelConnection<EngineEvent> {
     return sweep == MoshSweep.environments;
   }
 
+  Future<Map<String, Object?>?> _call(
+    HostChannels channels,
+    String session,
+    String op,
+    Map<String, Object?> args,
+  ) async {
+    Future<Map<String, Object?>?> overSsh(
+      String service,
+      String op,
+      Map<String, Object?> args,
+    ) => _engineCall(
+      (command, stdin) =>
+          channels.exec(command, stdin: stdin, timeout: remoteCommandDeadline),
+      service: service,
+      owner: owner,
+      tab: session,
+      op: op,
+      args: args,
+    );
+    final String? answer;
+    try {
+      answer = await daemons.call(
+        address: address,
+        user: owner,
+        body: jsonEncode(engineRequest('shell/1', op, args, owner: owner)),
+        timeout: remoteCommandDeadline,
+        start: () => overSsh('daemon/1', 'start', const {}),
+      );
+    } catch (error) {
+      _log(_supervisor.endpoint, 'engine $op through the daemon: $error');
+      return null;
+    }
+    return answer == null
+        ? overSsh('shell/1', op, args)
+        : _engineResult(answer);
+  }
+
   @override
   Future<bool?> _serverGone() async {
-    final listed = await _engineCall(
-      (command, stdin) => _supervisor.exec(
-        command,
-        stdin: stdin,
-        timeout: remoteCommandDeadline,
-      ),
-      owner: owner,
-      tab: tab,
-      op: 'list',
-      args: const {},
-    );
+    final listed = await _call(_supervisor, tab, 'list', const {});
     final shells = listed?['shells'];
     if (shells is! List) return null;
     return !shells.any(

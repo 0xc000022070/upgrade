@@ -40,6 +40,9 @@ pub fn dispatch(request: &Request, policy: &Policy) -> EngineResult<Value> {
             schedule::dispatch(&request.op, &request.args, &state_root)
         }
         agents::SERVICE => agents::dispatch(&request.op, &request.args, &state_root),
+        crate::shell::daemon::SERVICE => {
+            crate::shell::daemon::dispatch(&request.op, &state_root, policy)
+        }
         crate::shell::SERVICE => {
             crate::shell::dispatch(&request.op, &request.args, &state_root, policy)
         }

@@ -94,6 +94,12 @@ chat-gate:
     cargo test --manifest-path chat/Cargo.toml
 
 [group('dev')]
+quic-gate:
+    cargo fmt --manifest-path quic/Cargo.toml --check
+    cargo clippy --manifest-path quic/Cargo.toml --all-targets -- -D warnings
+    cargo test --manifest-path quic/Cargo.toml
+
+[group('dev')]
 pub-build: (pub "dart_mosh") (pub "dartssh2") (pub "flterm") (pub "pointycastle") _libghostty
 
 [group('agents')]

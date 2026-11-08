@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:upgrade/application/agents/agent_state.dart';
 import 'package:upgrade/platform/herdr/herdr_client.dart';
+import 'package:upgrade/platform/shell/daemon_link.dart';
 
 const agentsService = 'agents/1';
 
@@ -136,12 +137,10 @@ class EngineAgents {
     Map<String, Object?> args, {
     Duration within = const Duration(seconds: 20),
   }) async {
-    final reply = await session.engine({
-      'service': agentsService,
-      'op': op,
-      'owner': owner,
-      'args': args,
-    }, within: within);
+    final reply = await session.engine(
+      engineRequest(agentsService, op, args, owner: owner),
+      within: within,
+    );
     if (reply is! Map<String, Object?>) {
       throw const HerdrProtocolMismatch(null, 'engine reply is not an object');
     }

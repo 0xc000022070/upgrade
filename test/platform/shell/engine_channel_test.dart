@@ -261,8 +261,8 @@ void main() {
         ).encode().length,
         engineServerHeader,
       );
-      expect(engineMaxInput, 1162);
-      expect(engineMaxData, 1166);
+      expect(engineMaxInput, 1122);
+      expect(engineMaxData, 1126);
     });
 
     test('a server packet round trips with its jump and data', () {

@@ -8,6 +8,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/data/repositories/host_repository.dart';
 import 'package:upgrade/features/shell/session/shell_sessions.dart';
+import 'package:upgrade/platform/shell/daemon_link.dart';
 import 'package:upgrade/platform/shell/engine_channel.dart';
 import 'package:upgrade/platform/shell/mosh_channel.dart';
 import 'package:upgrade/platform/shell/shell_connection.dart';
@@ -2502,9 +2503,11 @@ ShellTunnel engineTunnelTo(
   FakeHost Function()? nextHost,
   void Function()? onMosh,
   Object? dialError,
+  DaemonLink? daemon,
 }) => ShellTunnel(
   timeout: timeout,
   udpVerdicts: verdicts,
+  daemons: daemon == null ? null : EngineDaemons(daemon),
   links: linksOver(
     (_) => nextHost?.call() ?? host,
     timeout: timeout,
@@ -2620,6 +2623,90 @@ void engineTests() {
       heightPx: 1554,
     ));
     expect(engine.rehomes, 1);
+  });
+
+  test('a host with a daemon carries the tab over its relay, and one without '
+      'is dialled direct and not asked again', () async {
+    final daemon = FakeDaemonLink();
+    final host = FakeHost()
+      ..execInputAnswer = (command, stdin) =>
+          (jsonDecode(stdin) as Map<String, Object?>)['service'] == 'daemon/1'
+          ? '{"ok":true,"result":{"port":61000,"cert":"Y2VydA==",'
+                '"token":"dG9rZW4="}}'
+          : engineHostAnswer()(command, stdin);
+    final dialled = <({String host, int port, String key})>[];
+    final tunnel = engineTunnelTo(
+      host,
+      FakeEngineChannel(),
+      FakeMoshChannel(),
+      dialled: dialled,
+      next: FakeEngineChannel.new,
+      daemon: daemon,
+    );
+    for (var i = 0; i < 2; i++) {
+      final connection = await openOn(
+        tunnel,
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+      );
+      await connection.close(UserClosed(testIntent()));
+    }
+    expect(daemon.attached, [
+      (
+        host: 'oak',
+        port: 61000,
+        cert: 'Y2VydA==',
+        token: 'dG9rZW4=',
+        tab: session,
+      ),
+      (
+        host: 'oak',
+        port: 61000,
+        cert: 'Y2VydA==',
+        token: 'dG9rZW4=',
+        tab: session,
+      ),
+    ]);
+    expect(
+      engineRequests(host).where((r) => r['service'] == 'daemon/1').length,
+      1,
+    );
+    expect(dialled, [
+      (host: '127.0.0.1', port: 40000, key: _engineKey),
+      (host: '127.0.0.1', port: 40000, key: _engineKey),
+    ]);
+
+    final direct = <({String host, int port, String key})>[];
+    final bare = FakeHost()
+      ..execInputAnswer = (command, stdin) =>
+          (jsonDecode(stdin) as Map<String, Object?>)['service'] == 'daemon/1'
+          ? '{"ok":false,"error":{"code":"unknown_service"}}'
+          : engineHostAnswer()(command, stdin);
+    final plain = engineTunnelTo(
+      bare,
+      FakeEngineChannel(),
+      FakeMoshChannel(),
+      dialled: direct,
+      next: FakeEngineChannel.new,
+      daemon: daemon,
+    );
+    for (var i = 0; i < 2; i++) {
+      final connection = await openOn(
+        plain,
+        command: 'exec \$SHELL -l',
+        tabSession: session,
+      );
+      await connection.close(UserClosed(testIntent()));
+    }
+    expect(
+      engineRequests(bare).where((r) => r['service'] == 'daemon/1').length,
+      1,
+    );
+    expect(daemon.attached, hasLength(2));
+    expect(direct, [
+      (host: 'oak', port: 60990, key: _engineKey),
+      (host: 'oak', port: 60990, key: _engineKey),
+    ]);
   });
 
   test('a dial back to the same server process carries on where the last '
@@ -3711,4 +3798,39 @@ void gestureBesideTests() {
     await bystander.close(UserClosed(testIntent()));
     expect(hosts.first.closed, isTrue);
   });
+}
+
+class FakeDaemonLink implements DaemonLink {
+  final attached =
+      <({String host, int port, String cert, String token, String tab})>[];
+
+  @override
+  Future<int> attach({
+    required String host,
+    required int port,
+    required String cert,
+    required String token,
+    required String tab,
+  }) async {
+    attached.add((host: host, port: port, cert: cert, token: token, tab: tab));
+    return 40000;
+  }
+
+  final calls = <Map<String, Object?>>[];
+  String Function(Map<String, Object?> request)? answer;
+
+  @override
+  Future<String> call({
+    required String host,
+    required int port,
+    required String cert,
+    required String token,
+    required String body,
+  }) async {
+    final request = jsonDecode(body) as Map<String, Object?>;
+    calls.add(request);
+    final answer = this.answer;
+    if (answer == null) throw const DaemonFailed('no answer', sent: false);
+    return answer(request);
+  }
 }
