@@ -319,9 +319,17 @@ class HomeLayout {
     ];
     for (final id in agentsFirst) {
       if (next.homeSpaceOf(id) != null) continue;
-      next = id == agentsCardId
-          ? next.withHomeCard(id, space: space, front: true)
-          : next.withHomeCard(id, space: space, weight: 2);
+      final agentsSpace = next.homeSpaceOf(agentsCardId);
+      next = switch (id) {
+        agentsCardId => next.withHomeCard(id, space: space, front: true),
+        usageCardId when agentsSpace != null => next.withHomeCard(
+          id,
+          space: agentsSpace,
+          path: next.homePathOf(agentsSpace, agentsCardId),
+          edge: HomeEdge.bottom,
+        ),
+        _ => next.withHomeCard(id, space: space, weight: 2),
+      };
     }
     return next;
   }

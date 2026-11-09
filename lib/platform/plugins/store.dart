@@ -24,6 +24,7 @@ class PluginStore {
     List<PluginPackage> packages, {
     required bool adoptEnabled,
     Map<String, BuiltinArrival> arrivals = const {},
+    Map<String, String> splitFrom = const {},
   }) => _change((entries) {
     final ids = packages.map((p) => p.manifest.id).toSet();
     if (ids.length != packages.length ||
@@ -44,12 +45,13 @@ class PluginStore {
         _adoptBuiltin(
           package,
           retained[package.manifest.id],
-          switch (arrivals[package.manifest.id]) {
-            BuiltinArrival.on => true,
-            BuiltinArrival.off => false,
-            BuiltinArrival.adopted ||
-            null => adoptEnabled && package.manifest.native,
-          },
+          retained[splitFrom[package.manifest.id]]?.enabled ??
+              switch (arrivals[package.manifest.id]) {
+                BuiltinArrival.on => true,
+                BuiltinArrival.off => false,
+                BuiltinArrival.adopted ||
+                null => adoptEnabled && package.manifest.native,
+              },
         ),
     ];
     var reduced = true;

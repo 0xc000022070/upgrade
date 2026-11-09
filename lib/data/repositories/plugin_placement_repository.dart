@@ -9,6 +9,8 @@ import 'package:upgrade/data/serial.dart';
 
 const agentsCardId = 'upgrade.agents:widget:agents';
 
+const usageCardId = 'upgrade.usage:widget:usage';
+
 const _legacyAgentsId = 'upgrade:home:agents';
 
 const homeSpaceCount = 9;
@@ -340,6 +342,11 @@ class PluginPlacementState {
   HomeTile? homeTileAt(int space, List<int> path) =>
       _at(homeTiles[space], path);
 
+  List<int>? homePathOf(int space, String id) => switch (homeTiles[space]) {
+    final root? => _pathOf(root, id),
+    null => null,
+  };
+
   int spaceOf(String id) => homeSpaceOf(id) ?? 1;
 
   int? homeSpaceOf(String id) {
@@ -388,7 +395,7 @@ class PluginPlacementState {
     if (root case HomeSplit(axis: HomeAxis.row, :final children)) {
       final last = children.length - 1;
       return switch (children.last) {
-        HomeCard(id: agentsCardId) => ([last], HomeEdge.right),
+        final tile when _agentsStack(tile) => ([last], HomeEdge.right),
         HomeSplit(axis: HomeAxis.column, :final children) => (
           [last, children.length - 1],
           HomeEdge.bottom,
@@ -397,11 +404,15 @@ class PluginPlacementState {
       };
     }
     return switch (root) {
-      HomeCard(id: agentsCardId) => (const [], HomeEdge.right),
+      _ when _agentsStack(root) => (const [], HomeEdge.right),
       HomeSplit(:final children) => ([children.length - 1], HomeEdge.bottom),
       _ => (const [], HomeEdge.bottom),
     };
   }
+
+  static bool _agentsStack(HomeTile tile) =>
+      tile.cards.contains(agentsCardId) &&
+      tile.cards.every((id) => id == agentsCardId || id == usageCardId);
 
   PluginPlacementState withHomeMove(
     String id, {

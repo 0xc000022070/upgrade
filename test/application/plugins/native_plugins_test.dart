@@ -245,6 +245,36 @@ void main() {
     },
   );
 
+  test('USAGE starts as AGENTS stood on an install that had it', () async {
+    final root = await Directory.systemTemp.createTemp('upgrade-usage-split-');
+    addTearDown(() => root.delete(recursive: true));
+    final arrivals = {
+      for (final module in builtinModules) module.id: module.arrives,
+    };
+    final splitFrom = {
+      for (final module in builtinModules) module.id: ?module.splitFrom,
+    };
+    Future<bool?> usageAfter(String name, {required bool agentsOn}) async {
+      final store = PluginStore(Directory('${root.path}/$name'));
+      await store.synchronizeBuiltins(
+        [builtinFixture('agents')],
+        adoptEnabled: true,
+        arrivals: arrivals,
+      );
+      await store.setEnabled('upgrade.agents', agentsOn);
+      final catalog = await store.synchronizeBuiltins(
+        [builtinFixture('agents'), builtinFixture('usage')],
+        adoptEnabled: true,
+        arrivals: arrivals,
+        splitFrom: splitFrom,
+      );
+      return catalog.firstWhere((p) => p.id == 'upgrade.usage').enabled;
+    }
+
+    expect(await usageAfter('off', agentsOn: false), isFalse);
+    expect(await usageAfter('on', agentsOn: true), isTrue);
+  });
+
   test(
     'prompt ships off and agents on, on fresh and existing installs alike',
     () async {
@@ -259,6 +289,7 @@ void main() {
         'upgrade.drops': BuiltinArrival.adopted,
         'upgrade.projects': BuiltinArrival.adopted,
         'upgrade.prompt': BuiltinArrival.off,
+        'upgrade.usage': BuiltinArrival.on,
       });
       final older = [builtinFixture('drops'), builtinFixture('projects')];
       final packages = [

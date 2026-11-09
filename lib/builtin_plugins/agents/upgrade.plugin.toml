@@ -2,7 +2,7 @@ manifest_version = 3
 id = "upgrade.agents"
 name = "Agents"
 emblem = "eye"
-purpose = "Show what the agents are doing and how much of each plan is left."
+purpose = "Show what the agents are doing."
 version = "1.0.0"
 upgrade_api = "^2.0.0"
 

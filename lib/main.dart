@@ -140,6 +140,9 @@ _loadPlugins(AppDatabase db) async {
       arrivals: {
         for (final module in builtinModules) module.id: module.arrives,
       },
+      splitFrom: {
+        for (final module in builtinModules) module.id: ?module.splitFrom,
+      },
     );
   } catch (error) {
     catalog = [

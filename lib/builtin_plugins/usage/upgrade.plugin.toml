@@ -1,0 +1,22 @@
+manifest_version = 3
+id = "upgrade.usage"
+name = "Usage"
+emblem = "flask"
+purpose = "Show how much of each agent plan is left."
+version = "1.0.0"
+upgrade_api = "^2.0.0"
+
+[runtime]
+kind = "native"
+entry = "main.dart"
+
+[contributes]
+
+[[contributes.widgets]]
+id = "usage"
+title = "Usage"
+surface = "home.usage"
+locations = ["home.card"]
+default_location = "home.card"
+default_size = "auto"
+sizes = [{ id = "auto", title = "Automatic", min_width = 240, max_width = 1100 }]

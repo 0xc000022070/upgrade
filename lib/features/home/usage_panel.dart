@@ -43,65 +43,66 @@ class _UsagePanelState extends ConsumerState<UsagePanel> {
   Widget build(BuildContext context) {
     final List<HostUsage> usages =
         widget.usages ?? ref.watch(usageFeedProvider);
-    if (usages.isEmpty) return const SizedBox.shrink();
     final at = widget.now ?? DateTime.now();
     final accounts = usageAccounts(usages);
-    return Padding(
-      padding: const EdgeInsets.only(top: Spacing.panelGap),
-      child: Panel(
-        title: 'USAGE',
-        affordance: PanelAffordance(
-          'REFRESH',
-          onTap: () =>
-              ref.read(usageFeedProvider.notifier).refresh(fresh: true),
-        ),
-        bodyPadding: const EdgeInsets.symmetric(
-          horizontal: Spacing.panelPadding,
-          vertical: Spacing.md,
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final columns =
-                constraints.maxWidth >= usageColumn * 2 + Spacing.xxl + 1
-                ? 2
-                : 1;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < accounts.length; i += columns)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-                    child: IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (var j = i; j < i + columns; j++) ...[
-                            if (j > i)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: Spacing.lg,
-                                ),
-                                child: VerticalDivider(
-                                  width: 1,
-                                  thickness: 1,
-                                  color: context.tokens.borderSubtle,
-                                ),
+    return Panel(
+      title: 'USAGE',
+      affordance: PanelAffordance(
+        'REFRESH',
+        onTap: () => ref.read(usageFeedProvider.notifier).refresh(fresh: true),
+      ),
+      bodyPadding: const EdgeInsets.symmetric(
+        horizontal: Spacing.panelPadding,
+        vertical: Spacing.md,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final columns =
+              constraints.maxWidth >= usageColumn * 2 + Spacing.xxl + 1 ? 2 : 1;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (accounts.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Spacing.md),
+                  child: Text(
+                    'NO PLAN READ YET',
+                    style: context.tokens.rowSubtitle,
+                  ),
+                ),
+              for (var i = 0; i < accounts.length; i += columns)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Spacing.md),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var j = i; j < i + columns; j++) ...[
+                          if (j > i)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: Spacing.lg,
                               ),
-                            Expanded(
-                              child: j < accounts.length
-                                  ? _Account(accounts[j], now: at)
-                                  : const SizedBox.shrink(),
+                              child: VerticalDivider(
+                                width: 1,
+                                thickness: 1,
+                                color: context.tokens.borderSubtle,
+                              ),
                             ),
-                          ],
+                          Expanded(
+                            child: j < accounts.length
+                                ? _Account(accounts[j], now: at)
+                                : const SizedBox.shrink(),
+                          ),
                         ],
-                      ),
+                      ],
                     ),
                   ),
-              ],
-            );
-          },
-        ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -69,10 +69,11 @@ AgentUsage _codex({
 );
 
 void main() {
-  testWidgets('no account, no panel', (tester) async {
+  testWidgets('no account keeps the card, saying so', (tester) async {
     await _pump(tester, const []);
 
-    expect(find.byType(Panel), findsNothing);
+    expect(find.byType(Panel), findsOneWidget);
+    expect(find.text('NO PLAN READ YET'), findsOneWidget);
   });
 
   testWidgets('an account shows its plan, host and every window', (

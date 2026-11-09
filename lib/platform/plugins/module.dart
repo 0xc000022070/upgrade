@@ -12,10 +12,15 @@ class NativePluginModule {
     required this.surfaces,
     this.deactivate,
     this.arrives = BuiltinArrival.adopted,
+    this.splitFrom,
   });
   final String id;
   final String directory;
   final Map<String, WidgetBuilder> surfaces;
   final void Function(Ref ref)? deactivate;
   final BuiltinArrival arrives;
+
+  /// The builtin this one was carved out of: an install that already has it
+  /// starts this one in the same on/off state.
+  final String? splitFrom;
 }

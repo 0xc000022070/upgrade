@@ -225,7 +225,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final tail = <Widget>[
       if (root == null) _EmptySpace(onAdd: () => showAddWidgets(context)),
       if (placements != null &&
-          !live.any((id) => id != agentsCardId) &&
+          !live.any((id) => id != agentsCardId && id != usageCardId) &&
           composer == null)
         _PluginsOffPanel(catalog: catalog),
     ];

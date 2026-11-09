@@ -55,6 +55,49 @@ void main() {
     layout().validate();
   });
 
+  test('USAGE stacks under AGENTS and leaves the rest beside it', () {
+    final usage = builtinFixture('usage');
+    final state = HomeLayout(
+      PluginPlacementState(),
+      PluginContributionCatalog([
+        ...builtinFixtures(),
+        InstalledPlugin(usage, usage.manifest.permissions),
+      ], builtinModules),
+    ).withDefaults();
+    final at = state.homePathOf(1, usageCardId)!;
+    final column = state.homeTileAt(1, at.sublist(0, at.length - 1));
+    expect(column, isA<HomeSplit>());
+    expect((column! as HomeSplit).axis, HomeAxis.column);
+    expect(column.cards, [agentsCardId, usageCardId]);
+    expect(state.homeOrder, [agentsCardId, usageCardId, _drops, _next]);
+  });
+
+  test('a card turned on later goes beside the AGENTS stack', () {
+    InstalledPlugin installed(String name) {
+      final package = builtinFixture(name);
+      return InstalledPlugin(package, package.manifest.permissions);
+    }
+
+    PluginContributionCatalog of(List<String> names) =>
+        PluginContributionCatalog([
+          for (final name in names) installed(name),
+        ], builtinModules);
+    final stacked = HomeLayout(
+      PluginPlacementState(),
+      of(['agents', 'usage']),
+    ).withDefaults();
+    final later = HomeLayout(
+      stacked,
+      of(['agents', 'usage', 'drops']),
+    ).withDefaults();
+    final root = later.tileOf(1)! as HomeSplit;
+    expect(root.axis, HomeAxis.row);
+    expect(root.children.map((tile) => tile.cards.toList()), [
+      [agentsCardId, usageCardId],
+      [_drops],
+    ]);
+  });
+
   test('guards and validation reject the same rules', () {
     final cases = <String, (PluginPlacementState Function(), String)>{
       'width over its size': (

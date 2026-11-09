@@ -6,6 +6,7 @@ import 'package:upgrade/builtin_plugins/chat/main.dart';
 import 'package:upgrade/builtin_plugins/drops/main.dart';
 import 'package:upgrade/builtin_plugins/projects/main.dart';
 import 'package:upgrade/builtin_plugins/prompt/main.dart';
+import 'package:upgrade/builtin_plugins/usage/main.dart';
 import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/plugins/module.dart';
 
@@ -15,6 +16,7 @@ const builtinModules = <NativePluginModule>[
   dropsPlugin,
   projectsPlugin,
   promptPlugin,
+  usagePlugin,
 ];
 const bundledScriptDirectories = [
   'plugins/agent-schedules',
