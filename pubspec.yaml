@@ -89,6 +89,8 @@ flutter:
     - lib/builtin_plugins/prompt/main.dart
     - plugins/agent-schedules/upgrade.plugin.toml
     - plugins/agent-schedules/main.luau
+    - plugins/aws-cost/upgrade.plugin.toml
+    - plugins/aws-cost/main.luau
     - plugins/board/upgrade.plugin.toml
     - plugins/board/main.luau
     - plugins/kanban/upgrade.plugin.toml

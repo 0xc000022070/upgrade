@@ -1,0 +1,45 @@
+manifest_version = 5
+id = "upgrade.aws-cost"
+name = "AWS Cost"
+purpose = "See what the AWS account costs this month: charges, credits, services, forecast, Free Tier and budgets."
+version = "1.0.0"
+upgrade_api = "^2.1.0"
+ui_api = 2
+author = "Upgrade"
+homepage = "https://github.com/0xc000022070/upgrade"
+license = "MIT"
+summary = "AWS billing like the console home, read through keys or a host aws CLI that the app keeps from the script"
+
+[runtime]
+kind = "luau"
+entry = "main.luau"
+
+[datasets.costs]
+schema_version = 1
+quota_bytes = 131072
+quota_records = 4
+
+[capabilities.costs]
+api_version = 1
+dataset = "self:costs"
+operations = ["get", "put"]
+
+[host_capabilities.aws]
+api_version = 1
+service = "aws"
+operations = ["billing"]
+
+[permissions]
+ui = ["page", "widget", "canvas"]
+
+[[contributes.pages]]
+id = "main"
+title = "AWS Cost"
+
+[[contributes.widgets]]
+id = "month"
+title = "AWS cost"
+locations = ["home.card"]
+default_location = "home.card"
+default_size = "auto"
+sizes = [{ id = "auto", title = "Automatic", min_width = 280, max_width = 720 }]

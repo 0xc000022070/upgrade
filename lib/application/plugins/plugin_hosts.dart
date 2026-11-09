@@ -23,6 +23,7 @@ import 'package:upgrade/platform/ssh/host_links.dart';
 import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/ssh/ssh_settle.dart';
 import 'package:upgrade/application/agents/agents.dart';
+import 'package:upgrade/application/plugins/aws_access.dart';
 import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/shell/path_scan.dart';
 import 'package:upgrade/data/serial.dart';
@@ -1065,6 +1066,15 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
           engine.session.close();
         }
         return {'answer': allow ? 'allowed' : 'denied'};
+      },
+    ),
+    'aws': PluginHostService(
+      operations: const {'billing'},
+      invoke: (plugin, operation, args, confirm, check, gesture) async {
+        if (gesture == null || !gesture.take()) {
+          throw const PluginException('AWS billing is read only from a tap');
+        }
+        return fetchAwsBilling(ref, check);
       },
     ),
   }, retryPending: scheduler.retryPending);

@@ -18,6 +18,7 @@ const builtinModules = <NativePluginModule>[
 ];
 const bundledScriptDirectories = [
   'plugins/agent-schedules',
+  'plugins/aws-cost',
   'plugins/board',
   'plugins/kanban',
 ];

@@ -29,6 +29,7 @@ import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/data/plugins/contributions.dart';
 import 'package:upgrade/platform/plugins/index.dart';
 import 'package:upgrade/platform/plugins/store.dart';
+import 'package:upgrade/features/plugins/aws_access_field.dart';
 import 'package:upgrade/features/plugins/plugin_board.dart';
 import 'package:upgrade/application/drops/capture_visibility.dart';
 import 'package:upgrade/application/drops/drop_selection.dart';
@@ -426,6 +427,8 @@ class _PluginSheetState extends ConsumerState<_PluginSheet> {
       _PluginPreview(manifest: manifest, installed: installed),
       _WhereItSits(plugin: installed),
       _reach(manifest, catalog),
+      if (manifest.hostCapabilities.values.any((c) => c.service == 'aws'))
+        const AwsAccessField(),
       ..._links(manifest, catalog),
       ..._diagnosticsSection(installed.package),
       if (_diagnostics)

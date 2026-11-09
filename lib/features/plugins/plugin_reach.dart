@@ -96,6 +96,16 @@ List<PluginReach> pluginReach(
       );
       continue;
     }
+    if (service == 'aws') {
+      add(
+        'READ YOUR AWS BILLING WHEN YOU TAP, WITH THE ACCESS YOU CHOOSE ON THIS SHEET',
+        [
+          for (final c in capabilities)
+            for (final op in c.operations) c.permission(op).id,
+        ],
+      );
+      continue;
+    }
     final operations = [
       for (final c in capabilities)
         for (final op in c.operations) (c, op),

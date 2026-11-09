@@ -532,7 +532,11 @@ Map<String, Object?> pluginSdkInventory() => {
     },
     'host_capabilities': {
       'api_version': 1,
-      'services': ['hosts', 'scheduler', 'agents', 'run'],
+      'services': ['hosts', 'scheduler', 'agents', 'run', 'aws'],
+      'aws': {
+        'operations': ['billing'],
+        'billing': '{} from a tap, read through the access the user chose on the plugin sheet, for the UTC month to date -> {start, end, currency, estimated, net, charges, credits, refunds, tax, last = {month, net, charges, sameDays}, forecast?, forecastEnd, days = [{date, amount}], services = [{name, charges, net}], plan? = {type, status, remaining, currency, expires?}, freeTier = [{service, description, type, unit, used, forecast, limit}], budgets = [{name, period, unit, limit, actual, forecast}], notes = [{block, error}]}',
+      },
       'run': {
         'operations': ['submit', 'list', 'status', 'output', 'cancel'],
         'commands': '{name = {argv = ["word", "{param}"], cwd?, timeout_seconds 1..3600, choices? = {param = ["word"]}}}',

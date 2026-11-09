@@ -8,7 +8,7 @@ A section says what has to be true. `Struck:` paragraphs say what was considered
 
 ### Upgrade is one person's control plane, and it runs on their phone
 
-Local-first, single-user, mobile-first, Flutter. There is no account, no backend, no cloud, no sync and no websocket to a service. What the app knows is in a SQLite file in its own sandbox, and what it reaches out to, it reaches on a connection the user opened to a machine the user owns.
+Local-first, single-user, mobile-first, Flutter. There is no account, no backend, no cloud, no sync and no websocket to a service. What the app knows is in a SQLite file in its own sandbox, and what it reaches out to, it reaches on a connection the user opened to a machine the user owns. The one exception is AWS's billing APIs, which the AWS Cost plugin reads with keys the user saved for it, or through the `aws` CLI on a host the user chose.
 
 It answers a small number of questions and it answers them fast: what am I working toward, what is the next thing, what is stuck, where do I put this thought before it is gone — and then, because the work is on machines and not only in lists, what are my machines doing, what is the agent on that machine waiting for me to say, and what does the code look like right now. It is a real tool, not a gamified task manager and not a personal Jira.
 
@@ -2598,6 +2598,32 @@ The surface scrolls under the finger natively and no script runs while it does. 
 Board is written against the drawing surface, the tap and the dataset API a repository plugin already has, and it adds no host surface of its own. Nothing it does is reserved to it. An author outside this repository can build a different surface — a map, a graph, a game — from the same primitive, and the app ships no board-shaped node that would decide on that author's behalf what a canvas is for.
 
 A board holds as many notes and links as one drawing pass and one invocation's dataset transfer allow. Reaching that ceiling refuses the new note and says so on the board, rather than dropping notes from the drawing or accepting one it cannot store.
+
+### AWS Cost is a Luau plugin, and its keys stay with the app
+
+AWS Cost is a standalone Luau package shipped with the app, bundled and disabled until the user enables it, and written against the same page, card, dataset, canvas and capability APIs any repository plugin has. It reads like the billing console's home, for the UTC month to date:
+
+- What is owed, then what made it up: charges, credits, refunds when there are any, and tax. Below that, the charges of the same days of last month and the change against them.
+- `OUTLOOK`: last month's total and charges, and AWS's own forecast from today through the end of the month.
+- `CREDITS`: the credits applied this month and, on an account on AWS's free plan, the plan credits left and the day they end. A line says that promotional credit balances, Activate and the like, are in no AWS API and are read in the console's Billing, Credits.
+- `BY SERVICE`: charges per service, most first, with the service's net beside it when credits or refunds changed it.
+- `CHARGED PER DAY`: a bar per day, with every day's figure behind `EVERY DAY`.
+- `FREE TIER`: the offers closest to their limit, used against limit.
+- `BUDGETS`: each budget's actual spend against its limit, with its forecast.
+- `NOT SHOWN`: any block AWS refused, with AWS's reason, so a missing permission names itself. Charges and credits must answer; every other block may fail alone.
+
+Its Home card shows what is owed, the split, the comparison, the free plan credits left and the three services that charged most, with `FETCH` and `OPEN`.
+
+The user brings their own access, one of two kinds, chosen on the plugin's sheet in SYS · `PLUGINS` under `AWS ACCESS`:
+
+- Keys on this phone: an access key id and a secret access key, typed into native fields, kept in the phone's secure storage, shown afterwards only as the first and last four characters of the id.
+- A host: one of the hosts in MACHINES, whose `aws` CLI already signs in (`aws login`, `aws sso login`, a profile). The app runs `aws` there over SSH in the host's login shell, a fixed command per call pinned to us-east-1 with the request on stdin, and the credentials never leave the host.
+
+Choosing one replaces the other, and `FORGET ACCESS` removes it. The sheet walks through the setup in numbered steps: an IAM user with no console access, or the identity the host's CLI already is; the read-only policy, which `COPY POLICY` puts on the clipboard and which allows `ce:GetCostAndUsage`, `ce:GetCostForecast`, `freetier:GetAccountPlanState`, `freetier:GetFreeTierUsage` and `budgets:ViewBudget` and nothing else; an access key for an application running outside AWS; and opening Cost Explorer once in the console, since AWS prepares the data only after that. The script never holds keys, signatures, URLs, commands or raw responses, and never chooses an endpoint or a host.
+
+`aws` is a capability like `agents`, with one operation, `billing`, and review reads it as `READ YOUR AWS BILLING WHEN YOU TAP, WITH THE ACCESS YOU CHOOSE ON THIS SHEET`. It takes no arguments. The app asks Cost Explorer in us-east-1 for daily unblended cost over last month and this one, grouped by service and by record type, following its pages, then for the forecast, the free plan, Free Tier usage, the account id and its budgets. It hands back figures rounded to cents. It runs only from a tap, because AWS bills each Cost Explorer request at USD 0.01 and a fetch makes two or more, one more per extra page of cost; a card refresh never fetches, so the plugin keeps its last answer and draws that until the next tap. The page says what a fetch costs. A refusal reaches the plugin as AWS's or the CLI's own words; no access chosen reaches it as a line naming where to choose it.
+
+**Not built:** session tokens and assumed roles for keys on the phone, a profile picker for the host's CLI, other metrics than unblended cost, cost anomalies, breakdowns by account or region, and any other AWS API. `aws` is not a general HTTP client or shell and a plugin cannot reach any other cloud through it.
 
 ### A plugin reads the agent inbox, and answers it only under a tap
 
