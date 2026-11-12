@@ -48,7 +48,8 @@ enum HostUse {
   vnc('vnc'),
   deviceDock('device dock'),
   browser('browser'),
-  awsCost('aws cost');
+  awsCost('aws cost'),
+  pass('pass');
 
   const HostUse(this.label);
 
@@ -70,7 +71,8 @@ enum HostUse {
     watcher ||
     devices ||
     files ||
-    awsCost => HostLane.control,
+    awsCost ||
+    pass => HostLane.control,
   };
 
   bool get yields => this != tab && this != ownTab;
@@ -78,7 +80,7 @@ enum HostUse {
   bool get alone => this == ownTab;
 
   bool get wakes => switch (this) {
-    tab || ownTab || send || alertAction || files || awsCost => true,
+    tab || ownTab || send || alertAction || files || awsCost || pass => true,
     herdrPoll ||
     launchScan ||
     pathScan ||

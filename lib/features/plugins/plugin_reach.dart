@@ -106,6 +106,21 @@ List<PluginReach> pluginReach(
       );
       continue;
     }
+    if (service == 'pass') {
+      for (final c in capabilities) {
+        for (final op in c.operations) {
+          add(
+            switch (op) {
+              'copy' => 'COPY A PASSWORD TO THE CLIPBOARD WHEN YOU TAP IT',
+              'otp' => 'COPY A ONE-TIME CODE TO THE CLIPBOARD WHEN YOU TAP IT',
+              _ => 'LIST THE ENTRIES IN YOUR PASSWORD STORE ON THE HOST YOU CHOOSE ON THIS SHEET',
+            },
+            [c.permission(op).id],
+          );
+        }
+      }
+      continue;
+    }
     final operations = [
       for (final c in capabilities)
         for (final op in c.operations) (c, op),

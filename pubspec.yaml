@@ -97,6 +97,8 @@ flutter:
     - plugins/board/main.luau
     - plugins/kanban/upgrade.plugin.toml
     - plugins/kanban/main.luau
+    - plugins/pass/upgrade.plugin.toml
+    - plugins/pass/main.luau
     - plugins/templates/phone-card/upgrade.plugin.toml
     - plugins/templates/phone-card/main.luau
     - plugins/templates/phone-card/lib/card.luau

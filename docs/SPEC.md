@@ -2625,6 +2625,20 @@ Choosing one replaces the other, and `FORGET ACCESS` removes it. The sheet walks
 
 **Not built:** session tokens and assumed roles for keys on the phone, a profile picker for the host's CLI, other metrics than unblended cost, cost anomalies, breakdowns by account or region, and any other AWS API. `aws` is not a general HTTP client or shell and a plugin cannot reach any other cloud through it.
 
+### Pass is a Luau plugin, and the passwords never reach it
+
+Pass is a standalone Luau package shipped with the app, bundled and disabled until the user enables it, written against the same page, dataset and capability APIs any repository plugin has. It reads the password store `pass` keeps on one host, at `$PASSWORD_STORE_DIR` or `~/.password-store`.
+
+Its page lists every entry by its path, sorted, with a search field that narrows them by words and `REFRESH` at the foot. It draws the first 200 matches and says how many more a search would narrow. The list is listed again each time the page opens, and kept in the plugin's dataset so a reopen draws it before the host answers.
+
+A tap on an entry copies its password, the first line `pass show` prints, to the phone's clipboard, marked sensitive so Android does not preview it, and the page reads `COPIED web/github · CLEARS IN 45S`. Forty-five seconds later the app clears the clipboard unless it can see something else was copied since; in the background Android hides the clipboard from the app, and then it clears it anyway. The password is never drawn.
+
+The host is chosen on the plugin's sheet in SYS · `PLUGINS` under `PASS HOST`, one of the hosts in MACHINES; `FORGET HOST` removes it. The app runs `sh` in the host's login shell over SSH and feeds it a fixed script: one lists the `.gpg` files under the store, the other checks the entry is a file in the store and runs `pass show` on it. The host's gpg-agent must already decrypt without asking. The app never types a passphrase, and a pinentry that would ask fails the copy with gpg's own words; a graphical one that waits fails it after 60 seconds as the host not answering.
+
+`pass` is a capability like `aws`, with three operations. `list` takes nothing and answers the entry paths. `copy` takes `entry`, runs only from a tap, and answers the entry and the seconds until the clipboard clears. `otp` is `copy` for the entry's pass-otp code: it runs `pass otp code -q` and copies only a code of digits. An HOTP entry's counter advances with each code, which pass-otp writes back to the entry. pass-otp repeats the whole `otpauth` URI when it cannot parse one, so a host's complaint is cut before `otpauth:` and the seed never reaches the script. pass-otp is optional on the host; one without it answers "This host has no pass-otp extension" before the entry is touched. The plugin offers it as a toggle, off by default. Review reads them as `LIST THE ENTRIES IN YOUR PASSWORD STORE ON THE HOST YOU CHOOSE ON THIS SHEET`, `COPY A PASSWORD TO THE CLIPBOARD WHEN YOU TAP IT` and `COPY A ONE-TIME CODE TO THE CLIPBOARD WHEN YOU TAP IT`. The script never holds a password, a host or a command, and an entry path that climbs out of the store is refused before anything is sent.
+
+**Not built:** showing a password, the other lines of an entry, showing a one-time code, inserting, editing or generating entries, and stores on more than one host.
+
 ### A plugin reads the agent inbox, and answers it only under a tap
 
 `agents` is a host service a plugin declares like any other — `[host_capabilities.<alias>]` naming `service = "agents"` and the operations it wants, each its own permission on review. It has three: `list`, `answer` and `open`.

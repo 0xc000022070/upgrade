@@ -24,6 +24,7 @@ import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/ssh/ssh_settle.dart';
 import 'package:upgrade/application/agents/agents.dart';
 import 'package:upgrade/application/plugins/aws_access.dart';
+import 'package:upgrade/application/plugins/pass_access.dart';
 import 'package:upgrade/application/hosts/host_providers.dart';
 import 'package:upgrade/application/shell/path_scan.dart';
 import 'package:upgrade/data/serial.dart';
@@ -1075,6 +1076,18 @@ final pluginHostRegistryProvider = Provider<PluginHostRegistry>((ref) {
           throw const PluginException('AWS billing is read only from a tap');
         }
         return fetchAwsBilling(ref, check);
+      },
+    ),
+    'pass': PluginHostService(
+      operations: const {'list', 'copy', 'otp'},
+      invoke: (plugin, operation, args, confirm, check, gesture) async {
+        if (operation == 'list') return listPass(ref, check);
+        if (gesture == null || !gesture.take()) {
+          throw const PluginException(
+            'A password or code is copied only from a tap',
+          );
+        }
+        return copyPass(ref, args, check, otp: operation == 'otp');
       },
     ),
   }, retryPending: scheduler.retryPending);

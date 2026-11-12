@@ -78,6 +78,9 @@ abstract final class Device {
       .invokeMethod<bool>('chatKept')
       .then((kept) => kept ?? false, onError: (Object _) => false);
 
+  static Future<void> copySecret(String text, int seconds) => _channel
+      .invokeMethod<void>('copySecret', {'text': text, 'seconds': seconds});
+
   static Future<String?> model() =>
       failSoft(() => _channel.invokeMethod<String>('model'), null);
 

@@ -2,6 +2,8 @@ package dev.luisnquin.upgrade
 
 import android.app.Activity
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.app.PictureInPictureParams
 import android.content.Intent
@@ -15,6 +17,7 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.PersistableBundle
 import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
@@ -168,6 +171,10 @@ class MainActivity : FlutterActivity() {
                         call.argument<ByteArray>("bytes") ?: ByteArray(0),
                         result)
                     "openDocument" -> openDocument(result)
+                    "copySecret" -> {
+                        copySecret(call.argument<String>("text") ?: "", call.argument<Int>("seconds") ?: 45)
+                        result.success(null)
+                    }
                     "ime" -> result.success(imeShown())
                     "vpn" -> result.success(vpnUp())
                     "chat" -> result.success(ChatNative.prepare(applicationContext))
@@ -290,8 +297,36 @@ class MainActivity : FlutterActivity() {
         return caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
     }
 
+    private val clipboardHandler = Handler(Looper.getMainLooper())
+    private var clearSecret: Runnable? = null
+
+    // In the background Android hides the clipboard from the app, so an unreadable clip
+    // is cleared as if it were still the secret. A newer copy cancels the older clear.
+    private fun copySecret(text: String, seconds: Int) {
+        val clipboard = applicationContext.getSystemService(ClipboardManager::class.java)
+        val clip = ClipData.newPlainText("password", text)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            clip.description.extras = PersistableBundle().apply {
+                putBoolean("android.content.extra.IS_SENSITIVE", true)
+            }
+        }
+        clipboard.setPrimaryClip(clip)
+        clearSecret?.let(clipboardHandler::removeCallbacks)
+        clearSecret = Runnable {
+            clearSecret = null
+            val now = runCatching { clipboard.primaryClip?.getItemAt(0)?.text?.toString() }.getOrNull()
+            if (now != null && now != text) return@Runnable
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                clipboard.clearPrimaryClip()
+            } else {
+                clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
+            }
+        }.also { clipboardHandler.postDelayed(it, seconds * 1000L) }
+    }
+
     // The embedding swallows insets while it thinks an IME animation runs, and one cut short
     // leaves it swallowing; the window's own insets go to the view past that listener.
+
     private fun imeShown(): Boolean? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
         val view = findViewById<View>(FLUTTER_VIEW_ID) ?: return null

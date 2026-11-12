@@ -21,6 +21,7 @@ PluginPackage bundledPlugin(String dir, {String revision = '1.0.0'}) {
 PluginPackage awsCostPackage() => bundledPlugin('aws-cost');
 PluginPackage boardPackage() => bundledPlugin('board');
 PluginPackage kanbanPackage() => bundledPlugin('kanban');
+PluginPackage passPackage() => bundledPlugin('pass');
 PluginPackage schedulePackage() =>
     bundledPlugin('agent-schedules', revision: '1.1.0');
 

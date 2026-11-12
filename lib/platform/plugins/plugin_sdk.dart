@@ -532,7 +532,13 @@ Map<String, Object?> pluginSdkInventory() => {
     },
     'host_capabilities': {
       'api_version': 1,
-      'services': ['hosts', 'scheduler', 'agents', 'run', 'aws'],
+      'services': ['hosts', 'scheduler', 'agents', 'run', 'aws', 'pass'],
+      'pass': {
+        'operations': ['list', 'copy', 'otp'],
+        'list': '{} on the host the user chose on the plugin sheet -> {entries = ["dir/name"]}',
+        'copy': '{entry} from a tap; the password goes to the clipboard, never to the plugin -> {entry, clears = seconds}',
+        'otp': '{entry} from a tap; the current pass-otp code goes to the clipboard, never to the plugin; fails on a host without pass-otp -> {entry, clears = seconds}',
+      },
       'aws': {
         'operations': ['billing'],
         'billing': '{} from a tap, read through the access the user chose on the plugin sheet, for the UTC month to date -> {start, end, currency, estimated, net, charges, credits, refunds, tax, last = {month, net, charges, sameDays}, forecast?, forecastEnd, days = [{date, amount}], services = [{name, charges, net}], plan? = {type, status, remaining, currency, expires?}, freeTier = [{service, description, type, unit, used, forecast, limit}], budgets = [{name, period, unit, limit, actual, forecast}], notes = [{block, error}]}',

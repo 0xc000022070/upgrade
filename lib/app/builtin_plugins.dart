@@ -23,6 +23,7 @@ const bundledScriptDirectories = [
   'plugins/aws-cost',
   'plugins/board',
   'plugins/kanban',
+  'plugins/pass',
 ];
 
 Future<List<PluginPackage>> loadBuiltinPlugins() async => [

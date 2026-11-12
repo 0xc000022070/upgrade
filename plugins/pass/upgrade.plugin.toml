@@ -1,0 +1,37 @@
+manifest_version = 5
+id = "upgrade.pass"
+name = "Pass"
+purpose = "Copy a password or one-time code from the pass store on one of your hosts."
+version = "1.0.0"
+upgrade_api = "^2.1.0"
+ui_api = 2
+author = "Upgrade"
+homepage = "https://github.com/0xc000022070/upgrade"
+license = "MIT"
+summary = "Lists a host's password store and copies a password or one-time code to the clipboard without the script ever seeing it"
+
+[runtime]
+kind = "luau"
+entry = "main.luau"
+
+[datasets.entries]
+schema_version = 1
+quota_bytes = 262144
+quota_records = 2
+
+[capabilities.entries]
+api_version = 1
+dataset = "self:entries"
+operations = ["get", "put"]
+
+[host_capabilities.pass]
+api_version = 1
+service = "pass"
+operations = ["list", "copy", "otp"]
+
+[permissions]
+ui = ["page"]
+
+[[contributes.pages]]
+id = "main"
+title = "Pass"

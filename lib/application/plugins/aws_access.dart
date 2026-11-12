@@ -5,11 +5,9 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/hosts/host_providers.dart';
+import 'package:upgrade/application/plugins/chosen_host.dart';
 import 'package:upgrade/data/plugins/manifest.dart';
 import 'package:upgrade/platform/aws/aws_billing.dart';
-import 'package:upgrade/platform/ssh/connection_supervisor.dart';
-import 'package:upgrade/platform/ssh/host_failure.dart';
-import 'package:upgrade/platform/ssh/host_keys.dart';
 import 'package:upgrade/platform/ssh/host_links.dart';
 
 const _slot = 'aws.cost.keys';
@@ -83,59 +81,14 @@ Future<Map<String, Object?>> fetchAwsBilling(
         check();
         return await withAwsKeys(keys, (call) => awsBilling(call, now));
       case AwsHostCli(host: final id):
-        final host = (await ref.read(hostRepositoryProvider).all())
-            .where((host) => host.id == id)
-            .firstOrNull;
-        if (host == null) {
-          throw const PluginException(
-            'The host chosen for AWS is gone; choose another in SYS · PLUGINS',
-          );
-        }
-        if (host.hostKey == null) {
-          throw const PluginException(
-            'Verify the host key in MACHINES before connecting',
-          );
-        }
-        final privateKey = await ref
-            .read(privateKeyStoreProvider)
-            .read(host.keyId);
-        if (privateKey == null) {
-          throw const PluginException('Host private key is unavailable');
-        }
-        check();
-        final HostLease lease;
-        try {
-          lease = await ref
-              .read(hostLinksProvider)
-              .lease(
-                address: host.address,
-                port: host.port,
-                user: host.user,
-                privateKey: privateKey,
-                verifier: HostKeyVerifier.pinnedOnly(host.hostKey),
-                use: HostUse.awsCost,
-              );
-        } on HostFailure catch (error) {
-          throw PluginException(error.reason(host.name, address: host.address));
-        }
-        try {
-          return await awsBilling(
-            awsCliCall(
-              (command, stdin) => leaseExec(
-                lease,
-                command,
-                stdin: stdin,
-                timeout: const Duration(seconds: 60),
-              ),
-            ),
-            now,
-          );
-        } on Object catch (error) {
-          if (!isHostFailure(error)) rethrow;
-          throw PluginException('${host.name} did not answer');
-        } finally {
-          lease.release();
-        }
+        return await onChosenHost(
+          ref,
+          id,
+          HostUse.awsCost,
+          check,
+          gone: 'The host chosen for AWS is gone; choose another in SYS · PLUGINS',
+          (run) => awsBilling(awsCliCall(run), now),
+        );
     }
   } on AwsCostException catch (error) {
     throw PluginException(error.message);
