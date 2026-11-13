@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flterm/flterm.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
@@ -65,10 +67,13 @@ class ShellTerminalView extends StatelessWidget {
     super.key,
     required this.session,
     required this.fontSize,
+    this.keyboard = 0,
   });
 
   final ShellSession session;
   final double fontSize;
+
+  final double keyboard;
 
   @override
   Widget build(BuildContext context) {
@@ -87,35 +92,102 @@ class ShellTerminalView extends StatelessWidget {
   Widget _view(BuildContext context) {
     return ValueListenableBuilder(
       valueListenable: session.terminals,
-      builder: (context, terminal, _) => TerminalView(
-        key: ObjectKey(session),
-        controller: terminal,
-        focusNode: session.focusNode,
-        scrollController: session.scrollController,
-        theme: shellTheme(context.tokens, fontSize),
-        padding: shellTerminalPadding,
-        showKeyboard: false,
-        gestureSettings: shellGestures,
-        overlayBuilder: (context, geometry) {
-          final cell = geometry.cellRect(const Position(row: 0, col: 0));
-          if (cell != null) {
-            final ratio = MediaQuery.devicePixelRatioOf(context);
-            session.measuredCell(
-              (cell.width * ratio).round(),
-              (cell.height * ratio).round(),
+      builder: (context, terminal, _) => KeyboardSteady(
+        keyboard: keyboard,
+        rides:
+            terminal.activeScreen == TerminalScreen.alternate ||
+            terminal.scrollbackRows > 0,
+        child: TerminalView(
+          key: ObjectKey(session),
+          controller: terminal,
+          focusNode: session.focusNode,
+          scrollController: session.scrollController,
+          theme: shellTheme(context.tokens, fontSize),
+          padding: shellTerminalPadding,
+          showKeyboard: false,
+          gestureSettings: shellGestures,
+          overlayBuilder: (context, geometry) {
+            final cell = geometry.cellRect(const Position(row: 0, col: 0));
+            if (cell != null) {
+              final ratio = MediaQuery.devicePixelRatioOf(context);
+              session.measuredCell(
+                (cell.width * ratio).round(),
+                (cell.height * ratio).round(),
+              );
+            }
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                ShellSelectionActions(session: session, geometry: geometry),
+                ShellTailCell(session: session),
+              ],
             );
-          }
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              ShellSelectionActions(session: session, geometry: geometry),
-              ShellTailCell(session: session),
-            ],
-          );
-        },
+          },
+        ),
       ),
     );
   }
+}
+
+/// Holds the child at its no-keyboard height while [keyboard] moves, so a terminal in it
+/// tells the host one new size per move and not one for every row the keyboard crosses.
+class KeyboardSteady extends StatefulWidget {
+  const KeyboardSteady({
+    super.key,
+    required this.keyboard,
+    required this.rides,
+    required this.child,
+  });
+
+  static const settle = Duration(milliseconds: 120);
+
+  final double keyboard;
+
+  /// Whether the child's last row is where its content ends. Read when the keyboard
+  /// starts to move and kept until it rests: the resize itself changes the answer.
+  final bool rides;
+  final Widget child;
+
+  @override
+  State<KeyboardSteady> createState() => _KeyboardSteadyState();
+}
+
+class _KeyboardSteadyState extends State<KeyboardSteady> {
+  Timer? _settle;
+  bool _rides = false;
+
+  @override
+  void didUpdateWidget(KeyboardSteady old) {
+    super.didUpdateWidget(old);
+    if (widget.keyboard == old.keyboard) return;
+    if (_settle == null) _rides = widget.rides;
+    _settle?.cancel();
+    _settle = Timer(KeyboardSteady.settle, () {
+      if (mounted) setState(() => _settle = null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _settle?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final height =
+          constraints.maxHeight + (_settle == null ? 0 : widget.keyboard);
+      return ClipRect(
+        child: OverflowBox(
+          alignment: _rides ? Alignment.bottomCenter : Alignment.topCenter,
+          minHeight: height,
+          maxHeight: height,
+          child: widget.child,
+        ),
+      );
+    },
+  );
 }
 
 class ShellLoading extends StatelessWidget {

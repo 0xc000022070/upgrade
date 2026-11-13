@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -906,6 +907,11 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
       }
     });
     final fontSize = _pinched ?? persisted;
+    final keyboard = math.max(
+      0.0,
+      MediaQuery.viewInsetsOf(context).bottom -
+          MediaQuery.viewPaddingOf(context).bottom,
+    );
     return Scaffold(
       backgroundColor: context.tokens.mediaBackdrop,
       resizeToAvoidBottomInset: true,
@@ -1034,6 +1040,7 @@ class _HostShellRouteState extends ConsumerState<HostShellRoute> {
                                 child: ShellTerminalView(
                                   session: active,
                                   fontSize: fontSize,
+                                  keyboard: keyboard,
                                 ),
                               ),
                       ),

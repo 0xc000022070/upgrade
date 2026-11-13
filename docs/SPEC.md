@@ -1457,6 +1457,14 @@ A two-finger pinch scales the type: spread to grow, close to shrink, live while 
 
 One size for every shell on every host, kept in the settings table and read on the next open. It is the user's reading distance, not a property of a host or a tab, so it is not per anything, and there is no row for it in SYS: the gesture is on the surface it changes and the change is visible while it happens, which is the whole of the feedback. One finger stays the terminal's — a drag scrolls the buffer and a long press selects — and the pinch is taken only once two fingers have moved past the tap slop. The phone's own font scale still applies on top.
 
+### The keyboard moves the terminal, and the grid is resized once
+
+A keyboard coming up or going down tells the host one new size, not one for every row it crosses. While the keyboard is moving the terminal keeps the height it has with no keyboard. A terminal whose screen is full, one on the alternate screen or with scrollback above it, is pinned to the bottom of its room and cut at the top, so the prompt rides the keyboard's edge and the rows above it leave past the header. One that has not filled its screen stays where it is and the keyboard covers its foot. Which of the two is read when the keyboard starts to move and kept until it rests. On the way up the grid shrinks once the keyboard has rested for 120ms; on the way down it grows on the first frame, so the rows the keyboard uncovers are already drawn when it uncovers them. A keyboard that only changes height does the same: full height while it moves, the new size when it rests.
+
+Every other change of room, a rotation, a fold, the search line, a pinch, still resizes on the frame it happens.
+
+Not built: holding the picture until the host has repainted. A program on the alternate screen can show blank rows at its foot for as long as its answer to the one resize takes.
+
 ### Scrollback is compressed between frames
 
 A terminal's scrollback is compressed in bounded steps once its output has been quiet for a quarter of a second. A step runs when no animation holds a frame, and waits for the end of the next frame while one does. With the app away no frame comes, so compression waits for the return. It is never queued as an idle task: Flutter refuses those while an animation holds a frame, and with frames stopped out of sight the refusal posts itself again without end, a busy loop on the main thread for as long as the app is away.
