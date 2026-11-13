@@ -31,6 +31,7 @@ dependencies:
   # Gallery only, no camera.
   image_picker: ^1.2.4
   path: ^1.9.1
+  mime: ^2.1.0
   path_provider: ^2.1.6
   pinenacl: ^0.6.0
   pointycastle: ^4.0.0

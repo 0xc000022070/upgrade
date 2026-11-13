@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/features/browser/browser_prefs.dart';
+import 'package:upgrade/platform/ssh/socks_proxy.dart';
 
 void main() {
   const engine = SearchEngine.duckduckgo;
@@ -14,6 +15,13 @@ void main() {
     expect(target('nyx:80'), Uri.parse('http://nyx:80'));
     expect(target('example.com.'), Uri.parse('http://example.com.'));
     expect(target('[::1]:3000'), Uri.parse('http://[::1]:3000'));
+  });
+
+  test('a path is the host\'s file through a host, and a search otherwise', () {
+    final file = browserTarget('/tmp/lab/a b.html', engine, throughHost: true)!;
+    expect(file.host, hostFiles);
+    expect(browserAddress(file), '/tmp/lab/a b.html');
+    expect(target('/tmp/lab/a.html'), engine.search('/tmp/lab/a.html'));
   });
 
   test('anything else is searched', () {

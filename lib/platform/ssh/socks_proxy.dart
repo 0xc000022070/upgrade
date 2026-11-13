@@ -1,8 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
+import 'package:mime/mime.dart';
+
+/// The name the proxy answers itself, with the host's own files read over sftp.
+/// `.invalid` never resolves, so no real site is shadowed.
+const hostFiles = 'files.upgrade.invalid';
 
 /// `ssh -D` on the phone: every CONNECT becomes a `direct-tcpip` channel on [client], so
 /// the name in the request is resolved by the host and `localhost` is the host's.
@@ -12,6 +18,7 @@ class SocksProxy {
   final ServerSocket _server;
   final SSHClient _client;
   final _peers = <Socket>{};
+  Future<SftpClient>? _sftp;
 
   int get port => _server.port;
 
@@ -26,6 +33,13 @@ class SocksProxy {
     await _server.close();
     for (final peer in _peers.toList()) {
       peer.destroy();
+    }
+    final sftp = _sftp;
+    _sftp = null;
+    try {
+      await (await sftp)?.close();
+    } catch (_) {
+      // ignored: a subsystem that never opened has nothing to close
     }
   }
 
@@ -66,6 +80,23 @@ class SocksProxy {
         peer.add(_reply(7));
         return;
       }
+      if (host == hostFiles) {
+        peer.add(_reply(0));
+        while (!_ended(pending)) {
+          if (pending.length > 65536 || !await chunks.moveNext()) return;
+          pending = [...pending, ...chunks.current];
+        }
+        final line = latin1.decode(pending).split('\r\n').first.split(' ');
+        await _file(
+          peer,
+          head: line.first == 'HEAD',
+          path: Uri.decodeComponent(
+            Uri.parse(line.elementAtOrNull(1) ?? '/').path,
+          ),
+        );
+        await peer.flush();
+        return;
+      }
       try {
         channel = await _client.forwardLocal(host, target);
       } catch (_) {
@@ -92,6 +123,83 @@ class SocksProxy {
       channel?.destroy();
       peer.destroy();
       _peers.remove(peer);
+    }
+  }
+
+  static bool _ended(List<int> bytes) {
+    for (var i = 3; i < bytes.length; i++) {
+      if (bytes[i - 3] == 13 &&
+          bytes[i - 2] == 10 &&
+          bytes[i - 1] == 13 &&
+          bytes[i] == 10) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// One request per connection, never cached: the file is being edited while it is read.
+  Future<void> _file(
+    Socket peer, {
+    required bool head,
+    required String path,
+  }) async {
+    void answer(
+      int code,
+      Map<String, Object> fields, [
+      List<int> body = const [],
+    ]) {
+      peer.add(
+        latin1.encode(
+          [
+            'HTTP/1.1 $code',
+            'Connection: close',
+            'Cache-Control: no-store',
+            if (code != 200) 'Content-Length: ${body.length}',
+            for (final field in fields.entries) '${field.key}: ${field.value}',
+            '\r\n',
+          ].join('\r\n'),
+        ),
+      );
+      if (!head) peer.add(body);
+    }
+
+    try {
+      final sftp = await (_sftp ??= _client.sftp());
+      var target = path;
+      var attrs = await sftp.stat(target);
+      if (attrs.isDirectory) {
+        if (!target.endsWith('/')) {
+          answer(301, {'Location': Uri(path: '$target/').toString()});
+          return;
+        }
+        target = '${target}index.html';
+        attrs = await sftp.stat(target);
+      }
+      final file = await sftp.open(target);
+      try {
+        answer(200, {
+          'Content-Type': lookupMimeType(target) ?? 'text/plain; charset=utf-8',
+          'Content-Length': ?attrs.size,
+        });
+        if (!head) await peer.addStream(file.read());
+      } finally {
+        await file.close();
+      }
+    } on SftpStatusError catch (error) {
+      final code = switch (error.code) {
+        2 => 404,
+        3 => 403,
+        _ => 502,
+      };
+      answer(code, {
+        'Content-Type': 'text/plain; charset=utf-8',
+      }, utf8.encode('$path: ${error.message}'));
+    } catch (error) {
+      _sftp = null;
+      answer(502, {
+        'Content-Type': 'text/plain; charset=utf-8',
+      }, utf8.encode('$path: $error'));
     }
   }
 

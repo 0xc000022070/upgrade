@@ -28,8 +28,9 @@ class BrowserController extends ChangeNotifier {
           onUrlChange: (change) {
             final url = change.url;
             if (url == null) return;
-            address.text = url;
-            _current = Uri.tryParse(url);
+            final uri = Uri.tryParse(url);
+            address.text = uri == null ? url : browserAddress(uri);
+            _current = uri;
             unawaited(_refreshHistory());
           },
           onWebResourceError: (error) {
@@ -131,13 +132,13 @@ class BrowserController extends ChangeNotifier {
   }
 
   void load(String typed, SearchEngine engine) {
-    final target = browserTarget(typed, engine);
+    final target = browserTarget(typed, engine, throughHost: _network != null);
     if (target != null) _open(target);
   }
 
   void _open(Uri uri) {
     _current = uri;
-    address.text = uri.toString();
+    address.text = browserAddress(uri);
     if (!_redial()) unawaited(web.loadRequest(uri));
   }
 

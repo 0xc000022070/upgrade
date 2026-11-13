@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:upgrade/application/providers.dart';
 import 'package:upgrade/data/repositories/settings_repository.dart';
+import 'package:upgrade/platform/ssh/socks_proxy.dart';
 
 enum SearchEngine {
   duckduckgo(
@@ -41,9 +42,16 @@ enum BrowserBar {
 final _ipv4 = RegExp(r'^\d{1,3}(\.\d{1,3}){3}$');
 final _tld = RegExp(r'\.[a-z][a-z0-9-]*\.?$');
 
-Uri? browserTarget(String typed, SearchEngine engine) {
+Uri? browserTarget(
+  String typed,
+  SearchEngine engine, {
+  bool throughHost = false,
+}) {
   final text = typed.trim();
   if (text.isEmpty) return null;
+  if (throughHost && text.startsWith('/')) {
+    return Uri(scheme: 'http', host: hostFiles, path: text);
+  }
   if (!text.contains(RegExp(r'\s'))) {
     final schemed = text.contains('://');
     final uri = Uri.tryParse(schemed ? text : 'http://$text');
@@ -62,6 +70,9 @@ Uri? browserTarget(String typed, SearchEngine engine) {
   }
   return engine.search(text);
 }
+
+String browserAddress(Uri uri) =>
+    uri.host == hostFiles ? Uri.decodeComponent(uri.path) : uri.toString();
 
 T _named<T extends Enum>(List<T> values, String name, T orElse) =>
     values.firstWhere((v) => v.name == name, orElse: () => orElse);

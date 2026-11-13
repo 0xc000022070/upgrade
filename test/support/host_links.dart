@@ -29,6 +29,10 @@ final class FakeLinkClient implements SSHClient {
   final forwardTargets = <(String, int)>[];
   Object? forwardError;
   Completer<void>? forwardGate;
+  SftpClient? files;
+
+  @override
+  Future<SftpClient> sftp() async => files ?? (throw StateError('no sftp'));
 
   @override
   Future<void> get authenticated => Future.value();
