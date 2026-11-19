@@ -365,4 +365,35 @@ void main() {
     expect(find.byKey(const ValueKey('chat-banner')), findsOneWidget);
     await tester.pump(chatBannerTime);
   });
+
+  testWidgets('the node rests while the app is put away', (tester) async {
+    final link = _FakeLink();
+    await tester.pumpWidget(
+      ProviderScope(
+        retry: noRetry,
+        overrides: [chatLinkProvider.overrideWith((ref) async => link)],
+        child: MaterialApp(
+          theme: testTheme,
+          navigatorKey: rootNavigatorKey,
+          builder: (context, child) =>
+              ChatAlerts(kept: () async => true, child: child!),
+          home: const Scaffold(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    chatOpened!(link);
+    await tester.pumpAndSettle();
+    List<Object?> rests() => [
+      for (final r in link.requests)
+        if (r['op'] == 'rest') r['on'],
+    ];
+    expect(rests(), [false]);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(rests(), [false, true, false]);
+  });
 }

@@ -83,7 +83,7 @@ class ChatService : Service() {
             return builder
                 .setSmallIcon(context.applicationInfo.icon)
                 .setContentTitle("CHAT")
-                .setContentText("reachable by your contacts")
+                .setContentText("checks for messages while the app is away")
                 .setContentIntent(open)
                 .setOngoing(true)
                 .setShowWhen(false)

@@ -25,7 +25,13 @@ fn emit(value: Value) {
 }
 
 fn runtime() -> &'static Runtime {
-    RUNTIME.get_or_init(|| Runtime::new().expect("tokio runtime"))
+    RUNTIME.get_or_init(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .expect("tokio runtime")
+    })
 }
 
 /// # Safety

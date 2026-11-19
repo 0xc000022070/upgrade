@@ -7,18 +7,27 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::{json, Value};
-use tokio::sync::{mpsc, Mutex, Notify as Wake};
+use tokio::sync::{mpsc, watch, Mutex, Notify as Wake};
 use tokio::task::JoinSet;
 use veilid_core::{
     api_startup, AllowOffline, Crypto, DHTSchema, DHTSchemaSMPLMember, KeyPair, Nonce, RecordKey,
     RoutingContext, SetDHTValueOptions, SharedSecret, TableDB, VeilidAPI, VeilidConfig,
-    VeilidUpdate, CRYPTO_KIND_VLD0,
+    VeilidUpdate, CRYPTO_KIND_VLD0, VEILID_CAPABILITY_APPMESSAGE, VEILID_CAPABILITY_DHT,
+    VEILID_CAPABILITY_RELAY, VEILID_CAPABILITY_ROUTE, VEILID_CAPABILITY_SIGNAL,
+    VEILID_CAPABILITY_VALIDATE_DIAL_INFO,
 };
 
 use crate::core::{Book, Contact, Effect, Error, Media, Message, CHUNK, HELLO, MEDIA_MAX, SUBKEYS};
 
 const BOOK: &[u8] = b"book";
 const POLL: Duration = Duration::from_secs(20);
+const GRACE: Duration = Duration::from_secs(120);
+const REST: Duration = Duration::from_secs(15 * 60);
+const ATTACH_WAIT: Duration = Duration::from_secs(90);
+/// A fresh attach reports the routing table it kept before any peer answers, so a visit
+/// stays long enough for the reads to reach the network.
+const VISIT: Duration = Duration::from_secs(60);
+const FETCH_WAIT: Duration = Duration::from_secs(300);
 const FETCH_TRIES: u32 = 4;
 const AEAD_TAG: u64 = 16;
 
@@ -54,7 +63,9 @@ pub struct Node {
     fetch: mpsc::UnboundedSender<(String, u64)>,
     media: Mutex<()>,
     fetching: Mutex<()>,
+    fetches: AtomicU64,
     opens: AtomicU64,
+    resting: watch::Sender<bool>,
 }
 
 impl Node {
@@ -77,6 +88,15 @@ impl Node {
         };
         let mut config = VeilidConfig::new("upgrade-chat", "", "", Some(dir), Some(dir));
         config.protected_store.always_use_insecure_storage = !cfg!(target_os = "android");
+        config.capabilities.disable = vec![
+            VEILID_CAPABILITY_ROUTE,
+            VEILID_CAPABILITY_SIGNAL,
+            VEILID_CAPABILITY_RELAY,
+            VEILID_CAPABILITY_VALIDATE_DIAL_INFO,
+            VEILID_CAPABILITY_DHT,
+            VEILID_CAPABILITY_APPMESSAGE,
+        ];
+        config.network.upnp = false;
         let api = api_startup(callback, config).await.map_err(at(KEYS))?;
         let rc = api.routing_context().map_err(at(NETWORK))?;
         let db = api.open_table_db("chat", 1).await.map_err(at(STORAGE))?;
@@ -104,7 +124,9 @@ impl Node {
             fetch,
             media: Mutex::default(),
             fetching: Mutex::default(),
+            fetches: AtomicU64::default(),
             opens: AtomicU64::default(),
+            resting: watch::Sender::new(false),
         });
         node.api.attach().await.map_err(at(NETWORK))?;
 
@@ -133,17 +155,81 @@ impl Node {
             }
         });
         tokio::spawn(node.clone().fetcher(fetches));
-        let poller = node.clone();
-        tokio::spawn(async move {
-            loop {
-                poller.tick().await;
+        tokio::spawn(node.clone().poller());
+        Ok(node)
+    }
+
+    async fn poller(self: Arc<Self>) {
+        loop {
+            if !self.resting() {
+                self.tick().await;
                 tokio::select! {
                     _ = tokio::time::sleep(POLL) => {}
-                    _ = poller.wake.notified() => {}
+                    _ = self.wake.notified() => {}
+                }
+                continue;
+            }
+            if !self.rested(GRACE).await {
+                continue;
+            }
+            let _ = self.api.detach().await;
+            while self.rested(REST).await {
+                self.check().await;
+            }
+            self.opened.lock().await.clear();
+            let _ = self.api.attach().await;
+        }
+    }
+
+    fn resting(&self) -> bool {
+        *self.resting.borrow()
+    }
+
+    async fn rested(&self, time: Duration) -> bool {
+        let mut resting = self.resting.subscribe();
+        let roused = tokio::time::timeout(time, resting.wait_for(|on| !on)).await;
+        roused.is_err()
+    }
+
+    async fn check(&self) {
+        let _ = self.api.attach().await;
+        let attached = self.until(ATTACH_WAIT, || async {
+            let state = self.api.get_state().await;
+            state.is_ok_and(|s| s.attachment.public_internet_ready)
+        });
+        if attached.await {
+            self.opened.lock().await.clear();
+            let end = tokio::time::Instant::now() + VISIT;
+            while self.resting() && tokio::time::Instant::now() < end {
+                self.tick().await;
+                tokio::select! {
+                    _ = tokio::time::sleep_until(end.min(tokio::time::Instant::now() + POLL)) => {}
+                    _ = self.wake.notified() => {}
                 }
             }
-        });
-        Ok(node)
+            let fetched = || async { self.fetches.load(Ordering::Relaxed) == 0 };
+            self.until(FETCH_WAIT, fetched).await;
+        }
+        if self.resting() {
+            let _ = self.api.detach().await;
+        }
+    }
+
+    async fn until<F: std::future::Future<Output = bool>>(
+        &self,
+        limit: Duration,
+        done: impl Fn() -> F,
+    ) -> bool {
+        for _ in 0..limit.as_secs() {
+            if !self.resting() {
+                return false;
+            }
+            if done().await {
+                return true;
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+        false
     }
 
     async fn tick(&self) {
@@ -255,6 +341,7 @@ impl Node {
             (self.notify)(json!({"event": "message", "record": contact, "message": public}));
         }
         if message.media.as_ref().is_some_and(|m| !m.stored) {
+            self.fetches.fetch_add(1, Ordering::Relaxed);
             let _ = self.fetch.send((contact, message.index));
         }
     }
@@ -267,6 +354,7 @@ impl Node {
                 }
                 tokio::time::sleep(POLL).await;
             }
+            self.fetches.fetch_sub(1, Ordering::Relaxed);
         }
     }
 
@@ -315,6 +403,12 @@ impl Node {
         let index = || request["index"].as_u64().unwrap_or_default();
         match op {
             "state" => self.state().await,
+            "rest" => {
+                let on = request["on"].as_bool().unwrap_or_default();
+                self.resting.send_replace(on);
+                self.wake.notify_one();
+                Ok(Value::Null)
+            }
             "name" => {
                 self.book.lock().await.name = text("name");
                 self.save().await?;

@@ -35,6 +35,7 @@ class ChatAlerts extends ConsumerStatefulWidget {
 
 class _ChatAlertsState extends ConsumerState<ChatAlerts> {
   StreamSubscription<Map<String, Object?>>? _events;
+  ChatLink? _link;
   ChatArrival? _banner;
   Timer? _hide;
   var _asked = false;
@@ -49,6 +50,7 @@ class _ChatAlertsState extends ConsumerState<ChatAlerts> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _open(record));
     }
     ref.listenManual(appVisibleProvider, (_, visible) {
+      _rest(!visible);
       if (visible) _resumed();
     });
     unawaited(
@@ -86,12 +88,24 @@ class _ChatAlertsState extends ConsumerState<ChatAlerts> {
     }
   }
 
+  /// Put away, the node leaves the network and only visits it for what the contacts left.
+  void _rest(bool on) => unawaited(
+    _link
+        ?.call({'op': 'rest', 'on': on})
+        .catchError(
+          // ignored: a dead link means the node is gone, so there is nothing to rest.
+          (Object _) => null,
+        ),
+  );
+
   /// Not [chatBookProvider]: unlistened, an event during its rebuild leaves its
   /// future pending forever.
   static Future<ChatBook> _book(ChatLink link) async =>
       ChatBook.parse(await link.call({'op': 'state'}) as Map<String, Object?>);
 
   void _watch(ChatLink link) {
+    _link = link;
+    _rest(!ref.read(appVisibleProvider));
     unawaited(_events?.cancel());
     _events = link.events
         .where((e) => e['event'] == 'message')

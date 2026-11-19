@@ -36,6 +36,10 @@ async fn main() {
     loop {
         tokio::select! {
             Some(line) = rx.recv() => {
+                if let Some(on) = line.strip_prefix("/rest ") {
+                    println!("{:?}", call(json!({"op": "rest", "on": on == "on"})).await);
+                    continue;
+                }
                 let state = call(json!({"op": "state"})).await.unwrap();
                 let record = state["contacts"][0]["record"].clone();
                 println!("{:?}", call(json!({"op": "send", "record": record, "text": line, "at": 0})).await);
