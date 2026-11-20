@@ -171,7 +171,7 @@ resolve() {
 
 dumpsys() {
   # </dev/null: adb shell reads stdin, which in once() is the list of handsets still to check.
-  adb -s "$1" shell dumpsys package "$PKG" </dev/null 2>/dev/null || true
+  on "$1" "$2" shell dumpsys package "$PKG" </dev/null 2>/dev/null || true
 }
 
 version_code() {
@@ -226,7 +226,7 @@ once() {
 
   local pending=() label serial pkg have rcode rsha
   while IFS=$'\t' read -r label serial; do
-    pkg=$(dumpsys "$serial")
+    pkg=$(dumpsys "$label" "$serial")
     have=$(version_code "$pkg")
     if [[ -n $have && $have -ge $code ]]; then
       read -r rcode rsha <<<"$(recorded "$label")"
@@ -323,14 +323,14 @@ once() {
   local line was now failed=0 served=() missed=()
   for line in "${pending[@]}"; do
     IFS=$'\t' read -r label serial have <<<"$line"
-    was=$(updated_at "$(dumpsys "$serial")")
+    was=$(updated_at "$(dumpsys "$label" "$serial")")
     if ! serve "$label" "$serial" "$apk"; then
       warn "$label: install failed"
       failed=1
       missed+=("$label")
       continue
     fi
-    pkg=$(dumpsys "$serial")
+    pkg=$(dumpsys "$label" "$serial")
     now=$(version_code "$pkg")
     if [[ $now != "$code" ]]; then
       warn "$label: still on versionCode ${now:-none} after install"
