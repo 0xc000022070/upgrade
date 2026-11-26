@@ -360,9 +360,11 @@ once() {
 }
 
 on() {
-  local label=$1 serial=$2
+  local label=$1
   shift 2
-  phone run -t "$label" -- adb -s "$serial" "$@"
+  # phone run points adb at the transport it holds; a serial pinned here can name another one
+  # (usb while phone holds tcp) and phone refuses the command.
+  phone run -t "$label" -- adb "$@"
 }
 
 # Sends a zstd patch against the apk the handset already holds, which it rebuilds
