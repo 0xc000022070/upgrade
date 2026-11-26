@@ -63,7 +63,12 @@ class _ShellWakeHostState extends ConsumerState<ShellWakeHost> {
     ref.listen<bool>(
       appVisibleProvider,
       PlatformSignal.onLifecycle((signal, was, now) {
-        if (now) return;
+        if (now) {
+          // Visible lands at inactive, a beat before the resume that wakes the tabs; anything
+          // drawn on screen in that beat would find the links asleep and call the host unreachable.
+          ref.read(shellSessionsProvider).links?.wake();
+          return;
+        }
         _away = true;
         ref.read(shellSessionsProvider).leave(signal);
       }),

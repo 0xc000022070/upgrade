@@ -172,6 +172,39 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('the screen back before the resume finds the links awake', (
+    tester,
+  ) async {
+    final links = HostLinks(dial: FakeDial().call);
+    final sessions = fakeShellSessions(FakeShellTransport(), links: links);
+    await tester.pumpWidget(_host(sessions));
+    Future<HostLease> poll() => links.lease(
+      address: '10.0.0.2',
+      port: 22,
+      user: 'dev',
+      privateKey: 'key',
+      verifier: HostKeyVerifier.pinnedOnly(
+        PinnedHostKey(
+          type: 'ssh-ed25519',
+          fingerprint: 'SHA256:vm',
+          pinnedAt: DateTime(2026),
+        ),
+      ),
+      use: HostUse.herdrPoll,
+    );
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump(const Duration(seconds: 11));
+    await expectLater(poll(), throwsA(anything));
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(await poll(), isNotNull);
+
+    links.close();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('the shade pulled down over a live tab rehomes nothing', (
     tester,
   ) async {

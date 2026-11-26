@@ -16,6 +16,7 @@ import 'package:upgrade/platform/shell/shell_connection.dart';
 import 'package:upgrade/platform/ssh/host_files.dart'
     show FileBody, PutProgress, collectBytes, putFile, putLanded;
 import 'package:upgrade/platform/ssh/host_keys.dart';
+import 'package:upgrade/platform/ssh/host_links.dart';
 
 class FakeShellConnection implements ShellConnection {
   FakeShellConnection({
@@ -372,6 +373,7 @@ ShellSessions fakeShellSessions(
   Future<void> Function(String hostId, HostSystem system)? recordSystem,
   Future<Host> Function(Host host)? beforeDial,
   Future<LinkResult> Function(String address, int port)? probeHost,
+  HostLinks? links,
 }) => ShellSessions(
   readPrivateKey: (_) async => privateKey,
   keyPins: HostKeyPins(
@@ -391,4 +393,5 @@ ShellSessions fakeShellSessions(
   recordSystem: recordSystem,
   beforeDial: beforeDial,
   probeHost: probeHost ?? (_, _) async => const LinkResult(LinkStatus.noRoute),
+  links: links,
 );
