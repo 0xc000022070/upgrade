@@ -191,7 +191,8 @@ final class HostTarget {
 
 class _Link {
   _Link(this.ssh, this.name, this.use, this.target, this.trusted, this.heardAt)
-    : heard = ssh.received();
+    : heard = ssh.received(),
+      seenAt = heardAt;
 
   final SshLink ssh;
   final String name;
@@ -205,6 +206,7 @@ class _Link {
   Future<String?>? checking;
   int heard;
   DateTime heardAt;
+  DateTime seenAt;
   bool ended = false;
   final over = Completer<void>.sync();
   Timer? keepAlive;
@@ -608,13 +610,19 @@ class HostLinks {
   }
 
   bool _fresh(_Link link) {
+    _listen(link);
+    return now().difference(link.heardAt) < quiet;
+  }
+
+  /// A moved count says bytes came since it was last read, not when: a link that went
+  /// silent a minute after its last byte must not pass for one heard just now.
+  void _listen(_Link link) {
     final heard = link.ssh.received();
     if (heard != link.heard) {
       link.heard = heard;
-      link.heardAt = now();
-      return true;
+      link.heardAt = link.seenAt;
     }
-    return now().difference(link.heardAt) < quiet;
+    link.seenAt = now();
   }
 
   Future<bool> _check(_Link link) async {
@@ -666,7 +674,7 @@ class HostLinks {
       return 'failed: $error';
     }
     link.heard = link.ssh.received();
-    link.heardAt = now();
+    link.heardAt = link.seenAt = now();
     return null;
   }
 
@@ -706,13 +714,8 @@ class HostLinks {
     } else if (key == null || !identical(_links[key], link)) {
       _end(link, 'released unfiled');
     } else {
-      final idle = now();
-      link.idleSince = idle;
-      final received = link.ssh.received();
-      if (received != link.heard) {
-        link.heard = received;
-        link.heardAt = idle;
-      }
+      _listen(link);
+      link.idleSince = now();
       link.linger = Timer(_lingerOf(link), () => _end(link, 'linger expired'));
     }
   }

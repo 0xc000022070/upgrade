@@ -405,21 +405,20 @@ void main() {
       },
     );
 
-    test('measures quiet from the release of a link that spoke', () async {
-      final held = await _lease(links);
-      dial.clients.single.received += 512;
-      at = at.add(const Duration(minutes: 5));
-      held.release();
+    test(
+      'pings a link whose last bytes came long before its release',
+      () async {
+        final held = await _lease(links);
+        dial.clients.single.received += 512;
+        at = at.add(const Duration(minutes: 5));
+        held.release();
 
-      at = at.add(links.quiet - const Duration(seconds: 1));
-      (await _lease(links)).release();
-      expect(dial.clients.single.pings, 0);
-
-      at = at.add(const Duration(seconds: 1));
-      await _lease(links);
-      expect(dial.clients.single.pings, 1);
-      expect(dial.dials, 1);
-    });
+        at = at.add(const Duration(seconds: 1));
+        await _lease(links);
+        expect(dial.clients.single.pings, 1);
+        expect(dial.dials, 1);
+      },
+    );
 
     test('still pings a link that stayed silent while held', () async {
       final held = await _lease(links);
@@ -431,14 +430,18 @@ void main() {
       expect(dial.dials, 1);
     });
 
-    test('does not ping a link nobody holds that spoke since', () async {
-      await idle();
-      dial.clients.single.received += 1024;
-      await _lease(links);
+    test(
+      'does not ping a link nobody holds that spoke since its release',
+      () async {
+        (await _lease(links)).release();
+        at = at.add(links.quiet - const Duration(seconds: 1));
+        dial.clients.single.received += 1024;
+        await _lease(links);
 
-      expect(dial.clients.single.pings, 0);
-      expect(dial.dials, 1);
-    });
+        expect(dial.clients.single.pings, 0);
+        expect(dial.dials, 1);
+      },
+    );
 
     testWidgets(
       'ends a link nobody holds when its ping goes unanswered, and every waiting lease shares one redial',
