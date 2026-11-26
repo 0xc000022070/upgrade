@@ -139,17 +139,26 @@ async fn inbound(connection: quinn::Connection, relays: Arc<Mutex<HashMap<u8, Ar
     }
 }
 
+/// The lock is not held across the dial: a relay redialing a daemon gone with a reboot must
+/// not queue every call to the daemon that replaced it behind its timeouts.
 async fn link(host: &str, port: u16, cert: &[u8], token: &[u8]) -> Fallible<Arc<Link>> {
-    let mut links = LINKS.lock().await;
-    let links = links.get_or_insert_with(HashMap::new);
     let key = format!("{host}:{port}");
-    if let Some(link) = links.get(&key) {
+    if let Some(link) = LINKS
+        .lock()
+        .await
+        .get_or_insert_with(HashMap::new)
+        .get(&key)
+    {
         if link.connection.close_reason().is_none() && link.pin == (cert.to_vec(), token.to_vec()) {
             return Ok(link.clone());
         }
     }
     let link = Arc::new(tokio::time::timeout(CONNECT, connect(host, port, cert, token)).await??);
-    links.insert(key, link.clone());
+    LINKS
+        .lock()
+        .await
+        .get_or_insert_with(HashMap::new)
+        .insert(key, link.clone());
     Ok(link)
 }
 
@@ -529,5 +538,20 @@ mod tests {
         ));
         link.connection.close(0u32.into(), b"gone");
         assert!(matches!(call(&link, b"{}").await, Err(Failure::Unsent(_))));
+    }
+
+    #[tokio::test]
+    async fn a_dial_to_a_silent_daemon_does_not_hold_up_a_live_one() {
+        let silent = std::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let dead = silent.local_addr().unwrap().port();
+        let (port, cert) = daemon().await;
+        let stale = cert.clone();
+        let stuck =
+            tokio::spawn(async move { link("127.0.0.1", dead, &stale, &TOKEN).await.is_err() });
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let started = std::time::Instant::now();
+        link("127.0.0.1", port, &cert, &TOKEN).await.unwrap();
+        assert!(started.elapsed() < CONNECT / 2);
+        assert!(stuck.await.unwrap());
     }
 }
