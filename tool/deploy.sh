@@ -171,7 +171,8 @@ resolve() {
 
 dumpsys() {
   # </dev/null: adb shell reads stdin, which in once() is the list of handsets still to check.
-  on "$1" "$2" shell dumpsys package "$PKG" </dev/null 2>/dev/null || true
+  # app info, unlike run, reads through the hold a hand touch puts on a handset.
+  phone app info -t "$1" "$PKG" </dev/null 2>/dev/null || true
 }
 
 version_code() {
